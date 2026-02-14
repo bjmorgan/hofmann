@@ -252,3 +252,9 @@ class StructureScene:
         from hofmann.render_mpl import render_mpl
 
         return render_mpl(self, output, **kwargs)
+
+    def render_plotly(self, **kwargs):
+        """Render with plotly. See ``hofmann.render_plotly.render_plotly``."""
+        from hofmann.render_plotly import render_plotly
+
+        return render_plotly(self, **kwargs)
