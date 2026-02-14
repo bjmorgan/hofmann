@@ -246,3 +246,9 @@ class StructureScene:
         from hofmann.scene import from_pymatgen
 
         return from_pymatgen(structure, bond_specs)
+
+    def render_mpl(self, output=None, **kwargs):
+        """Render with matplotlib. See ``hofmann.render_mpl.render_mpl``."""
+        from hofmann.render_mpl import render_mpl
+
+        return render_mpl(self, output, **kwargs)
