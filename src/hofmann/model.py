@@ -232,3 +232,17 @@ class StructureScene:
     bond_specs: list[BondSpec] = field(default_factory=list)
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
+
+    @classmethod
+    def from_xbs(cls, bs_path, mv_path=None):
+        """Create from XBS files. See ``hofmann.scene.from_xbs``."""
+        from hofmann.scene import from_xbs
+
+        return from_xbs(bs_path, mv_path)
+
+    @classmethod
+    def from_pymatgen(cls, structure, bond_specs=None):
+        """Create from pymatgen Structure(s). See ``hofmann.scene.from_pymatgen``."""
+        from hofmann.scene import from_pymatgen
+
+        return from_pymatgen(structure, bond_specs)
