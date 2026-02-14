@@ -5,7 +5,7 @@ from pathlib import Path
 from hofmann import StructureScene
 
 FIXTURES = Path(__file__).resolve().parent.parent / "tests" / "fixtures"
-OUTPUT = Path(__file__).resolve().parent / "ch4.svg"
+OUTPUT = Path(__file__).resolve().parent / "ch4.pdf"
 
 
 def main():
@@ -15,7 +15,7 @@ def main():
     print(f"Atom styles: {list(scene.atom_styles.keys())}")
     print(f"Bond specs: {len(scene.bond_specs)}")
 
-    scene.render_mpl(output=OUTPUT, show=False)
+    scene.render_mpl(output=OUTPUT, show=False, half_bonds=False)
     print(f"Rendered to {OUTPUT}")
 
 

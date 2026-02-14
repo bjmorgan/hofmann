@@ -1,5 +1,8 @@
 # Project-specific
 CLAUDE.md
+examples/*.pdf
+examples/*.svg
+examples/*.png
 
 # Python
 __pycache__/

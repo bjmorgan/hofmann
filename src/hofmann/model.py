@@ -78,8 +78,7 @@ class AtomStyle:
 class BondSpec:
     """Declarative rule for bond detection between species pairs.
 
-    Species names support fnmatch-style wildcards (``*``, ``?``),
-    following the XBS convention.
+    Species names support fnmatch-style wildcards (``*``, ``?``).
 
     Attributes:
         species_a: First species pattern.
@@ -183,19 +182,25 @@ class ViewState:
     view_distance: float = 10.0
 
     def project(
-        self, coords: np.ndarray
+        self, coords: np.ndarray, radii: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Project 3D coordinates to 2D with depth information.
 
+        The eye sits at ``[0, 0, view_distance]`` and each sphere's
+        visible silhouette is projected onto the z=0 plane.
+
         Args:
             coords: Array of shape ``(n, 3)``.
+            radii: Optional array of shape ``(n,)`` giving 3D sphere
+                radii.  When provided the returned *projected_radii*
+                are the screen-space silhouette radii; otherwise zeros.
 
         Returns:
-            Tuple of ``(xy, depth, scale)`` where:
+            Tuple of ``(xy, depth, projected_radii)`` where:
 
             - *xy*: ``(n, 2)`` projected 2D coordinates.
-            - *depth*: ``(n,)`` depth values (larger = further from viewer).
-            - *scale*: ``(n,)`` per-point scale factors from perspective.
+            - *depth*: ``(n,)`` depth values (larger = closer to viewer).
+            - *projected_radii*: ``(n,)`` screen-space sphere radii.
         """
         coords = np.asarray(coords, dtype=float)
         centred = coords - self.centre
@@ -203,14 +208,26 @@ class ViewState:
         depth = rotated[:, 2]
 
         if self.perspective > 0:
-            scale = self.view_distance / (
-                self.view_distance - depth * self.perspective
-            )
-        else:
-            scale = np.ones(len(depth))
+            # Eye-to-atom distance along z.
+            d = self.view_distance - depth * self.perspective
+            scale = self.view_distance / d
+            xy = rotated[:, :2] * scale[:, np.newaxis] * self.zoom
 
-        xy = rotated[:, :2] * scale[:, np.newaxis] * self.zoom
-        return xy, depth, scale
+            if radii is not None:
+                radii = np.asarray(radii, dtype=float)
+                # Silhouette radius: r * D / sqrt(d^2 - r^2).
+                denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+                projected_radii = radii * self.view_distance / denom * self.zoom
+            else:
+                projected_radii = np.zeros(len(depth))
+        else:
+            xy = rotated[:, :2] * self.zoom
+            if radii is not None:
+                projected_radii = np.asarray(radii, dtype=float) * self.zoom
+            else:
+                projected_radii = np.zeros(len(depth))
+
+        return xy, depth, projected_radii
 
 
 @dataclass

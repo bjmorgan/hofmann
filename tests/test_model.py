@@ -128,22 +128,22 @@ class TestViewStateProject:
     def test_identity_rotation(self):
         vs = ViewState()
         coords = np.array([[1.0, 2.0, 3.0]])
-        xy, depth, scale = vs.project(coords)
+        xy, depth, proj_r = vs.project(coords)
         np.testing.assert_allclose(xy, [[1.0, 2.0]])
         np.testing.assert_allclose(depth, [3.0])
-        np.testing.assert_allclose(scale, [1.0])
+        np.testing.assert_allclose(proj_r, [0.0])  # no radii given
 
     def test_with_centre(self):
         vs = ViewState(centre=np.array([1.0, 1.0, 1.0]))
         coords = np.array([[1.0, 1.0, 1.0]])
-        xy, depth, scale = vs.project(coords)
+        xy, depth, _ = vs.project(coords)
         np.testing.assert_allclose(xy, [[0.0, 0.0]])
         np.testing.assert_allclose(depth, [0.0])
 
     def test_with_zoom(self):
         vs = ViewState(zoom=2.0)
         coords = np.array([[1.0, 2.0, 3.0]])
-        xy, depth, scale = vs.project(coords)
+        xy, depth, _ = vs.project(coords)
         np.testing.assert_allclose(xy, [[2.0, 4.0]])
 
     def test_90_degree_z_rotation(self):
@@ -156,29 +156,54 @@ class TestViewStateProject:
         ])
         vs = ViewState(rotation=rotation)
         coords = np.array([[1.0, 0.0, 0.0]])
-        xy, depth, scale = vs.project(coords)
+        xy, depth, _ = vs.project(coords)
         np.testing.assert_allclose(xy, [[0.0, 1.0]], atol=1e-10)
 
     def test_perspective_scaling(self):
         vs = ViewState(perspective=1.0, view_distance=10.0)
-        # Point at depth 0 gets scale = 10/(10-0) = 1.0
-        # Point at depth -5 gets scale = 10/(10+5) = 0.667 (further away)
         coords = np.array([
             [1.0, 0.0, 0.0],
             [1.0, 0.0, -5.0],
         ])
-        xy, depth, scale = vs.project(coords)
-        assert scale[0] > scale[1]  # Closer point gets larger scale
-        np.testing.assert_allclose(scale[0], 1.0)
-        np.testing.assert_allclose(scale[1], 10.0 / 15.0, rtol=1e-6)
+        xy, depth, _ = vs.project(coords)
+        # Closer point (depth=0) projected at x=1*10/10=1.0
+        # Further point (depth=-5) projected at x=1*10/15=0.667
+        np.testing.assert_allclose(xy[0, 0], 1.0)
+        np.testing.assert_allclose(xy[1, 0], 10.0 / 15.0, rtol=1e-6)
 
     def test_multiple_points_shape(self):
         vs = ViewState()
         coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0], [7.0, 8.0, 9.0]])
-        xy, depth, scale = vs.project(coords)
+        xy, depth, proj_r = vs.project(coords)
         assert xy.shape == (3, 2)
         assert depth.shape == (3,)
-        assert scale.shape == (3,)
+        assert proj_r.shape == (3,)
+
+    def test_projected_radii_orthographic(self):
+        vs = ViewState(zoom=2.0)
+        coords = np.array([[0.0, 0.0, 0.0]])
+        radii = np.array([1.5])
+        _, _, proj_r = vs.project(coords, radii)
+        np.testing.assert_allclose(proj_r, [3.0])  # r * zoom
+
+    def test_projected_radii_perspective(self):
+        vs = ViewState(perspective=1.0, view_distance=10.0)
+        coords = np.array([[0.0, 0.0, 0.0]])
+        radii = np.array([1.0])
+        _, _, proj_r = vs.project(coords, radii)
+        # Silhouette: r * D / sqrt(D^2 - r^2) = 1 * 10 / sqrt(99)
+        expected = 10.0 / np.sqrt(99.0)
+        np.testing.assert_allclose(proj_r, [expected], rtol=1e-6)
+
+    def test_projected_radii_larger_than_point_scale(self):
+        """Silhouette radii should exceed naive r * scale under perspective."""
+        vs = ViewState(perspective=1.0, view_distance=10.0)
+        coords = np.array([[0.0, 0.0, 2.0]])  # closer to eye
+        radii = np.array([1.0])
+        _, _, proj_r = vs.project(coords, radii)
+        # d = 10 - 2 = 8, naive = r * D/d = 1.25
+        naive = 1.0 * 10.0 / 8.0
+        assert proj_r[0] > naive  # silhouette > naive point projection
 
 
 # --- StructureScene ---
