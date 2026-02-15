@@ -21,11 +21,3 @@ class TestPublicAPI:
         scene.render_mpl(output=out, show=False)
         assert out.exists()
         assert out.stat().st_size > 0
-
-
-class TestEndToEndPlotly:
-    def test_end_to_end_xbs_to_plotly(self, ch4_bs_path):
-        go = pytest.importorskip("plotly.graph_objects")
-        scene = hofmann.StructureScene.from_xbs(ch4_bs_path)
-        fig = scene.render_plotly()
-        assert isinstance(fig, go.Figure)

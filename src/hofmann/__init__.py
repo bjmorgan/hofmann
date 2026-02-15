@@ -1,8 +1,7 @@
 """Hofmann: a modern Python reimagining of the XBS ball-and-stick viewer.
 
 Hofmann renders crystal and molecular structures as ball-and-stick images,
-supporting both static publication-quality output (matplotlib) and
-interactive 3D viewing (plotly).
+with static publication-quality output via matplotlib.
 
 Example usage::
 
