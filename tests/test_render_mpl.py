@@ -1083,3 +1083,41 @@ class TestPolyhedraDepthOrdering:
             counts.append(len(fig.axes[0].collections[0].get_paths()))
         assert counts[0] == counts[1] == counts[2]
 
+
+class TestNUnitCellAtoms:
+    """n_unit_cell_atoms should limit polyhedron centres to unit-cell atoms."""
+
+    def test_image_atoms_excluded_as_centres(self):
+        """With n_unit_cell_atoms set, image atoms should not generate
+        their own polyhedra."""
+        from hofmann.render_mpl import _precompute_scene
+
+        # Ti at index 0 is the unit-cell atom.  Duplicate it at index 7
+        # as an "image" atom with the same species and neighbours.
+        species = ["Ti"] + ["O"] * 6 + ["Ti"]
+        coords = np.array([
+            [0.0, 0.0, 0.0],    # Ti centre (unit cell)
+            [2.0, 0.0, 0.0], [-2.0, 0.0, 0.0],
+            [0.0, 2.0, 0.0], [0.0, -2.0, 0.0],
+            [0.0, 0.0, 2.0], [0.0, 0.0, -2.0],
+            [0.1, 0.1, 0.1],    # Ti image (should not be a centre)
+        ])
+        scene = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles={
+                "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+                "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+            },
+            bond_specs=[BondSpec(
+                species=("O", "Ti"), min_length=0.0, max_length=3.0,
+                radius=0.1, colour=0.5,
+            )],
+            polyhedra=[PolyhedronSpec(centre="Ti")],
+            n_unit_cell_atoms=7,  # only indices 0-6 are unit-cell atoms
+        )
+        precomputed = _precompute_scene(scene, 0)
+        # Only 1 polyhedron (the unit-cell Ti), not 2.
+        assert len(precomputed.polyhedra) == 1
+        assert precomputed.polyhedra[0].centre_index == 0
+
