@@ -55,10 +55,11 @@ def compute_bonds(
 
     for spec in bond_specs:
         # Determine which unique species match each side of the spec.
+        sp_a, sp_b = spec.species
         match_a = {s for s in unique_species
-                   if fnmatch(s, spec.species_a)}
+                   if fnmatch(s, sp_a)}
         match_b = {s for s in unique_species
-                   if fnmatch(s, spec.species_b)}
+                   if fnmatch(s, sp_b)}
 
         # Boolean masks: which atoms match side a / side b.
         mask_a = np.array([s in match_a for s in species])

@@ -37,7 +37,8 @@ def _minimal_scene(n_atoms=2, with_bonds=True):
     }
     specs = []
     if with_bonds and n_atoms >= 2:
-        specs = [BondSpec("A", "B", 0.0, 5.0, 0.1, 1.0)]
+        specs = [BondSpec(species=("A", "B"), min_length=0.0,
+                          max_length=5.0, radius=0.1, colour=1.0)]
     return StructureScene(
         species=species,
         frames=[Frame(coords=coords)],
@@ -368,7 +369,8 @@ class TestBondPolygonsBatch:
             [1.155, -1.155, -1.155],
             [-1.155, 1.155, -1.155],
         ])
-        bond_specs = [BondSpec("C", "H", 0.0, 3.4, 0.109, 1.0)]
+        bond_specs = [BondSpec(species=("C", "H"), min_length=0.0, max_length=3.4,
+                          radius=0.109, colour=1.0)]
         bonds = compute_bonds(species, coords, bond_specs)
 
         if view is None:
@@ -565,7 +567,8 @@ class TestHalfBondVertsBatch:
             [1.155, -1.155, -1.155],
             [-1.155, 1.155, -1.155],
         ])
-        bond_specs = [BondSpec("C", "H", 0.0, 3.4, 0.109, 1.0)]
+        bond_specs = [BondSpec(species=("C", "H"), min_length=0.0, max_length=3.4,
+                          radius=0.109, colour=1.0)]
         bonds = compute_bonds(species, coords, bond_specs)
         view = ViewState()
         atom_scale = 0.5

@@ -16,7 +16,8 @@ def _minimal_scene(n_frames=1, with_bonds=True):
     frames = [Frame(coords=coords + i * 0.1, label=f"f{i}") for i in range(n_frames)]
     specs = []
     if with_bonds:
-        specs = [BondSpec("A", "B", 0.0, 5.0, 0.1, 1.0)]
+        specs = [BondSpec(species=("A", "B"), min_length=0.0,
+                          max_length=5.0, radius=0.1, colour=1.0)]
     return StructureScene(
         species=["A", "B"],
         frames=frames,

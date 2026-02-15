@@ -48,43 +48,51 @@ class TestDefaultAtomStyle:
 
 
 class TestDefaultBondSpecs:
-    def test_ch4_produces_all_pairs(self):
-        """CH4 species should produce C-C, C-H, and H-H bond specs."""
+    def test_ch4_cross_species_only(self):
+        """Default should produce only cross-species pairs (no self-bonds)."""
         specs = default_bond_specs(["C", "H"])
-        pairs = {(s.species_a, s.species_b) for s in specs}
+        pairs = {s.species for s in specs}
+        assert ("C", "H") in pairs
+        assert len(specs) == 1
+
+    def test_self_bonds_flag(self):
+        """With self_bonds=True, self-pairs are included."""
+        specs = default_bond_specs(["C", "H"], self_bonds=True)
+        pairs = {s.species for s in specs}
         assert ("C", "C") in pairs
         assert ("C", "H") in pairs
         assert ("H", "H") in pairs
+        assert len(specs) == 3
 
-    def test_max_length_is_sum_plus_tolerance(self):
-        """Max bond length should be r_a + r_b + tolerance."""
+    def test_max_length_is_rounded(self):
+        """Max bond length should be rounded to 2 decimal places."""
         specs = default_bond_specs(["C", "H"])
-        ch_spec = next(
-            s for s in specs if s.species_a == "C" and s.species_b == "H"
-        )
-        expected = COVALENT_RADII["C"] + COVALENT_RADII["H"] + 0.4
-        assert ch_spec.max_length == pytest.approx(expected)
+        ch_spec = next(s for s in specs if s.species == ("C", "H"))
+        expected = round(COVALENT_RADII["C"] + COVALENT_RADII["H"] + 0.4, 2)
+        assert ch_spec.max_length == expected
 
     def test_custom_tolerance(self):
         """Custom tolerance overrides the default."""
         specs = default_bond_specs(["C", "H"], tolerance=0.6)
-        ch_spec = next(
-            s for s in specs if s.species_a == "C" and s.species_b == "H"
-        )
-        expected = COVALENT_RADII["C"] + COVALENT_RADII["H"] + 0.6
-        assert ch_spec.max_length == pytest.approx(expected)
+        ch_spec = next(s for s in specs if s.species == ("C", "H"))
+        expected = round(COVALENT_RADII["C"] + COVALENT_RADII["H"] + 0.6, 2)
+        assert ch_spec.max_length == expected
 
-    def test_single_species(self):
-        """A single species should produce one self-pair spec."""
+    def test_single_species_no_self_bonds(self):
+        """A single species with default self_bonds=False produces no specs."""
         specs = default_bond_specs(["O"])
+        assert len(specs) == 0
+
+    def test_single_species_with_self_bonds(self):
+        """A single species with self_bonds=True produces one self-pair."""
+        specs = default_bond_specs(["O"], self_bonds=True)
         assert len(specs) == 1
-        assert specs[0].species_a == "O"
-        assert specs[0].species_b == "O"
+        assert specs[0].species == ("O", "O")
 
     def test_unknown_species_excluded(self):
         """Species not in COVALENT_RADII are skipped."""
-        specs = default_bond_specs(["C", "Xx"])
-        pairs = {(s.species_a, s.species_b) for s in specs}
+        specs = default_bond_specs(["C", "Xx"], self_bonds=True)
+        pairs = {s.species for s in specs}
         assert ("C", "C") in pairs
         assert ("C", "Xx") not in pairs
         assert ("Xx", "Xx") not in pairs

@@ -61,7 +61,8 @@ class TestNormaliseColour:
 class TestBondSpecMatches:
     def _spec(self, sp_a: str, sp_b: str) -> BondSpec:
         """Create a BondSpec with dummy geometry values."""
-        return BondSpec(sp_a, sp_b, 0.0, 5.0, 0.1, 1.0)
+        return BondSpec(species=(sp_a, sp_b), min_length=0.0,
+                        max_length=5.0, radius=0.1, colour=1.0)
 
     def test_exact_match(self):
         assert self._spec("C", "H").matches("C", "H") is True
@@ -86,13 +87,24 @@ class TestBondSpecMatches:
     def test_both_wildcard(self):
         assert self._spec("*", "*").matches("X", "Y") is True
 
+    def test_species_sorted(self):
+        """Species tuple should be stored in sorted order."""
+        spec = self._spec("H", "C")
+        assert spec.species == ("C", "H")
+
+    def test_species_already_sorted(self):
+        """Already-sorted species should be unchanged."""
+        spec = self._spec("C", "H")
+        assert spec.species == ("C", "H")
+
 
 # --- Bond frozen ---
 
 
 class TestBond:
     def test_is_frozen(self):
-        spec = BondSpec("C", "H", 0.0, 3.0, 0.1, 1.0)
+        spec = BondSpec(species=("C", "H"), min_length=0.0,
+                        max_length=3.0, radius=0.1, colour=1.0)
         bond = Bond(0, 1, 2.0, spec)
         with pytest.raises(AttributeError):
             bond.length = 3.0  # type: ignore[misc]

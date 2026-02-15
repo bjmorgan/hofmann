@@ -49,7 +49,8 @@ atom_styles = {
 
 # Bond rules: Ti-O bonds within ~2.2 Angstroms.
 bond_specs = [
-    BondSpec("Ti", "O", 0.5, 2.5, 0.12, (0.4, 0.4, 0.4)),
+    BondSpec(species=("Ti", "O"), min_length=0.5, max_length=2.5,
+             radius=0.12, colour=(0.4, 0.4, 0.4)),
 ]
 
 # A nice oblique viewing angle (rotation around x then y).

@@ -82,9 +82,13 @@ def parse_bs(
             max_len = float(parts[4])
             radius = float(parts[5])
             colour = _parse_colour_tokens(parts[6:])
-            bond_specs.append(
-                BondSpec(sp_a, sp_b, min_len, max_len, radius, colour)
-            )
+            bond_specs.append(BondSpec(
+                species=(sp_a, sp_b),
+                min_length=min_len,
+                max_length=max_len,
+                radius=radius,
+                colour=colour,
+            ))
 
     frame = Frame(coords=np.array(coords), label="")
     return species, frame, atom_styles, bond_specs

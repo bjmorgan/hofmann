@@ -123,28 +123,32 @@ class AtomStyle:
 class BondSpec:
     """Declarative rule for bond detection between species pairs.
 
+    The *species* pair is stored in sorted order so that the data
+    structure is invariant under exchange of the two labels.
+
     Species names support fnmatch-style wildcards (``*``, ``?``).
 
     Attributes:
-        species_a: First species pattern.
-        species_b: Second species pattern.
+        species: Sorted pair of species patterns.
         min_length: Minimum bond length threshold.
         max_length: Maximum bond length threshold.
         radius: Visual radius of the bond cylinder.
         colour: Bond colour specification.
     """
 
-    species_a: str
-    species_b: str
+    species: tuple[str, str]
     min_length: float
     max_length: float
     radius: float
     colour: Colour
 
+    def __post_init__(self) -> None:
+        self.species = tuple(sorted(self.species))  # type: ignore[assignment]
+
     def matches(self, species_1: str, species_2: str) -> bool:
         """Check whether this spec matches a given species pair.
 
-        Matching is symmetric: ``BondSpec("C", "H").matches("H", "C")``
+        Matching is symmetric: ``BondSpec(("C", "H"), ...).matches("H", "C")``
         returns ``True``.
 
         Args:
@@ -154,12 +158,9 @@ class BondSpec:
         Returns:
             ``True`` if the pair matches in either order.
         """
-        forward = fnmatch(species_1, self.species_a) and fnmatch(
-            species_2, self.species_b
-        )
-        reverse = fnmatch(species_1, self.species_b) and fnmatch(
-            species_2, self.species_a
-        )
+        a, b = self.species
+        forward = fnmatch(species_1, a) and fnmatch(species_2, b)
+        reverse = fnmatch(species_1, b) and fnmatch(species_2, a)
         return forward or reverse
 
 

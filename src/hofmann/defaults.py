@@ -239,18 +239,21 @@ def default_bond_specs(
     tolerance: float = 0.4,
     bond_radius: float = 0.1,
     bond_colour: Colour = 0.5,
+    self_bonds: bool = False,
 ) -> list[BondSpec]:
     """Generate BondSpec rules from covalent radii for a set of species.
 
-    Creates one spec per unique pair (including self-pairs) using the
-    sum-of-covalent-radii heuristic: ``max_length = r_a + r_b + tolerance``.
-    Species not found in :data:`COVALENT_RADII` are silently skipped.
+    Creates one spec per unique pair using the sum-of-covalent-radii
+    heuristic: ``max_length = r_a + r_b + tolerance``.  Species not
+    found in :data:`COVALENT_RADII` are silently skipped.
 
     Args:
         species: Species labels to generate rules for.
         tolerance: Distance added to the sum of covalent radii (angstroms).
         bond_radius: Visual radius of the bond cylinder.
         bond_colour: Default colour for all generated bonds.
+        self_bonds: If ``True``, include same-species pairs (e.g. C-C).
+            Defaults to ``False``.
 
     Returns:
         A list of BondSpec rules, one per unique pair.
@@ -261,11 +264,13 @@ def default_bond_specs(
 
     specs: list[BondSpec] = []
     for i, sp_a in enumerate(known):
-        for sp_b in known[i:]:
-            max_len = COVALENT_RADII[sp_a] + COVALENT_RADII[sp_b] + tolerance
+        start = i if self_bonds else i + 1
+        for sp_b in known[start:]:
+            max_len = round(
+                COVALENT_RADII[sp_a] + COVALENT_RADII[sp_b] + tolerance, 2,
+            )
             specs.append(BondSpec(
-                species_a=sp_a,
-                species_b=sp_b,
+                species=(sp_a, sp_b),
                 min_length=0.0,
                 max_length=max_len,
                 radius=bond_radius,

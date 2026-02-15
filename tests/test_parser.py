@@ -31,8 +31,7 @@ class TestParseBs:
     def test_ch4_bond_specs(self, ch4_bs_path):
         species, frame, styles, specs = parse_bs(ch4_bs_path)
         assert len(specs) == 2
-        assert specs[0].species_a == "C"
-        assert specs[0].species_b == "H"
+        assert specs[0].species == ("C", "H")
         assert specs[0].min_length == 0.0
         assert specs[0].max_length == 3.4
         assert specs[0].radius == 0.109
