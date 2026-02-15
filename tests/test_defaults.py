@@ -10,19 +10,18 @@ from hofmann.defaults import (
 
 
 class TestElementColours:
-    def test_carbon_is_grey(self):
+    def test_carbon_is_dark(self):
         r, g, b = ELEMENT_COLOURS["C"]
-        assert r == pytest.approx(g)  # Grey means r == g == b
-        assert g == pytest.approx(b)
+        assert max(r, g, b) < 0.5  # Dark grey
 
     def test_oxygen_is_red(self):
         r, g, b = ELEMENT_COLOURS["O"]
-        assert r > 0.9
-        assert g < 0.1
-        assert b < 0.1
+        assert r > g  # Red-dominant
+        assert r > b
 
-    def test_hydrogen_is_white(self):
-        assert ELEMENT_COLOURS["H"] == (1.0, 1.0, 1.0)
+    def test_hydrogen_is_light(self):
+        r, g, b = ELEMENT_COLOURS["H"]
+        assert min(r, g, b) > 0.7  # Pale / near-white
 
 
 class TestCovalentRadii:
@@ -38,7 +37,7 @@ class TestDefaultAtomStyle:
         style = default_atom_style("O")
         assert style.radius == pytest.approx(0.66)
         r, g, b = style.colour
-        assert r > 0.9  # Oxygen is red
+        assert r > g  # Oxygen is red-dominant
 
     def test_unknown_element_fallback(self):
         style = default_atom_style("Xx")

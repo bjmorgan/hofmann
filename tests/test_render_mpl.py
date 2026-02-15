@@ -5,7 +5,13 @@ import pytest
 from matplotlib.figure import Figure
 
 from hofmann.model import AtomStyle, BondSpec, Frame, StructureScene, ViewState
-from hofmann.render_mpl import _clip_bond_3d, _project_point, _stick_polygon, render_mpl
+from hofmann.render_mpl import (
+    _clip_bond_3d,
+    _clip_polygon_to_half_plane,
+    _project_point,
+    _stick_polygon,
+    render_mpl,
+)
 from hofmann.scene import from_xbs
 
 
@@ -65,6 +71,11 @@ class TestRenderMpl:
     def test_convenience_method(self, ch4_bs_path):
         scene = from_xbs(ch4_bs_path)
         fig = scene.render_mpl(show=False)
+        assert isinstance(fig, Figure)
+
+    def test_half_bonds(self, ch4_bs_path):
+        scene = from_xbs(ch4_bs_path)
+        fig = render_mpl(scene, half_bonds=True, show=False)
         assert isinstance(fig, Figure)
 
     def test_saves_svg(self, tmp_path, ch4_bs_path):
@@ -149,6 +160,51 @@ class TestStickPolygon:
         start = np.array([1.0, 1.0])
         verts = _stick_polygon(start, start.copy(), hw_start=0.5, hw_end=0.5)
         assert verts is None
+
+
+class TestClipPolygonToHalfPlane:
+    def test_square_split_vertically(self):
+        """Splitting a unit square along x=0.5 should give two rectangles."""
+        square = np.array([
+            [0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0],
+        ])
+        point = np.array([0.5, 0.0])
+        normal = np.array([1.0, 0.0])  # keep x >= 0.5
+        clipped = _clip_polygon_to_half_plane(square, point, normal)
+        assert len(clipped) == 4
+        assert np.all(clipped[:, 0] >= 0.5 - 1e-10)
+
+    def test_square_split_gives_complementary_halves(self):
+        """The two halves should have equal area."""
+        square = np.array([
+            [0.0, 0.0], [2.0, 0.0], [2.0, 2.0], [0.0, 2.0],
+        ])
+        point = np.array([1.0, 0.0])
+        normal = np.array([1.0, 0.0])
+        right = _clip_polygon_to_half_plane(square, point, normal)
+        left = _clip_polygon_to_half_plane(square, point, -normal)
+        # Both halves should be rectangles with area 2.0.
+        def shoelace(v):
+            x, y = v[:, 0], v[:, 1]
+            return 0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1)))
+        np.testing.assert_allclose(shoelace(right), 2.0, atol=1e-10)
+        np.testing.assert_allclose(shoelace(left), 2.0, atol=1e-10)
+
+    def test_fully_inside(self):
+        """Polygon entirely inside the half-plane is returned unchanged."""
+        tri = np.array([[1.0, 0.0], [2.0, 0.0], [1.5, 1.0]])
+        point = np.array([0.0, 0.0])
+        normal = np.array([1.0, 0.0])
+        clipped = _clip_polygon_to_half_plane(tri, point, normal)
+        np.testing.assert_allclose(clipped, tri)
+
+    def test_fully_outside(self):
+        """Polygon entirely outside returns empty."""
+        tri = np.array([[-2.0, 0.0], [-1.0, 0.0], [-1.5, 1.0]])
+        point = np.array([0.0, 0.0])
+        normal = np.array([1.0, 0.0])
+        clipped = _clip_polygon_to_half_plane(tri, point, normal)
+        assert len(clipped) == 0
 
 
 class TestProjectPoint:

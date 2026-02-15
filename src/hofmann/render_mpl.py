@@ -126,6 +126,44 @@ def _stick_polygon(
     ])
 
 
+def _clip_polygon_to_half_plane(
+    verts: np.ndarray,
+    point: np.ndarray,
+    normal: np.ndarray,
+) -> np.ndarray:
+    """Clip a polygon to the half-plane where dot(v - point, normal) >= 0.
+
+    Uses the Sutherland-Hodgman algorithm on a single clipping edge.
+    Returns the clipped polygon vertices in order, or an empty array
+    if nothing remains.
+
+    Args:
+        verts: ``(n, 2)`` polygon vertices in winding order.
+        point: A point on the clipping line.
+        normal: Outward normal of the half-plane to keep.
+
+    Returns:
+        ``(m, 2)`` clipped polygon vertices.
+    """
+    n = len(verts)
+    if n < 3:
+        return verts
+    out: list[np.ndarray] = []
+    d = np.dot(verts - point, normal)
+    for i in range(n):
+        j = (i + 1) % n
+        di, dj = d[i], d[j]
+        if di >= 0:
+            out.append(verts[i])
+        # Edge crosses the line if signs differ.
+        if (di >= 0) != (dj >= 0):
+            t = di / (di - dj)
+            out.append(verts[i] + t * (verts[j] - verts[i]))
+    if len(out) < 3:
+        return np.empty((0, 2))
+    return np.array(out)
+
+
 # Pre-computed semicircular arc (5 points per half-turn).
 _N_ARC = 5
 _ARC = np.column_stack([
@@ -265,7 +303,7 @@ def render_mpl(
     output: str | Path | None = None,
     *,
     frame_index: int = 0,
-    figsize: tuple[float, float] = (8.0, 8.0),
+    figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
     atom_scale: float = 0.5,
@@ -404,44 +442,29 @@ def render_mpl(
             use_half = half_bonds and bond_colour is None
             if use_half:
                 mid_2d = (start_2d + end_2d) / 2
-                # Split polygon at midpoint perpendicular.
                 bond_dir = end_2d - start_2d
-                n_pts = len(verts)
-                half_a = []
-                half_b = []
-                for v in verts:
-                    if np.dot(v - mid_2d, bond_dir) <= 0:
-                        half_a.append(v)
-                    else:
-                        half_b.append(v)
-                # Add midpoint edge intersections for clean split.
                 bond_len_2d = np.linalg.norm(bond_dir)
-                if bond_len_2d > 1e-12:
-                    perp = np.array(
-                        [-bond_dir[1], bond_dir[0]],
-                    ) / bond_len_2d
-                    # Interpolate half-width at midpoint from the
-                    # start/end arc widths.
-                    hw_s = br * bond_scale * view.zoom
-                    mid_top = mid_2d + perp * hw_s
-                    mid_bot = mid_2d - perp * hw_s
-                    half_a.extend([mid_bot, mid_top])
-                    half_b.extend([mid_top, mid_bot])
-
-                for pts, ci in [(half_a, ia), (half_b, ib)]:
+                if bond_len_2d < 1e-12:
+                    continue
+                # Normal pointing from a toward b.
+                normal = bond_dir / bond_len_2d
+                # Clip to each side of the midpoint perpendicular.
+                half_a_verts = _clip_polygon_to_half_plane(
+                    verts, mid_2d, -normal,
+                )
+                half_b_verts = _clip_polygon_to_half_plane(
+                    verts, mid_2d, normal,
+                )
+                for pts, ci in [
+                    (half_a_verts, ia), (half_b_verts, ib),
+                ]:
                     if len(pts) < 3:
                         continue
-                    arr = np.array(pts)
-                    # Sort by angle around centroid for correct winding.
-                    c = arr.mean(axis=0)
-                    angles = np.arctan2(arr[:, 1] - c[1],
-                                        arr[:, 0] - c[0])
-                    arr = arr[np.argsort(angles)]
                     poly = Polygon(
-                        arr, closed=True,
+                        pts, closed=True,
                         facecolor=bond_half_colours[ci],
-                        edgecolor=bond_half_colours[ci],
-                        linewidth=0, zorder=z,
+                        edgecolor=_OUTLINE_COLOUR,
+                        linewidth=1.0, zorder=z,
                     )
                     ax.add_patch(poly)
                     z += 1
@@ -457,8 +480,8 @@ def render_mpl(
 
                 poly = Polygon(
                     verts, closed=True,
-                    facecolor=brgb, edgecolor=brgb,
-                    linewidth=0, zorder=z,
+                    facecolor=brgb, edgecolor=_OUTLINE_COLOUR,
+                    linewidth=1.0, zorder=z,
                 )
                 ax.add_patch(poly)
                 z += 1
