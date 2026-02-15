@@ -15,6 +15,7 @@ zoom.
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -582,15 +583,41 @@ def _scene_extent(
     return float(max_extent * view.zoom)
 
 
+@dataclass
+class _PrecomputedScene:
+    """Frame-independent data cached between redraws.
+
+    Built once by :func:`_precompute_scene` and reused across rotation /
+    zoom changes in the interactive viewer.
+    """
+
+    coords: np.ndarray
+    radii_3d: np.ndarray
+    atom_colours: list[tuple[float, float, float]]
+    bond_half_colours: list[tuple[float, float, float]]
+    adjacency: dict[int, list[tuple[int, object]]]
+    bond_ia: np.ndarray
+    bond_ib: np.ndarray
+    bond_radii: np.ndarray
+    bond_index: dict[int, int]
+    polyhedra: list
+    hidden_atoms: set[int]
+    hidden_bond_ids: set[int]
+    poly_base_colours: list[tuple[float, float, float]]
+    poly_alphas: list[float]
+    poly_edge_colours: list[tuple[float, float, float]]
+    poly_edge_widths: list[float]
+
+
 def _precompute_scene(
     scene: StructureScene,
     frame_index: int,
     render_style: RenderStyle | None = None,
-) -> dict:
+) -> _PrecomputedScene:
     """Pre-compute frame-independent data for repeated rendering.
 
-    Returns a dict of radii, colours, bonds, and adjacency that stay
-    constant across rotation / zoom changes.
+    Returns a :class:`_PrecomputedScene` of radii, colours, bonds, and
+    adjacency that stay constant across rotation / zoom changes.
     """
     frame = scene.frames[frame_index]
     coords = frame.coords
@@ -692,25 +719,24 @@ def _precompute_scene(
             else poly.spec.edge_width
         )
 
-    return {
-        "coords": coords,
-        "radii_3d": radii_3d,
-        "atom_colours": atom_colours,
-        "bond_half_colours": bond_half_colours,
-        "bonds": bonds,
-        "adjacency": adjacency,
-        "bond_ia": bond_ia,
-        "bond_ib": bond_ib,
-        "bond_radii": bond_radii,
-        "bond_index": bond_index,
-        "polyhedra": polyhedra,
-        "hidden_atoms": hidden_atoms,
-        "hidden_bond_ids": hidden_bond_ids,
-        "poly_base_colours": poly_base_colours,
-        "poly_alphas": poly_alphas,
-        "poly_edge_colours": poly_edge_colours,
-        "poly_edge_widths": poly_edge_widths,
-    }
+    return _PrecomputedScene(
+        coords=coords,
+        radii_3d=radii_3d,
+        atom_colours=atom_colours,
+        bond_half_colours=bond_half_colours,
+        adjacency=adjacency,
+        bond_ia=bond_ia,
+        bond_ib=bond_ib,
+        bond_radii=bond_radii,
+        bond_index=bond_index,
+        polyhedra=polyhedra,
+        hidden_atoms=hidden_atoms,
+        hidden_bond_ids=hidden_bond_ids,
+        poly_base_colours=poly_base_colours,
+        poly_alphas=poly_alphas,
+        poly_edge_colours=poly_edge_colours,
+        poly_edge_widths=poly_edge_widths,
+    )
 
 
 def _draw_scene(
@@ -722,7 +748,7 @@ def _draw_scene(
     frame_index: int = 0,
     bg_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0),
     viewport_extent: float | None = None,
-    precomputed: dict | None = None,
+    precomputed: _PrecomputedScene | None = None,
 ) -> None:
     """Paint atoms and bonds onto *ax* using the painter's algorithm.
 
@@ -741,8 +767,9 @@ def _draw_scene(
             for axis limits instead of computing from projected coords.
             Avoids the "view distance changing" artefact during
             interactive rotation.
-        precomputed: Pre-computed scene data from :func:`_precompute_scene`.
-            If ``None``, computed on the fly.
+        precomputed: Pre-computed scene data from
+            :func:`_precompute_scene`.  If ``None``, computed on the
+            fly.
     """
     atom_scale = style.atom_scale
     bond_scale = style.bond_scale
@@ -768,11 +795,11 @@ def _draw_scene(
     if precomputed is None:
         precomputed = _precompute_scene(scene, frame_index, style)
 
-    coords = precomputed["coords"]
-    radii_3d = precomputed["radii_3d"]
-    atom_colours = precomputed["atom_colours"]
-    bond_half_colours = precomputed["bond_half_colours"]
-    adjacency = precomputed["adjacency"]
+    coords = precomputed.coords
+    radii_3d = precomputed.radii_3d
+    atom_colours = precomputed.atom_colours
+    bond_half_colours = precomputed.bond_half_colours
+    adjacency = precomputed.adjacency
 
     # ---- Projection ----
     xy, depth, atom_screen_radii = view.project(
@@ -789,7 +816,7 @@ def _draw_scene(
     # ---- Slab-clip overrides for polyhedra ----
     poly_skip: set[int] = set()
     poly_clip_hidden_bonds: set[int] = set()
-    polyhedra_list = precomputed["polyhedra"]
+    polyhedra_list = precomputed.polyhedra
     if (show_polyhedra and polyhedra_list
             and slab_clip_mode != SlabClipMode.PER_FACE):
         slab_force_visible: set[int] = set()
@@ -815,10 +842,10 @@ def _draw_scene(
     ax.set_facecolor(bg_rgb)
 
     # ---- Batch bond geometry ----
-    bond_ia = precomputed["bond_ia"]
-    bond_ib = precomputed["bond_ib"]
-    bond_radii_arr = precomputed["bond_radii"]
-    bond_index = precomputed["bond_index"]
+    bond_ia = precomputed.bond_ia
+    bond_ib = precomputed.bond_ib
+    bond_radii_arr = precomputed.bond_radii
+    bond_index = precomputed.bond_index
 
     use_half = half_bonds and bond_colour is None
     batch_valid = np.empty(0, dtype=bool)
@@ -846,12 +873,12 @@ def _draw_scene(
         bond_spec_colours: dict[int, tuple[float, float, float]] = {}
 
     # ---- Polyhedra face data ----
-    hidden_atoms = precomputed["hidden_atoms"]
-    hidden_bond_ids = precomputed["hidden_bond_ids"]
-    poly_base_colours = precomputed["poly_base_colours"]
-    poly_alphas = precomputed["poly_alphas"]
-    poly_edge_colours = precomputed["poly_edge_colours"]
-    poly_edge_widths = precomputed["poly_edge_widths"]
+    hidden_atoms = precomputed.hidden_atoms
+    hidden_bond_ids = precomputed.hidden_bond_ids
+    poly_base_colours = precomputed.poly_base_colours
+    poly_alphas = precomputed.poly_alphas
+    poly_edge_colours = precomputed.poly_edge_colours
+    poly_edge_widths = precomputed.poly_edge_widths
 
     # Build per-face data: 2D vertices, shaded RGBA, edge colour/width,
     # centroid depth, and assign each face to a depth slot.
