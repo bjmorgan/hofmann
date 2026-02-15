@@ -5,8 +5,6 @@ associations are preserved (red for oxygen, blue for nitrogen, etc.)
 but with desaturated tones that reproduce well in print.
 """
 
-from __future__ import annotations
-
 from hofmann.model import AtomStyle, BondSpec, Colour
 
 # Muted element colours as normalised RGB tuples.

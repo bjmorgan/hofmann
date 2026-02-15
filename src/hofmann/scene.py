@@ -1,10 +1,8 @@
 """Convenience constructors for StructureScene."""
 
-from __future__ import annotations
-
+from collections.abc import Sequence
 from fnmatch import fnmatch
 from pathlib import Path
-from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -56,7 +54,7 @@ def from_xbs(
 
 
 def _expand_pbc(
-    structure: Structure,
+    structure: "Structure",
     bond_specs: list[BondSpec],
     cutoff: float | None = None,
 ) -> tuple[list[str], np.ndarray]:
@@ -206,7 +204,7 @@ def _merge_expansions(
 
 
 def _expand_bonds(
-    structure: Structure,
+    structure: "Structure",
     bond_specs: list[BondSpec],
 ) -> tuple[list[str], np.ndarray]:
     """Add periodic image atoms that form valid bonds with unit-cell atoms.
@@ -283,7 +281,7 @@ def _expand_bonds(
 
 
 def _expand_polyhedra_vertices(
-    structure: Structure,
+    structure: "Structure",
     expanded_species: list[str],
     expanded_coords: np.ndarray,
     n_uc: int,
@@ -404,7 +402,7 @@ def _expand_polyhedra_vertices(
 
 
 def from_pymatgen(
-    structure: Structure | Sequence[Structure],
+    structure: "Structure | Sequence[Structure]",
     bond_specs: list[BondSpec] | None = None,
     *,
     polyhedra: list[PolyhedronSpec] | None = None,

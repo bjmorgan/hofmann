@@ -1,7 +1,5 @@
 """Bond computation from declarative BondSpec rules."""
 
-from __future__ import annotations
-
 from fnmatch import fnmatch
 
 import numpy as np

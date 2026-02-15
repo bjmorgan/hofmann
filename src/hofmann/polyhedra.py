@@ -1,7 +1,5 @@
 """Coordination polyhedra computation from bonds."""
 
-from __future__ import annotations
-
 from collections import defaultdict, deque
 from fnmatch import fnmatch
 

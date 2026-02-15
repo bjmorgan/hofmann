@@ -1,7 +1,5 @@
 """XBS .bs and .mv file parsers."""
 
-from __future__ import annotations
-
 from pathlib import Path
 
 import numpy as np

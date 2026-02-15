@@ -1,16 +1,17 @@
 """Core data model for hofmann: dataclasses, colour handling, and projection."""
 
-from __future__ import annotations
-
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from fnmatch import fnmatch
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+from matplotlib.figure import Figure
 
 if TYPE_CHECKING:
-    from numpy.typing import NDArray
+    from pymatgen.core import Structure
 
 # Colour can be a CSS name / hex string, a grey float, or an RGB sequence.
 Colour = str | float | tuple[float, float, float] | list[float]
@@ -559,18 +560,69 @@ class StructureScene:
     n_unit_cell_atoms: int | None = None
 
     @classmethod
-    def from_xbs(cls, bs_path, mv_path=None):
-        """Create from XBS files. See ``hofmann.scene.from_xbs``."""
+    def from_xbs(
+        cls,
+        bs_path: str | Path,
+        mv_path: str | Path | None = None,
+    ) -> "StructureScene":
+        """Create a StructureScene from XBS ``.bs`` (and optional ``.mv``) files.
+
+        Args:
+            bs_path: Path to the ``.bs`` structure file.
+            mv_path: Optional path to a ``.mv`` trajectory file.  When
+                provided, the scene will contain multiple frames.
+
+        Returns:
+            A fully configured StructureScene with styles and bond
+            specs parsed from the file.
+
+        See Also:
+            :func:`hofmann.scene.from_xbs`
+        """
         from hofmann.scene import from_xbs
 
         return from_xbs(bs_path, mv_path)
 
     @classmethod
     def from_pymatgen(
-        cls, structure, bond_specs=None, *, polyhedra=None,
-        pbc=False, pbc_cutoff=None, centre_atom=None,
-    ):
-        """Create from pymatgen Structure(s). See ``hofmann.scene.from_pymatgen``."""
+        cls,
+        structure: "Structure | Sequence[Structure]",
+        bond_specs: list[BondSpec] | None = None,
+        *,
+        polyhedra: list[PolyhedronSpec] | None = None,
+        pbc: bool = False,
+        pbc_cutoff: float | None = None,
+        centre_atom: int | None = None,
+    ) -> "StructureScene":
+        """Create a StructureScene from pymatgen ``Structure`` object(s).
+
+        Args:
+            structure: A single pymatgen ``Structure`` or a sequence of
+                structures (e.g. from an MD trajectory).
+            bond_specs: Bond detection rules.  ``None`` generates
+                sensible defaults from covalent radii; pass an empty
+                list to disable bonds.
+            polyhedra: Polyhedron rendering rules.  ``None`` disables
+                polyhedra.
+            pbc: If ``True``, add periodic image atoms at cell
+                boundaries so that bonds crossing periodic boundaries
+                are drawn.
+            pbc_cutoff: Cartesian distance cutoff (angstroms) for PBC
+                image generation.  ``None`` uses the maximum bond
+                length from *bond_specs*.
+            centre_atom: Index of the atom to centre the unit cell on.
+                Fractional coordinates are shifted so this atom sits
+                at (0.5, 0.5, 0.5) before PBC expansion.
+
+        Returns:
+            A StructureScene with default element styles.
+
+        Raises:
+            ImportError: If pymatgen is not installed.
+
+        See Also:
+            :func:`hofmann.scene.from_pymatgen`
+        """
         from hofmann.scene import from_pymatgen
 
         return from_pymatgen(
@@ -590,14 +642,88 @@ class StructureScene:
         """
         self.view.centre = self.frames[frame].coords[atom_index].copy()
 
-    def render_mpl(self, output=None, **kwargs):
-        """Render with matplotlib. See ``hofmann.render_mpl.render_mpl``."""
+    def render_mpl(
+        self,
+        output: str | Path | None = None,
+        *,
+        style: RenderStyle | None = None,
+        frame_index: int = 0,
+        figsize: tuple[float, float] = (5.0, 5.0),
+        dpi: int = 150,
+        background: Colour = "white",
+        show: bool = True,
+        **style_kwargs: object,
+    ) -> Figure:
+        """Render the scene as a static matplotlib figure.
+
+        Args:
+            output: Optional file path to save the figure.  The format
+                is inferred from the extension (``.svg``, ``.pdf``,
+                ``.png``).
+            style: A :class:`RenderStyle` controlling visual appearance.
+                Any :class:`RenderStyle` field name may also be passed
+                as a keyword argument to override individual fields.
+            frame_index: Which frame to render (default 0).
+            figsize: Figure size in inches ``(width, height)``.
+            dpi: Resolution for raster output formats.
+            background: Background colour.
+            show: Whether to call ``plt.show()``.  Set to ``False``
+                when saving to a file or working non-interactively.
+            **style_kwargs: Any :class:`RenderStyle` field name as a
+                keyword argument (e.g. ``show_bonds=False``).
+
+        Returns:
+            The matplotlib :class:`~matplotlib.figure.Figure`.
+
+        See Also:
+            :func:`hofmann.render_mpl.render_mpl`
+        """
         from hofmann.render_mpl import render_mpl
 
-        return render_mpl(self, output, **kwargs)
+        return render_mpl(
+            self, output, style=style, frame_index=frame_index,
+            figsize=figsize, dpi=dpi, background=background,
+            show=show, **style_kwargs,
+        )
 
-    def render_mpl_interactive(self, **kwargs) -> ViewState:
-        """Interactive matplotlib viewer. See ``hofmann.render_mpl.render_mpl_interactive``."""
+    def render_mpl_interactive(
+        self,
+        *,
+        style: RenderStyle | None = None,
+        frame_index: int = 0,
+        figsize: tuple[float, float] = (5.0, 5.0),
+        dpi: int = 150,
+        background: Colour = "white",
+        **style_kwargs: object,
+    ) -> ViewState:
+        """Open an interactive matplotlib viewer with mouse rotation and zoom.
+
+        Left-drag rotates the structure; scroll zooms.  When the window
+        is closed the updated :class:`ViewState` is returned so it can
+        be reused for static rendering.
+
+        Args:
+            style: A :class:`RenderStyle` controlling visual appearance.
+                Any :class:`RenderStyle` field name may also be passed
+                as a keyword argument to override individual fields.
+            frame_index: Which frame to render.
+            figsize: Figure size in inches ``(width, height)``.
+            dpi: Resolution.
+            background: Background colour.
+            **style_kwargs: Any :class:`RenderStyle` field name as a
+                keyword argument (e.g. ``show_bonds=False``).
+
+        Returns:
+            The :class:`ViewState` reflecting any rotation/zoom applied
+            during the interactive session.
+
+        See Also:
+            :func:`hofmann.render_mpl.render_mpl_interactive`
+        """
         from hofmann.render_mpl import render_mpl_interactive
 
-        return render_mpl_interactive(self, **kwargs)
+        return render_mpl_interactive(
+            self, style=style, frame_index=frame_index,
+            figsize=figsize, dpi=dpi, background=background,
+            **style_kwargs,
+        )
