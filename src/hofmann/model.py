@@ -13,7 +13,16 @@ from matplotlib.figure import Figure
 if TYPE_CHECKING:
     from pymatgen.core import Structure
 
-# Colour can be a CSS name / hex string, a grey float, or an RGB sequence.
+#: A colour specification accepted throughout hofmann.
+#:
+#: Can be any of:
+#:
+#: - A CSS colour name or hex string (e.g. ``"red"``, ``"#ff0000"``).
+#: - A single float for grey (``0.0`` = black, ``1.0`` = white).
+#: - An RGB tuple or list with values in ``[0, 1]``
+#:   (e.g. ``(1.0, 0.0, 0.0)``).
+#:
+#: See :func:`normalise_colour` for conversion to a normalised RGB tuple.
 Colour = str | float | tuple[float, float, float] | list[float]
 
 
@@ -140,6 +149,13 @@ class RenderStyle:
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
             When set, overrides all per-spec values.
+
+    Raises:
+        ValueError: If *atom_scale* or *bond_scale* are not positive,
+            *atom_outline_width* or *bond_outline_width* are negative,
+            *circle_segments* < 3, *arc_segments* < 2,
+            *polyhedra_shading* is outside ``[0, 1]``, or
+            *polyhedra_outline_width* is negative.
     """
 
     atom_scale: float = 0.5
@@ -198,8 +214,12 @@ class AtomStyle:
     """Visual style for an atomic species.
 
     Attributes:
-        radius: Display radius for atoms of this species.
-        colour: Fill colour specification.
+        radius: Display radius in angstroms.  Typical values range
+            from about 0.5 (hydrogen) to 2.0 (heavy metals).
+            See :data:`COVALENT_RADII` for physically motivated
+            starting points.
+        colour: Fill colour specification (CSS name, hex string, grey
+            float, or RGB tuple/list).  See :data:`Colour`.
     """
 
     radius: float
@@ -335,6 +355,9 @@ class Frame:
     Attributes:
         coords: Cartesian coordinates, shape ``(n_atoms, 3)``.
         label: Optional frame label or identifier.
+
+    Raises:
+        ValueError: If *coords* does not have shape ``(n_atoms, 3)``.
     """
 
     coords: np.ndarray

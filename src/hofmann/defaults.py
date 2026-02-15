@@ -7,9 +7,11 @@ but with desaturated tones that reproduce well in print.
 
 from hofmann.model import AtomStyle, BondSpec, Colour
 
-# Muted element colours as normalised RGB tuples.
-# Common elements use hand-picked colours; less common elements
-# use desaturated tones grouped by periodic table region.
+#: Mapping from element symbols to muted, publication-friendly RGB colours.
+#:
+#: Common elements use hand-picked colours; less common elements use
+#: desaturated tones grouped by periodic table region.  Values are
+#: normalised to the ``[0, 1]`` range.
 ELEMENT_COLOURS: dict[str, tuple[float, float, float]] = {
     # Period 1
     "H":  (0.965, 0.914, 0.808),  # off-white cream
@@ -123,7 +125,9 @@ ELEMENT_COLOURS: dict[str, tuple[float, float, float]] = {
     "Lr": (0.620, 0.118, 0.329),  # muted purple
 }
 
-# Covalent radii in angstroms (Cordero et al., Dalton Trans. 2008).
+#: Covalent radii in angstroms, from Cordero *et al.*, Dalton Trans. 2008.
+#:
+#: Used by :func:`default_bond_specs` to estimate bond length ranges.
 COVALENT_RADII: dict[str, float] = {
     "H":  0.31,
     "He": 0.28,
