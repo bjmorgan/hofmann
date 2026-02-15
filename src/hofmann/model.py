@@ -160,6 +160,36 @@ class RenderStyle:
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
             self.slab_clip_mode = SlabClipMode(self.slab_clip_mode)
+        if self.atom_scale <= 0:
+            raise ValueError(f"atom_scale must be positive, got {self.atom_scale}")
+        if self.bond_scale <= 0:
+            raise ValueError(f"bond_scale must be positive, got {self.bond_scale}")
+        if self.atom_outline_width < 0:
+            raise ValueError(
+                f"atom_outline_width must be non-negative, got {self.atom_outline_width}"
+            )
+        if self.bond_outline_width < 0:
+            raise ValueError(
+                f"bond_outline_width must be non-negative, got {self.bond_outline_width}"
+            )
+        if self.circle_segments < 3:
+            raise ValueError(
+                f"circle_segments must be >= 3, got {self.circle_segments}"
+            )
+        if self.arc_segments < 2:
+            raise ValueError(
+                f"arc_segments must be >= 2, got {self.arc_segments}"
+            )
+        if not 0.0 <= self.polyhedra_shading <= 1.0:
+            raise ValueError(
+                f"polyhedra_shading must be between 0.0 and 1.0, "
+                f"got {self.polyhedra_shading}"
+            )
+        if self.polyhedra_outline_width is not None and self.polyhedra_outline_width < 0:
+            raise ValueError(
+                f"polyhedra_outline_width must be non-negative, "
+                f"got {self.polyhedra_outline_width}"
+            )
 
 
 @dataclass

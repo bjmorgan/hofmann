@@ -440,6 +440,50 @@ class TestRenderStyle:
         style = RenderStyle(polyhedra_outline_width=2.0)
         assert style.polyhedra_outline_width == 2.0
 
+    @pytest.mark.parametrize("field, value", [
+        ("atom_scale", 0),
+        ("atom_scale", -1.0),
+        ("bond_scale", 0),
+        ("bond_scale", -0.5),
+    ])
+    def test_positive_scale_required(self, field, value):
+        with pytest.raises(ValueError, match="must be positive"):
+            RenderStyle(**{field: value})
+
+    @pytest.mark.parametrize("field, value", [
+        ("atom_outline_width", -1.0),
+        ("bond_outline_width", -0.1),
+        ("polyhedra_outline_width", -0.5),
+    ])
+    def test_non_negative_width_required(self, field, value):
+        with pytest.raises(ValueError, match="must be non-negative"):
+            RenderStyle(**{field: value})
+
+    def test_circle_segments_minimum(self):
+        with pytest.raises(ValueError, match="circle_segments must be >= 3"):
+            RenderStyle(circle_segments=2)
+
+    def test_arc_segments_minimum(self):
+        with pytest.raises(ValueError, match="arc_segments must be >= 2"):
+            RenderStyle(arc_segments=1)
+
+    @pytest.mark.parametrize("value", [-0.1, 1.1])
+    def test_polyhedra_shading_range(self, value):
+        with pytest.raises(ValueError, match="polyhedra_shading must be between"):
+            RenderStyle(polyhedra_shading=value)
+
+    def test_valid_boundary_values_accepted(self):
+        """Edge values at the boundaries should not raise."""
+        RenderStyle(
+            atom_scale=0.01,
+            bond_scale=0.01,
+            atom_outline_width=0.0,
+            bond_outline_width=0.0,
+            polyhedra_shading=0.0,
+            polyhedra_outline_width=0.0,
+        )
+        RenderStyle(polyhedra_shading=1.0)
+
 
 # --- StructureScene ---
 
