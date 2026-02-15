@@ -10,6 +10,7 @@ from hofmann.model import (
     Frame,
     PolyhedronSpec,
     RenderStyle,
+    SlabClipMode,
     StructureScene,
     ViewState,
 )
@@ -858,4 +859,93 @@ class TestSameColourBonds:
         n = len(fig.axes[0].collections[0].get_paths())
         # 2 atoms + 2 half-bond polygons.
         assert n == 4
+
+
+def _slab_octahedron_scene(**poly_kwargs):
+    """Octahedron with a slab that clips the z=+/-2 oxygen atoms."""
+    scene = _octahedron_scene(**poly_kwargs)
+    scene.view.slab_near = -1.5
+    scene.view.slab_far = 1.5
+    return scene
+
+
+class TestSlabClipModes:
+    def test_per_face_produces_partial(self):
+        """per_face mode draws some faces but not all (partial fragment)."""
+        scene = _slab_octahedron_scene()
+        style = RenderStyle(slab_clip_mode=SlabClipMode.PER_FACE)
+        fig = render_mpl(scene, style=style, show=False)
+        n = len(fig.axes[0].collections[0].get_paths())
+        # Some polygons drawn (atoms in-slab + partial polyhedron faces).
+        assert n > 0
+
+    def test_clip_whole_fewer_than_per_face(self):
+        """clip_whole removes entire polyhedron, producing fewer polygons."""
+        scene_pf = _slab_octahedron_scene()
+        scene_cw = _slab_octahedron_scene()
+        style_pf = RenderStyle(slab_clip_mode=SlabClipMode.PER_FACE)
+        style_cw = RenderStyle(slab_clip_mode=SlabClipMode.CLIP_WHOLE)
+        fig_pf = render_mpl(scene_pf, style=style_pf, show=False)
+        fig_cw = render_mpl(scene_cw, style=style_cw, show=False)
+        n_pf = len(fig_pf.axes[0].collections[0].get_paths())
+        n_cw = len(fig_cw.axes[0].collections[0].get_paths())
+        # clip_whole removes the entire polyhedron (z=+/-2 vertices
+        # are outside the slab), so fewer polygons than per_face.
+        assert n_cw < n_pf
+
+    def test_include_whole_more_than_per_face(self):
+        """include_whole forces all faces visible, producing more polygons."""
+        scene_pf = _slab_octahedron_scene()
+        scene_iw = _slab_octahedron_scene()
+        style_pf = RenderStyle(slab_clip_mode=SlabClipMode.PER_FACE)
+        style_iw = RenderStyle(slab_clip_mode=SlabClipMode.INCLUDE_WHOLE)
+        fig_pf = render_mpl(scene_pf, style=style_pf, show=False)
+        fig_iw = render_mpl(scene_iw, style=style_iw, show=False)
+        n_pf = len(fig_pf.axes[0].collections[0].get_paths())
+        n_iw = len(fig_iw.axes[0].collections[0].get_paths())
+        # include_whole draws all faces + force-visible vertex atoms.
+        assert n_iw > n_pf
+
+    def test_include_whole_centre_outside_skips(self):
+        """include_whole skips polyhedra whose centre is outside the slab."""
+        species = ["Ti"] + ["O"] * 6
+        coords = np.array([
+            [0.0, 0.0, 5.0],   # Centre outside slab
+            [2.0, 0.0, 5.0],
+            [-2.0, 0.0, 5.0],
+            [0.0, 2.0, 5.0],
+            [0.0, -2.0, 5.0],
+            [0.0, 0.0, 7.0],
+            [0.0, 0.0, 3.0],
+        ])
+        scene = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles={
+                "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+                "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+            },
+            bond_specs=[BondSpec(
+                species=("O", "Ti"), min_length=0.0, max_length=3.0,
+                radius=0.1, colour=0.5,
+            )],
+            polyhedra=[PolyhedronSpec(centre="Ti")],
+        )
+        scene.view.slab_near = -1.5
+        scene.view.slab_far = 1.5
+        style = RenderStyle(slab_clip_mode=SlabClipMode.INCLUDE_WHOLE)
+        fig = render_mpl(scene, style=style, show=False)
+        # Everything is outside the slab (centre at z=5), so nothing drawn.
+        pc = fig.axes[0].collections
+        assert len(pc) == 0 or len(pc[0].get_paths()) == 0
+
+    def test_no_slab_all_modes_identical(self):
+        """Without slab settings, all three modes produce the same output."""
+        counts = []
+        for mode in SlabClipMode:
+            scene = _octahedron_scene()
+            style = RenderStyle(slab_clip_mode=mode)
+            fig = render_mpl(scene, style=style, show=False)
+            counts.append(len(fig.axes[0].collections[0].get_paths()))
+        assert counts[0] == counts[1] == counts[2]
 

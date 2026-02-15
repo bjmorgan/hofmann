@@ -10,6 +10,8 @@ from hofmann.model import (
     Frame,
     Polyhedron,
     PolyhedronSpec,
+    RenderStyle,
+    SlabClipMode,
     StructureScene,
     ViewState,
     normalise_colour,
@@ -397,6 +399,38 @@ class TestViewStateSlab:
         mask = vs.slab_mask(coords)
         expected = np.array([True, True, False])
         np.testing.assert_array_equal(mask, expected)
+
+
+# --- SlabClipMode ---
+
+
+class TestSlabClipMode:
+    def test_values(self):
+        assert SlabClipMode.PER_FACE == "per_face"
+        assert SlabClipMode.CLIP_WHOLE == "clip_whole"
+        assert SlabClipMode.INCLUDE_WHOLE == "include_whole"
+
+    def test_string_construction(self):
+        assert SlabClipMode("per_face") is SlabClipMode.PER_FACE
+        assert SlabClipMode("clip_whole") is SlabClipMode.CLIP_WHOLE
+        assert SlabClipMode("include_whole") is SlabClipMode.INCLUDE_WHOLE
+
+
+# --- RenderStyle ---
+
+
+class TestRenderStyle:
+    def test_slab_clip_mode_default(self):
+        style = RenderStyle()
+        assert style.slab_clip_mode == SlabClipMode.PER_FACE
+
+    def test_slab_clip_mode_string_coercion(self):
+        style = RenderStyle(slab_clip_mode="include_whole")
+        assert style.slab_clip_mode is SlabClipMode.INCLUDE_WHOLE
+
+    def test_slab_clip_mode_enum_value(self):
+        style = RenderStyle(slab_clip_mode=SlabClipMode.CLIP_WHOLE)
+        assert style.slab_clip_mode is SlabClipMode.CLIP_WHOLE
 
 
 # --- StructureScene ---

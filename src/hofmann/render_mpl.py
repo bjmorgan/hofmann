@@ -26,6 +26,7 @@ from hofmann.bonds import compute_bonds
 from hofmann.model import (
     Colour,
     RenderStyle,
+    SlabClipMode,
     StructureScene,
     ViewState,
     normalise_colour,
@@ -731,6 +732,7 @@ def _draw_scene(
     outline_rgb = normalise_colour(style.outline_colour)
     atom_outline_width = style.atom_outline_width
     bond_outline_width = style.bond_outline_width
+    slab_clip_mode = style.slab_clip_mode
     # Remove previous draw's collection(s) and leftover artists.
     while ax.collections:
         ax.collections[0].remove()
@@ -758,6 +760,32 @@ def _draw_scene(
 
     # ---- Slab visibility ----
     slab_visible = view.slab_mask(coords)
+
+    # ---- Slab-clip overrides for polyhedra ----
+    poly_skip: set[int] = set()
+    poly_clip_hidden_bonds: set[int] = set()
+    polyhedra_list = precomputed["polyhedra"]
+    if (show_polyhedra and polyhedra_list
+            and slab_clip_mode != SlabClipMode.PER_FACE):
+        slab_force_visible: set[int] = set()
+        for pi, poly in enumerate(polyhedra_list):
+            all_vertices = set(poly.neighbour_indices) | {poly.centre_index}
+            if slab_clip_mode == SlabClipMode.CLIP_WHOLE:
+                if not all(slab_visible[v] for v in all_vertices):
+                    poly_skip.add(pi)
+                    # Hide centre-to-vertex bonds for skipped polyhedra.
+                    for kk, bond in adjacency.get(poly.centre_index, []):
+                        if kk in poly.neighbour_indices:
+                            poly_clip_hidden_bonds.add(id(bond))
+            elif slab_clip_mode == SlabClipMode.INCLUDE_WHOLE:
+                if slab_visible[poly.centre_index]:
+                    slab_force_visible.update(all_vertices)
+                else:
+                    poly_skip.add(pi)
+        if slab_clip_mode == SlabClipMode.INCLUDE_WHOLE and slab_force_visible:
+            slab_visible = slab_visible.copy()
+            for v in slab_force_visible:
+                slab_visible[v] = True
 
     ax.set_facecolor(bg_rgb)
 
@@ -793,7 +821,6 @@ def _draw_scene(
         bond_spec_colours: dict[int, tuple[float, float, float]] = {}
 
     # ---- Polyhedra face data ----
-    polyhedra_list = precomputed["polyhedra"]
     hidden_atoms = precomputed["hidden_atoms"]
     hidden_bond_ids = precomputed["hidden_bond_ids"]
     poly_base_colours = precomputed["poly_base_colours"]
@@ -808,6 +835,8 @@ def _draw_scene(
     if show_polyhedra and polyhedra_list:
         atom_depths_sorted = depth[order]  # depths in back-to-front order
         for pi, poly in enumerate(polyhedra_list):
+            if pi in poly_skip:
+                continue
             base_rgb = poly_base_colours[pi]
             alpha = poly_alphas[pi]
             edge_rgb = poly_edge_colours[pi]
@@ -817,6 +846,8 @@ def _draw_scene(
                 global_idx = [poly.neighbour_indices[j] for j in face_row]
 
                 # Slab check: all vertices must be visible.
+                # (In include_whole mode, slab_visible has already
+                # been updated to force polyhedron vertices visible.)
                 if not all(slab_visible[gi] for gi in global_idx):
                     continue
 
@@ -875,6 +906,9 @@ def _draw_scene(
             if bond_id in drawn_bonds:
                 continue
             if bond_id in hidden_bond_ids:
+                drawn_bonds.add(bond_id)
+                continue
+            if bond_id in poly_clip_hidden_bonds:
                 drawn_bonds.add(bond_id)
                 continue
 

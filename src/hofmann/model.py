@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import StrEnum
 from fnmatch import fnmatch
 from typing import TYPE_CHECKING
 
@@ -61,6 +62,27 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
     raise ValueError(f"Cannot interpret colour: {colour!r}")
 
 
+class SlabClipMode(StrEnum):
+    """How slab clipping interacts with coordination polyhedra.
+
+    Controls whether polyhedra at the slab boundary are drawn partially,
+    dropped entirely, or forced to be complete.
+
+    Attributes:
+        PER_FACE: Drop individual faces whose vertices lie outside the
+            slab.  May produce partial polyhedron fragments.
+        CLIP_WHOLE: If any vertex of a polyhedron is outside the slab,
+            skip the entire polyhedron and its centre-to-vertex bonds.
+        INCLUDE_WHOLE: If the centre atom is inside the slab, force
+            all vertices and bonds of the polyhedron to be visible
+            regardless of slab depth.
+    """
+
+    PER_FACE = "per_face"
+    CLIP_WHOLE = "clip_whole"
+    INCLUDE_WHOLE = "include_whole"
+
+
 @dataclass
 class RenderStyle:
     """Visual style settings for rendering.
@@ -94,6 +116,12 @@ class RenderStyle:
             ``True``.
         atom_outline_width: Line width for atom outlines (points).
         bond_outline_width: Line width for bond outlines (points).
+        slab_clip_mode: How slab clipping affects polyhedra at the
+            boundary.  ``"per_face"`` drops individual faces with
+            out-of-slab vertices (default), ``"clip_whole"`` hides
+            the entire polyhedron if any vertex is clipped, and
+            ``"include_whole"`` forces the complete polyhedron to be
+            visible when its centre atom is in the slab.
     """
 
     atom_scale: float = 0.5
@@ -106,6 +134,11 @@ class RenderStyle:
     outline_colour: Colour = (0.15, 0.15, 0.15)
     atom_outline_width: float = 1.5
     bond_outline_width: float = 1.0
+    slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
+
+    def __post_init__(self) -> None:
+        if isinstance(self.slab_clip_mode, str):
+            self.slab_clip_mode = SlabClipMode(self.slab_clip_mode)
 
 
 @dataclass
