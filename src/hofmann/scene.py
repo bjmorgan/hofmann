@@ -92,7 +92,11 @@ def _expand_pbc(
 
     if cutoff is None:
         if not bond_specs:
-            return species_list, structure.cart_coords.copy()
+            # Wrap fractional coordinates to [0, 1) for consistency
+            # with the main expansion path.
+            frac = structure.frac_coords % 1.0
+            coords = frac @ structure.lattice.matrix
+            return species_list, coords
         cutoff = max(spec.max_length for spec in bond_specs)
 
     lattice = structure.lattice
