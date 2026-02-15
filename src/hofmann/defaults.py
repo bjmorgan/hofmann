@@ -8,7 +8,6 @@ but with desaturated tones that reproduce well in print.
 from hofmann.model import AtomStyle, BondSpec, Colour
 
 #: Mapping from element symbols to muted, publication-friendly RGB colours.
-#:
 #: Common elements use hand-picked colours; less common elements use
 #: desaturated tones grouped by periodic table region.  Values are
 #: normalised to the ``[0, 1]`` range.
@@ -126,7 +125,6 @@ ELEMENT_COLOURS: dict[str, tuple[float, float, float]] = {
 }
 
 #: Covalent radii in angstroms, from Cordero *et al.*, Dalton Trans. 2008.
-#:
 #: Used by :func:`default_bond_specs` to estimate bond length ranges.
 COVALENT_RADII: dict[str, float] = {
     "H":  0.31,

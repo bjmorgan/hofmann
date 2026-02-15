@@ -17,7 +17,12 @@ dependencies = [
 [project.optional-dependencies]
 pymatgen = ["pymatgen>=2024.1.1"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
-all = ["hofmann[pymatgen,dev]"]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-rtd-theme>=2.0",
+    "sphinx-autodoc-typehints>=2.0",
+]
+all = ["hofmann[pymatgen,dev,docs]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
