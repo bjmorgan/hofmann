@@ -8,6 +8,8 @@ from hofmann.model import (
     Bond,
     BondSpec,
     Frame,
+    Polyhedron,
+    PolyhedronSpec,
     StructureScene,
     ViewState,
     normalise_colour,
@@ -409,5 +411,75 @@ class TestStructureScene:
         )
         assert scene.atom_styles == {}
         assert scene.bond_specs == []
+        assert scene.polyhedra == []
         assert scene.title == ""
         np.testing.assert_array_equal(scene.view.rotation, np.eye(3))
+
+
+# --- PolyhedronSpec ---
+
+
+class TestPolyhedronSpec:
+    def test_defaults(self):
+        spec = PolyhedronSpec(centre="Ti")
+        assert spec.centre == "Ti"
+        assert spec.colour is None
+        assert spec.alpha == 0.4
+        assert spec.edge_colour == (0.15, 0.15, 0.15)
+        assert spec.edge_width == 0.8
+        assert spec.hide_centre is False
+        assert spec.hide_bonds is False
+        assert spec.hide_vertices is False
+        assert spec.min_vertices is None
+
+    def test_custom_values(self):
+        spec = PolyhedronSpec(
+            centre="Si",
+            colour=(0.2, 0.4, 0.8),
+            alpha=0.6,
+            edge_colour="black",
+            edge_width=1.5,
+            hide_centre=True,
+            hide_bonds=True,
+            hide_vertices=True,
+            min_vertices=6,
+        )
+        assert spec.centre == "Si"
+        assert spec.colour == (0.2, 0.4, 0.8)
+        assert spec.alpha == 0.6
+        assert spec.hide_centre is True
+        assert spec.hide_bonds is True
+        assert spec.hide_vertices is True
+        assert spec.min_vertices == 6
+
+
+# --- Polyhedron ---
+
+
+class TestPolyhedron:
+    def test_is_frozen(self):
+        faces = [np.array([0, 1, 2])]
+        spec = PolyhedronSpec(centre="Ti")
+        poly = Polyhedron(
+            centre_index=0,
+            neighbour_indices=(1, 2, 3),
+            faces=faces,
+            spec=spec,
+        )
+        with pytest.raises(AttributeError):
+            poly.centre_index = 5  # type: ignore[misc]
+
+    def test_fields(self):
+        faces = [np.array([0, 1, 2]), np.array([0, 2, 3])]
+        spec = PolyhedronSpec(centre="Ti")
+        poly = Polyhedron(
+            centre_index=0,
+            neighbour_indices=(1, 2, 3, 4),
+            faces=faces,
+            spec=spec,
+        )
+        assert poly.centre_index == 0
+        assert poly.neighbour_indices == (1, 2, 3, 4)
+        assert len(poly.faces) == 2
+        assert all(len(f) == 3 for f in poly.faces)
+        assert poly.spec is spec

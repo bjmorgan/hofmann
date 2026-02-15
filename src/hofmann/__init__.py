@@ -12,6 +12,7 @@ Example usage::
 """
 
 from hofmann.bonds import compute_bonds
+from hofmann.polyhedra import compute_polyhedra
 from hofmann.defaults import (
     COVALENT_RADII,
     ELEMENT_COLOURS,
@@ -24,6 +25,8 @@ from hofmann.model import (
     BondSpec,
     Colour,
     Frame,
+    Polyhedron,
+    PolyhedronSpec,
     RenderStyle,
     StructureScene,
     ViewState,
@@ -39,10 +42,13 @@ __all__ = [
     "Colour",
     "ELEMENT_COLOURS",
     "Frame",
+    "Polyhedron",
+    "PolyhedronSpec",
     "RenderStyle",
     "StructureScene",
     "ViewState",
     "compute_bonds",
+    "compute_polyhedra",
     "default_atom_style",
     "default_bond_specs",
     "from_pymatgen",

@@ -200,6 +200,161 @@ class TestFromPymatgenPbc:
         assert len(scene_tight.species) == 1
 
 
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestExpandPbcBonds:
+    """Tests for bond-aware PBC expansion."""
+
+    def test_bonded_image_added(self):
+        """An image atom forming a valid bond across the boundary is added."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        # Na at frac (0.5, 0.5, 0.5) — centre of cell.
+        # Cl at frac (0.95, 0.5, 0.5) — near far face.
+        # Bond cutoff 2.0 A: Cl image at frac (-0.05) = cart -0.25
+        # is 2.75 A from Na at cart 2.5 — too far.
+        # Use a 3.0 cutoff to catch it.
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.95, 0.5, 0.5]],
+        )
+        bond_spec = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        # With a tight pbc_cutoff=0.5, _expand_pbc won't add the Cl image
+        # (Cl is at frac 0.95, cutoff/face_dist = 0.5/5 = 0.1, and
+        # 1 - 0.95 = 0.05 < 0.1, so actually it WILL be added).
+        # Use an even tighter cutoff of 0.1 to exclude it.
+        scene = from_pymatgen(
+            struct, bond_specs=[bond_spec], pbc=True, pbc_cutoff=0.1,
+        )
+        # _expand_pbc with cutoff=0.1: Cl at frac 0.95 has
+        # 1-0.95=0.05, frac_cutoff=0.1/5=0.02. 0.05 > 0.02, so
+        # _expand_pbc does NOT add an image.
+        # But _expand_pbc_bonds should find the Cl image at (-1,0,0)
+        # at cart -0.25 which is 2.75 from Na at 2.5 — within 3.0.
+        assert len(scene.species) >= 3  # Na, Cl, + at least one image
+
+    def test_no_bond_specs_no_extra_images(self):
+        """With no bond specs, no extra images are added."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
+        scene = from_pymatgen(struct, bond_specs=[], pbc=True, pbc_cutoff=0.1)
+        assert len(scene.species) == 1
+
+    def test_non_recursive(self):
+        """Image atoms should not generate further images."""
+        from hofmann.bonds import compute_bonds
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(4.0)
+        # Two atoms that will bond across boundary.
+        struct = Structure(
+            lattice, ["Na", "Na"],
+            [[0.01, 0.5, 0.5], [0.99, 0.5, 0.5]],
+        )
+        bond_spec = BondSpec(
+            species=("Na", "Na"), min_length=0.0,
+            max_length=2.0, radius=0.1, colour=0.5,
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond_spec], pbc=True, pbc_cutoff=0.5,
+        )
+        # We should have the 2 unit-cell atoms + their images, but
+        # not images-of-images (which would be at frac ~2.0 or ~-1.0).
+        coords = scene.frames[0].coords
+        # All x coordinates should be within roughly [-cutoff, a+cutoff].
+        assert np.all(coords[:, 0] > -2.5)
+        assert np.all(coords[:, 0] < 6.5)
+
+
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestExpandPolyhedraVertices:
+    """Tests for vertex expansion of image polyhedron centres."""
+
+    def test_image_centre_gets_vertex_atoms(self):
+        """An image atom matching a centre pattern gets its vertex atoms added."""
+        from hofmann.model import BondSpec, PolyhedronSpec
+
+        lattice = Lattice.cubic(5.0)
+        # Ti at frac (0.02, 0.5, 0.5) — near origin face, will get an image.
+        # O at frac (0.5, 0.5, 0.5) — centre of cell, bonds to Ti.
+        struct = Structure(
+            lattice, ["Ti", "O"],
+            [[0.02, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        )
+        ti_o_bond = BondSpec(
+            species=("Ti", "O"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        # Ti at frac 0.02 gets a +1 image at frac 1.02 (cart 5.1).
+        # That image Ti needs its own O vertex atom at cart 5.1 + offset.
+        scene = from_pymatgen(
+            struct,
+            bond_specs=[ti_o_bond],
+            polyhedra=[PolyhedronSpec(centre="Ti")],
+            pbc=True,
+            pbc_cutoff=1.0,
+        )
+        # The image Ti should have vertex atoms added for it.
+        # Count Ti atoms — should be at least 2 (original + image).
+        ti_count = sum(1 for sp in scene.species if sp == "Ti")
+        assert ti_count >= 2
+        # O atoms should include vertices for the image Ti.
+        o_count = sum(1 for sp in scene.species if sp == "O")
+        assert o_count >= 2
+
+    def test_no_polyhedra_specs_no_vertex_expansion(self):
+        """Without polyhedra specs, no vertex expansion occurs."""
+        from hofmann.model import BondSpec, PolyhedronSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Ti", "O"],
+            [[0.02, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        )
+        ti_o_bond = BondSpec(
+            species=("Ti", "O"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        scene_no_poly = from_pymatgen(
+            struct, bond_specs=[ti_o_bond], pbc=True, pbc_cutoff=1.0,
+        )
+        scene_with_poly = from_pymatgen(
+            struct, bond_specs=[ti_o_bond],
+            polyhedra=[PolyhedronSpec(centre="Ti")],
+            pbc=True, pbc_cutoff=1.0,
+        )
+        # With polyhedra, more atoms are added for vertex expansion.
+        assert len(scene_with_poly.species) >= len(scene_no_poly.species)
+
+    def test_vertex_expansion_not_recursive(self):
+        """Newly added vertex atoms should not themselves get expanded."""
+        from hofmann.model import BondSpec, PolyhedronSpec
+
+        lattice = Lattice.cubic(4.0)
+        # Ti near origin face, O in centre.
+        struct = Structure(
+            lattice, ["Ti", "O"],
+            [[0.02, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Ti", "O"), min_length=0.0,
+            max_length=2.5, radius=0.1, colour=0.5,
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond],
+            polyhedra=[PolyhedronSpec(centre="Ti")],
+            pbc=True, pbc_cutoff=1.0,
+        )
+        coords = scene.frames[0].coords
+        # All coordinates should be within a reasonable range of the cell,
+        # not extending to 2+ lattice vectors away.
+        assert np.all(coords[:, 0] > -3.0)
+        assert np.all(coords[:, 0] < 7.0)
+
+
 class TestFromPymatgenImportError:
     def test_import_error_when_missing(self, monkeypatch):
         """Verify a helpful ImportError when pymatgen is absent."""

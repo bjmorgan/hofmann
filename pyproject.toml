@@ -11,13 +11,13 @@ license = {text = "MIT"}
 dependencies = [
     "numpy>=1.24",
     "matplotlib>=3.7",
+    "scipy>=1.10",
 ]
 
 [project.optional-dependencies]
-interactive = ["plotly>=5.0", "ipywidgets>=8.0"]
 pymatgen = ["pymatgen>=2024.1.1"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
-all = ["hofmann[interactive,pymatgen,dev]"]
+all = ["hofmann[pymatgen,dev]"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

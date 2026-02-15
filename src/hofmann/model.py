@@ -88,6 +88,7 @@ class RenderStyle:
         half_bonds: Split each bond at the midpoint and colour halves
             to match the nearest atom.
         show_bonds: Whether to draw bonds at all.
+        show_polyhedra: Whether to draw coordination polyhedra.
         show_outlines: Whether to draw outlines around atoms and bonds.
         outline_colour: Colour for outlines when *show_outlines* is
             ``True``.
@@ -100,6 +101,7 @@ class RenderStyle:
     bond_colour: Colour | None = None
     half_bonds: bool = True
     show_bonds: bool = True
+    show_polyhedra: bool = True
     show_outlines: bool = True
     outline_colour: Colour = (0.15, 0.15, 0.15)
     atom_outline_width: float = 1.5
@@ -179,6 +181,63 @@ class Bond:
     index_b: int
     length: float
     spec: BondSpec
+
+
+@dataclass
+class PolyhedronSpec:
+    """Declarative rule for rendering coordination polyhedra.
+
+    A polyhedron is drawn around each atom whose species matches
+    *centre*, using its bonded neighbours as vertices of a convex
+    hull.  Species names support fnmatch-style wildcards.
+
+    Attributes:
+        centre: Species pattern for the centre atom (e.g. ``"Ti"``).
+        colour: Face colour, or ``None`` to inherit from the centre
+            atom's style colour.
+        alpha: Face transparency (0 = fully transparent, 1 = opaque).
+        edge_colour: Colour for face wireframe edges.
+        edge_width: Line width for face wireframe edges (points).
+        hide_centre: Whether to hide the centre atom circle when
+            a polyhedron is drawn.
+        hide_bonds: Whether to hide bonds from the centre atom to
+            its coordinating neighbours when a polyhedron is drawn.
+        hide_vertices: Whether to hide the vertex atom circles.
+            An atom is only hidden if *every* polyhedron it
+            participates in has ``hide_vertices=True``.
+        min_vertices: Minimum number of bonded neighbours required
+            to draw a polyhedron.  Centre atoms with fewer neighbours
+            are skipped.  ``None`` uses the default minimum of 3.
+    """
+
+    centre: str
+    colour: Colour | None = None
+    alpha: float = 0.4
+    edge_colour: Colour = (0.15, 0.15, 0.15)
+    edge_width: float = 0.8
+    hide_centre: bool = False
+    hide_bonds: bool = False
+    hide_vertices: bool = False
+    min_vertices: int | None = None
+
+
+@dataclass(frozen=True)
+class Polyhedron:
+    """A computed coordination polyhedron.
+
+    Attributes:
+        centre_index: Index of the centre atom.
+        neighbour_indices: Indices of the coordinating atoms.
+        faces: List of faces, each a 1-D array of vertex indices
+            into *neighbour_indices*.  Triangular faces have length 3;
+            merged coplanar faces may have 4 or more vertices.
+        spec: The PolyhedronSpec that produced this polyhedron.
+    """
+
+    centre_index: int
+    neighbour_indices: tuple[int, ...]
+    faces: list[np.ndarray]
+    spec: PolyhedronSpec
 
 
 @dataclass
@@ -394,16 +453,23 @@ class StructureScene:
         frames: List of coordinate snapshots.
         atom_styles: Mapping from species label to visual style.
         bond_specs: Declarative bond detection rules.
+        polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
+        n_unit_cell_atoms: Number of atoms in the original unit cell
+            before PBC expansion.  When set, only atoms with index
+            below this value are considered as polyhedron centres.
+            ``None`` means all atoms are candidates.
     """
 
     species: list[str]
     frames: list[Frame]
     atom_styles: dict[str, AtomStyle] = field(default_factory=dict)
     bond_specs: list[BondSpec] = field(default_factory=list)
+    polyhedra: list[PolyhedronSpec] = field(default_factory=list)
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
+    n_unit_cell_atoms: int | None = None
 
     @classmethod
     def from_xbs(cls, bs_path, mv_path=None):
@@ -413,11 +479,17 @@ class StructureScene:
         return from_xbs(bs_path, mv_path)
 
     @classmethod
-    def from_pymatgen(cls, structure, bond_specs=None, *, pbc=False, pbc_cutoff=None):
+    def from_pymatgen(
+        cls, structure, bond_specs=None, *, polyhedra=None,
+        pbc=False, pbc_cutoff=None,
+    ):
         """Create from pymatgen Structure(s). See ``hofmann.scene.from_pymatgen``."""
         from hofmann.scene import from_pymatgen
 
-        return from_pymatgen(structure, bond_specs, pbc=pbc, pbc_cutoff=pbc_cutoff)
+        return from_pymatgen(
+            structure, bond_specs, polyhedra=polyhedra,
+            pbc=pbc, pbc_cutoff=pbc_cutoff,
+        )
 
     def render_mpl(self, output=None, **kwargs):
         """Render with matplotlib. See ``hofmann.render_mpl.render_mpl``."""

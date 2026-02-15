@@ -30,6 +30,7 @@ from hofmann.model import (
     ViewState,
     normalise_colour,
 )
+from hofmann.polyhedra import compute_polyhedra
 
 # Pre-computed unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
@@ -611,6 +612,49 @@ def _precompute_scene(
         bond_radii[i] = bond.spec.radius
         bond_index[id(bond)] = i
 
+    # ---- Polyhedra ----
+    polyhedra = compute_polyhedra(
+        scene.species, coords, bonds, scene.polyhedra,
+    )
+
+    # Build sets of hidden atoms/bonds from polyhedra specs.
+    hidden_atoms: set[int] = set()
+    hidden_bond_ids: set[int] = set()
+    # For hide_vertices: an atom is hidden only if *every* polyhedron
+    # it participates in has hide_vertices=True.
+    vertex_hide_candidates: set[int] = set()
+    vertex_keep: set[int] = set()
+    for poly in polyhedra:
+        if poly.spec.hide_centre:
+            hidden_atoms.add(poly.centre_index)
+        if poly.spec.hide_bonds:
+            for kk, bond in adjacency.get(poly.centre_index, []):
+                hidden_bond_ids.add(id(bond))
+        for ni in poly.neighbour_indices:
+            if poly.spec.hide_vertices:
+                vertex_hide_candidates.add(ni)
+            else:
+                vertex_keep.add(ni)
+    hidden_atoms |= vertex_hide_candidates - vertex_keep
+
+    # Resolve face base colours per polyhedron.
+    poly_base_colours: list[tuple[float, float, float]] = []
+    poly_alphas: list[float] = []
+    poly_edge_colours: list[tuple[float, float, float]] = []
+    poly_edge_widths: list[float] = []
+    for poly in polyhedra:
+        if poly.spec.colour is not None:
+            base_rgb = normalise_colour(poly.spec.colour)
+        else:
+            # Inherit from centre atom's style.
+            sp = scene.species[poly.centre_index]
+            style = scene.atom_styles.get(sp)
+            base_rgb = normalise_colour(style.colour) if style else (0.5, 0.5, 0.5)
+        poly_base_colours.append(base_rgb)
+        poly_alphas.append(poly.spec.alpha)
+        poly_edge_colours.append(normalise_colour(poly.spec.edge_colour))
+        poly_edge_widths.append(poly.spec.edge_width)
+
     return {
         "coords": coords,
         "radii_3d": radii_3d,
@@ -623,6 +667,13 @@ def _precompute_scene(
         "bond_ib": bond_ib,
         "bond_radii": bond_radii,
         "bond_index": bond_index,
+        "polyhedra": polyhedra,
+        "hidden_atoms": hidden_atoms,
+        "hidden_bond_ids": hidden_bond_ids,
+        "poly_base_colours": poly_base_colours,
+        "poly_alphas": poly_alphas,
+        "poly_edge_colours": poly_edge_colours,
+        "poly_edge_widths": poly_edge_widths,
     }
 
 
@@ -662,6 +713,7 @@ def _draw_scene(
     bond_colour = style.bond_colour
     half_bonds = style.half_bonds
     show_bonds = style.show_bonds
+    show_polyhedra = style.show_polyhedra
     show_outlines = style.show_outlines
     outline_rgb = normalise_colour(style.outline_colour)
     atom_outline_width = style.atom_outline_width
@@ -727,17 +779,78 @@ def _draw_scene(
     if not use_half:
         bond_spec_colours: dict[int, tuple[float, float, float]] = {}
 
+    # ---- Polyhedra face data ----
+    polyhedra_list = precomputed["polyhedra"]
+    hidden_atoms = precomputed["hidden_atoms"]
+    hidden_bond_ids = precomputed["hidden_bond_ids"]
+    poly_base_colours = precomputed["poly_base_colours"]
+    poly_alphas = precomputed["poly_alphas"]
+    poly_edge_colours = precomputed["poly_edge_colours"]
+    poly_edge_widths = precomputed["poly_edge_widths"]
+
+    # Build per-face data: 2D vertices, shaded RGBA, edge colour/width,
+    # centroid depth, and assign each face to a depth slot.
+    # face_by_depth_slot[order_position] -> list of face draw tuples.
+    face_by_depth_slot: dict[int, list[tuple[np.ndarray, tuple, tuple, float]]] = defaultdict(list)
+    if show_polyhedra and polyhedra_list:
+        atom_depths_sorted = depth[order]  # depths in back-to-front order
+        for pi, poly in enumerate(polyhedra_list):
+            base_rgb = poly_base_colours[pi]
+            alpha = poly_alphas[pi]
+            edge_rgb = poly_edge_colours[pi]
+            edge_w = poly_edge_widths[pi]
+            for face_row in poly.faces:
+                # Resolve local face indices to global atom indices.
+                global_idx = [poly.neighbour_indices[j] for j in face_row]
+
+                # Slab check: all vertices must be visible.
+                if not all(slab_visible[gi] for gi in global_idx):
+                    continue
+
+                # Face normal from first two edges (works for any polygon).
+                face_verts = rotated[global_idx]
+                normal = np.cross(
+                    face_verts[1] - face_verts[0],
+                    face_verts[2] - face_verts[0],
+                )
+                norm_len = np.linalg.norm(normal)
+                if norm_len > 1e-12:
+                    cos_angle = abs(normal[2] / norm_len)
+                else:
+                    cos_angle = 0.0
+                shading = 0.4 + 0.6 * cos_angle
+                shaded = tuple(min(1.0, c * shading) for c in base_rgb)
+
+                # Face centroid depth.
+                face_depth = np.mean(depth[global_idx])
+
+                # 2D projected vertices.
+                verts_2d = xy[global_idx]
+
+                # Assign to the depth slot of the first atom in 'order'
+                # whose depth >= face_depth.
+                slot = int(np.searchsorted(atom_depths_sorted, face_depth))
+                if slot >= len(order):
+                    slot = len(order) - 1
+
+                face_by_depth_slot[slot].append((
+                    verts_2d,
+                    (*shaded, alpha),
+                    (*edge_rgb, 1.0),
+                    edge_w,
+                ))
+
     # Collect raw vertex arrays in painter's order, then batch-add
     # via PolyCollection (avoids costly Patch object creation).
     all_verts: list[np.ndarray] = []
-    face_colours: list[tuple[float, float, float]] = []
-    edge_colours: list[tuple[float, float, float]] = []
+    face_colours: list[tuple[float, ...]] = []
+    edge_colours: list[tuple[float, ...]] = []
     line_widths: list[float] = []
 
     drawn_bonds: set[int] = set()
 
     # ---- Paint back-to-front ----
-    for k in order:
+    for order_pos, k in enumerate(order):
         if not slab_visible[k]:
             continue
 
@@ -747,6 +860,9 @@ def _draw_scene(
         for kk, bond in neighbours_sorted:
             bond_id = id(bond)
             if bond_id in drawn_bonds:
+                continue
+            if bond_id in hidden_bond_ids:
+                drawn_bonds.add(bond_id)
                 continue
 
             if depth[k] < depth[kk]:
@@ -766,15 +882,15 @@ def _draw_scene(
                 continue
 
             if use_half:
-                fc_a = bond_half_colours[ia]
+                fc_a = (*bond_half_colours[ia], 1.0)
                 all_verts.append(batch_half_a[bi])
                 face_colours.append(fc_a)
-                edge_colours.append(outline_rgb if show_outlines else fc_a)
+                edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_a)
                 line_widths.append(bond_outline_width if show_outlines else 0.0)
-                fc_b = bond_half_colours[ib]
+                fc_b = (*bond_half_colours[ib], 1.0)
                 all_verts.append(batch_half_b[bi])
                 face_colours.append(fc_b)
-                edge_colours.append(outline_rgb if show_outlines else fc_b)
+                edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_b)
                 line_widths.append(bond_outline_width if show_outlines else 0.0)
             else:
                 spec_id = id(bond.spec)
@@ -791,15 +907,24 @@ def _draw_scene(
                 brgb = bond_spec_colours[spec_id]
 
                 all_verts.append(batch_full_verts[bi])
-                face_colours.append(brgb)
-                edge_colours.append(outline_rgb if show_outlines else brgb)
+                face_colours.append((*brgb, 1.0))
+                edge_colours.append((*outline_rgb, 1.0) if show_outlines else (*brgb, 1.0))
                 line_widths.append(bond_outline_width if show_outlines else 0.0)
 
-        fc_atom = atom_colours[k]
-        all_verts.append(_UNIT_CIRCLE * atom_screen_radii[k] + xy[k])
-        face_colours.append(fc_atom)
-        edge_colours.append(outline_rgb if show_outlines else fc_atom)
-        line_widths.append(atom_outline_width if show_outlines else 0.0)
+        # Draw polyhedron faces assigned to this depth slot.
+        for face_verts, face_fc, face_ec, face_lw in face_by_depth_slot.get(order_pos, []):
+            all_verts.append(face_verts)
+            face_colours.append(face_fc)
+            edge_colours.append(face_ec)
+            line_widths.append(face_lw)
+
+        # Draw atom circle (unless hidden by a polyhedron spec).
+        if k not in hidden_atoms:
+            fc_atom = (*atom_colours[k], 1.0)
+            all_verts.append(_UNIT_CIRCLE * atom_screen_radii[k] + xy[k])
+            face_colours.append(fc_atom)
+            edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_atom)
+            line_widths.append(atom_outline_width if show_outlines else 0.0)
 
     if all_verts:
         pc = PolyCollection(

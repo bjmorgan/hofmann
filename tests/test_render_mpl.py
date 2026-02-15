@@ -8,6 +8,7 @@ from hofmann.model import (
     AtomStyle,
     BondSpec,
     Frame,
+    PolyhedronSpec,
     RenderStyle,
     StructureScene,
     ViewState,
@@ -593,3 +594,172 @@ class TestHalfBondVertsBatch:
         n_bonds = len(bonds)
         assert half_a.shape == (n_bonds, _N_ARC + 2, 2)
         assert half_b.shape == (n_bonds, _N_ARC + 2, 2)
+
+
+# --- Polyhedra rendering ---
+
+
+def _octahedron_scene(**poly_kwargs):
+    """Build a TiO6 octahedron scene for polyhedra testing."""
+    species = ["Ti"] + ["O"] * 6
+    coords = np.array([
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [-2.0, 0.0, 0.0],
+        [0.0, 2.0, 0.0],
+        [0.0, -2.0, 0.0],
+        [0.0, 0.0, 2.0],
+        [0.0, 0.0, -2.0],
+    ])
+    return StructureScene(
+        species=species,
+        frames=[Frame(coords=coords)],
+        atom_styles={
+            "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+            "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+        },
+        bond_specs=[BondSpec(
+            species=("O", "Ti"), min_length=0.0, max_length=3.0,
+            radius=0.1, colour=0.5,
+        )],
+        polyhedra=[PolyhedronSpec(centre="Ti", **poly_kwargs)],
+    )
+
+
+class TestPolyhedraRendering:
+    def test_smoke(self):
+        """Scene with TiO6 octahedron renders without error."""
+        scene = _octahedron_scene()
+        fig = render_mpl(scene, show=False)
+        assert isinstance(fig, Figure)
+
+    def test_produces_extra_polygons(self):
+        """With polyhedra, more polygons are drawn than without."""
+        scene_no_poly = _octahedron_scene()
+        scene_no_poly.polyhedra = []
+        fig_no = render_mpl(scene_no_poly, show=False)
+        n_no = len(fig_no.axes[0].collections[0].get_paths())
+
+        scene_poly = _octahedron_scene()
+        fig_poly = render_mpl(scene_poly, show=False)
+        n_poly = len(fig_poly.axes[0].collections[0].get_paths())
+
+        assert n_poly > n_no
+
+    def test_show_polyhedra_false(self):
+        """show_polyhedra=False suppresses polyhedron faces."""
+        scene = _octahedron_scene()
+        style_on = RenderStyle(show_polyhedra=True)
+        style_off = RenderStyle(show_polyhedra=False)
+        fig_on = render_mpl(scene, style=style_on, show=False)
+        fig_off = render_mpl(scene, style=style_off, show=False)
+        n_on = len(fig_on.axes[0].collections[0].get_paths())
+        n_off = len(fig_off.axes[0].collections[0].get_paths())
+        assert n_on > n_off
+
+    def test_hide_centre(self):
+        """hide_centre=True removes the centre atom's circle."""
+        scene_show = _octahedron_scene(hide_centre=False)
+        scene_hide = _octahedron_scene(hide_centre=True)
+        fig_show = render_mpl(scene_show, show=False)
+        fig_hide = render_mpl(scene_hide, show=False)
+        n_show = len(fig_show.axes[0].collections[0].get_paths())
+        n_hide = len(fig_hide.axes[0].collections[0].get_paths())
+        # Hiding the centre atom removes 1 polygon.
+        assert n_show - n_hide == 1
+
+    def test_hide_bonds(self):
+        """hide_bonds=True removes bonds from centre to neighbours."""
+        scene_show = _octahedron_scene(hide_bonds=False)
+        scene_hide = _octahedron_scene(hide_bonds=True)
+        fig_show = render_mpl(scene_show, show=False)
+        fig_hide = render_mpl(scene_hide, show=False)
+        n_show = len(fig_show.axes[0].collections[0].get_paths())
+        n_hide = len(fig_hide.axes[0].collections[0].get_paths())
+        # Hiding bonds should reduce polygon count.
+        assert n_show > n_hide
+
+    def test_face_colours_have_alpha(self):
+        """Polyhedron face colours should include an alpha channel."""
+        scene = _octahedron_scene()
+        fig = render_mpl(scene, show=False)
+        pc = fig.axes[0].collections[0]
+        fc = pc.get_facecolors()
+        # All colours should have 4 components (RGBA).
+        assert fc.shape[1] == 4
+        # Some faces should have alpha < 1 (the polyhedron faces).
+        alphas = fc[:, 3]
+        assert np.any(alphas < 1.0)
+
+    def test_hide_vertices(self):
+        """hide_vertices=True removes vertex atom circles."""
+        scene_show = _octahedron_scene(hide_vertices=False)
+        scene_hide = _octahedron_scene(hide_vertices=True)
+        fig_show = render_mpl(scene_show, show=False)
+        fig_hide = render_mpl(scene_hide, show=False)
+        n_show = len(fig_show.axes[0].collections[0].get_paths())
+        n_hide = len(fig_hide.axes[0].collections[0].get_paths())
+        # Hiding 6 O vertex atoms removes 6 polygons.
+        assert n_show - n_hide == 6
+
+    def test_hide_vertices_shared_vertex_not_hidden(self):
+        """A shared vertex is kept if any polyhedron has hide_vertices=False."""
+        # Ti and Zr centres sharing one O vertex at the origin.
+        # Ti at (-3,0,0) with 4 O neighbours including shared O at origin.
+        # Zr at (3,0,0) with 4 O neighbours including shared O at origin.
+        species = [
+            "Ti", "Zr",
+            "O", "O", "O",   # Ti-only vertices
+            "O",              # shared vertex (index 5)
+            "O", "O", "O",   # Zr-only vertices
+        ]
+        coords = np.array([
+            [-3.0, 0.0, 0.0],   # Ti
+            [3.0, 0.0, 0.0],    # Zr
+            [-3.0, 2.0, 0.0],   # O bonded to Ti only
+            [-3.0, -2.0, 0.0],  # O bonded to Ti only
+            [-3.0, 0.0, 2.0],   # O bonded to Ti only
+            [0.0, 0.0, 0.0],    # O shared (within 3.0 of both)
+            [3.0, 2.0, 0.0],    # O bonded to Zr only
+            [3.0, -2.0, 0.0],   # O bonded to Zr only
+            [3.0, 0.0, 2.0],    # O bonded to Zr only
+        ])
+        base_styles = {
+            "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+            "Zr": AtomStyle(1.0, (0.4, 0.8, 0.2)),
+            "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+        }
+        base_bonds = [BondSpec(
+            species=("O", "*"), min_length=0.0, max_length=3.5,
+            radius=0.1, colour=0.5,
+        )]
+
+        # Both specs hide vertices — shared O should be hidden.
+        scene_both_hide = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles=base_styles,
+            bond_specs=base_bonds,
+            polyhedra=[
+                PolyhedronSpec(centre="Ti", hide_vertices=True),
+                PolyhedronSpec(centre="Zr", hide_vertices=True),
+            ],
+        )
+        # Zr spec does NOT hide vertices — shared O should be kept.
+        scene_one_keeps = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles=base_styles,
+            bond_specs=base_bonds,
+            polyhedra=[
+                PolyhedronSpec(centre="Ti", hide_vertices=True),
+                PolyhedronSpec(centre="Zr", hide_vertices=False),
+            ],
+        )
+        fig_both = render_mpl(scene_both_hide, show=False)
+        fig_one = render_mpl(scene_one_keeps, show=False)
+        n_both = len(fig_both.axes[0].collections[0].get_paths())
+        n_one = len(fig_one.axes[0].collections[0].get_paths())
+        # When Zr keeps vertices, the shared O is kept -> more polygons.
+        assert n_one > n_both
+

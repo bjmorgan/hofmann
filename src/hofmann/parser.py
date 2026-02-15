@@ -6,7 +6,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hofmann.model import AtomStyle, BondSpec, Frame
+from hofmann.model import AtomStyle, BondSpec, Frame, PolyhedronSpec
 
 
 def _read_source(source: str | Path) -> str:
@@ -41,14 +41,18 @@ def _parse_colour_tokens(tokens: list[str]) -> float | str | tuple[float, float,
 
 def parse_bs(
     source: str | Path,
-) -> tuple[list[str], Frame, dict[str, AtomStyle], list[BondSpec]]:
+) -> tuple[
+    list[str], Frame, dict[str, AtomStyle], list[BondSpec],
+    list[PolyhedronSpec],
+]:
     """Parse an XBS .bs file.
 
     Args:
         source: Path to a ``.bs`` file, or the file content as a string.
 
     Returns:
-        Tuple of ``(species, frame, atom_styles, bond_specs)``.
+        Tuple of ``(species, frame, atom_styles, bond_specs,
+        polyhedra_specs)``.
     """
     text = _read_source(source)
 
@@ -56,6 +60,7 @@ def parse_bs(
     coords: list[list[float]] = []
     atom_styles: dict[str, AtomStyle] = {}
     bond_specs: list[BondSpec] = []
+    polyhedra_specs: list[PolyhedronSpec] = []
 
     for line in text.splitlines():
         line = line.strip()
@@ -90,8 +95,19 @@ def parse_bs(
                 colour=colour,
             ))
 
+        elif command == "poly":
+            centre = parts[1]
+            alpha = float(parts[2]) if len(parts) > 2 else 0.4
+            colour = (
+                _parse_colour_tokens(parts[3:]) if len(parts) > 3
+                else None
+            )
+            polyhedra_specs.append(PolyhedronSpec(
+                centre=centre, alpha=alpha, colour=colour,
+            ))
+
     frame = Frame(coords=np.array(coords), label="")
-    return species, frame, atom_styles, bond_specs
+    return species, frame, atom_styles, bond_specs, polyhedra_specs
 
 
 def parse_mv(source: str | Path, n_atoms: int) -> list[Frame]:
