@@ -415,6 +415,25 @@ class TestStructureScene:
         assert scene.title == ""
         np.testing.assert_array_equal(scene.view.rotation, np.eye(3))
 
+    def test_centre_on(self):
+        coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.centre_on(1)
+        np.testing.assert_array_equal(scene.view.centre, [4.0, 5.0, 6.0])
+
+    def test_centre_on_does_not_alias_coords(self):
+        coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.centre_on(0)
+        scene.view.centre[0] = 999.0
+        assert scene.frames[0].coords[0, 0] == 1.0
+
 
 # --- PolyhedronSpec ---
 

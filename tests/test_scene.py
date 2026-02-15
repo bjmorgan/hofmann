@@ -355,6 +355,48 @@ class TestExpandPolyhedraVertices:
         assert np.all(coords[:, 0] < 7.0)
 
 
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestCentreAtom:
+    """Tests for centre_atom PBC rewrapping."""
+
+    def test_centre_atom_shifts_frac_coords(self):
+        """centre_atom shifts the chosen atom to frac (0.5, 0.5, 0.5)."""
+        lattice = Lattice.cubic(10.0)
+        # Na at corner, Cl in centre.
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+        )
+        scene = from_pymatgen(struct, bond_specs=[], centre_atom=0)
+        # Na (index 0) should now be at frac (0.5, 0.5, 0.5) = cart (5, 5, 5).
+        np.testing.assert_allclose(
+            scene.frames[0].coords[0], [5.0, 5.0, 5.0], atol=1e-10,
+        )
+
+    def test_view_centres_on_atom(self):
+        """The view should centre on the chosen atom's position."""
+        lattice = Lattice.cubic(10.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.1, 0.2, 0.3], [0.6, 0.7, 0.8]],
+        )
+        scene = from_pymatgen(struct, bond_specs=[], centre_atom=0)
+        np.testing.assert_allclose(
+            scene.view.centre, scene.frames[0].coords[0], atol=1e-10,
+        )
+
+    def test_default_centre_atom_is_centroid(self):
+        """Without centre_atom, view centres on the centroid."""
+        lattice = Lattice.cubic(10.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+        )
+        scene = from_pymatgen(struct, bond_specs=[])
+        centroid = np.mean(scene.frames[0].coords, axis=0)
+        np.testing.assert_allclose(scene.view.centre, centroid, atol=1e-10)
+
+
 class TestFromPymatgenImportError:
     def test_import_error_when_missing(self, monkeypatch):
         """Verify a helpful ImportError when pymatgen is absent."""

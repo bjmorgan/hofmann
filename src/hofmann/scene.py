@@ -406,6 +406,7 @@ def from_pymatgen(
     polyhedra: list[PolyhedronSpec] | None = None,
     pbc: bool = False,
     pbc_cutoff: float | None = None,
+    centre_atom: int | None = None,
 ) -> StructureScene:
     """Create a StructureScene from pymatgen Structure(s).
 
@@ -424,6 +425,10 @@ def from_pymatgen(
             face get an image on the opposite side.  If ``None``
             (the default), the maximum bond length from *bond_specs*
             is used.
+        centre_atom: Index of the atom to centre the unit cell on.
+            When set, all fractional coordinates are shifted so that
+            this atom sits at (0.5, 0.5, 0.5) before PBC expansion,
+            and the view is centred on this atom.
 
     Returns:
         A StructureScene with default element styles.
@@ -443,6 +448,17 @@ def from_pymatgen(
         structures = [structure]
     else:
         structures = list(structure)
+
+    # Recentre: shift fractional coordinates so centre_atom is at
+    # (0.5, 0.5, 0.5), then wrap all sites back into [0, 1).
+    if centre_atom is not None:
+        recentred = []
+        for s in structures:
+            s = s.copy()
+            shift = 0.5 - s.frac_coords[centre_atom]
+            s.translate_sites(range(len(s)), shift, frac_coords=True)
+            recentred.append(s)
+        structures = recentred
 
     # Extract element symbols (not species strings like "Li+" or "O2-").
     # .symbol works for both Element and Species objects.
@@ -496,8 +512,11 @@ def from_pymatgen(
         ]
 
     # Centre on first frame.
-    centroid = np.mean(frames[0].coords, axis=0)
-    view = ViewState(centre=centroid)
+    if centre_atom is not None:
+        view = ViewState(centre=frames[0].coords[centre_atom].copy())
+    else:
+        centroid = np.mean(frames[0].coords, axis=0)
+        view = ViewState(centre=centroid)
 
     return StructureScene(
         species=species,

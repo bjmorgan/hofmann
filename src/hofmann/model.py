@@ -481,15 +481,27 @@ class StructureScene:
     @classmethod
     def from_pymatgen(
         cls, structure, bond_specs=None, *, polyhedra=None,
-        pbc=False, pbc_cutoff=None,
+        pbc=False, pbc_cutoff=None, centre_atom=None,
     ):
         """Create from pymatgen Structure(s). See ``hofmann.scene.from_pymatgen``."""
         from hofmann.scene import from_pymatgen
 
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
-            pbc=pbc, pbc_cutoff=pbc_cutoff,
+            pbc=pbc, pbc_cutoff=pbc_cutoff, centre_atom=centre_atom,
         )
+
+    def centre_on(self, atom_index: int, *, frame: int = 0) -> None:
+        """Centre the view on a specific atom.
+
+        Sets :attr:`view.centre` to the Cartesian position of the atom
+        at *atom_index* in the given frame.
+
+        Args:
+            atom_index: Index of the atom to centre on.
+            frame: Frame index to read coordinates from.
+        """
+        self.view.centre = self.frames[frame].coords[atom_index].copy()
 
     def render_mpl(self, output=None, **kwargs):
         """Render with matplotlib. See ``hofmann.render_mpl.render_mpl``."""
