@@ -24,6 +24,7 @@ from hofmann.render_mpl import (
     _project_point,
     _rotation_x,
     _rotation_y,
+    _scene_extent,
     _stick_polygon,
     render_mpl,
 )
@@ -1120,4 +1121,25 @@ class TestNUnitCellAtoms:
         # Only 1 polyhedron (the unit-cell Ti), not 2.
         assert len(precomputed.polyhedra) == 1
         assert precomputed.polyhedra[0].centre_index == 0
+
+
+class TestSceneExtent:
+    """Tests for _scene_extent viewport calculation."""
+
+    def test_perspective_increases_extent(self):
+        """With perspective enabled, the extent should be larger to
+        account for near-camera magnification."""
+        scene = StructureScene(
+            species=["C", "C"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, -5.0],
+                [0.0, 0.0, 5.0],
+            ]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view_no_persp = ViewState(perspective=0.0)
+        view_persp = ViewState(perspective=0.5)
+        e_no = _scene_extent(scene, view_no_persp, 0, atom_scale=0.5)
+        e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
+        assert e_yes > e_no
 

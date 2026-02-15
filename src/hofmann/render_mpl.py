@@ -581,6 +581,20 @@ def _scene_extent(
         radii_3d[i] = style.radius if style is not None else 0.5
 
     max_extent = np.max(dists + radii_3d * atom_scale)
+
+    # Under perspective, atoms near the camera appear larger.  The
+    # worst-case magnification for an atom at distance *d* from the
+    # view centre is when it is rotated to depth z = +d (closest to
+    # the camera).
+    if view.perspective > 0:
+        worst_depth = np.max(dists)
+        denom = view.view_distance - worst_depth * view.perspective
+        if denom > 0:
+            persp_scale = view.view_distance / denom
+        else:
+            persp_scale = view.view_distance / 1e-6
+        max_extent *= persp_scale
+
     return float(max_extent * view.zoom)
 
 
