@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fnmatch import fnmatch
 from pathlib import Path
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -13,7 +14,7 @@ from hofmann.model import BondSpec, Frame, PolyhedronSpec, StructureScene, ViewS
 from hofmann.parser import parse_bs, parse_mv
 
 if TYPE_CHECKING:
-    pass
+    from pymatgen.core import Structure
 
 
 def from_xbs(
@@ -55,7 +56,7 @@ def from_xbs(
 
 
 def _expand_pbc(
-    structure,
+    structure: Structure,
     bond_specs: list[BondSpec],
     cutoff: float | None = None,
 ) -> tuple[list[str], np.ndarray]:
@@ -202,7 +203,7 @@ def _merge_expansions(
 
 
 def _expand_bonds(
-    structure,
+    structure: Structure,
     bond_specs: list[BondSpec],
 ) -> tuple[list[str], np.ndarray]:
     """Add periodic image atoms that form valid bonds with unit-cell atoms.
@@ -279,7 +280,7 @@ def _expand_bonds(
 
 
 def _expand_polyhedra_vertices(
-    structure,
+    structure: Structure,
     expanded_species: list[str],
     expanded_coords: np.ndarray,
     n_uc: int,
@@ -400,7 +401,7 @@ def _expand_polyhedra_vertices(
 
 
 def from_pymatgen(
-    structure,
+    structure: Structure | Sequence[Structure],
     bond_specs: list[BondSpec] | None = None,
     *,
     polyhedra: list[PolyhedronSpec] | None = None,

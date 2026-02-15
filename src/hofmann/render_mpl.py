@@ -14,6 +14,7 @@ zoom.
 
 from __future__ import annotations
 
+import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
@@ -739,6 +740,122 @@ def _precompute_scene(
     )
 
 
+def _apply_slab_clip(
+    slab_visible: np.ndarray,
+    slab_clip_mode: SlabClipMode,
+    polyhedra_list: list,
+    adjacency: dict[int, list[tuple[int, object]]],
+    show_polyhedra: bool,
+) -> tuple[np.ndarray, set[int], set[int]]:
+    """Apply polyhedra-aware slab-clip overrides.
+
+    Returns:
+        Updated *slab_visible* array (copied if modified),
+        *poly_skip* (polyhedron indices to skip entirely), and
+        *poly_clip_hidden_bonds* (bond ``id()`` values to hide).
+    """
+    poly_skip: set[int] = set()
+    poly_clip_hidden_bonds: set[int] = set()
+    if (not show_polyhedra or not polyhedra_list
+            or slab_clip_mode == SlabClipMode.PER_FACE):
+        return slab_visible, poly_skip, poly_clip_hidden_bonds
+
+    slab_force_visible: set[int] = set()
+    for pi, poly in enumerate(polyhedra_list):
+        all_vertices = set(poly.neighbour_indices) | {poly.centre_index}
+        if slab_clip_mode == SlabClipMode.CLIP_WHOLE:
+            if not all(slab_visible[v] for v in all_vertices):
+                poly_skip.add(pi)
+                for kk, bond in adjacency.get(poly.centre_index, []):
+                    if kk in poly.neighbour_indices:
+                        poly_clip_hidden_bonds.add(id(bond))
+        elif slab_clip_mode == SlabClipMode.INCLUDE_WHOLE:
+            if slab_visible[poly.centre_index]:
+                slab_force_visible.update(all_vertices)
+            else:
+                poly_skip.add(pi)
+    if slab_clip_mode == SlabClipMode.INCLUDE_WHOLE and slab_force_visible:
+        slab_visible = slab_visible.copy()
+        for v in slab_force_visible:
+            slab_visible[v] = True
+    return slab_visible, poly_skip, poly_clip_hidden_bonds
+
+
+def _collect_polyhedra_faces(
+    precomputed: _PrecomputedScene,
+    polyhedra_list: list,
+    poly_skip: set[int],
+    slab_visible: np.ndarray,
+    show_polyhedra: bool,
+    polyhedra_shading: float,
+    rotated: np.ndarray,
+    depth: np.ndarray,
+    xy: np.ndarray,
+    order: np.ndarray,
+) -> dict[int, list[tuple[np.ndarray, tuple, tuple, float]]]:
+    """Build per-face draw data and assign each face to a depth slot.
+
+    Returns a mapping from depth-slot index (position in *order*) to a
+    list of ``(verts_2d, face_rgba, edge_rgba, edge_width)`` tuples.
+    """
+    face_by_depth_slot: dict[
+        int, list[tuple[np.ndarray, tuple, tuple, float]]
+    ] = defaultdict(list)
+    if not show_polyhedra or not polyhedra_list:
+        return face_by_depth_slot
+
+    poly_base_colours = precomputed.poly_base_colours
+    poly_alphas = precomputed.poly_alphas
+    poly_edge_colours = precomputed.poly_edge_colours
+    poly_edge_widths = precomputed.poly_edge_widths
+
+    atom_depths_sorted = depth[order]
+    for pi, poly in enumerate(polyhedra_list):
+        if pi in poly_skip:
+            continue
+        base_rgb = poly_base_colours[pi]
+        alpha = poly_alphas[pi]
+        edge_rgb = poly_edge_colours[pi]
+        edge_w = poly_edge_widths[pi]
+        for face_row in poly.faces:
+            global_idx = [poly.neighbour_indices[j] for j in face_row]
+
+            # Slab check: all vertices must be visible.
+            # (In include_whole mode, slab_visible has already been
+            # updated to force polyhedron vertices visible.)
+            if not all(slab_visible[gi] for gi in global_idx):
+                continue
+
+            # Face normal from first two edges (works for any polygon).
+            face_verts = rotated[global_idx]
+            normal = np.cross(
+                face_verts[1] - face_verts[0],
+                face_verts[2] - face_verts[0],
+            )
+            norm_len = np.linalg.norm(normal)
+            if norm_len > 1e-12:
+                cos_angle = abs(normal[2] / norm_len)
+            else:
+                cos_angle = 0.0
+            shading = 1.0 - polyhedra_shading * 0.6 * (1.0 - cos_angle)
+            shaded = tuple(min(1.0, c * shading) for c in base_rgb)
+
+            face_depth = np.mean(depth[global_idx])
+            verts_2d = xy[global_idx]
+
+            slot = int(np.searchsorted(atom_depths_sorted, face_depth))
+            if slot >= len(order):
+                slot = len(order) - 1
+
+            face_by_depth_slot[slot].append((
+                verts_2d,
+                (*shaded, alpha),
+                (*edge_rgb, 1.0),
+                edge_w,
+            ))
+    return face_by_depth_slot
+
+
 def _draw_scene(
     ax,
     scene: StructureScene,
@@ -814,30 +931,11 @@ def _draw_scene(
     slab_visible = view.slab_mask(coords)
 
     # ---- Slab-clip overrides for polyhedra ----
-    poly_skip: set[int] = set()
-    poly_clip_hidden_bonds: set[int] = set()
     polyhedra_list = precomputed.polyhedra
-    if (show_polyhedra and polyhedra_list
-            and slab_clip_mode != SlabClipMode.PER_FACE):
-        slab_force_visible: set[int] = set()
-        for pi, poly in enumerate(polyhedra_list):
-            all_vertices = set(poly.neighbour_indices) | {poly.centre_index}
-            if slab_clip_mode == SlabClipMode.CLIP_WHOLE:
-                if not all(slab_visible[v] for v in all_vertices):
-                    poly_skip.add(pi)
-                    # Hide centre-to-vertex bonds for skipped polyhedra.
-                    for kk, bond in adjacency.get(poly.centre_index, []):
-                        if kk in poly.neighbour_indices:
-                            poly_clip_hidden_bonds.add(id(bond))
-            elif slab_clip_mode == SlabClipMode.INCLUDE_WHOLE:
-                if slab_visible[poly.centre_index]:
-                    slab_force_visible.update(all_vertices)
-                else:
-                    poly_skip.add(pi)
-        if slab_clip_mode == SlabClipMode.INCLUDE_WHOLE and slab_force_visible:
-            slab_visible = slab_visible.copy()
-            for v in slab_force_visible:
-                slab_visible[v] = True
+    slab_visible, poly_skip, poly_clip_hidden_bonds = _apply_slab_clip(
+        slab_visible, slab_clip_mode, polyhedra_list, adjacency,
+        show_polyhedra,
+    )
 
     ax.set_facecolor(bg_rgb)
 
@@ -875,66 +973,11 @@ def _draw_scene(
     # ---- Polyhedra face data ----
     hidden_atoms = precomputed.hidden_atoms
     hidden_bond_ids = precomputed.hidden_bond_ids
-    poly_base_colours = precomputed.poly_base_colours
-    poly_alphas = precomputed.poly_alphas
-    poly_edge_colours = precomputed.poly_edge_colours
-    poly_edge_widths = precomputed.poly_edge_widths
 
-    # Build per-face data: 2D vertices, shaded RGBA, edge colour/width,
-    # centroid depth, and assign each face to a depth slot.
-    # face_by_depth_slot[order_position] -> list of face draw tuples.
-    face_by_depth_slot: dict[int, list[tuple[np.ndarray, tuple, tuple, float]]] = defaultdict(list)
-    if show_polyhedra and polyhedra_list:
-        atom_depths_sorted = depth[order]  # depths in back-to-front order
-        for pi, poly in enumerate(polyhedra_list):
-            if pi in poly_skip:
-                continue
-            base_rgb = poly_base_colours[pi]
-            alpha = poly_alphas[pi]
-            edge_rgb = poly_edge_colours[pi]
-            edge_w = poly_edge_widths[pi]
-            for face_row in poly.faces:
-                # Resolve local face indices to global atom indices.
-                global_idx = [poly.neighbour_indices[j] for j in face_row]
-
-                # Slab check: all vertices must be visible.
-                # (In include_whole mode, slab_visible has already
-                # been updated to force polyhedron vertices visible.)
-                if not all(slab_visible[gi] for gi in global_idx):
-                    continue
-
-                # Face normal from first two edges (works for any polygon).
-                face_verts = rotated[global_idx]
-                normal = np.cross(
-                    face_verts[1] - face_verts[0],
-                    face_verts[2] - face_verts[0],
-                )
-                norm_len = np.linalg.norm(normal)
-                if norm_len > 1e-12:
-                    cos_angle = abs(normal[2] / norm_len)
-                else:
-                    cos_angle = 0.0
-                shading = 1.0 - polyhedra_shading * 0.6 * (1.0 - cos_angle)
-                shaded = tuple(min(1.0, c * shading) for c in base_rgb)
-
-                # Face centroid depth.
-                face_depth = np.mean(depth[global_idx])
-
-                # 2D projected vertices.
-                verts_2d = xy[global_idx]
-
-                # Assign to the depth slot of the first atom in 'order'
-                # whose depth >= face_depth.
-                slot = int(np.searchsorted(atom_depths_sorted, face_depth))
-                if slot >= len(order):
-                    slot = len(order) - 1
-
-                face_by_depth_slot[slot].append((
-                    verts_2d,
-                    (*shaded, alpha),
-                    (*edge_rgb, 1.0),
-                    edge_w,
-                ))
+    face_by_depth_slot = _collect_polyhedra_faces(
+        precomputed, polyhedra_list, poly_skip, slab_visible,
+        show_polyhedra, polyhedra_shading, rotated, depth, xy, order,
+    )
 
     # Collect raw vertex arrays in painter's order, then batch-add
     # via PolyCollection (avoids costly Patch object creation).
@@ -1298,7 +1341,6 @@ def render_mpl_interactive(
     _draw_scene(ax, scene, view, resolved, viewport_extent=base_extent, **draw_kwargs)
 
     # ---- Interaction state ----
-    import time
 
     drag_state: dict = {
         "active": False,
