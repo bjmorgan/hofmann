@@ -187,19 +187,18 @@ def _merge_expansions(
         return base_species, base_coords
 
     new_species = list(base_species)
-    new_coords_list: list[np.ndarray] = [base_coords]
+    # Track all accepted coordinates for incremental deduplication.
+    all_coords = base_coords
 
     for sp, coord in zip(extra_species, extra_coords):
-        # Check if this coordinate already exists in base_coords.
-        diffs = np.linalg.norm(base_coords - coord, axis=1)
+        # Check against base *and* previously accepted extras.
+        diffs = np.linalg.norm(all_coords - coord, axis=1)
         if np.any(diffs < tol):
             continue
         new_species.append(sp)
-        new_coords_list.append(coord[np.newaxis, :])
+        all_coords = np.vstack([all_coords, coord[np.newaxis, :]])
 
-    if len(new_coords_list) > 1:
-        return new_species, np.vstack(new_coords_list)
-    return new_species, base_coords
+    return new_species, all_coords
 
 
 def _expand_bonds(
