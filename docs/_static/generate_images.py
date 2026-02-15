@@ -19,39 +19,26 @@ def ch4_scene() -> StructureScene:
 
 
 def perovskite_scene() -> StructureScene:
-    """Build a 2x2x2 SrTiO3 perovskite supercell with polyhedra."""
-    a = 3.905
+    """Build SrTiO3 perovskite unit cell centred on Sr with PBC expansion."""
+    from pymatgen.core import Lattice, Structure as PmgStructure
 
-    frac_positions = {
-        "Sr": [(0.0, 0.0, 0.0)],
-        "Ti": [(0.5, 0.5, 0.5)],
-        "O":  [(0.5, 0.5, 0.0), (0.5, 0.0, 0.5), (0.0, 0.5, 0.5)],
-    }
-
-    species = []
-    coords_list = []
-    for dx in range(2):
-        for dy in range(2):
-            for dz in range(2):
-                offset = np.array([dx, dy, dz]) * a
-                for sp, positions in frac_positions.items():
-                    for frac in positions:
-                        species.append(sp)
-                        coords_list.append(np.array(frac) * a + offset)
-
-    coords = np.array(coords_list)
-
-    atom_styles = {
-        "Sr": AtomStyle(radius=1.4, colour=(0.0, 0.8, 0.2)),
-        "Ti": AtomStyle(radius=1.0, colour=(0.2, 0.4, 0.9)),
-        "O":  AtomStyle(radius=0.8, colour=(0.9, 0.1, 0.1)),
-    }
+    lattice = Lattice.cubic(3.905)
+    structure = PmgStructure(
+        lattice,
+        ["Sr", "Ti", "O", "O", "O"],
+        [
+            [0.0, 0.0, 0.0],   # Sr (A-site)
+            [0.5, 0.5, 0.5],   # Ti (B-site)
+            [0.5, 0.5, 0.0],   # O
+            [0.5, 0.0, 0.5],   # O
+            [0.0, 0.5, 0.5],   # O
+        ],
+    )
 
     bond_specs = [
         BondSpec(species=("Ti", "O"), min_length=0.5, max_length=2.5,
                  radius=0.12, colour=(0.4, 0.4, 0.4)),
     ]
-
     polyhedra = [
         PolyhedronSpec(
             centre="Ti",
@@ -60,31 +47,41 @@ def perovskite_scene() -> StructureScene:
         ),
     ]
 
-    angle_x = np.radians(25)
-    angle_y = np.radians(-35)
-    rx = np.array([
-        [1, 0, 0],
-        [0, np.cos(angle_x), -np.sin(angle_x)],
-        [0, np.sin(angle_x), np.cos(angle_x)],
-    ])
-    ry = np.array([
-        [np.cos(angle_y), 0, np.sin(angle_y)],
-        [0, 1, 0],
-        [-np.sin(angle_y), 0, np.cos(angle_y)],
-    ])
-    rotation = ry @ rx
-
-    centroid = coords.mean(axis=0)
-    view = ViewState(rotation=rotation, centre=centroid, zoom=1.0)
-
-    return StructureScene(
-        species=species,
-        frames=[Frame(coords=coords)],
-        atom_styles=atom_styles,
-        bond_specs=bond_specs,
-        polyhedra=polyhedra,
-        view=view,
+    # Centre on Sr (index 0) so PBC expansion surrounds the A-site.
+    scene = StructureScene.from_pymatgen(
+        structure, bond_specs, polyhedra=polyhedra,
+        pbc=True, centre_atom=0,
     )
+
+    # Custom colours.
+    scene.atom_styles["Sr"].colour = (0.0, 0.8, 0.2)
+    scene.atom_styles["Sr"].radius = 1.4
+    scene.atom_styles["Ti"].colour = (0.2, 0.4, 0.9)
+    scene.atom_styles["Ti"].radius = 1.0
+    scene.atom_styles["O"].colour = (0.9, 0.1, 0.1)
+    scene.atom_styles["O"].radius = 0.8
+
+    scene.view.look_along([2, 1, 1])
+    return scene
+
+
+def si_scene() -> StructureScene:
+    """Build a diamond-cubic Si scene from pymatgen."""
+    from pymatgen.core import Lattice, Structure as PmgStructure
+
+    lattice = Lattice.cubic(5.43)
+    structure = PmgStructure(
+        lattice, ["Si", "Si"],
+        [[0, 0, 0], [0.25, 0.25, 0.25]],
+    )
+
+    bond_specs = [
+        BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
+                 radius=0.1, colour=0.5),
+    ]
+    scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True)
+    scene.view.look_along([1, 1, 1])
+    return scene
 
 
 def llzo_scene() -> StructureScene:
@@ -128,11 +125,17 @@ def main() -> None:
     ch4.render_mpl(OUT / "ch4.svg", show=False, figsize=(4, 4), dpi=150)
     print(f"  wrote {OUT / 'ch4.svg'}")
 
+    # Si diamond cubic -- pymatgen example
+    si = si_scene()
+    si.render_mpl(OUT / "si.svg", show=False, figsize=(4, 4), dpi=150)
+    print(f"  wrote {OUT / 'si.svg'}")
+
     # SrTiO3 perovskite with polyhedra -- hero image
     perov = perovskite_scene()
     perov.render_mpl(
         OUT / "perovskite.svg", show=False,
         figsize=(6, 6), dpi=150, half_bonds=False,
+        slab_clip_mode="include_whole",
     )
     print(f"  wrote {OUT / 'perovskite.svg'}")
 
@@ -147,7 +150,7 @@ def main() -> None:
     perov.render_mpl(
         OUT / "perovskite_no_outlines.svg", show=False,
         figsize=(4, 4), dpi=150, half_bonds=False,
-        show_outlines=False,
+        show_outlines=False, slab_clip_mode="include_whole",
     )
     print(f"  wrote {OUT / 'perovskite_no_outlines.svg'}")
 
