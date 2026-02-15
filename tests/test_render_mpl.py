@@ -69,6 +69,16 @@ class TestRenderMpl:
         fig = render_mpl(scene, show=False)
         assert isinstance(fig, Figure)
 
+    def test_empty_scene(self):
+        """An empty scene (zero atoms) should render without crashing."""
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.empty((0, 3)))],
+            atom_styles={},
+        )
+        fig = render_mpl(scene, show=False)
+        assert isinstance(fig, Figure)
+
     def test_no_bonds(self):
         scene = _minimal_scene(with_bonds=False)
         fig = render_mpl(scene, show=False)

@@ -1141,6 +1141,8 @@ def _draw_scene(
     ax.set_aspect("equal")
     if viewport_extent is not None:
         pad = viewport_extent * 1.15
+    elif len(xy) == 0:
+        pad = 1.0
     else:
         pad = np.max(atom_screen_radii) + 1.0
         pad = max(
