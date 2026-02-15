@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import defaultdict, deque
 from fnmatch import fnmatch
 
 import numpy as np
@@ -188,9 +188,9 @@ def _merge_coplanar_faces(
             continue
         group = [start]
         visited[start] = True
-        queue = [start]
+        queue = deque([start])
         while queue:
-            current = queue.pop()
+            current = queue.popleft()
             tri = simplices[current]
             for a, b in [(tri[0], tri[1]), (tri[1], tri[2]), (tri[2], tri[0])]:
                 edge = (min(a, b), max(a, b))
