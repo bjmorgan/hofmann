@@ -10,6 +10,7 @@ extensions = [
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
+    "matplotlib.sphinxext.plot_directive",
     "sphinx_autodoc_typehints",
 ]
 
@@ -31,6 +32,13 @@ autodoc_class_signature = "separated"
 # sphinx-autodoc-typehints settings
 always_document_param_types = True
 typehints_defaults = "braces"
+
+# -- Plot directive settings --------------------------------------------------
+
+plot_include_source = True
+plot_html_show_source_link = False
+plot_html_show_formats = False
+plot_formats = [("svg", 150)]
 
 # -- Intersphinx mapping -----------------------------------------------------
 

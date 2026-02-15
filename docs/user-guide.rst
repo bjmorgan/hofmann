@@ -19,6 +19,20 @@ Scenes are typically created via :meth:`~hofmann.StructureScene.from_xbs`
 or :meth:`~hofmann.StructureScene.from_pymatgen`, but you can also
 construct one directly from data.
 
+Here is a simple CH4 molecule loaded from an XBS file:
+
+.. plot::
+   :context: reset
+
+   import hofmann
+   from pathlib import Path
+   from hofmann import StructureScene
+
+   pkg_dir = Path(hofmann.__file__).resolve().parent
+   fixture = pkg_dir.parent.parent / "tests" / "fixtures" / "ch4.bs"
+   scene = StructureScene.from_xbs(fixture)
+   scene.render_mpl(show=False, figsize=(4, 4))
+
 
 Controlling the view
 --------------------
@@ -99,6 +113,25 @@ Any :class:`~hofmann.RenderStyle` field can be passed as a keyword
 argument to :meth:`~hofmann.StructureScene.render_mpl`.  Unknown
 keyword names raise :class:`TypeError`.
 
+Here is the same SrTiO3 perovskite rendered with different styles:
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/perovskite.svg
+
+          Ball-and-stick with polyhedra (default)
+
+     - .. figure:: _static/perovskite_spacefill.svg
+
+          Space-filling (``atom_scale=1.0``)
+
+   * - .. figure:: _static/perovskite_no_outlines.svg
+
+          Outlines disabled (``show_outlines=False``)
+
+     - ..
+
 Key style options:
 
 - ``atom_scale`` -- ``0.5`` for ball-and-stick, ``1.0`` for space-filling
@@ -143,23 +176,31 @@ generates sensible defaults from :data:`~hofmann.COVALENT_RADII`.
 Polyhedra
 ---------
 
-Coordination polyhedra are specified with
-:class:`~hofmann.PolyhedronSpec`:
+Coordination polyhedra are built from the bond graph: for each atom
+whose species matches the ``centre`` pattern, a convex hull is
+constructed from its bonded neighbours.
 
 .. code-block:: python
 
    from hofmann import PolyhedronSpec
 
    spec = PolyhedronSpec(
-       centre_species="Ti",
-       vertex_species="O",
-       max_distance=2.5,
+       centre="Ti",
        colour=(0.5, 0.7, 1.0),
        alpha=0.3,
    )
    scene = StructureScene.from_pymatgen(
        structure, bonds, polyhedra=[spec], pbc=True,
    )
+
+Here is Li7La3Zr2O12 (LLZO) with ZrO6 octahedra rendered using
+``slab_clip_mode="include_whole"`` and a depth slab along the [100]
+direction:
+
+.. image:: _static/llzo.svg
+   :width: 400px
+   :align: center
+   :alt: LLZO garnet with ZrO6 polyhedra
 
 Slab clipping and polyhedra
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~

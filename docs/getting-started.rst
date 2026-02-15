@@ -45,6 +45,11 @@ rules in a simple text format (see :doc:`xbs-format`).
    scene = StructureScene.from_xbs("ch4.bs")
    scene.render_mpl("ch4.svg", show=False)
 
+.. image:: _static/ch4.svg
+   :width: 320px
+   :align: center
+   :alt: CH4 rendered from an XBS file
+
 The output format is inferred from the file extension: ``.svg``, ``.pdf``,
 and ``.png`` are all supported.
 
