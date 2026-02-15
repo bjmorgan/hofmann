@@ -33,12 +33,22 @@ from hofmann.model import (
 )
 from hofmann.polyhedra import compute_polyhedra
 
-# Pre-computed unit circle for atom rendering (closed polygon).
+# Default unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
 _UNIT_CIRCLE = np.column_stack([
     np.cos(np.linspace(0, 2 * np.pi, _N_CIRCLE + 1)),
     np.sin(np.linspace(0, 2 * np.pi, _N_CIRCLE + 1)),
 ])
+
+
+def _make_unit_circle(n: int) -> np.ndarray:
+    """Build a unit circle polygon with *n* segments."""
+    if n == _N_CIRCLE:
+        return _UNIT_CIRCLE
+    return np.column_stack([
+        np.cos(np.linspace(0, 2 * np.pi, n + 1)),
+        np.sin(np.linspace(0, 2 * np.pi, n + 1)),
+    ])
 
 
 # ---------------------------------------------------------------------------
@@ -181,12 +191,22 @@ def _clip_polygon_to_half_plane(
 
 
 
-# Pre-computed semicircular arc (5 points per half-turn).
+# Default semicircular arc (5 points per half-turn).
 _N_ARC = 5
 _ARC = np.column_stack([
     -np.sin(np.linspace(0, np.pi, _N_ARC)),
      np.cos(np.linspace(0, np.pi, _N_ARC)),
 ])
+
+
+def _make_arc(n: int) -> np.ndarray:
+    """Build a semicircular arc with *n* points."""
+    if n == _N_ARC:
+        return _ARC
+    return np.column_stack([
+        -np.sin(np.linspace(0, np.pi, n)),
+         np.cos(np.linspace(0, np.pi, n)),
+    ])
 
 
 def _bond_polygon(
@@ -198,6 +218,7 @@ def _bond_polygon(
     zr_a: float,
     zr_b: float,
     view: ViewState,
+    arc: np.ndarray = _ARC,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
     """Compute bond polygon vertices with perspective-correct arc ends.
 
@@ -287,12 +308,12 @@ def _bond_polygon(
 
     # Build polygon: arc at start, reversed arc at end.
     pts_start = np.column_stack([
-        bx * aa_a * _ARC[:, 0] + (-by) * bb_a * _ARC[:, 1] + start_2d[0],
-        by * aa_a * _ARC[:, 0] +   bx  * bb_a * _ARC[:, 1] + start_2d[1],
+        bx * aa_a * arc[:, 0] + (-by) * bb_a * arc[:, 1] + start_2d[0],
+        by * aa_a * arc[:, 0] +   bx  * bb_a * arc[:, 1] + start_2d[1],
     ])
     pts_end = np.column_stack([
-        -bx * aa_b * _ARC[:, 0] + (-by) * bb_b * _ARC[:, 1] + end_2d[0],
-        -by * aa_b * _ARC[:, 0] +   bx  * bb_b * _ARC[:, 1] + end_2d[1],
+        -bx * aa_b * arc[:, 0] + (-by) * bb_b * arc[:, 1] + end_2d[0],
+        -by * aa_b * arc[:, 0] +   bx  * bb_b * arc[:, 1] + end_2d[1],
     ])
     pts_end = pts_end[::-1]
 
@@ -309,6 +330,7 @@ def _bond_polygons_batch(
     bond_ib: np.ndarray,
     bond_radii: np.ndarray,
     view: ViewState,
+    arc: np.ndarray = _ARC,
 ) -> tuple[
     np.ndarray, np.ndarray, np.ndarray,
     np.ndarray, np.ndarray, np.ndarray, np.ndarray,
@@ -344,12 +366,13 @@ def _bond_polygons_batch(
         - *valid*: ``(n_bonds,)`` boolean mask (``False`` for
           occluded/degenerate bonds).
     """
+    n_arc = len(arc)
     n_bonds = len(bond_ia)
     if n_bonds == 0:
         empty2 = np.empty((0, 2))
         empty1 = np.empty((0,))
         return (
-            np.empty((0, 2 * _N_ARC, 2)),
+            np.empty((0, 2 * n_arc, 2)),
             empty2, empty2,
             empty1, empty1, empty1, empty1,
             np.empty((0,), dtype=bool),
@@ -430,11 +453,11 @@ def _bond_polygons_batch(
     aa_b = bond_radii * cth_b * zr_rk_b
 
     # Arc vertex construction via broadcasting.
-    # _ARC is (_N_ARC, 2); arc_x/arc_y are (_N_ARC,).
-    arc_x = _ARC[:, 0]                                      # (_N_ARC,)
-    arc_y = _ARC[:, 1]                                      # (_N_ARC,)
+    # arc is (n_arc, 2); arc_x/arc_y are (n_arc,).
+    arc_x = arc[:, 0]                                        # (n_arc,)
+    arc_y = arc[:, 1]                                        # (n_arc,)
 
-    # Start arc: (n_bonds, _N_ARC, 2).
+    # Start arc: (n_bonds, n_arc, 2).
     pts_s_x = (bx[:, None] * aa_a[:, None] * arc_x
                - by[:, None] * bb_a[:, None] * arc_y
                + start_2d[:, 0:1])
@@ -466,6 +489,7 @@ def _half_bond_verts_batch(
     bb_b: np.ndarray,
     bx: np.ndarray,
     by: np.ndarray,
+    n_arc: int = _N_ARC,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Build half-bond polygons directly without Sutherland-Hodgman clipping.
 
@@ -504,10 +528,10 @@ def _half_bond_verts_batch(
     mid_bot = mid_2d - perp * mid_hw[:, None]                # (n_bonds, 2)
 
     # Extract the two arcs from the full polygon.
-    # full_verts[:, :_N_ARC] = start arc (+perp → -perp)
-    # full_verts[:, _N_ARC:] = end arc (already reversed)
-    arc_start = full_verts[:, :_N_ARC, :]                    # (n_bonds, _N_ARC, 2)
-    arc_end = full_verts[:, _N_ARC:, :]                      # (n_bonds, _N_ARC, 2)
+    # full_verts[:, :n_arc] = start arc (+perp → -perp)
+    # full_verts[:, n_arc:] = end arc (already reversed)
+    arc_start = full_verts[:, :n_arc, :]                     # (n_bonds, n_arc, 2)
+    arc_end = full_verts[:, n_arc:, :]                       # (n_bonds, n_arc, 2)
 
     # Half A: arc at atom a + straight cut at midpoint.
     # Winding: arc (+perp → -perp), then mid_bot (-perp), mid_top (+perp).
@@ -723,6 +747,9 @@ def _draw_scene(
     atom_outline_width = style.atom_outline_width
     bond_outline_width = style.bond_outline_width
     slab_clip_mode = style.slab_clip_mode
+    unit_circle = _make_unit_circle(style.circle_segments)
+    arc = _make_arc(style.arc_segments)
+    n_arc = len(arc)
     # Remove previous draw's collection(s) and leftover artists.
     while ax.collections:
         ax.collections[0].remove()
@@ -786,9 +813,9 @@ def _draw_scene(
 
     use_half = half_bonds and bond_colour is None
     batch_valid = np.empty(0, dtype=bool)
-    batch_full_verts = np.empty((0, 2 * _N_ARC, 2))
-    batch_half_a = np.empty((0, _N_ARC + 2, 2))
-    batch_half_b = np.empty((0, _N_ARC + 2, 2))
+    batch_full_verts = np.empty((0, 2 * n_arc, 2))
+    batch_half_a = np.empty((0, n_arc + 2, 2))
+    batch_half_b = np.empty((0, n_arc + 2, 2))
 
     if show_bonds and len(bond_ia) > 0:
         (batch_full_verts, batch_start_2d, batch_end_2d,
@@ -797,12 +824,12 @@ def _draw_scene(
             rotated, xy,
             radii_3d * atom_scale, atom_screen_radii,
             bond_ia, bond_ib, bond_radii_arr * bond_scale,
-            view,
+            view, arc,
         )
         if use_half:
             batch_half_a, batch_half_b = _half_bond_verts_batch(
                 batch_full_verts, batch_start_2d, batch_end_2d,
-                batch_bb_a, batch_bb_b, batch_bx, batch_by,
+                batch_bb_a, batch_bb_b, batch_bx, batch_by, n_arc,
             )
 
     # Pre-compute bond spec colours for the non-half-bond path.
@@ -961,7 +988,7 @@ def _draw_scene(
         # Draw atom circle (unless hidden by a polyhedron spec).
         if k not in hidden_atoms:
             fc_atom = (*atom_colours[k], 1.0)
-            all_verts.append(_UNIT_CIRCLE * atom_screen_radii[k] + xy[k])
+            all_verts.append(unit_circle * atom_screen_radii[k] + xy[k])
             face_colours.append(fc_atom)
             edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_atom)
             line_widths.append(atom_outline_width if show_outlines else 0.0)

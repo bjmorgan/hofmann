@@ -122,6 +122,14 @@ class RenderStyle:
             the entire polyhedron if any vertex is clipped, and
             ``"include_whole"`` forces the complete polyhedron to be
             visible when its centre atom is in the slab.
+        circle_segments: Number of line segments used to approximate
+            atom circles.  Higher values give smoother circles in
+            vector output (PDF/SVG).  ``24`` is fine for screen;
+            ``72`` is recommended for publication.
+        arc_segments: Number of line segments per semicircular bond
+            end-cap.  Higher values give smoother bond ends in vector
+            output.  ``5`` is fine for screen; ``12`` is recommended
+            for publication.
     """
 
     atom_scale: float = 0.5
@@ -135,6 +143,8 @@ class RenderStyle:
     atom_outline_width: float = 1.5
     bond_outline_width: float = 1.0
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
+    circle_segments: int = 24
+    arc_segments: int = 5
 
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
