@@ -168,7 +168,10 @@ class BondSpec:
         min_length: Minimum bond length threshold.
         max_length: Maximum bond length threshold.
         radius: Visual radius of the bond cylinder.
-        colour: Bond colour specification.
+        colour: Bond colour used when ``half_bonds`` is disabled on
+            the render style.  When ``half_bonds`` is ``True`` (the
+            default), each half of the bond is coloured to match the
+            nearest atom and this field is ignored.
     """
 
     species: tuple[str, str]

@@ -561,7 +561,6 @@ def _scene_extent(
 def _precompute_scene(
     scene: StructureScene,
     frame_index: int,
-    bg_rgb: tuple[float, float, float],
 ) -> dict:
     """Pre-compute frame-independent data for repeated rendering.
 
@@ -571,8 +570,6 @@ def _precompute_scene(
     frame = scene.frames[frame_index]
     coords = frame.coords
     n_atoms = len(scene.species)
-    bg_bright = 0.299 * bg_rgb[0] + 0.587 * bg_rgb[1] + 0.114 * bg_rgb[2]
-
     radii_3d = np.empty(n_atoms)
     atom_colours: list[tuple[float, float, float]] = []
     bond_half_colours: list[tuple[float, float, float]] = []
@@ -586,13 +583,7 @@ def _precompute_scene(
         else:
             radii_3d[i] = 0.5
             rgb = (0.5, 0.5, 0.5)
-        brightness = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2]
-        if abs(brightness - bg_bright) < 0.15:
-            bond_half_colours.append((0.5, 0.5, 0.5))
-        else:
-            bond_half_colours.append(rgb)
-        if abs(brightness - bg_bright) < 0.15:
-            rgb = (0.95, 0.95, 0.95)
+        bond_half_colours.append(rgb)
         atom_colours.append(rgb)
 
     bonds = compute_bonds(scene.species, coords, scene.bond_specs)
@@ -676,7 +667,6 @@ def _precompute_scene(
         "bond_half_colours": bond_half_colours,
         "bonds": bonds,
         "adjacency": adjacency,
-        "bg_bright": bg_bright,
         "bond_ia": bond_ia,
         "bond_ib": bond_ib,
         "bond_radii": bond_radii,
@@ -740,14 +730,13 @@ def _draw_scene(
         t.remove()
 
     if precomputed is None:
-        precomputed = _precompute_scene(scene, frame_index, bg_rgb)
+        precomputed = _precompute_scene(scene, frame_index)
 
     coords = precomputed["coords"]
     radii_3d = precomputed["radii_3d"]
     atom_colours = precomputed["atom_colours"]
     bond_half_colours = precomputed["bond_half_colours"]
     adjacency = precomputed["adjacency"]
-    bg_bright = precomputed["bg_bright"]
 
     # ---- Projection ----
     xy, depth, atom_screen_radii = view.project(
@@ -954,10 +943,6 @@ def _draw_scene(
                         brgb = normalise_colour(bond_colour)
                     else:
                         brgb = normalise_colour(bond.spec.colour)
-                        b = (0.299 * brgb[0] + 0.587 * brgb[1]
-                             + 0.114 * brgb[2])
-                        if abs(b - bg_bright) < 0.15:
-                            brgb = (0.5, 0.5, 0.5)
                     bond_spec_colours[spec_id] = brgb
                 brgb = bond_spec_colours[spec_id]
 
@@ -1235,7 +1220,7 @@ def render_mpl_interactive(
 
     # Pre-compute bonds, colours, adjacency once — these don't change
     # during interactive rotation / zoom.
-    pre = _precompute_scene(scene, frame_index, bg_rgb)
+    pre = _precompute_scene(scene, frame_index)
 
     draw_kwargs = dict(
         frame_index=frame_index,
