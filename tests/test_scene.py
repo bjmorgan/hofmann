@@ -201,7 +201,7 @@ class TestFromPymatgenPbc:
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
-class TestExpandPbcBonds:
+class TestExpandBonds:
     """Tests for bond-aware PBC expansion."""
 
     def test_bonded_image_added(self):
@@ -232,7 +232,7 @@ class TestExpandPbcBonds:
         # _expand_pbc with cutoff=0.1: Cl at frac 0.95 has
         # 1-0.95=0.05, frac_cutoff=0.1/5=0.02. 0.05 > 0.02, so
         # _expand_pbc does NOT add an image.
-        # But _expand_pbc_bonds should find the Cl image at (-1,0,0)
+        # But _expand_bonds should find the Cl image at (-1,0,0)
         # at cart -0.25 which is 2.75 from Na at 2.5 — within 3.0.
         assert len(scene.species) >= 3  # Na, Cl, + at least one image
 

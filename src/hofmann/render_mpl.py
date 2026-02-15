@@ -621,10 +621,17 @@ def _precompute_scene(
     hidden_atoms: set[int] = set()
     hidden_bond_ids: set[int] = set()
     # For hide_vertices: an atom is hidden only if *every* polyhedron
-    # it participates in has hide_vertices=True.
+    # it participates in has hide_vertices=True AND it has no bonds
+    # to atoms outside those polyhedra (e.g. Li-O bonds keep O visible
+    # even when Zr-O polyhedra hide vertices).
     vertex_hide_candidates: set[int] = set()
     vertex_keep: set[int] = set()
+    poly_centres: set[int] = set()
+    poly_members: set[int] = set()  # All centres + vertices in any polyhedron.
     for poly in polyhedra:
+        poly_centres.add(poly.centre_index)
+        poly_members.add(poly.centre_index)
+        poly_members.update(poly.neighbour_indices)
         if poly.spec.hide_centre:
             hidden_atoms.add(poly.centre_index)
         if poly.spec.hide_bonds:
@@ -635,6 +642,12 @@ def _precompute_scene(
                 vertex_hide_candidates.add(ni)
             else:
                 vertex_keep.add(ni)
+    # A vertex with bonds to non-polyhedron atoms must stay visible.
+    for vi in vertex_hide_candidates - vertex_keep:
+        for neighbour_idx, _ in adjacency.get(vi, []):
+            if neighbour_idx not in poly_centres:
+                vertex_keep.add(vi)
+                break
     hidden_atoms |= vertex_hide_candidates - vertex_keep
 
     # Resolve face base colours per polyhedron.
@@ -881,7 +894,7 @@ def _draw_scene(
             if not batch_valid[bi]:
                 continue
 
-            if use_half:
+            if use_half and bond_half_colours[ia] != bond_half_colours[ib]:
                 fc_a = (*bond_half_colours[ia], 1.0)
                 all_verts.append(batch_half_a[bi])
                 face_colours.append(fc_a)
@@ -891,6 +904,14 @@ def _draw_scene(
                 all_verts.append(batch_half_b[bi])
                 face_colours.append(fc_b)
                 edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_b)
+                line_widths.append(bond_outline_width if show_outlines else 0.0)
+            elif use_half:
+                # Same colour on both halves — draw as single polygon
+                # to avoid a spurious outline at the midpoint.
+                fc = (*bond_half_colours[ia], 1.0)
+                all_verts.append(batch_full_verts[bi])
+                face_colours.append(fc)
+                edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc)
                 line_widths.append(bond_outline_width if show_outlines else 0.0)
             else:
                 spec_id = id(bond.spec)

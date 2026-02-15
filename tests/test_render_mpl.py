@@ -763,3 +763,99 @@ class TestPolyhedraRendering:
         # When Zr keeps vertices, the shared O is kept -> more polygons.
         assert n_one > n_both
 
+    def test_hide_vertices_kept_when_bonded_outside_polyhedron(self):
+        """A vertex bonded to a non-polyhedron atom stays visible."""
+        # Ti at origin with 3 O neighbours forming a polyhedron.
+        # Li bonded to one of the O atoms but not a polyhedron centre.
+        # Even with hide_vertices=True, that O must stay visible.
+        species = ["Ti", "O", "O", "O", "Li"]
+        coords = np.array([
+            [0.0, 0.0, 0.0],   # Ti (polyhedron centre)
+            [2.0, 0.0, 0.0],   # O vertex, also bonded to Li
+            [0.0, 2.0, 0.0],   # O vertex
+            [0.0, 0.0, 2.0],   # O vertex
+            [4.0, 0.0, 0.0],   # Li bonded to O at index 1
+        ])
+        scene = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles={
+                "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+                "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+                "Li": AtomStyle(0.6, (0.4, 0.8, 0.4)),
+            },
+            bond_specs=[
+                BondSpec(species=("Ti", "O"), min_length=0.0,
+                         max_length=3.0, radius=0.1, colour=0.5),
+                BondSpec(species=("Li", "O"), min_length=0.0,
+                         max_length=3.0, radius=0.1, colour=0.5),
+            ],
+            polyhedra=[PolyhedronSpec(centre="Ti", hide_vertices=True)],
+        )
+        fig = render_mpl(scene, show=False)
+        n = len(fig.axes[0].collections[0].get_paths())
+        # O at index 1 is bonded to Li, so it must stay visible
+        # despite hide_vertices=True.  O at indices 2 and 3 are
+        # only bonded to Ti and should be hidden.
+        # Visible atoms: Ti + O(1) + Li = 3 atom circles.
+        # Hidden atoms: O(2), O(3).
+        # Count atom circles to verify O(1) is kept.
+        scene_no_hide = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles=scene.atom_styles,
+            bond_specs=scene.bond_specs,
+            polyhedra=[PolyhedronSpec(centre="Ti", hide_vertices=False)],
+        )
+        fig_no_hide = render_mpl(scene_no_hide, show=False)
+        n_no_hide = len(fig_no_hide.axes[0].collections[0].get_paths())
+        # With hide_vertices=False all 5 atoms are visible.
+        # With hide_vertices=True, O(2) and O(3) are hidden but O(1) kept.
+        # Difference should be exactly 2 (the two hidden O atoms).
+        assert n_no_hide - n == 2
+
+
+class TestSameColourBonds:
+    def test_same_species_bond_single_polygon(self):
+        """Same-colour half-bonds should merge into one polygon."""
+        species = ["Na", "Na"]
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+        scene = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles={
+                "Na": AtomStyle(1.0, (0.3, 0.3, 0.8)),
+            },
+            bond_specs=[BondSpec(
+                species=("Na", "Na"), min_length=0.0, max_length=3.0,
+                radius=0.1, colour=0.5,
+            )],
+        )
+        style_half = RenderStyle(half_bonds=True, show_outlines=True)
+        fig = render_mpl(scene, style=style_half, show=False)
+        n = len(fig.axes[0].collections[0].get_paths())
+        # 2 atoms + 1 bond polygon (not 2 half-bond polygons).
+        assert n == 3
+
+    def test_different_species_bond_two_polygons(self):
+        """Different-colour half-bonds should produce two polygons."""
+        species = ["Na", "Cl"]
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+        scene = StructureScene(
+            species=species,
+            frames=[Frame(coords=coords)],
+            atom_styles={
+                "Na": AtomStyle(1.0, (0.3, 0.3, 0.8)),
+                "Cl": AtomStyle(1.0, (0.1, 0.8, 0.1)),
+            },
+            bond_specs=[BondSpec(
+                species=("Na", "Cl"), min_length=0.0, max_length=3.0,
+                radius=0.1, colour=0.5,
+            )],
+        )
+        style_half = RenderStyle(half_bonds=True, show_outlines=True)
+        fig = render_mpl(scene, style=style_half, show=False)
+        n = len(fig.axes[0].collections[0].get_paths())
+        # 2 atoms + 2 half-bond polygons.
+        assert n == 4
+

@@ -201,7 +201,7 @@ def _merge_expansions(
     return new_species, base_coords
 
 
-def _expand_pbc_bonds(
+def _expand_bonds(
     structure,
     bond_specs: list[BondSpec],
 ) -> tuple[list[str], np.ndarray]:
@@ -468,7 +468,7 @@ def from_pymatgen(
             # Bond-aware expansion: add any bonded periodic images
             # not already captured by the geometric expansion.
             if bond_specs:
-                bond_img_species, bond_img_coords = _expand_pbc_bonds(
+                bond_img_species, bond_img_coords = _expand_bonds(
                     s, bond_specs,
                 )
                 if len(bond_img_species) > 0:
