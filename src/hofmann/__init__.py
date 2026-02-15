@@ -13,13 +13,19 @@ Example usage::
 """
 
 from hofmann.bonds import compute_bonds
-from hofmann.defaults import COVALENT_RADII, ELEMENT_COLOURS, default_atom_style
+from hofmann.defaults import (
+    COVALENT_RADII,
+    ELEMENT_COLOURS,
+    default_atom_style,
+    default_bond_specs,
+)
 from hofmann.model import (
     AtomStyle,
     Bond,
     BondSpec,
     Colour,
     Frame,
+    RenderStyle,
     StructureScene,
     ViewState,
     normalise_colour,
@@ -34,10 +40,12 @@ __all__ = [
     "Colour",
     "ELEMENT_COLOURS",
     "Frame",
+    "RenderStyle",
     "StructureScene",
     "ViewState",
     "compute_bonds",
     "default_atom_style",
+    "default_bond_specs",
     "from_pymatgen",
     "from_xbs",
     "normalise_colour",

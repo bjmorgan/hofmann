@@ -4,7 +4,14 @@ import numpy as np
 import pytest
 from matplotlib.figure import Figure
 
-from hofmann.model import AtomStyle, BondSpec, Frame, StructureScene, ViewState
+from hofmann.model import (
+    AtomStyle,
+    BondSpec,
+    Frame,
+    RenderStyle,
+    StructureScene,
+    ViewState,
+)
 from hofmann.render_mpl import (
     _bond_polygon,
     _bond_polygons_batch,
@@ -78,9 +85,11 @@ class TestRenderMpl:
         fig = scene.render_mpl(show=False)
         assert isinstance(fig, Figure)
 
-    def test_half_bonds(self, ch4_bs_path):
+    def test_half_bonds_via_style(self, ch4_bs_path):
+        """Passing half_bonds via a RenderStyle works."""
         scene = from_xbs(ch4_bs_path)
-        fig = render_mpl(scene, half_bonds=True, show=False)
+        style = RenderStyle(half_bonds=True)
+        fig = render_mpl(scene, style=style, show=False)
         assert isinstance(fig, Figure)
 
     def test_saves_svg(self, tmp_path, ch4_bs_path):
@@ -105,6 +114,63 @@ class TestRenderMpl:
         # Only atom at x=0 (depth 0) should be visible.
         fig_slab = render_mpl(scene, show=False)
         assert isinstance(fig_slab, Figure)
+
+    def test_show_bonds_false(self):
+        """Rendering with show_bonds=False should produce atoms only."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, show_bonds=False, show=False)
+        assert isinstance(fig, Figure)
+        # With bonds off, the only PolyCollection should contain just atoms.
+        ax = fig.axes[0]
+        pc = ax.collections[0]
+        # Two atoms, no bond polygons.
+        assert len(pc.get_paths()) == 2
+
+    def test_show_outlines_false(self):
+        """Outlines disabled via style produces zero-width edges."""
+        scene = _minimal_scene()
+        style = RenderStyle(show_outlines=False)
+        fig = render_mpl(scene, style=style, show=False)
+        assert isinstance(fig, Figure)
+        ax = fig.axes[0]
+        pc = ax.collections[0]
+        # All line widths should be zero.
+        lws = pc.get_linewidths()
+        assert all(w == 0.0 for w in lws)
+
+    def test_custom_outline_colour(self):
+        """Custom outline colour via style is applied."""
+        scene = _minimal_scene()
+        style = RenderStyle(outline_colour="red")
+        fig = render_mpl(scene, style=style, show=False)
+        assert isinstance(fig, Figure)
+        ax = fig.axes[0]
+        pc = ax.collections[0]
+        # Edge colours should be red (1, 0, 0) for all polygons.
+        edges = pc.get_edgecolors()
+        for ec in edges:
+            np.testing.assert_allclose(ec[:3], [1.0, 0.0, 0.0], atol=1e-3)
+
+    def test_style_kwarg_override(self):
+        """Convenience kwargs override matching style fields."""
+        scene = _minimal_scene()
+        style = RenderStyle(show_bonds=True)
+        fig = render_mpl(scene, style=style, show_bonds=False, show=False)
+        assert isinstance(fig, Figure)
+        # show_bonds=False overrides the style, so only 2 atoms drawn.
+        ax = fig.axes[0]
+        pc = ax.collections[0]
+        assert len(pc.get_paths()) == 2
+
+    def test_render_style_defaults_match_original(self):
+        """Default RenderStyle produces the same output as no style."""
+        scene = _minimal_scene()
+        fig_default = render_mpl(scene, show=False)
+        fig_style = render_mpl(scene, style=RenderStyle(), show=False)
+        # Same number of polygons drawn.
+        paths_a = fig_default.axes[0].collections[0].get_paths()
+        paths_b = fig_style.axes[0].collections[0].get_paths()
+        assert len(paths_a) == len(paths_b)
 
 
 # --- Geometry helpers ---

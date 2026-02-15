@@ -23,10 +23,13 @@ from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 
 from hofmann.bonds import compute_bonds
-from hofmann.model import Colour, StructureScene, ViewState, normalise_colour
-
-
-_OUTLINE_COLOUR = (0.15, 0.15, 0.15)
+from hofmann.model import (
+    Colour,
+    RenderStyle,
+    StructureScene,
+    ViewState,
+    normalise_colour,
+)
 
 # Pre-computed unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
@@ -627,13 +630,10 @@ def _draw_scene(
     ax,
     scene: StructureScene,
     view: ViewState,
+    style: RenderStyle,
     *,
     frame_index: int = 0,
     bg_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0),
-    atom_scale: float = 0.5,
-    bond_scale: float = 1.0,
-    bond_colour: Colour | None = None,
-    half_bonds: bool = True,
     viewport_extent: float | None = None,
     precomputed: dict | None = None,
 ) -> None:
@@ -647,14 +647,9 @@ def _draw_scene(
         scene: The structure to render.
         view: Camera / projection state (may differ from ``scene.view``
             in interactive mode).
+        style: Visual style settings.
         frame_index: Which frame to render.
         bg_rgb: Normalised background colour.
-        atom_scale: Scale factor for atom display radii.
-        bond_scale: Scale factor for bond display width.
-        bond_colour: Override colour for all bonds, or ``None`` for
-            per-spec / half-bond colouring.
-        half_bonds: Split each bond at the midpoint and colour halves
-            to match the nearest atom.
         viewport_extent: If given, use this as the fixed half-extent
             for axis limits instead of computing from projected coords.
             Avoids the "view distance changing" artefact during
@@ -662,6 +657,15 @@ def _draw_scene(
         precomputed: Pre-computed scene data from :func:`_precompute_scene`.
             If ``None``, computed on the fly.
     """
+    atom_scale = style.atom_scale
+    bond_scale = style.bond_scale
+    bond_colour = style.bond_colour
+    half_bonds = style.half_bonds
+    show_bonds = style.show_bonds
+    show_outlines = style.show_outlines
+    outline_rgb = normalise_colour(style.outline_colour)
+    atom_outline_width = style.atom_outline_width
+    bond_outline_width = style.bond_outline_width
     # Remove previous draw's collection(s) and leftover artists.
     while ax.collections:
         ax.collections[0].remove()
@@ -704,7 +708,7 @@ def _draw_scene(
     batch_half_a = np.empty((0, _N_ARC + 2, 2))
     batch_half_b = np.empty((0, _N_ARC + 2, 2))
 
-    if len(bond_ia) > 0:
+    if show_bonds and len(bond_ia) > 0:
         (batch_full_verts, batch_start_2d, batch_end_2d,
          batch_bb_a, batch_bb_b, batch_bx, batch_by,
          batch_valid) = _bond_polygons_batch(
@@ -737,7 +741,7 @@ def _draw_scene(
         if not slab_visible[k]:
             continue
 
-        neighbours = adjacency.get(k, [])
+        neighbours = adjacency.get(k, []) if show_bonds else []
         neighbours_sorted = sorted(neighbours, key=lambda nb: depth[nb[0]])
 
         for kk, bond in neighbours_sorted:
@@ -762,14 +766,16 @@ def _draw_scene(
                 continue
 
             if use_half:
+                fc_a = bond_half_colours[ia]
                 all_verts.append(batch_half_a[bi])
-                face_colours.append(bond_half_colours[ia])
-                edge_colours.append(_OUTLINE_COLOUR)
-                line_widths.append(1.0)
+                face_colours.append(fc_a)
+                edge_colours.append(outline_rgb if show_outlines else fc_a)
+                line_widths.append(bond_outline_width if show_outlines else 0.0)
+                fc_b = bond_half_colours[ib]
                 all_verts.append(batch_half_b[bi])
-                face_colours.append(bond_half_colours[ib])
-                edge_colours.append(_OUTLINE_COLOUR)
-                line_widths.append(1.0)
+                face_colours.append(fc_b)
+                edge_colours.append(outline_rgb if show_outlines else fc_b)
+                line_widths.append(bond_outline_width if show_outlines else 0.0)
             else:
                 spec_id = id(bond.spec)
                 if spec_id not in bond_spec_colours:
@@ -786,13 +792,14 @@ def _draw_scene(
 
                 all_verts.append(batch_full_verts[bi])
                 face_colours.append(brgb)
-                edge_colours.append(_OUTLINE_COLOUR)
-                line_widths.append(1.0)
+                edge_colours.append(outline_rgb if show_outlines else brgb)
+                line_widths.append(bond_outline_width if show_outlines else 0.0)
 
+        fc_atom = atom_colours[k]
         all_verts.append(_UNIT_CIRCLE * atom_screen_radii[k] + xy[k])
-        face_colours.append(atom_colours[k])
-        edge_colours.append(_OUTLINE_COLOUR)
-        line_widths.append(1.5)
+        face_colours.append(fc_atom)
+        edge_colours.append(outline_rgb if show_outlines else fc_atom)
+        line_widths.append(atom_outline_width if show_outlines else 0.0)
 
     if all_verts:
         pc = PolyCollection(
@@ -826,62 +833,114 @@ def _draw_scene(
 # Static renderer
 # ---------------------------------------------------------------------------
 
+_STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
+
+_RENDER_STYLE_KWARGS = {"atom_scale", "bond_scale", "show_bonds"}
+"""Convenience kwargs accepted directly by render functions and forwarded
+into the :class:`RenderStyle`."""
+
+
+def _resolve_style(
+    style: RenderStyle | None,
+    **kwargs: object,
+) -> RenderStyle:
+    """Build a :class:`RenderStyle` from an optional base plus overrides.
+
+    Any kwarg whose name matches a ``RenderStyle`` field replaces that
+    field's value.  Unknown kwargs are silently ignored (they belong to
+    the caller).
+    """
+    from dataclasses import replace
+
+    s = style if style is not None else RenderStyle()
+    overrides = {k: v for k, v in kwargs.items() if k in _STYLE_FIELDS and v is not None}
+    if overrides:
+        s = replace(s, **overrides)
+    return s
+
+
 def render_mpl(
     scene: StructureScene,
     output: str | Path | None = None,
     *,
+    style: RenderStyle | None = None,
     frame_index: int = 0,
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
-    atom_scale: float = 0.5,
-    bond_scale: float = 1.0,
-    bond_colour: Colour | None = None,
-    half_bonds: bool = True,
+    atom_scale: float | None = None,
+    bond_scale: float | None = None,
+    show_bonds: bool | None = None,
     show: bool = True,
 ) -> Figure:
     """Render a StructureScene as a static matplotlib figure.
 
     Uses a depth-sorted painter's algorithm: atoms are sorted
     back-to-front, and each atom's bonds are drawn just before the
-    atom itself is painted.
+    atom itself is painted.  Bond-sphere intersections are computed
+    in 3D and then projected to screen space.
 
-    Bond-sphere intersections are computed in 3D and then projected
-    to screen space.
+    Example usage::
+
+        scene = StructureScene.from_xbs("ch4.bs")
+        scene.render_mpl("ch4.png")
+
+        # Publication-quality SVG with custom sizing:
+        scene.render_mpl("ch4.svg", figsize=(8, 8), dpi=300,
+                         background="black", show=False)
+
+        # Atoms only (no bonds):
+        scene.render_mpl(show_bonds=False)
+
+        # Custom style with no outlines:
+        from hofmann import RenderStyle
+        style = RenderStyle(show_outlines=False, atom_scale=0.8)
+        scene.render_mpl("clean.svg", style=style, show=False)
+
+        # View along the [1, 1, 1] direction with a depth slab:
+        scene.view.look_along([1, 1, 1])
+        scene.view.slab_near = -2.0
+        scene.view.slab_far = 2.0
+        scene.render_mpl("slice.png", show=False)
 
     Args:
         scene: The StructureScene to render.
-        output: Optional file path to save the figure (SVG, PDF, PNG).
+        output: Optional file path to save the figure.  The format is
+            inferred from the extension (e.g. ``.svg``, ``.pdf``,
+            ``.png``).
+        style: A :class:`RenderStyle` controlling visual appearance.
+            If ``None``, defaults are used.  Convenience kwargs
+            (*atom_scale*, *bond_scale*, *show_bonds*) override the
+            corresponding style fields.
         frame_index: Which frame to render (default 0).
-        figsize: Figure size in inches.
-        dpi: Resolution for raster output.
-        background: Background colour.
-        atom_scale: Scale factor for atom radii.
-        bond_scale: Scale factor for bond width in data coordinates.
-        bond_colour: Override colour for all bonds. If ``None``, each
-            bond uses its BondSpec colour (with a grey fallback when
-            the spec colour matches the background).
-        half_bonds: If ``True`` (default), each bond is split at its
-            midpoint and each half coloured to match the nearest atom.
-            Ignored when *bond_colour* is set explicitly.
-        show: Whether to call ``plt.show()``.
+        figsize: Figure size in inches ``(width, height)``.
+        dpi: Resolution for raster output formats.
+        background: Background colour (CSS name, hex string, grey
+            float, or RGB tuple).
+        atom_scale: Override for :attr:`RenderStyle.atom_scale`.
+        bond_scale: Override for :attr:`RenderStyle.bond_scale`.
+        show_bonds: Override for :attr:`RenderStyle.show_bonds`.
+        show: Whether to call ``plt.show()``.  Set to ``False`` when
+            saving to a file or working non-interactively.
 
     Returns:
-        The matplotlib Figure object.
+        The matplotlib :class:`~matplotlib.figure.Figure` object.
     """
+    resolved = _resolve_style(
+        style,
+        atom_scale=atom_scale,
+        bond_scale=bond_scale,
+        show_bonds=show_bonds,
+    )
     bg_rgb = normalise_colour(background)
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     fig.set_facecolor(bg_rgb)
 
     _draw_scene(
-        ax, scene, scene.view,
+        ax, scene, scene.view, resolved,
         frame_index=frame_index,
         bg_rgb=bg_rgb,
-        atom_scale=atom_scale,
-        bond_scale=bond_scale,
-        bond_colour=bond_colour,
-        half_bonds=half_bonds,
     )
 
     fig.tight_layout()
@@ -928,14 +987,14 @@ def _rotation_y(angle: float) -> np.ndarray:
 def render_mpl_interactive(
     scene: StructureScene,
     *,
+    style: RenderStyle | None = None,
     frame_index: int = 0,
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
-    atom_scale: float = 0.5,
-    bond_scale: float = 1.0,
-    bond_colour: Colour | None = None,
-    half_bonds: bool = True,
+    atom_scale: float | None = None,
+    bond_scale: float | None = None,
+    show_bonds: bool | None = None,
 ) -> ViewState:
     """Interactive matplotlib viewer with mouse-driven rotation and zoom.
 
@@ -953,19 +1012,26 @@ def render_mpl_interactive(
 
     Args:
         scene: The StructureScene to render.
+        style: A :class:`RenderStyle` controlling visual appearance.
+            Convenience kwargs override the corresponding style fields.
         frame_index: Which frame to render.
-        figsize: Figure size in inches.
+        figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution.
         background: Background colour.
-        atom_scale: Scale factor for atom radii.
-        bond_scale: Scale factor for bond width.
-        bond_colour: Override colour for all bonds.
-        half_bonds: Split bonds at the midpoint and colour each half.
+        atom_scale: Override for :attr:`RenderStyle.atom_scale`.
+        bond_scale: Override for :attr:`RenderStyle.bond_scale`.
+        show_bonds: Override for :attr:`RenderStyle.show_bonds`.
 
     Returns:
         The :class:`ViewState` reflecting any rotation/zoom applied
         during the interactive session.
     """
+    resolved = _resolve_style(
+        style,
+        atom_scale=atom_scale,
+        bond_scale=bond_scale,
+        show_bonds=show_bonds,
+    )
     bg_rgb = normalise_colour(background)
 
     # Work on a copy so we don't mutate the original scene's view.
@@ -985,7 +1051,7 @@ def render_mpl_interactive(
 
     # Fixed viewport extent — rotation-invariant so the scene doesn't
     # appear to shift or rescale while dragging.
-    base_extent = _scene_extent(scene, view, frame_index, atom_scale)
+    base_extent = _scene_extent(scene, view, frame_index, resolved.atom_scale)
 
     # Pre-compute bonds, colours, adjacency once — these don't change
     # during interactive rotation / zoom.
@@ -994,10 +1060,6 @@ def render_mpl_interactive(
     draw_kwargs = dict(
         frame_index=frame_index,
         bg_rgb=bg_rgb,
-        atom_scale=atom_scale,
-        bond_scale=bond_scale,
-        bond_colour=bond_colour,
-        half_bonds=half_bonds,
         precomputed=pre,
     )
 
@@ -1005,7 +1067,7 @@ def render_mpl_interactive(
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
-    _draw_scene(ax, scene, view, viewport_extent=base_extent, **draw_kwargs)
+    _draw_scene(ax, scene, view, resolved, viewport_extent=base_extent, **draw_kwargs)
 
     # ---- Interaction state ----
     import time
@@ -1021,8 +1083,8 @@ def render_mpl_interactive(
 
     def _redraw() -> None:
         """Repaint the scene and flush to screen."""
-        extent = _scene_extent(scene, view, frame_index, atom_scale)
-        _draw_scene(ax, scene, view, viewport_extent=extent, **draw_kwargs)
+        extent = _scene_extent(scene, view, frame_index, resolved.atom_scale)
+        _draw_scene(ax, scene, view, resolved, viewport_extent=extent, **draw_kwargs)
         fig.canvas.draw_idle()
         _last_draw["t"] = time.monotonic()
 

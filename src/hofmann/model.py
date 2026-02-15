@@ -62,6 +62,51 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
 
 
 @dataclass
+class RenderStyle:
+    """Visual style settings for rendering.
+
+    Groups all appearance parameters that control how a scene is drawn,
+    independent of the scene data itself.  A default ``RenderStyle()``
+    gives the standard ball-and-stick look.
+
+    Pass a style to :func:`~hofmann.render_mpl.render_mpl` via the
+    *style* keyword, or override individual fields with convenience
+    kwargs::
+
+        style = RenderStyle(show_outlines=False, atom_scale=0.8)
+        scene.render_mpl("out.svg", style=style)
+
+        # Or override a single field:
+        scene.render_mpl("out.svg", show_bonds=False)
+
+    Attributes:
+        atom_scale: Scale factor for atom display radii.  ``0.5`` gives
+            ball-and-stick; ``1.0`` gives space-filling.
+        bond_scale: Scale factor for bond cylinder radii.
+        bond_colour: Override colour for all bonds, or ``None`` to use
+            per-spec / half-bond colouring.
+        half_bonds: Split each bond at the midpoint and colour halves
+            to match the nearest atom.
+        show_bonds: Whether to draw bonds at all.
+        show_outlines: Whether to draw outlines around atoms and bonds.
+        outline_colour: Colour for outlines when *show_outlines* is
+            ``True``.
+        atom_outline_width: Line width for atom outlines (points).
+        bond_outline_width: Line width for bond outlines (points).
+    """
+
+    atom_scale: float = 0.5
+    bond_scale: float = 1.0
+    bond_colour: Colour | None = None
+    half_bonds: bool = True
+    show_bonds: bool = True
+    show_outlines: bool = True
+    outline_colour: Colour = (0.15, 0.15, 0.15)
+    atom_outline_width: float = 1.5
+    bond_outline_width: float = 1.0
+
+
+@dataclass
 class AtomStyle:
     """Visual style for an atomic species.
 

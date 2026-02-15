@@ -7,7 +7,7 @@ but with desaturated tones that reproduce well in print.
 
 from __future__ import annotations
 
-from hofmann.model import AtomStyle
+from hofmann.model import AtomStyle, BondSpec, Colour
 
 # Muted element colours as normalised RGB tuples.
 # Common elements use hand-picked colours; less common elements
@@ -231,6 +231,47 @@ COVALENT_RADII: dict[str, float] = {
     "No": 1.76,
     "Lr": 1.61,
 }
+
+
+def default_bond_specs(
+    species: list[str],
+    *,
+    tolerance: float = 0.4,
+    bond_radius: float = 0.1,
+    bond_colour: Colour = 0.5,
+) -> list[BondSpec]:
+    """Generate BondSpec rules from covalent radii for a set of species.
+
+    Creates one spec per unique pair (including self-pairs) using the
+    sum-of-covalent-radii heuristic: ``max_length = r_a + r_b + tolerance``.
+    Species not found in :data:`COVALENT_RADII` are silently skipped.
+
+    Args:
+        species: Species labels to generate rules for.
+        tolerance: Distance added to the sum of covalent radii (angstroms).
+        bond_radius: Visual radius of the bond cylinder.
+        bond_colour: Default colour for all generated bonds.
+
+    Returns:
+        A list of BondSpec rules, one per unique pair.
+    """
+    unique = sorted(set(species))
+    # Filter to species with known radii.
+    known = [s for s in unique if s in COVALENT_RADII]
+
+    specs: list[BondSpec] = []
+    for i, sp_a in enumerate(known):
+        for sp_b in known[i:]:
+            max_len = COVALENT_RADII[sp_a] + COVALENT_RADII[sp_b] + tolerance
+            specs.append(BondSpec(
+                species_a=sp_a,
+                species_b=sp_b,
+                min_length=0.0,
+                max_length=max_len,
+                radius=bond_radius,
+                colour=bond_colour,
+            ))
+    return specs
 
 
 def default_atom_style(element: str) -> AtomStyle:

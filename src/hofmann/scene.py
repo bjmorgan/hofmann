@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hofmann.defaults import default_atom_style
+from hofmann.defaults import default_atom_style, default_bond_specs
 from hofmann.model import BondSpec, Frame, StructureScene, ViewState
 from hofmann.parser import parse_bs, parse_mv
 
@@ -59,8 +59,9 @@ def from_pymatgen(
     Args:
         structure: A single pymatgen ``Structure`` or a list of
             ``Structure`` objects (e.g. from an MD trajectory).
-        bond_specs: Optional bond specification rules. If ``None``,
-            no bonds are drawn.
+        bond_specs: Optional bond specification rules.  If ``None``,
+            sensible defaults are generated from covalent radii.
+            Pass an empty list to disable bonds.
 
     Returns:
         A StructureScene with default element styles.
@@ -81,8 +82,9 @@ def from_pymatgen(
     else:
         structures = list(structure)
 
-    # Extract species labels from the first structure.
-    species = [str(site.specie) for site in structures[0]]
+    # Extract element symbols (not species strings like "Li+" or "O2-").
+    # .symbol works for both Element and Species objects.
+    species = [site.specie.symbol for site in structures[0]]
 
     # Build frames from each structure's Cartesian coordinates.
     frames = [
@@ -94,6 +96,10 @@ def from_pymatgen(
     unique_species = sorted(set(species))
     atom_styles = {sp: default_atom_style(sp) for sp in unique_species}
 
+    # Generate default bond specs from covalent radii if none provided.
+    if bond_specs is None:
+        bond_specs = default_bond_specs(species)
+
     # Centre on first frame.
     centroid = np.mean(frames[0].coords, axis=0)
     view = ViewState(centre=centroid)
@@ -102,7 +108,7 @@ def from_pymatgen(
         species=species,
         frames=frames,
         atom_styles=atom_styles,
-        bond_specs=bond_specs or [],
+        bond_specs=bond_specs,
         view=view,
         title="",
     )
