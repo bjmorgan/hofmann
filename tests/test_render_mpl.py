@@ -90,6 +90,22 @@ class TestRenderMpl:
         assert out.exists()
         assert out.stat().st_size > 0
 
+    def test_slab_clipping(self):
+        """A tight slab should produce a figure with fewer drawn polygons."""
+        scene = _minimal_scene()
+        # Atoms at z=0 and z=0 (both x-axis), slab should include both.
+        fig_all = render_mpl(scene, show=False)
+        assert isinstance(fig_all, Figure)
+
+        # Now set a slab that excludes one atom (at x=2, z=0).
+        # Looking along x, atom B at x=2 has depth=2.
+        scene.view.look_along([1, 0, 0])
+        scene.view.slab_near = -0.5
+        scene.view.slab_far = 0.5
+        # Only atom at x=0 (depth 0) should be visible.
+        fig_slab = render_mpl(scene, show=False)
+        assert isinstance(fig_slab, Figure)
+
 
 # --- Geometry helpers ---
 

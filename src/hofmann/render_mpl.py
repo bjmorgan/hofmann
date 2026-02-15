@@ -687,6 +687,9 @@ def _draw_scene(
     # ---- Sort atoms back-to-front (furthest first) ----
     order = np.argsort(depth)
 
+    # ---- Slab visibility ----
+    slab_visible = view.slab_mask(coords)
+
     ax.set_facecolor(bg_rgb)
 
     # ---- Batch bond geometry ----
@@ -731,6 +734,9 @@ def _draw_scene(
 
     # ---- Paint back-to-front ----
     for k in order:
+        if not slab_visible[k]:
+            continue
+
         neighbours = adjacency.get(k, [])
         neighbours_sorted = sorted(neighbours, key=lambda nb: depth[nb[0]])
 
@@ -746,11 +752,14 @@ def _draw_scene(
 
             drawn_bonds.add(bond_id)
 
+            # Skip bonds where either atom is outside the slab.
+            ia, ib = bond.index_a, bond.index_b
+            if not slab_visible[ia] or not slab_visible[ib]:
+                continue
+
             bi = bond_index[bond_id]
             if not batch_valid[bi]:
                 continue
-
-            ia, ib = bond.index_a, bond.index_b
 
             if use_half:
                 all_verts.append(batch_half_a[bi])
@@ -966,6 +975,12 @@ def render_mpl_interactive(
         centre=scene.view.centre.copy(),
         perspective=scene.view.perspective,
         view_distance=scene.view.view_distance,
+        slab_origin=(
+            scene.view.slab_origin.copy()
+            if scene.view.slab_origin is not None else None
+        ),
+        slab_near=scene.view.slab_near,
+        slab_far=scene.view.slab_far,
     )
 
     # Fixed viewport extent — rotation-invariant so the scene doesn't
