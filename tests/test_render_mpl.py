@@ -19,6 +19,7 @@ from hofmann.render_mpl import (
     _bond_polygons_batch,
     _clip_bond_3d,
     _clip_polygon_to_half_plane,
+    _collect_polyhedra_faces,
     _half_bond_verts_batch,
     _project_point,
     _rotation_x,
@@ -944,6 +945,139 @@ class TestSlabClipModes:
         counts = []
         for mode in SlabClipMode:
             scene = _octahedron_scene()
+            style = RenderStyle(slab_clip_mode=mode)
+            fig = render_mpl(scene, style=style, show=False)
+            counts.append(len(fig.axes[0].collections[0].get_paths()))
+        assert counts[0] == counts[1] == counts[2]
+
+
+def _two_octahedra_scene(extra_atoms=False, **poly_kwargs):
+    """Build a scene with two TiO6 octahedra offset along z.
+
+    The first Ti is at z=0, the second at z=5.  Each has 6 oxygen
+    neighbours at +/-2 along each axis from its centre.
+
+    If *extra_atoms* is True, two inert Ar atoms are placed at z=+/-3
+    (between the two polyhedra) — these are not bonded to anything.
+    """
+    species = ["Ti"] + ["O"] * 6 + ["Ti"] + ["O"] * 6
+    coords = np.array([
+        # First octahedron: centre at (0, 0, 0)
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0], [-2.0, 0.0, 0.0],
+        [0.0, 2.0, 0.0], [0.0, -2.0, 0.0],
+        [0.0, 0.0, 2.0], [0.0, 0.0, -2.0],
+        # Second octahedron: centre at (0, 0, 5)
+        [0.0, 0.0, 5.0],
+        [2.0, 0.0, 5.0], [-2.0, 0.0, 5.0],
+        [0.0, 2.0, 5.0], [0.0, -2.0, 5.0],
+        [0.0, 0.0, 7.0], [0.0, 0.0, 3.0],
+    ])
+    if extra_atoms:
+        species += ["Ar", "Ar"]
+        coords = np.vstack([coords, [[0.0, 0.0, 3.0], [0.0, 0.0, -3.0]]])
+
+    atom_styles = {
+        "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+        "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+    }
+    if extra_atoms:
+        atom_styles["Ar"] = AtomStyle(0.6, (0.5, 0.5, 0.5))
+
+    return StructureScene(
+        species=species,
+        frames=[Frame(coords=coords)],
+        atom_styles=atom_styles,
+        bond_specs=[BondSpec(
+            species=("O", "Ti"), min_length=0.0, max_length=3.0,
+            radius=0.1, colour=0.5,
+        )],
+        polyhedra=[PolyhedronSpec(centre="Ti", **poly_kwargs)],
+    )
+
+
+class TestPolyhedraDepthOrdering:
+    """Tests for polyhedra face depth-ordering fixes."""
+
+    def test_faces_not_dropped_at_invisible_atom_slot(self):
+        """Polyhedra faces must be drawn even when their depth slot
+        corresponds to a slab-clipped atom."""
+        # Two octahedra plus extra non-bonded atoms between them.
+        # Slab clips the Ar atoms but includes both Ti centres.
+        scene = _two_octahedra_scene(extra_atoms=True)
+        scene.view.slab_near = -3.5
+        scene.view.slab_far = 8.0
+        style_include = RenderStyle(
+            slab_clip_mode=SlabClipMode.INCLUDE_WHOLE,
+        )
+        fig_include = render_mpl(scene, style=style_include, show=False)
+        n_include = len(fig_include.axes[0].collections[0].get_paths())
+
+        # Without slab, all faces are drawn — count should match.
+        scene_noslab = _two_octahedra_scene(extra_atoms=True)
+        style_noslab = RenderStyle(
+            slab_clip_mode=SlabClipMode.INCLUDE_WHOLE,
+        )
+        fig_noslab = render_mpl(
+            scene_noslab, style=style_noslab, show=False,
+        )
+        n_noslab = len(fig_noslab.axes[0].collections[0].get_paths())
+
+        assert n_include == n_noslab
+
+    def test_two_overlapping_polyhedra_include_whole_smoke(self):
+        """Two overlapping polyhedra with include_whole render without
+        error and produce polyhedra face polygons."""
+        scene = _two_octahedra_scene()
+        scene.view.slab_near = -1.5
+        scene.view.slab_far = 6.5
+        style = RenderStyle(slab_clip_mode=SlabClipMode.INCLUDE_WHOLE)
+        fig = render_mpl(scene, style=style, show=False)
+        n = len(fig.axes[0].collections[0].get_paths())
+        # Must have polyhedra faces plus atoms plus bonds.
+        assert n > 14  # 14 atoms alone
+
+    def test_faces_sorted_within_depth_slot(self):
+        """Faces within the same depth slot are sorted back-to-front."""
+        from hofmann.render_mpl import _precompute_scene
+
+        scene = _two_octahedra_scene()
+        view = scene.view
+        style = RenderStyle()
+        coords = scene.frames[0].coords
+        precomputed = _precompute_scene(scene, 0, render_style=style)
+
+        xy, depth, _ = view.project(coords)
+        rotated = (coords - view.centre) @ view.rotation.T
+        order = np.argsort(depth)
+        slab_visible = np.ones(len(coords), dtype=bool)
+
+        face_by_depth_slot = _collect_polyhedra_faces(
+            precomputed=precomputed,
+            polyhedra_list=precomputed.polyhedra,
+            poly_skip=set(),
+            slab_visible=slab_visible,
+            show_polyhedra=True,
+            polyhedra_shading=style.polyhedra_shading,
+            rotated=rotated,
+            depth=depth,
+            xy=xy,
+            order=order,
+        )
+
+        # Within each slot, face_depth (element [4]) must be ascending.
+        for slot, faces in face_by_depth_slot.items():
+            depths = [f[4] for f in faces]
+            assert depths == sorted(depths), (
+                f"Faces at slot {slot} not sorted by depth: {depths}"
+            )
+
+    def test_no_slab_two_polyhedra_all_modes_identical(self):
+        """Without slab settings, all three modes produce the same
+        polygon count for a two-polyhedra scene."""
+        counts = []
+        for mode in SlabClipMode:
+            scene = _two_octahedra_scene()
             style = RenderStyle(slab_clip_mode=mode)
             fig = render_mpl(scene, style=style, show=False)
             counts.append(len(fig.axes[0].collections[0].get_paths()))

@@ -792,14 +792,15 @@ def _collect_polyhedra_faces(
     depth: np.ndarray,
     xy: np.ndarray,
     order: np.ndarray,
-) -> dict[int, list[tuple[np.ndarray, tuple, tuple, float]]]:
+) -> dict[int, list[tuple[np.ndarray, tuple, tuple, float, float]]]:
     """Build per-face draw data and assign each face to a depth slot.
 
     Returns a mapping from depth-slot index (position in *order*) to a
-    list of ``(verts_2d, face_rgba, edge_rgba, edge_width)`` tuples.
+    list of ``(verts_2d, face_rgba, edge_rgba, edge_width, face_depth)``
+    tuples, sorted back-to-front within each slot.
     """
     face_by_depth_slot: dict[
-        int, list[tuple[np.ndarray, tuple, tuple, float]]
+        int, list[tuple[np.ndarray, tuple, tuple, float, float]]
     ] = defaultdict(list)
     if not show_polyhedra or not polyhedra_list:
         return face_by_depth_slot
@@ -844,15 +845,19 @@ def _collect_polyhedra_faces(
             verts_2d = xy[global_idx]
 
             slot = int(np.searchsorted(atom_depths_sorted, face_depth))
-            if slot >= len(order):
-                slot = len(order) - 1
 
             face_by_depth_slot[slot].append((
                 verts_2d,
                 (*shaded, alpha),
                 (*edge_rgb, 1.0),
                 edge_w,
+                float(face_depth),
             ))
+
+    # Sort faces within each slot back-to-front (ascending depth).
+    for slot in face_by_depth_slot:
+        face_by_depth_slot[slot].sort(key=lambda entry: entry[4])
+
     return face_by_depth_slot
 
 
@@ -990,79 +995,105 @@ def _draw_scene(
 
     # ---- Paint back-to-front ----
     for order_pos, k in enumerate(order):
-        if not slab_visible[k]:
-            continue
+        if slab_visible[k]:
+            neighbours = adjacency.get(k, []) if show_bonds else []
+            neighbours_sorted = sorted(
+                neighbours, key=lambda nb: depth[nb[0]],
+            )
 
-        neighbours = adjacency.get(k, []) if show_bonds else []
-        neighbours_sorted = sorted(neighbours, key=lambda nb: depth[nb[0]])
+            for kk, bond in neighbours_sorted:
+                bond_id = id(bond)
+                if bond_id in drawn_bonds:
+                    continue
+                if bond_id in hidden_bond_ids:
+                    drawn_bonds.add(bond_id)
+                    continue
+                if bond_id in poly_clip_hidden_bonds:
+                    drawn_bonds.add(bond_id)
+                    continue
 
-        for kk, bond in neighbours_sorted:
-            bond_id = id(bond)
-            if bond_id in drawn_bonds:
-                continue
-            if bond_id in hidden_bond_ids:
+                if depth[k] < depth[kk]:
+                    continue
+                if depth[k] == depth[kk] and k > kk:
+                    continue
+
                 drawn_bonds.add(bond_id)
-                continue
-            if bond_id in poly_clip_hidden_bonds:
-                drawn_bonds.add(bond_id)
-                continue
 
-            if depth[k] < depth[kk]:
-                continue
-            if depth[k] == depth[kk] and k > kk:
-                continue
+                # Skip bonds where either atom is outside the slab.
+                ia, ib = bond.index_a, bond.index_b
+                if not slab_visible[ia] or not slab_visible[ib]:
+                    continue
 
-            drawn_bonds.add(bond_id)
+                bi = bond_index[bond_id]
+                if not batch_valid[bi]:
+                    continue
 
-            # Skip bonds where either atom is outside the slab.
-            ia, ib = bond.index_a, bond.index_b
-            if not slab_visible[ia] or not slab_visible[ib]:
-                continue
+                if use_half and bond_half_colours[ia] != bond_half_colours[ib]:
+                    fc_a = (*bond_half_colours[ia], 1.0)
+                    all_verts.append(batch_half_a[bi])
+                    face_colours.append(fc_a)
+                    edge_colours.append(
+                        (*outline_rgb, 1.0) if show_outlines else fc_a,
+                    )
+                    line_widths.append(
+                        bond_outline_width if show_outlines else 0.0,
+                    )
+                    fc_b = (*bond_half_colours[ib], 1.0)
+                    all_verts.append(batch_half_b[bi])
+                    face_colours.append(fc_b)
+                    edge_colours.append(
+                        (*outline_rgb, 1.0) if show_outlines else fc_b,
+                    )
+                    line_widths.append(
+                        bond_outline_width if show_outlines else 0.0,
+                    )
+                elif use_half:
+                    # Same colour on both halves — draw as single polygon
+                    # to avoid a spurious outline at the midpoint.
+                    fc = (*bond_half_colours[ia], 1.0)
+                    all_verts.append(batch_full_verts[bi])
+                    face_colours.append(fc)
+                    edge_colours.append(
+                        (*outline_rgb, 1.0) if show_outlines else fc,
+                    )
+                    line_widths.append(
+                        bond_outline_width if show_outlines else 0.0,
+                    )
+                else:
+                    spec_id = id(bond.spec)
+                    if spec_id not in bond_spec_colours:
+                        if bond_colour is not None:
+                            brgb = normalise_colour(bond_colour)
+                        else:
+                            brgb = normalise_colour(bond.spec.colour)
+                        bond_spec_colours[spec_id] = brgb
+                    brgb = bond_spec_colours[spec_id]
 
-            bi = bond_index[bond_id]
-            if not batch_valid[bi]:
-                continue
-
-            if use_half and bond_half_colours[ia] != bond_half_colours[ib]:
-                fc_a = (*bond_half_colours[ia], 1.0)
-                all_verts.append(batch_half_a[bi])
-                face_colours.append(fc_a)
-                edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_a)
-                line_widths.append(bond_outline_width if show_outlines else 0.0)
-                fc_b = (*bond_half_colours[ib], 1.0)
-                all_verts.append(batch_half_b[bi])
-                face_colours.append(fc_b)
-                edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_b)
-                line_widths.append(bond_outline_width if show_outlines else 0.0)
-            elif use_half:
-                # Same colour on both halves — draw as single polygon
-                # to avoid a spurious outline at the midpoint.
-                fc = (*bond_half_colours[ia], 1.0)
-                all_verts.append(batch_full_verts[bi])
-                face_colours.append(fc)
-                edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc)
-                line_widths.append(bond_outline_width if show_outlines else 0.0)
-            else:
-                spec_id = id(bond.spec)
-                if spec_id not in bond_spec_colours:
-                    if bond_colour is not None:
-                        brgb = normalise_colour(bond_colour)
-                    else:
-                        brgb = normalise_colour(bond.spec.colour)
-                    bond_spec_colours[spec_id] = brgb
-                brgb = bond_spec_colours[spec_id]
-
-                all_verts.append(batch_full_verts[bi])
-                face_colours.append((*brgb, 1.0))
-                edge_colours.append((*outline_rgb, 1.0) if show_outlines else (*brgb, 1.0))
-                line_widths.append(bond_outline_width if show_outlines else 0.0)
+                    all_verts.append(batch_full_verts[bi])
+                    face_colours.append((*brgb, 1.0))
+                    edge_colours.append(
+                        (*outline_rgb, 1.0)
+                        if show_outlines
+                        else (*brgb, 1.0),
+                    )
+                    line_widths.append(
+                        bond_outline_width if show_outlines else 0.0,
+                    )
 
         # Draw polyhedron faces assigned to this depth slot.
-        for face_verts, face_fc, face_ec, face_lw in face_by_depth_slot.get(order_pos, []):
+        # Faces are drawn regardless of whether the atom at this slot is
+        # slab-visible — a face's slot is determined by its mean depth,
+        # which may coincide with a clipped atom.
+        for face_verts, face_fc, face_ec, face_lw, _ in (
+            face_by_depth_slot.get(order_pos, [])
+        ):
             all_verts.append(face_verts)
             face_colours.append(face_fc)
             edge_colours.append(face_ec)
             line_widths.append(face_lw)
+
+        if not slab_visible[k]:
+            continue
 
         # Draw atom circle (unless hidden by a polyhedron spec).
         if k not in hidden_atoms:
@@ -1071,6 +1102,15 @@ def _draw_scene(
             face_colours.append(fc_atom)
             edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_atom)
             line_widths.append(atom_outline_width if show_outlines else 0.0)
+
+    # Draw any faces whose mean depth is in front of all atoms.
+    for face_verts, face_fc, face_ec, face_lw, _ in (
+        face_by_depth_slot.get(len(order), [])
+    ):
+        all_verts.append(face_verts)
+        face_colours.append(face_fc)
+        edge_colours.append(face_ec)
+        line_widths.append(face_lw)
 
     if all_verts:
         pc = PolyCollection(
