@@ -130,6 +130,11 @@ class RenderStyle:
             end-cap.  Higher values give smoother bond ends in vector
             output.  ``5`` is fine for screen; ``12`` is recommended
             for publication.
+        polyhedra_shading: Strength of diffuse shading on polyhedra
+            faces.  ``0.0`` gives flat colouring (no shading);
+            ``1.0`` (the default) gives full Lambertian-style shading
+            where faces pointing at the viewer are bright and edge-on
+            faces are dimmed.
     """
 
     atom_scale: float = 0.5
@@ -145,6 +150,7 @@ class RenderStyle:
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
     circle_segments: int = 24
     arc_segments: int = 5
+    polyhedra_shading: float = 1.0
 
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):

@@ -750,6 +750,7 @@ def _draw_scene(
     unit_circle = _make_unit_circle(style.circle_segments)
     arc = _make_arc(style.arc_segments)
     n_arc = len(arc)
+    polyhedra_shading = style.polyhedra_shading
     # Remove previous draw's collection(s) and leftover artists.
     while ax.collections:
         ax.collections[0].remove()
@@ -878,7 +879,7 @@ def _draw_scene(
                     cos_angle = abs(normal[2] / norm_len)
                 else:
                     cos_angle = 0.0
-                shading = 0.4 + 0.6 * cos_angle
+                shading = 1.0 - polyhedra_shading * 0.6 * (1.0 - cos_angle)
                 shaded = tuple(min(1.0, c * shading) for c in base_rgb)
 
                 # Face centroid depth.
