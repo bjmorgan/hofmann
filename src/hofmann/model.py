@@ -12,8 +12,8 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-# Colour can be a CSS name / hex string, a grey float, or an RGB tuple.
-Colour = str | float | tuple[float, float, float]
+# Colour can be a CSS name / hex string, a grey float, or an RGB sequence.
+Colour = str | float | tuple[float, float, float] | list[float]
 
 
 def normalise_colour(colour: Colour) -> tuple[float, float, float]:
@@ -38,10 +38,10 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
             raise ValueError(f"Grey value must be in [0, 1], got {f}")
         return (f, f, f)
 
-    if isinstance(colour, tuple):
+    if isinstance(colour, (tuple, list)):
         if len(colour) != 3:
             raise ValueError(
-                f"RGB tuple must have 3 elements, got {len(colour)}"
+                f"RGB sequence must have 3 elements, got {len(colour)}"
             )
         r, g, b = (float(c) for c in colour)
         for name, val in [("r", r), ("g", g), ("b", b)]:

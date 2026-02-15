@@ -58,6 +58,15 @@ class TestNormaliseColour:
         with pytest.raises(ValueError, match="RGB component"):
             normalise_colour((0.5, 1.5, 0.0))
 
+    def test_rgb_list(self):
+        assert normalise_colour([0.5, 0.3, 0.1]) == pytest.approx(
+            (0.5, 0.3, 0.1)
+        )
+
+    def test_rgb_list_wrong_length_raises(self):
+        with pytest.raises(ValueError, match="3 elements"):
+            normalise_colour([0.5, 0.3])  # type: ignore[arg-type]
+
 
 # --- BondSpec.matches ---
 
