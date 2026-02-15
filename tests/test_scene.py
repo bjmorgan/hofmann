@@ -412,3 +412,17 @@ class TestFromPymatgenImportError:
         monkeypatch.setattr(builtins, "__import__", mock_import)
         with pytest.raises(ImportError, match="pymatgen is required"):
             from_pymatgen(None)
+
+
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestMultiFramePbc:
+    def test_species_from_first_frame(self):
+        """Multi-frame PBC expansion must use the first frame's species."""
+        lattice = Lattice.cubic(10.0)
+        # Both frames have the same structure — species list must match
+        # the first frame regardless of how many frames there are.
+        s1 = Structure(lattice, ["Si"], [[0.02, 0.5, 0.5]])
+        s2 = Structure(lattice, ["Si"], [[0.02, 0.5, 0.5]])
+        scene = from_pymatgen([s1, s2], pbc=True)
+        assert len(scene.species) == len(scene.frames[0].coords)
+        assert len(scene.species) == len(scene.frames[1].coords)

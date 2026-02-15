@@ -478,6 +478,7 @@ def from_pymatgen(
     n_uc = len(species)  # unit-cell atom count before expansion
     if pbc:
         frames = []
+        first_species: list[str] | None = None
         for i, s in enumerate(structures):
             # Geometric expansion: add images near cell faces.
             exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_cutoff)
@@ -503,9 +504,11 @@ def from_pymatgen(
                     bond_specs, poly_specs,
                 )
 
+            if first_species is None:
+                first_species = exp_species
             frames.append(Frame(coords=exp_coords, label=f"frame_{i}"))
         # Use expanded species from the first frame.
-        species = exp_species
+        species = first_species  # type: ignore[assignment]
     else:
         frames = [
             Frame(coords=s.cart_coords, label=f"frame_{i}")
