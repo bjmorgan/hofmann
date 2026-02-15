@@ -412,11 +412,11 @@ class StructureScene:
         return from_xbs(bs_path, mv_path)
 
     @classmethod
-    def from_pymatgen(cls, structure, bond_specs=None):
+    def from_pymatgen(cls, structure, bond_specs=None, *, pbc=False, pbc_cutoff=None):
         """Create from pymatgen Structure(s). See ``hofmann.scene.from_pymatgen``."""
         from hofmann.scene import from_pymatgen
 
-        return from_pymatgen(structure, bond_specs)
+        return from_pymatgen(structure, bond_specs, pbc=pbc, pbc_cutoff=pbc_cutoff)
 
     def render_mpl(self, output=None, **kwargs):
         """Render with matplotlib. See ``hofmann.render_mpl.render_mpl``."""
