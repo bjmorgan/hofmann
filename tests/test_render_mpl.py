@@ -177,6 +177,18 @@ class TestRenderMpl:
         pc = ax.collections[0]
         assert len(pc.get_paths()) == 2
 
+    def test_half_bonds_kwarg(self):
+        """half_bonds=False passed as a convenience kwarg is respected."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, half_bonds=False, show=False)
+        assert isinstance(fig, Figure)
+
+    def test_unknown_style_kwarg_raises(self):
+        """Unknown keyword arguments raise TypeError."""
+        scene = _minimal_scene()
+        with pytest.raises(TypeError, match="Unknown style keyword"):
+            render_mpl(scene, nonexistent_option=True, show=False)
+
     def test_render_style_defaults_match_original(self):
         """Default RenderStyle produces the same output as no style."""
         scene = _minimal_scene()

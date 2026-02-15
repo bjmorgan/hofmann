@@ -1163,11 +1163,6 @@ def _draw_scene(
 
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
 
-_RENDER_STYLE_KWARGS = {"atom_scale", "bond_scale", "show_bonds"}
-"""Convenience kwargs accepted directly by render functions and forwarded
-into the :class:`RenderStyle`."""
-
-
 def _resolve_style(
     style: RenderStyle | None,
     **kwargs: object,
@@ -1175,13 +1170,21 @@ def _resolve_style(
     """Build a :class:`RenderStyle` from an optional base plus overrides.
 
     Any kwarg whose name matches a ``RenderStyle`` field replaces that
-    field's value.  Unknown kwargs are silently ignored (they belong to
-    the caller).
+    field's value.  Unknown kwargs raise :class:`TypeError`.
+
+    Raises:
+        TypeError: If a kwarg name does not match any ``RenderStyle`` field.
     """
     from dataclasses import replace
 
+    unknown = kwargs.keys() - _STYLE_FIELDS
+    if unknown:
+        raise TypeError(
+            f"Unknown style keyword argument(s): {', '.join(sorted(unknown))}"
+        )
+
     s = style if style is not None else RenderStyle()
-    overrides = {k: v for k, v in kwargs.items() if k in _STYLE_FIELDS and v is not None}
+    overrides = {k: v for k, v in kwargs.items() if v is not None}
     if overrides:
         s = replace(s, **overrides)
     return s
@@ -1196,10 +1199,8 @@ def render_mpl(
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
-    atom_scale: float | None = None,
-    bond_scale: float | None = None,
-    show_bonds: bool | None = None,
     show: bool = True,
+    **style_kwargs: object,
 ) -> Figure:
     """Render a StructureScene as a static matplotlib figure.
 
@@ -1237,29 +1238,24 @@ def render_mpl(
             inferred from the extension (e.g. ``.svg``, ``.pdf``,
             ``.png``).
         style: A :class:`RenderStyle` controlling visual appearance.
-            If ``None``, defaults are used.  Convenience kwargs
-            (*atom_scale*, *bond_scale*, *show_bonds*) override the
-            corresponding style fields.
+            If ``None``, defaults are used.  Any :class:`RenderStyle`
+            field name may also be passed as a keyword argument to
+            override individual fields (e.g. ``show_bonds=False``,
+            ``half_bonds=False``).
         frame_index: Which frame to render (default 0).
         figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution for raster output formats.
         background: Background colour (CSS name, hex string, grey
             float, or RGB tuple).
-        atom_scale: Override for :attr:`RenderStyle.atom_scale`.
-        bond_scale: Override for :attr:`RenderStyle.bond_scale`.
-        show_bonds: Override for :attr:`RenderStyle.show_bonds`.
         show: Whether to call ``plt.show()``.  Set to ``False`` when
             saving to a file or working non-interactively.
+        **style_kwargs: Any :class:`RenderStyle` field name as a
+            keyword argument.  Unknown names raise :class:`TypeError`.
 
     Returns:
         The matplotlib :class:`~matplotlib.figure.Figure` object.
     """
-    resolved = _resolve_style(
-        style,
-        atom_scale=atom_scale,
-        bond_scale=bond_scale,
-        show_bonds=show_bonds,
-    )
+    resolved = _resolve_style(style, **style_kwargs)
     bg_rgb = normalise_colour(background)
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
@@ -1320,9 +1316,7 @@ def render_mpl_interactive(
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
-    atom_scale: float | None = None,
-    bond_scale: float | None = None,
-    show_bonds: bool | None = None,
+    **style_kwargs: object,
 ) -> ViewState:
     """Interactive matplotlib viewer with mouse-driven rotation and zoom.
 
@@ -1341,25 +1335,20 @@ def render_mpl_interactive(
     Args:
         scene: The StructureScene to render.
         style: A :class:`RenderStyle` controlling visual appearance.
-            Convenience kwargs override the corresponding style fields.
+            Any :class:`RenderStyle` field name may also be passed as
+            a keyword argument to override individual fields.
         frame_index: Which frame to render.
         figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution.
         background: Background colour.
-        atom_scale: Override for :attr:`RenderStyle.atom_scale`.
-        bond_scale: Override for :attr:`RenderStyle.bond_scale`.
-        show_bonds: Override for :attr:`RenderStyle.show_bonds`.
+        **style_kwargs: Any :class:`RenderStyle` field name as a
+            keyword argument.  Unknown names raise :class:`TypeError`.
 
     Returns:
         The :class:`ViewState` reflecting any rotation/zoom applied
         during the interactive session.
     """
-    resolved = _resolve_style(
-        style,
-        atom_scale=atom_scale,
-        bond_scale=bond_scale,
-        show_bonds=show_bonds,
-    )
+    resolved = _resolve_style(style, **style_kwargs)
     bg_rgb = normalise_colour(background)
 
     # Work on a copy so we don't mutate the original scene's view.
