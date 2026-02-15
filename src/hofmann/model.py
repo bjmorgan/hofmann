@@ -270,6 +270,12 @@ class StructureScene:
 
         return render_mpl(self, output, **kwargs)
 
+    def render_mpl_interactive(self, **kwargs) -> ViewState:
+        """Interactive matplotlib viewer. See ``hofmann.render_mpl.render_mpl_interactive``."""
+        from hofmann.render_mpl import render_mpl_interactive
+
+        return render_mpl_interactive(self, **kwargs)
+
     def render_plotly(self, **kwargs):
         """Render with plotly. See ``hofmann.render_plotly.render_plotly``."""
         from hofmann.render_plotly import render_plotly
