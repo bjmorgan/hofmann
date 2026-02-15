@@ -585,6 +585,7 @@ def _scene_extent(
 def _precompute_scene(
     scene: StructureScene,
     frame_index: int,
+    render_style: RenderStyle | None = None,
 ) -> dict:
     """Pre-compute frame-independent data for repeated rendering.
 
@@ -671,6 +672,10 @@ def _precompute_scene(
     poly_alphas: list[float] = []
     poly_edge_colours: list[tuple[float, float, float]] = []
     poly_edge_widths: list[float] = []
+    edge_width_override = (
+        render_style.polyhedra_outline_width if render_style is not None
+        else None
+    )
     for poly in polyhedra:
         if poly.spec.colour is not None:
             base_rgb = normalise_colour(poly.spec.colour)
@@ -682,7 +687,10 @@ def _precompute_scene(
         poly_base_colours.append(base_rgb)
         poly_alphas.append(poly.spec.alpha)
         poly_edge_colours.append(normalise_colour(poly.spec.edge_colour))
-        poly_edge_widths.append(poly.spec.edge_width)
+        poly_edge_widths.append(
+            edge_width_override if edge_width_override is not None
+            else poly.spec.edge_width
+        )
 
     return {
         "coords": coords,
@@ -758,7 +766,7 @@ def _draw_scene(
         t.remove()
 
     if precomputed is None:
-        precomputed = _precompute_scene(scene, frame_index)
+        precomputed = _precompute_scene(scene, frame_index, style)
 
     coords = precomputed["coords"]
     radii_3d = precomputed["radii_3d"]
@@ -1248,7 +1256,7 @@ def render_mpl_interactive(
 
     # Pre-compute bonds, colours, adjacency once — these don't change
     # during interactive rotation / zoom.
-    pre = _precompute_scene(scene, frame_index)
+    pre = _precompute_scene(scene, frame_index, resolved)
 
     draw_kwargs = dict(
         frame_index=frame_index,

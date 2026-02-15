@@ -135,6 +135,10 @@ class RenderStyle:
             ``1.0`` (the default) gives full Lambertian-style shading
             where faces pointing at the viewer are bright and edge-on
             faces are dimmed.
+        polyhedra_outline_width: Global override for polyhedra outline
+            line width (points).  When ``None`` (the default), each
+            polyhedron uses its own ``PolyhedronSpec.edge_width``.
+            When set, overrides all per-spec values.
     """
 
     atom_scale: float = 0.5
@@ -151,6 +155,7 @@ class RenderStyle:
     circle_segments: int = 24
     arc_segments: int = 5
     polyhedra_shading: float = 1.0
+    polyhedra_outline_width: float | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):

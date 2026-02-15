@@ -432,6 +432,14 @@ class TestRenderStyle:
         style = RenderStyle(slab_clip_mode=SlabClipMode.CLIP_WHOLE)
         assert style.slab_clip_mode is SlabClipMode.CLIP_WHOLE
 
+    def test_polyhedra_outline_width_default_none(self):
+        style = RenderStyle()
+        assert style.polyhedra_outline_width is None
+
+    def test_polyhedra_outline_width_override(self):
+        style = RenderStyle(polyhedra_outline_width=2.0)
+        assert style.polyhedra_outline_width == 2.0
+
 
 # --- StructureScene ---
 
