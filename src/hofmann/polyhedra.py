@@ -14,8 +14,6 @@ def compute_polyhedra(
     coords: np.ndarray,
     bonds: list[Bond],
     polyhedra_specs: list[PolyhedronSpec],
-    *,
-    n_centre_atoms: int | None = None,
 ) -> list[Polyhedron]:
     """Compute coordination polyhedra from bonds and declarative specs.
 
@@ -31,10 +29,6 @@ def compute_polyhedra(
         coords: Coordinate array of shape ``(n_atoms, 3)``.
         bonds: Previously computed bonds.
         polyhedra_specs: Declarative polyhedron rules.
-        n_centre_atoms: If set, only atoms with index below this
-            value are considered as polyhedron centres.  Image atoms
-            (from PBC expansion) can still be vertices but not
-            centres.  ``None`` means all atoms are candidates.
 
     Returns:
         List of :class:`Polyhedron` objects.
@@ -43,7 +37,6 @@ def compute_polyhedra(
         return []
 
     coords = np.asarray(coords, dtype=float)
-    max_centre = n_centre_atoms if n_centre_atoms is not None else len(species)
 
     # Build adjacency from bonds.
     adjacency: dict[int, set[int]] = defaultdict(set)
@@ -56,7 +49,7 @@ def compute_polyhedra(
     result: list[Polyhedron] = []
 
     for spec in polyhedra_specs:
-        for i, sp in enumerate(species[:max_centre]):
+        for i, sp in enumerate(species):
             if i in claimed:
                 continue
             if not fnmatch(sp, spec.centre):

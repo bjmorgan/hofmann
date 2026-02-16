@@ -567,10 +567,6 @@ class StructureScene:
         polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
-        n_unit_cell_atoms: Number of atoms in the original unit cell
-            before PBC expansion.  When set, only atoms with index
-            below this value are considered as polyhedron centres.
-            ``None`` means all atoms are candidates.
     """
 
     species: list[str]
@@ -580,7 +576,6 @@ class StructureScene:
     polyhedra: list[PolyhedronSpec] = field(default_factory=list)
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
-    n_unit_cell_atoms: int | None = None
 
     @classmethod
     def from_xbs(

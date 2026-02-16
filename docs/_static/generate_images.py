@@ -61,7 +61,7 @@ def perovskite_scene() -> StructureScene:
     scene.atom_styles["O"].colour = (0.9, 0.1, 0.1)
     scene.atom_styles["O"].radius = 0.8
 
-    scene.view.look_along([2, 1, 1])
+    scene.view.look_along([1, 0.18, 0.2])
     return scene
 
 

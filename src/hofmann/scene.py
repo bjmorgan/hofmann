@@ -531,5 +531,4 @@ def from_pymatgen(
         polyhedra=polyhedra if polyhedra is not None else [],
         view=view,
         title="",
-        n_unit_cell_atoms=n_uc if pbc else None,
     )

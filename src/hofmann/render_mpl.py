@@ -672,7 +672,6 @@ def _precompute_scene(
     # ---- Polyhedra ----
     polyhedra = compute_polyhedra(
         scene.species, coords, bonds, scene.polyhedra,
-        n_centre_atoms=scene.n_unit_cell_atoms,
     )
 
     # Build sets of hidden atoms/bonds from polyhedra specs.
