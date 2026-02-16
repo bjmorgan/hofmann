@@ -2,13 +2,14 @@
 
 [![CI](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml/badge.svg)](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/hofmann/badge/?version=latest)](https://hofmann.readthedocs.io/en/latest/)
+[![PyPI](https://img.shields.io/pypi/v/hofmann)](https://pypi.org/project/hofmann/)
 
 A modern Python reimagining of Methfessel's [XBS](https://www.ccl.net/cca/software/X-WINDOW/xbs/) ball-and-stick viewer (1995), named after [August Wilhelm von Hofmann](https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann) who built the first ball-and-stick molecular models in 1865.
 
 hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images with static, publication-quality vector output (SVG, PDF) via matplotlib.
 
 <p align="center">
-  <img src="docs/_static/llzo.svg" width="480" alt="LLZO garnet with ZrO6 polyhedra rendered with hofmann">
+  <img src="https://raw.githubusercontent.com/bjmorgan/hofmann/main/docs/_static/llzo.png" width="480" alt="LLZO garnet with ZrO6 polyhedra rendered with hofmann">
 </p>
 
 ## Features
