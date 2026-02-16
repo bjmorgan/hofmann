@@ -1196,7 +1196,7 @@ def render_mpl(
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
-    show: bool = True,
+    show: bool | None = None,
     **style_kwargs: object,
 ) -> Figure:
     """Render a StructureScene as a static matplotlib figure.
@@ -1209,25 +1209,27 @@ def render_mpl(
     Example usage::
 
         scene = StructureScene.from_xbs("ch4.bs")
+
+        # Save to file (no interactive window):
         scene.render_mpl("ch4.png")
 
         # Publication-quality SVG with custom sizing:
         scene.render_mpl("ch4.svg", figsize=(8, 8), dpi=300,
-                         background="black", show=False)
+                         background="black")
 
-        # Atoms only (no bonds):
-        scene.render_mpl(show_bonds=False)
+        # Interactive display (no file):
+        scene.render_mpl()
 
         # Custom style with no outlines:
         from hofmann import RenderStyle
         style = RenderStyle(show_outlines=False, atom_scale=0.8)
-        scene.render_mpl("clean.svg", style=style, show=False)
+        scene.render_mpl("clean.svg", style=style)
 
         # View along the [1, 1, 1] direction with a depth slab:
         scene.view.look_along([1, 1, 1])
         scene.view.slab_near = -2.0
         scene.view.slab_far = 2.0
-        scene.render_mpl("slice.png", show=False)
+        scene.render_mpl("slice.png")
 
     Args:
         scene: The StructureScene to render.
@@ -1244,8 +1246,10 @@ def render_mpl(
         dpi: Resolution for raster output formats.
         background: Background colour (CSS name, hex string, grey
             float, or RGB tuple).
-        show: Whether to call ``plt.show()``.  Set to ``False`` when
-            saving to a file or working non-interactively.
+        show: Whether to call ``plt.show()`` to open an interactive
+            window.  Defaults to ``True`` when *output* is ``None``,
+            ``False`` when saving to a file.  Pass explicitly to
+            override (e.g. ``show=True`` to both save and display).
         **style_kwargs: Any :class:`RenderStyle` field name as a
             keyword argument.  Unknown names raise :class:`TypeError`.
 
@@ -1268,6 +1272,9 @@ def render_mpl(
 
     if output is not None:
         fig.savefig(str(output), dpi=dpi, bbox_inches="tight")
+
+    if show is None:
+        show = output is None
 
     if show:
         plt.show()
@@ -1327,7 +1334,7 @@ def render_mpl_interactive(
 
         view = scene.render_mpl_interactive()
         scene.view = view
-        scene.render_mpl("output.svg", show=False)
+        scene.render_mpl("output.svg")
 
     Args:
         scene: The StructureScene to render.

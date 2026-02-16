@@ -25,11 +25,11 @@ Quick example
    from hofmann import StructureScene
 
    scene = StructureScene.from_xbs("structure.bs")
-   scene.render_mpl("output.svg", show=False)
+   scene.render_mpl("output.svg")
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents
+   :hidden:
 
    getting-started
    user-guide

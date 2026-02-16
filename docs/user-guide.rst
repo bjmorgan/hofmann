@@ -102,12 +102,11 @@ or use convenience keyword arguments:
        show_outlines=False,
        half_bonds=False,
    )
-   scene.render_mpl("clean.svg", style=style, show=False)
+   scene.render_mpl("clean.svg", style=style)
 
    # Or as convenience kwargs:
    scene.render_mpl("clean.svg", atom_scale=0.8,
-                     show_outlines=False, half_bonds=False,
-                     show=False)
+                     show_outlines=False, half_bonds=False)
 
 Any :class:`~hofmann.RenderStyle` field can be passed as a keyword
 argument to :meth:`~hofmann.StructureScene.render_mpl`.  Unknown
@@ -227,7 +226,7 @@ Open an interactive matplotlib window with mouse rotation and zoom:
 
    # Reuse the adjusted view for static output:
    scene.view = view
-   scene.render_mpl("adjusted.svg", show=False)
+   scene.render_mpl("adjusted.svg")
 
 Left-drag rotates; scroll zooms.  The returned
 :class:`~hofmann.ViewState` captures the final orientation.

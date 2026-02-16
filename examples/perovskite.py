@@ -80,5 +80,5 @@ scene = StructureScene(
     title="SrTiO3 perovskite",
 )
 
-scene.render_mpl(output=OUTPUT, show=False, half_bonds=False)
+scene.render_mpl(output=OUTPUT, half_bonds=False)
 print(f"Rendered {len(species)} atoms to {OUTPUT}")

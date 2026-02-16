@@ -18,6 +18,6 @@ class TestPublicAPI:
     def test_end_to_end_xbs_to_mpl(self, ch4_bs_path, tmp_path):
         scene = hofmann.StructureScene.from_xbs(ch4_bs_path)
         out = tmp_path / "ch4.png"
-        scene.render_mpl(output=out, show=False)
+        scene.render_mpl(output=out)
         assert out.exists()
         assert out.stat().st_size > 0

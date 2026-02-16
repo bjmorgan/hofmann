@@ -15,7 +15,7 @@ def main():
     print(f"Atom styles: {list(scene.atom_styles.keys())}")
     print(f"Bond specs: {len(scene.bond_specs)}")
 
-    scene.render_mpl(output=OUTPUT, show=False, half_bonds=False)
+    scene.render_mpl(output=OUTPUT, half_bonds=False)
     print(f"Rendered to {OUTPUT}")
 
 

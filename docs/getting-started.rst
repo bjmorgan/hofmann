@@ -43,7 +43,7 @@ rules in a simple text format (see :doc:`xbs-format`).
    from hofmann import StructureScene
 
    scene = StructureScene.from_xbs("ch4.bs")
-   scene.render_mpl("ch4.svg", show=False)
+   scene.render_mpl("ch4.svg")
 
 .. image:: _static/ch4.svg
    :width: 320px
@@ -77,7 +77,7 @@ If you have pymatgen installed, you can build a scene directly from a
    bonds = [BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
                      radius=0.1, colour=0.5)]
    scene = StructureScene.from_pymatgen(structure, bonds, pbc=True)
-   scene.render_mpl("si.pdf", show=False)
+   scene.render_mpl("si.pdf")
 
 .. image:: _static/si.svg
    :width: 320px

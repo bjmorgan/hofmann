@@ -672,7 +672,7 @@ class StructureScene:
         figsize: tuple[float, float] = (5.0, 5.0),
         dpi: int = 150,
         background: Colour = "white",
-        show: bool = True,
+        show: bool | None = None,
         **style_kwargs: object,
     ) -> Figure:
         """Render the scene as a static matplotlib figure.
@@ -688,8 +688,9 @@ class StructureScene:
             figsize: Figure size in inches ``(width, height)``.
             dpi: Resolution for raster output formats.
             background: Background colour.
-            show: Whether to call ``plt.show()``.  Set to ``False``
-                when saving to a file or working non-interactively.
+            show: Whether to call ``plt.show()``.  Defaults to
+                ``True`` when *output* is ``None``, ``False`` when
+                saving to a file.
             **style_kwargs: Any :class:`RenderStyle` field name as a
                 keyword argument (e.g. ``show_bonds=False``).
 

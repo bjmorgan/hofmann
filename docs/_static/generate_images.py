@@ -132,18 +132,18 @@ def llzo_scene() -> StructureScene:
 def main() -> None:
     # CH4 -- simple ball-and-stick
     ch4 = ch4_scene()
-    ch4.render_mpl(OUT / "ch4.svg", show=False, figsize=(4, 4), dpi=150)
+    ch4.render_mpl(OUT / "ch4.svg", figsize=(4, 4), dpi=150)
     print(f"  wrote {OUT / 'ch4.svg'}")
 
     # Si diamond cubic -- pymatgen example
     si = si_scene()
-    si.render_mpl(OUT / "si.svg", show=False, figsize=(4, 4), dpi=150)
+    si.render_mpl(OUT / "si.svg", figsize=(4, 4), dpi=150)
     print(f"  wrote {OUT / 'si.svg'}")
 
     # SrTiO3 perovskite with polyhedra -- hero image
     perov = perovskite_scene()
     perov.render_mpl(
-        OUT / "perovskite.svg", show=False,
+        OUT / "perovskite.svg",
         figsize=(6, 6), dpi=150, half_bonds=False,
         slab_clip_mode="include_whole",
     )
@@ -151,14 +151,14 @@ def main() -> None:
 
     # Style variations for user guide
     perov.render_mpl(
-        OUT / "perovskite_spacefill.svg", show=False,
+        OUT / "perovskite_spacefill.svg",
         figsize=(4, 4), dpi=150, atom_scale=1.0,
         show_bonds=False, show_polyhedra=False,
     )
     print(f"  wrote {OUT / 'perovskite_spacefill.svg'}")
 
     perov.render_mpl(
-        OUT / "perovskite_no_outlines.svg", show=False,
+        OUT / "perovskite_no_outlines.svg",
         figsize=(4, 4), dpi=150, half_bonds=False,
         show_outlines=False, slab_clip_mode="include_whole",
     )
@@ -177,7 +177,7 @@ def main() -> None:
         arc_segments=12,
     )
     llzo.render_mpl(
-        OUT / "llzo.svg", show=False,
+        OUT / "llzo.svg",
         figsize=(5, 5), dpi=150, style=style,
     )
     print(f"  wrote {OUT / 'llzo.svg'}")
