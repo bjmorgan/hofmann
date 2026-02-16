@@ -1101,8 +1101,8 @@ def _draw_scene(
         ):
             all_verts.append(face_verts)
             face_colours.append(face_fc)
-            edge_colours.append(face_ec)
-            line_widths.append(face_lw)
+            edge_colours.append(face_ec if show_outlines else face_fc)
+            line_widths.append(face_lw if show_outlines else 0.0)
 
         if not slab_visible[k]:
             continue
@@ -1121,8 +1121,8 @@ def _draw_scene(
     ):
         all_verts.append(face_verts)
         face_colours.append(face_fc)
-        edge_colours.append(face_ec)
-        line_widths.append(face_lw)
+        edge_colours.append(face_ec if show_outlines else face_fc)
+        line_widths.append(face_lw if show_outlines else 0.0)
 
     if all_verts:
         pc = PolyCollection(

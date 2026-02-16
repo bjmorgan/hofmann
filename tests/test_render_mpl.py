@@ -682,6 +682,15 @@ class TestPolyhedraRendering:
         n_off = len(fig_off.axes[0].collections[0].get_paths())
         assert n_on > n_off
 
+    def test_show_outlines_false_suppresses_polyhedra_edges(self):
+        """show_outlines=False zeroes polyhedra edge widths."""
+        scene = _octahedron_scene()
+        style = RenderStyle(show_outlines=False)
+        fig = render_mpl(scene, style=style, show=False)
+        pc = fig.axes[0].collections[0]
+        lws = pc.get_linewidths()
+        assert all(w == 0.0 for w in lws)
+
     def test_hide_centre(self):
         """hide_centre=True removes the centre atom's circle."""
         scene_show = _octahedron_scene(hide_centre=False)
