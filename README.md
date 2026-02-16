@@ -1,0 +1,106 @@
+# hofmann
+
+A modern Python reimagining of Methfessel's [XBS](https://www.ccl.net/cca/software/X-WINDOW/xbs/) ball-and-stick viewer (1995), named after [August Wilhelm von Hofmann](https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann) who built the first ball-and-stick molecular models in 1865.
+
+hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images with static, publication-quality vector output (SVG, PDF) via matplotlib.
+
+<p align="center">
+  <img src="docs/_static/llzo.svg" width="480" alt="LLZO garnet with ZrO6 polyhedra rendered with hofmann">
+</p>
+
+## Features
+
+- **Publication-quality output** -- vector SVG and PDF via matplotlib's painter's algorithm with depth sorting
+- **XBS file support** -- reads classic `.bs` and `.mv` (trajectory) file formats
+- **pymatgen interoperability** -- build scenes directly from pymatgen `Structure` objects (optional dependency)
+- **Periodic boundary conditions** -- automatic image expansion with bond-aware and polyhedra-vertex-aware generation
+- **Coordination polyhedra** -- convex hull construction from the bond graph with configurable shading and slab clipping
+- **Unit cell wireframe** -- depth-interleaved cell edges that correctly occlude and are occluded by atoms and bonds
+- **Interactive viewer** -- mouse rotation, scroll zoom, keyboard controls, and frame navigation for trajectories
+- **Perspective projection** -- tuneable perspective strength with XBS-style foreshortened bond caps
+- **Clean data model** -- Python dataclasses throughout, no global state, numpy-vectorised coordinate maths
+
+## Installation
+
+```bash
+pip install hofmann
+```
+
+For pymatgen interoperability:
+
+```bash
+pip install "hofmann[pymatgen]"
+```
+
+### Requirements
+
+- Python 3.11+
+- numpy >= 1.24
+- matplotlib >= 3.7
+- scipy >= 1.10
+- pymatgen >= 2024.1.1 (optional)
+
+## Quick start
+
+### From an XBS file
+
+```python
+from hofmann import StructureScene
+
+scene = StructureScene.from_xbs("structure.bs")
+scene.render_mpl("output.svg")
+```
+
+### From a pymatgen Structure
+
+```python
+from pymatgen.core import Lattice, Structure
+from hofmann import StructureScene, BondSpec
+
+lattice = Lattice.cubic(5.43)
+structure = Structure(
+    lattice, ["Si"] * 8,
+    [[0.0, 0.0, 0.0], [0.5, 0.5, 0.0],
+     [0.5, 0.0, 0.5], [0.0, 0.5, 0.5],
+     [0.25, 0.25, 0.25], [0.75, 0.75, 0.25],
+     [0.75, 0.25, 0.75], [0.25, 0.75, 0.75]],
+)
+
+bonds = [BondSpec(species=("Si", "Si"), min_length=0.0,
+                  max_length=2.8, radius=0.1, colour=0.5)]
+scene = StructureScene.from_pymatgen(structure, bonds, pbc=True)
+scene.render_mpl("si.pdf")
+```
+
+### Controlling the view
+
+```python
+scene.view.look_along([1, 1, 0])   # View along [110]
+scene.view.zoom = 1.5              # Zoom in
+scene.view.perspective = 0.3       # Mild perspective
+scene.render_mpl("rotated.svg")
+```
+
+### Interactive viewer
+
+```python
+view, style = scene.render_mpl_interactive()
+
+# Reuse the adjusted view for static output:
+scene.view = view
+scene.render_mpl("final.svg", style=style)
+```
+
+## Documentation
+
+Full documentation is available at [hofmann.readthedocs.io](https://hofmann.readthedocs.io/), covering:
+
+- [Getting started](https://hofmann.readthedocs.io/en/latest/getting-started.html) -- installation and first renders
+- [User guide](https://hofmann.readthedocs.io/en/latest/user-guide.html) -- views, render styles, bonds, polyhedra, unit cells
+- [Interactive viewer](https://hofmann.readthedocs.io/en/latest/interactive.html) -- mouse and keyboard controls
+- [XBS file format](https://hofmann.readthedocs.io/en/latest/xbs-format.html) -- `.bs` and `.mv` format reference
+- [API reference](https://hofmann.readthedocs.io/en/latest/api.html) -- full autodoc API
+
+## Licence
+
+MIT. See [LICENSE](LICENSE) for details.
