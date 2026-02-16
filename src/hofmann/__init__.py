@@ -35,6 +35,7 @@ from hofmann.model import (
     ViewState,
     WidgetCorner,
     normalise_colour,
+    resolve_atom_colours,
 )
 from hofmann.scene import from_pymatgen, from_xbs
 
@@ -62,4 +63,5 @@ __all__ = [
     "from_pymatgen",
     "from_xbs",
     "normalise_colour",
+    "resolve_atom_colours",
 ]

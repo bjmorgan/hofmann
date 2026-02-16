@@ -18,6 +18,7 @@ from hofmann.model import (
     ViewState,
     WidgetCorner,
     normalise_colour,
+    resolve_atom_colours,
 )
 
 
@@ -609,6 +610,234 @@ class TestStructureScene:
             species=["A"], frames=[Frame(coords=coords)], lattice=lat_int,
         )
         assert scene.lattice.dtype == float
+
+    def test_atom_data_default_empty(self):
+        coords = np.zeros((2, 3))
+        scene = StructureScene(
+            species=["A", "B"], frames=[Frame(coords=coords)],
+        )
+        assert scene.atom_data == {}
+
+    def test_atom_data_constructor_validation(self):
+        coords = np.zeros((2, 3))
+        with pytest.raises(ValueError, match="atom_data"):
+            StructureScene(
+                species=["A", "B"], frames=[Frame(coords=coords)],
+                atom_data={"charge": np.array([1.0, 2.0, 3.0])},
+            )
+
+
+class TestSetAtomData:
+    """Tests for StructureScene.set_atom_data."""
+
+    def _scene(self, n: int = 3) -> StructureScene:
+        coords = np.zeros((n, 3))
+        return StructureScene(
+            species=["A", "B", "C"][:n],
+            frames=[Frame(coords=coords)],
+        )
+
+    def test_full_array(self):
+        scene = self._scene()
+        values = np.array([1.0, 2.0, 3.0])
+        scene.set_atom_data("charge", values)
+        np.testing.assert_array_equal(scene.atom_data["charge"], values)
+
+    def test_full_array_list(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
+        np.testing.assert_array_equal(
+            scene.atom_data["charge"], [1.0, 2.0, 3.0],
+        )
+
+    def test_categorical_array(self):
+        scene = self._scene()
+        scene.set_atom_data("site", np.array(["4a", "8b", "4a"], dtype=object))
+        assert list(scene.atom_data["site"]) == ["4a", "8b", "4a"]
+
+    def test_wrong_length_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="length 3"):
+            scene.set_atom_data("charge", np.array([1.0, 2.0]))
+
+    def test_sparse_dict_numeric(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", {0: 1.5, 2: -0.3})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(1.5)
+        assert np.isnan(arr[1])
+        assert arr[2] == pytest.approx(-0.3)
+
+    def test_sparse_dict_string(self):
+        scene = self._scene()
+        scene.set_atom_data("site", {1: "4a"})
+        arr = scene.atom_data["site"]
+        assert arr[0] == ""
+        assert arr[1] == "4a"
+        assert arr[2] == ""
+
+    def test_sparse_dict_out_of_range_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="out of range"):
+            scene.set_atom_data("charge", {5: 1.0})
+
+    def test_sparse_dict_empty_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="must not be empty"):
+            scene.set_atom_data("charge", {})
+
+    def test_overwrite_existing_key(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
+        scene.set_atom_data("charge", [4.0, 5.0, 6.0])
+        np.testing.assert_array_equal(
+            scene.atom_data["charge"], [4.0, 5.0, 6.0],
+        )
+
+    def test_multiple_keys(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
+        scene.set_atom_data("site", np.array(["a", "b", "c"], dtype=object))
+        assert "charge" in scene.atom_data
+        assert "site" in scene.atom_data
+
+
+# --- resolve_atom_colours ---
+
+
+class TestResolveAtomColours:
+    """Tests for resolve_atom_colours."""
+
+    SPECIES = ["C", "H", "O"]
+    STYLES: dict = {
+        "C": AtomStyle(radius=1.0, colour=(0.4, 0.4, 0.4)),
+        "H": AtomStyle(radius=0.7, colour=(1.0, 1.0, 1.0)),
+        "O": AtomStyle(radius=0.8, colour=(0.6, 0.0, 0.0)),
+    }
+
+    def test_species_fallback(self):
+        """colour_by=None returns species-based colours."""
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, {},
+        )
+        assert result == [
+            (0.4, 0.4, 0.4),
+            (1.0, 1.0, 1.0),
+            (0.6, 0.0, 0.0),
+        ]
+
+    def test_species_fallback_missing_style(self):
+        """Missing species falls back to grey."""
+        result = resolve_atom_colours(
+            ["X"], {}, {},
+        )
+        assert result == [(0.5, 0.5, 0.5)]
+
+    def test_numerical_viridis_endpoints(self):
+        """Known endpoints of the viridis colourmap."""
+        import matplotlib
+        cmap = matplotlib.colormaps["viridis"]
+        expected_0 = cmap(0.0)[:3]
+        expected_1 = cmap(1.0)[:3]
+
+        data = {"val": np.array([0.0, 1.0])}
+        result = resolve_atom_colours(
+            ["A", "B"], self.STYLES, data,
+            colour_by="val", cmap="viridis",
+        )
+        assert result[0] == pytest.approx(expected_0)
+        assert result[1] == pytest.approx(expected_1)
+
+    def test_numerical_custom_range(self):
+        """Explicit colour_range normalises correctly."""
+        import matplotlib
+        cmap = matplotlib.colormaps["viridis"]
+        # value 5 with range (0, 10) -> normalised 0.5
+        expected = cmap(0.5)[:3]
+
+        data = {"val": np.array([5.0])}
+        result = resolve_atom_colours(
+            ["A"], self.STYLES, data,
+            colour_by="val", colour_range=(0.0, 10.0),
+        )
+        assert result[0] == pytest.approx(expected)
+
+    def test_numerical_constant_values(self):
+        """All-same values should map to 0.5 (no division by zero)."""
+        import matplotlib
+        cmap = matplotlib.colormaps["viridis"]
+        expected = cmap(0.5)[:3]
+
+        data = {"val": np.array([3.0, 3.0, 3.0])}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="val",
+        )
+        for c in result:
+            assert c == pytest.approx(expected)
+
+    def test_numerical_nan_falls_back(self):
+        """NaN entries get their species colour."""
+        data = {"val": np.array([0.0, np.nan, 1.0])}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="val",
+        )
+        # Middle atom (H) should get species colour
+        assert result[1] == (1.0, 1.0, 1.0)
+        # Others should NOT be the species colour
+        assert result[0] != (0.4, 0.4, 0.4)
+
+    def test_numerical_all_nan(self):
+        """All NaN returns species colours."""
+        data = {"val": np.array([np.nan, np.nan, np.nan])}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="val",
+        )
+        assert result == [
+            (0.4, 0.4, 0.4),
+            (1.0, 1.0, 1.0),
+            (0.6, 0.0, 0.0),
+        ]
+
+    def test_categorical_distinct_colours(self):
+        """Two categories get two different colours."""
+        data = {"site": np.array(["4a", "8b", "4a"], dtype=object)}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="site",
+        )
+        # Atoms 0 and 2 (both "4a") should have the same colour.
+        assert result[0] == result[2]
+        # Atom 1 ("8b") should differ.
+        assert result[1] != result[0]
+
+    def test_categorical_empty_falls_back(self):
+        """Empty string entries get their species colour."""
+        data = {"site": np.array(["4a", "", "8b"], dtype=object)}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="site",
+        )
+        # Middle atom (H, empty label) should get species colour
+        assert result[1] == (1.0, 1.0, 1.0)
+
+    def test_callable_cmap(self):
+        """A callable cmap is used directly."""
+        def red_blue(val: float) -> tuple[float, float, float]:
+            return (val, 0.0, 1.0 - val)
+
+        data = {"val": np.array([0.0, 0.5, 1.0])}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by="val", cmap=red_blue,
+        )
+        assert result[0] == pytest.approx((0.0, 0.0, 1.0))
+        assert result[1] == pytest.approx((0.5, 0.0, 0.5))
+        assert result[2] == pytest.approx((1.0, 0.0, 0.0))
+
+    def test_missing_key_raises(self):
+        with pytest.raises(KeyError):
+            resolve_atom_colours(
+                self.SPECIES, self.STYLES, {},
+                colour_by="nonexistent",
+            )
 
 
 # --- CellEdgeStyle ---

@@ -40,6 +40,7 @@ from hofmann.model import (
     ViewState,
     WidgetCorner,
     normalise_colour,
+    resolve_atom_colours,
 )
 from hofmann.polyhedra import compute_polyhedra
 
@@ -643,6 +644,10 @@ def _precompute_scene(
     scene: StructureScene,
     frame_index: int,
     render_style: RenderStyle | None = None,
+    *,
+    colour_by: str | None = None,
+    cmap: str | object = "viridis",
+    colour_range: tuple[float, float] | None = None,
 ) -> _PrecomputedScene:
     """Pre-compute frame-independent data for repeated rendering.
 
@@ -653,20 +658,17 @@ def _precompute_scene(
     coords = frame.coords
     n_atoms = len(scene.species)
     radii_3d = np.empty(n_atoms)
-    atom_colours: list[tuple[float, float, float]] = []
-    bond_half_colours: list[tuple[float, float, float]] = []
 
     for i in range(n_atoms):
         sp = scene.species[i]
         style = scene.atom_styles.get(sp)
-        if style is not None:
-            radii_3d[i] = style.radius
-            rgb = normalise_colour(style.colour)
-        else:
-            radii_3d[i] = 0.5
-            rgb = (0.5, 0.5, 0.5)
-        bond_half_colours.append(rgb)
-        atom_colours.append(rgb)
+        radii_3d[i] = style.radius if style is not None else 0.5
+
+    atom_colours = resolve_atom_colours(
+        scene.species, scene.atom_styles, scene.atom_data,
+        colour_by=colour_by, cmap=cmap, colour_range=colour_range,
+    )
+    bond_half_colours = list(atom_colours)
 
     bonds = compute_bonds(scene.species, coords, scene.bond_specs)
     adjacency: dict[int, list[tuple[int, Bond]]] = defaultdict(list)
@@ -1287,6 +1289,9 @@ def _draw_scene(
     bg_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0),
     viewport_extent: float | None = None,
     precomputed: _PrecomputedScene | None = None,
+    colour_by: str | None = None,
+    cmap: str | object = "viridis",
+    colour_range: tuple[float, float] | None = None,
 ) -> None:
     """Paint atoms and bonds onto *ax* using the painter's algorithm.
 
@@ -1308,6 +1313,10 @@ def _draw_scene(
         precomputed: Pre-computed scene data from
             :func:`_precompute_scene`.  If ``None``, computed on the
             fly.
+        colour_by: Key into ``scene.atom_data`` for colourmap-based
+            colouring.
+        cmap: Matplotlib colourmap name, object, or callable.
+        colour_range: Explicit ``(vmin, vmax)`` for numerical data.
     """
     atom_scale = style.atom_scale
     bond_scale = style.bond_scale
@@ -1333,7 +1342,10 @@ def _draw_scene(
         line.remove()
 
     if precomputed is None:
-        precomputed = _precompute_scene(scene, frame_index, style)
+        precomputed = _precompute_scene(
+            scene, frame_index, style,
+            colour_by=colour_by, cmap=cmap, colour_range=colour_range,
+        )
 
     coords = precomputed.coords
     radii_3d = precomputed.radii_3d
@@ -1904,6 +1916,9 @@ def render_mpl(
     dpi: int = 150,
     background: Colour = "white",
     show: bool | None = None,
+    colour_by: str | None = None,
+    cmap: str | object = "viridis",
+    colour_range: tuple[float, float] | None = None,
     **style_kwargs: object,
 ) -> Figure:
     """Render a StructureScene as a static matplotlib figure.
@@ -1938,6 +1953,10 @@ def render_mpl(
         scene.view.slab_far = 2.0
         scene.render_mpl("slice.png")
 
+        # Colour by per-atom metadata:
+        scene.set_atom_data("charge", charges)
+        scene.render_mpl(colour_by="charge", cmap="coolwarm")
+
     Args:
         scene: The StructureScene to render.
         output: Optional file path to save the figure.  The format is
@@ -1957,6 +1976,14 @@ def render_mpl(
             window.  Defaults to ``True`` when *output* is ``None``,
             ``False`` when saving to a file.  Pass explicitly to
             override (e.g. ``show=True`` to both save and display).
+        colour_by: Key into ``scene.atom_data`` to colour atoms by.
+            When ``None`` (the default), species-based colouring is
+            used.
+        cmap: Matplotlib colourmap name (e.g. ``"viridis"``),
+            ``Colormap`` object, or callable mapping a float in
+            ``[0, 1]`` to an ``(r, g, b)`` tuple.
+        colour_range: Explicit ``(vmin, vmax)`` for normalising
+            numerical data.  ``None`` auto-ranges from the data.
         **style_kwargs: Any :class:`RenderStyle` field name as a
             keyword argument.  Unknown names raise :class:`TypeError`.
 
@@ -1973,6 +2000,9 @@ def render_mpl(
         ax, scene, scene.view, resolved,
         frame_index=frame_index,
         bg_rgb=bg_rgb,
+        colour_by=colour_by,
+        cmap=cmap,
+        colour_range=colour_range,
     )
 
     fig.tight_layout()
@@ -2172,6 +2202,9 @@ def render_mpl_interactive(
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
+    colour_by: str | None = None,
+    cmap: str | object = "viridis",
+    colour_range: tuple[float, float] | None = None,
     **style_kwargs: object,
 ) -> tuple["ViewState", "RenderStyle"]:
     """Interactive matplotlib viewer with mouse and keyboard controls.
@@ -2216,6 +2249,9 @@ def render_mpl_interactive(
         figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution.
         background: Background colour.
+        colour_by: Key into ``scene.atom_data`` to colour atoms by.
+        cmap: Matplotlib colourmap name, object, or callable.
+        colour_range: Explicit ``(vmin, vmax)`` for numerical data.
         **style_kwargs: Any :class:`RenderStyle` field name as a
             keyword argument.  Unknown names raise :class:`TypeError`.
 
@@ -2254,7 +2290,12 @@ def render_mpl_interactive(
 
     # Pre-compute bonds, colours, adjacency once — these don't change
     # during interactive rotation / zoom.
-    pre = _precompute_scene(scene, frame_index, resolved)
+    colour_kwargs: dict[str, Any] = dict(
+        colour_by=colour_by,
+        cmap=cmap,
+        colour_range=colour_range,
+    )
+    pre = _precompute_scene(scene, frame_index, resolved, **colour_kwargs)
 
     draw_kwargs: dict[str, Any] = dict(
         frame_index=frame_index,
@@ -2313,7 +2354,7 @@ def render_mpl_interactive(
     def _full_redraw() -> None:
         """Recompute bonds/colours and repaint (for frame or style changes)."""
         state["precomputed"] = _precompute_scene(
-            scene, state["frame_index"], resolved,
+            scene, state["frame_index"], resolved, **colour_kwargs,
         )
         draw_kwargs["precomputed"] = state["precomputed"]
         draw_kwargs["frame_index"] = state["frame_index"]

@@ -1,6 +1,6 @@
 """Core data model for hofmann: dataclasses, colour handling, and projection."""
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from fnmatch import fnmatch
@@ -70,6 +70,155 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
             raise ValueError(f"Unrecognised colour name: {colour!r}")
 
     raise ValueError(f"Cannot interpret colour: {colour!r}")
+
+
+def _species_colours(
+    species: list[str],
+    atom_styles: dict[str, "AtomStyle"],
+) -> list[tuple[float, float, float]]:
+    """Return per-atom colours from species styles (the default path)."""
+    colours: list[tuple[float, float, float]] = []
+    for sp in species:
+        style = atom_styles.get(sp)
+        if style is not None:
+            colours.append(normalise_colour(style.colour))
+        else:
+            colours.append((0.5, 0.5, 0.5))
+    return colours
+
+
+def _resolve_cmap(
+    cmap: "str | object",
+) -> Callable[[float], tuple[float, float, float]]:
+    """Turn a colourmap specification into a callable float -> RGB."""
+    if callable(cmap) and not isinstance(cmap, str):
+        return cmap  # type: ignore[return-value]
+    if isinstance(cmap, str):
+        import matplotlib
+        mpl_cmap = matplotlib.colormaps[cmap]
+        def _wrap(val: float) -> tuple[float, float, float]:
+            rgba = mpl_cmap(val)
+            return (rgba[0], rgba[1], rgba[2])
+        return _wrap
+    # Assume a matplotlib Colormap-like object.
+    def _wrap_obj(val: float) -> tuple[float, float, float]:
+        rgba = cmap(val)  # type: ignore[operator]
+        return (rgba[0], rgba[1], rgba[2])
+    return _wrap_obj
+
+
+def resolve_atom_colours(
+    species: list[str],
+    atom_styles: dict[str, "AtomStyle"],
+    atom_data: dict[str, np.ndarray],
+    colour_by: str | None = None,
+    cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
+    colour_range: tuple[float, float] | None = None,
+) -> list[tuple[float, float, float]]:
+    """Resolve per-atom RGB colours, optionally using a colourmap.
+
+    When *colour_by* is ``None`` (the default) the usual species-based
+    colours from *atom_styles* are returned.  Otherwise the named array
+    from *atom_data* is mapped through *cmap*.
+
+    Args:
+        species: Per-atom species labels.
+        atom_styles: Species-to-style mapping.
+        atom_data: Per-atom metadata arrays from the scene.
+        colour_by: Key into *atom_data* to colour by, or ``None``
+            for species-based colouring.
+        cmap: A matplotlib colourmap name (e.g. ``"viridis"``), a
+            matplotlib ``Colormap`` object, or a callable mapping a
+            float in ``[0, 1]`` to an ``(r, g, b)`` tuple.
+        colour_range: Explicit ``(vmin, vmax)`` for normalising
+            numerical data.  ``None`` auto-ranges from the data.
+            Ignored for categorical data.
+
+    Returns:
+        List of ``(r, g, b)`` tuples, one per atom.
+
+    Raises:
+        KeyError: If *colour_by* is not found in *atom_data*.
+    """
+    if colour_by is None:
+        return _species_colours(species, atom_styles)
+
+    values = atom_data[colour_by]
+    fallback = _species_colours(species, atom_styles)
+    cmap_fn = _resolve_cmap(cmap)
+
+    # Categorical: object or unicode string dtype.
+    if values.dtype.kind in ("U", "O"):
+        return _resolve_categorical(values, fallback, cmap_fn)
+
+    return _resolve_numerical(values, fallback, cmap_fn, colour_range)
+
+
+def _resolve_numerical(
+    values: np.ndarray,
+    fallback: list[tuple[float, float, float]],
+    cmap_fn: Callable[[float], tuple[float, float, float]],
+    colour_range: tuple[float, float] | None,
+) -> list[tuple[float, float, float]]:
+    """Map numerical values through a colourmap."""
+    mask = np.isnan(values)
+
+    if colour_range is not None:
+        vmin, vmax = colour_range
+    else:
+        valid = values[~mask]
+        if len(valid) == 0:
+            return list(fallback)
+        vmin, vmax = float(np.nanmin(valid)), float(np.nanmax(valid))
+
+    if vmin == vmax:
+        normalised = np.where(mask, np.nan, 0.5)
+    else:
+        normalised = (values - vmin) / (vmax - vmin)
+        normalised = np.clip(normalised, 0.0, 1.0)
+
+    colours: list[tuple[float, float, float]] = []
+    for i, val in enumerate(normalised):
+        if np.isnan(val):
+            colours.append(fallback[i])
+        else:
+            colours.append(cmap_fn(float(val)))
+    return colours
+
+
+def _resolve_categorical(
+    values: np.ndarray,
+    fallback: list[tuple[float, float, float]],
+    cmap_fn: Callable[[float], tuple[float, float, float]],
+) -> list[tuple[float, float, float]]:
+    """Map categorical labels through a colourmap."""
+    # Find unique non-empty labels, preserving first-occurrence order.
+    seen: dict[str, int] = {}
+    for v in values:
+        s = str(v)
+        if s and s not in seen:
+            seen[s] = len(seen)
+
+    n_labels = len(seen)
+    if n_labels == 0:
+        return list(fallback)
+
+    # Space labels evenly across [0, 1].
+    if n_labels == 1:
+        positions = {label: 0.5 for label in seen}
+    else:
+        positions = {
+            label: idx / (n_labels - 1) for label, idx in seen.items()
+        }
+
+    colours: list[tuple[float, float, float]] = []
+    for i, v in enumerate(values):
+        s = str(v)
+        if s and s in positions:
+            colours.append(cmap_fn(positions[s]))
+        else:
+            colours.append(fallback[i])
+    return colours
 
 
 class SlabClipMode(StrEnum):
@@ -765,6 +914,10 @@ class StructureScene:
         title: Scene title for display.
         lattice: Unit cell lattice matrix, shape ``(3, 3)`` with rows
             as lattice vectors, or ``None`` for non-periodic structures.
+        atom_data: Per-atom metadata arrays, keyed by name.  Each value
+            must be a 1-D array of length ``n_atoms``.  Use
+            :meth:`set_atom_data` to populate this and ``colour_by``
+            on the render methods to visualise it.
     """
 
     species: list[str]
@@ -775,6 +928,7 @@ class StructureScene:
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
     lattice: np.ndarray | None = None
+    atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.lattice is not None:
@@ -783,6 +937,15 @@ class StructureScene:
                 raise ValueError(
                     f"lattice must have shape (3, 3), got {self.lattice.shape}"
                 )
+        n_atoms = len(self.species)
+        for key, arr in self.atom_data.items():
+            arr = np.asarray(arr)
+            if arr.ndim != 1 or len(arr) != n_atoms:
+                raise ValueError(
+                    f"atom_data[{key!r}] must have length {n_atoms}, "
+                    f"got shape {arr.shape}"
+                )
+            self.atom_data[key] = arr
 
     @classmethod
     def from_xbs(
@@ -870,6 +1033,55 @@ class StructureScene:
         """
         self.view.centre = self.frames[frame].coords[atom_index].copy()
 
+    def set_atom_data(
+        self,
+        key: str,
+        values: np.ndarray | Sequence[float] | Sequence[str] | dict[int, object],
+    ) -> None:
+        """Set per-atom metadata for colourmap-based rendering.
+
+        Args:
+            key: Name for this metadata (e.g. ``"charge"``,
+                ``"site"``).
+            values: Either an array-like of length ``n_atoms``, or a
+                dict mapping atom indices to values.  When a dict is
+                given, missing atoms are filled with ``NaN`` for
+                numeric values or ``""`` for string values.
+
+        Raises:
+            ValueError: If an array-like has the wrong length, or a
+                dict contains indices outside the valid range.
+        """
+        n_atoms = len(self.species)
+
+        if isinstance(values, dict):
+            if not values:
+                raise ValueError("values dict must not be empty")
+            for idx in values:
+                if not 0 <= idx < n_atoms:
+                    raise ValueError(
+                        f"atom index {idx} out of range for "
+                        f"{n_atoms} atoms"
+                    )
+            sample = next(iter(values.values()))
+            if isinstance(sample, str):
+                arr = np.array([""] * n_atoms, dtype=object)
+                for idx, val in values.items():
+                    arr[idx] = val
+            else:
+                arr = np.full(n_atoms, np.nan)
+                for idx, val in values.items():
+                    arr[idx] = val
+        else:
+            arr = np.asarray(values)
+            if arr.ndim != 1 or len(arr) != n_atoms:
+                raise ValueError(
+                    f"atom_data[{key!r}] must have length {n_atoms}, "
+                    f"got shape {arr.shape}"
+                )
+
+        self.atom_data[key] = arr
+
     def render_mpl(
         self,
         output: str | Path | None = None,
@@ -880,6 +1092,9 @@ class StructureScene:
         dpi: int = 150,
         background: Colour = "white",
         show: bool | None = None,
+        colour_by: str | None = None,
+        cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
+        colour_range: tuple[float, float] | None = None,
         **style_kwargs: object,
     ) -> Figure:
         """Render the scene as a static matplotlib figure.
@@ -898,6 +1113,14 @@ class StructureScene:
             show: Whether to call ``plt.show()``.  Defaults to
                 ``True`` when *output* is ``None``, ``False`` when
                 saving to a file.
+            colour_by: Key into :attr:`atom_data` to colour atoms by.
+                When ``None`` (the default), species-based colouring
+                is used.
+            cmap: Matplotlib colourmap name (e.g. ``"viridis"``),
+                ``Colormap`` object, or callable mapping a float in
+                ``[0, 1]`` to an ``(r, g, b)`` tuple.
+            colour_range: Explicit ``(vmin, vmax)`` for normalising
+                numerical data.  ``None`` auto-ranges from the data.
             **style_kwargs: Any :class:`RenderStyle` field name as a
                 keyword argument (e.g. ``show_bonds=False``).
 
@@ -912,7 +1135,8 @@ class StructureScene:
         return render_mpl(
             self, output, style=style, frame_index=frame_index,
             figsize=figsize, dpi=dpi, background=background,
-            show=show, **style_kwargs,
+            show=show, colour_by=colour_by, cmap=cmap,
+            colour_range=colour_range, **style_kwargs,
         )
 
     def render_mpl_interactive(
@@ -923,6 +1147,9 @@ class StructureScene:
         figsize: tuple[float, float] = (5.0, 5.0),
         dpi: int = 150,
         background: Colour = "white",
+        colour_by: str | None = None,
+        cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
+        colour_range: tuple[float, float] | None = None,
         **style_kwargs: object,
     ) -> tuple[ViewState, RenderStyle]:
         """Open an interactive matplotlib viewer with mouse and keyboard controls.
@@ -947,6 +1174,9 @@ class StructureScene:
             figsize: Figure size in inches ``(width, height)``.
             dpi: Resolution.
             background: Background colour.
+            colour_by: Key into :attr:`atom_data` to colour atoms by.
+            cmap: Matplotlib colourmap name, object, or callable.
+            colour_range: Explicit ``(vmin, vmax)`` for numerical data.
             **style_kwargs: Any :class:`RenderStyle` field name as a
                 keyword argument (e.g. ``show_bonds=False``).
 
@@ -962,5 +1192,6 @@ class StructureScene:
         return render_mpl_interactive(
             self, style=style, frame_index=frame_index,
             figsize=figsize, dpi=dpi, background=background,
+            colour_by=colour_by, cmap=cmap, colour_range=colour_range,
             **style_kwargs,
         )
