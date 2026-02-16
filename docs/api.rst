@@ -45,6 +45,9 @@ Rendering
 .. autoclass:: RenderStyle
    :members:
 
+.. autoclass:: CellEdgeStyle
+   :members:
+
 .. autoclass:: SlabClipMode
    :members:
 

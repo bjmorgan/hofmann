@@ -137,6 +137,12 @@ Key style options:
 - ``half_bonds`` -- colour each bond half to match the nearest atom
 - ``show_bonds`` / ``show_polyhedra`` -- toggle bond or polyhedra drawing
 - ``show_outlines`` -- toggle atom and bond outlines
+- ``show_cell`` -- toggle unit cell edges (auto-detected by default;
+  see :ref:`unit-cell` below)
+- ``cell_style`` -- :class:`~hofmann.CellEdgeStyle` for cell edge
+  colour, width, and linestyle
+- ``slab_clip_mode`` -- how slab clipping interacts with polyhedra
+  (see :ref:`slab-clipping` below)
 - ``circle_segments`` / ``arc_segments`` -- polygon resolution for
   vector output (increase for publication quality)
 
@@ -201,6 +207,8 @@ direction:
    :align: center
    :alt: LLZO garnet with ZrO6 polyhedra
 
+.. _slab-clipping:
+
 Slab clipping and polyhedra
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -213,6 +221,49 @@ controls how polyhedra at the slab boundary are handled:
   clipped
 - ``"include_whole"`` -- force the complete polyhedron to be visible
   when its centre atom is within the slab
+
+
+.. _unit-cell:
+
+Unit cell
+---------
+
+For scenes created from pymatgen ``Structure`` objects, the unit cell
+wireframe is drawn automatically.  The 12 cell edges are
+depth-interleaved with atoms, bonds, and polyhedra so they correctly
+occlude and are occluded.
+
+Disable cell edges or customise their appearance via
+:class:`~hofmann.RenderStyle`:
+
+.. code-block:: python
+
+   # Disable cell edges:
+   scene.render_mpl("output.svg", show_cell=False)
+
+   # Custom cell edge style:
+   from hofmann import CellEdgeStyle, RenderStyle
+
+   style = RenderStyle(
+       cell_style=CellEdgeStyle(
+           colour="blue",
+           line_width=1.2,
+           linestyle="dashed",
+       ),
+   )
+   scene.render_mpl("output.svg", style=style)
+
+Available linestyles: ``"solid"`` (default), ``"dashed"``,
+``"dotted"``, and ``"dashdot"``.
+
+Scenes loaded from XBS files have no lattice information, so cell
+edges are not drawn.  You can set a lattice manually:
+
+.. code-block:: python
+
+   import numpy as np
+   scene = StructureScene.from_xbs("structure.bs")
+   scene.lattice = np.diag([5.43, 5.43, 5.43])  # Cubic, 5.43 A
 
 
 Interactive viewer
