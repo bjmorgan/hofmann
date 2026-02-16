@@ -5,6 +5,7 @@ import pytest
 
 from hofmann.model import (
     AtomStyle,
+    AxesStyle,
     Bond,
     BondSpec,
     CellEdgeStyle,
@@ -15,6 +16,7 @@ from hofmann.model import (
     SlabClipMode,
     StructureScene,
     ViewState,
+    WidgetCorner,
     normalise_colour,
 )
 
@@ -508,6 +510,21 @@ class TestRenderStyle:
         style = RenderStyle(cell_style=cs)
         assert style.cell_style.colour == "red"
 
+    def test_show_axes_default_none(self):
+        style = RenderStyle()
+        assert style.show_axes is None
+
+    def test_axes_style_default(self):
+        style = RenderStyle()
+        assert isinstance(style.axes_style, AxesStyle)
+        assert style.axes_style.corner is WidgetCorner.BOTTOM_LEFT
+
+    def test_axes_style_override(self):
+        ws = AxesStyle(corner="top_right", font_size=14.0)
+        style = RenderStyle(axes_style=ws)
+        assert style.axes_style.corner is WidgetCorner.TOP_RIGHT
+        assert style.axes_style.font_size == 14.0
+
 
 # --- StructureScene ---
 
@@ -609,6 +626,99 @@ class TestCellEdgeStyle:
         assert style.linestyle == ls
 
 
+# --- WidgetCorner ---
+
+
+class TestWidgetCorner:
+    def test_values(self):
+        assert WidgetCorner.BOTTOM_LEFT == "bottom_left"
+        assert WidgetCorner.BOTTOM_RIGHT == "bottom_right"
+        assert WidgetCorner.TOP_LEFT == "top_left"
+        assert WidgetCorner.TOP_RIGHT == "top_right"
+
+    def test_string_construction(self):
+        assert WidgetCorner("bottom_left") is WidgetCorner.BOTTOM_LEFT
+        assert WidgetCorner("top_right") is WidgetCorner.TOP_RIGHT
+
+
+# --- AxesStyle ---
+
+
+class TestAxesStyle:
+    def test_defaults(self):
+        style = AxesStyle()
+        assert len(style.colours) == 3
+        assert all(c == (0.3, 0.3, 0.3) for c in style.colours)
+        assert style.labels == ("a", "b", "c")
+        assert style.font_size == 10.0
+        assert style.italic is True
+        assert style.arrow_length == 0.08
+        assert style.line_width == 1.0
+        assert style.corner is WidgetCorner.BOTTOM_LEFT
+        assert style.margin == 0.15
+
+    def test_custom_values(self):
+        style = AxesStyle(
+            colours=("red", "green", "blue"),
+            labels=("x", "y", "z"),
+            font_size=12.0,
+            italic=False,
+            arrow_length=0.1,
+            corner="top_right",
+        )
+        assert style.colours == ("red", "green", "blue")
+        assert style.labels == ("x", "y", "z")
+        assert style.font_size == 12.0
+        assert style.italic is False
+        assert style.arrow_length == 0.1
+        assert style.corner is WidgetCorner.TOP_RIGHT
+
+    def test_is_frozen(self):
+        style = AxesStyle()
+        with pytest.raises(AttributeError):
+            style.font_size = 14.0
+
+    def test_corner_string_coercion(self):
+        style = AxesStyle(corner="bottom_right")
+        assert style.corner is WidgetCorner.BOTTOM_RIGHT
+
+    def test_negative_font_size_raises(self):
+        with pytest.raises(ValueError, match="font_size must be positive"):
+            AxesStyle(font_size=-1.0)
+
+    def test_zero_font_size_raises(self):
+        with pytest.raises(ValueError, match="font_size must be positive"):
+            AxesStyle(font_size=0)
+
+    def test_negative_arrow_length_raises(self):
+        with pytest.raises(ValueError, match="arrow_length must be positive"):
+            AxesStyle(arrow_length=-0.1)
+
+    def test_negative_line_width_raises(self):
+        with pytest.raises(ValueError, match="line_width must be non-negative"):
+            AxesStyle(line_width=-1.0)
+
+    def test_negative_margin_raises(self):
+        with pytest.raises(ValueError, match="margin must be non-negative"):
+            AxesStyle(margin=-0.1)
+
+    def test_wrong_number_of_colours_raises(self):
+        with pytest.raises(ValueError, match="colours must have exactly 3"):
+            AxesStyle(colours=((1, 0, 0), (0, 1, 0)))
+
+    def test_wrong_number_of_labels_raises(self):
+        with pytest.raises(ValueError, match="labels must have exactly 3"):
+            AxesStyle(labels=("a", "b"))
+
+    def test_corner_tuple(self):
+        style = AxesStyle(corner=(0.1, 0.9))
+        assert style.corner == (0.1, 0.9)
+
+    def test_corner_tuple_wrong_length_raises(self):
+        with pytest.raises(ValueError, match="corner tuple must have 2 elements"):
+            AxesStyle(corner=(0.1, 0.2, 0.3))
+
+
 # --- PolyhedronSpec ---
 
 
@@ -619,7 +729,7 @@ class TestPolyhedronSpec:
         assert spec.colour is None
         assert spec.alpha == 0.4
         assert spec.edge_colour == (0.15, 0.15, 0.15)
-        assert spec.edge_width == 0.8
+        assert spec.edge_width == 1.0
         assert spec.hide_centre is False
         assert spec.hide_bonds is False
         assert spec.hide_vertices is False

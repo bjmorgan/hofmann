@@ -7,6 +7,7 @@ from matplotlib.figure import Figure
 
 from hofmann.model import (
     AtomStyle,
+    AxesStyle,
     BondSpec,
     CellEdgeStyle,
     Frame,
@@ -1403,4 +1404,85 @@ class TestCellEdgeRendering:
         # edge polygons (clipping shortens edges but doesn't remove them).
         assert n_corner >= 1
         assert n_mid >= 1
+
+
+# ---------------------------------------------------------------------------
+# Axes orientation widget
+# ---------------------------------------------------------------------------
+
+
+class TestAxesWidget:
+    """Tests for the crystallographic axes orientation widget."""
+
+    def test_show_axes_auto_with_lattice(self):
+        """Widget is drawn when scene has a lattice (auto-detect)."""
+        scene = _scene_with_lattice()
+        fig = render_mpl(scene, show=False)
+        ax = fig.axes[0]
+        # Should have 3 labels (a, b, c) and 3 axis lines.
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "a" in label_texts
+        assert "b" in label_texts
+        assert "c" in label_texts
+        assert len(ax.lines) == 3
+        plt.close(fig)
+
+    def test_show_axes_auto_without_lattice(self):
+        """No widget when scene has no lattice."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, show=False)
+        ax = fig.axes[0]
+        assert len(ax.lines) == 0
+        # No axis labels (only scene title text, if any).
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "a" not in label_texts
+        plt.close(fig)
+
+    def test_show_axes_false_suppresses(self):
+        """Explicit show_axes=False suppresses widget on lattice scene."""
+        scene = _scene_with_lattice()
+        fig = render_mpl(scene, show=False, show_axes=False)
+        ax = fig.axes[0]
+        assert len(ax.lines) == 0
+        plt.close(fig)
+
+    def test_show_axes_true_without_lattice_raises(self):
+        """show_axes=True on a non-lattice scene raises ValueError."""
+        scene = _minimal_scene()
+        with pytest.raises(ValueError, match="show_axes=True but scene has no lattice"):
+            render_mpl(scene, show=False, show_axes=True)
+
+    def test_widget_has_three_labels(self):
+        """Widget produces exactly three text labels."""
+        scene = _scene_with_lattice()
+        fig = render_mpl(scene, show=False, show_cell=False)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert sorted(label_texts) == ["a", "b", "c"]
+        plt.close(fig)
+
+    def test_widget_custom_labels(self):
+        """Custom labels are used when provided."""
+        style = AxesStyle(labels=("x", "y", "z"))
+        scene = _scene_with_lattice()
+        fig = render_mpl(
+            scene, show=False,
+            axes_style=style, show_cell=False,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert sorted(label_texts) == ["x", "y", "z"]
+        plt.close(fig)
+
+    @pytest.mark.parametrize("corner", [
+        "bottom_left", "bottom_right", "top_left", "top_right",
+    ])
+    def test_widget_all_corners(self, corner):
+        """Widget renders without error in each corner position."""
+        style = AxesStyle(corner=corner)
+        scene = _scene_with_lattice()
+        fig = render_mpl(scene, show=False, axes_style=style)
+        ax = fig.axes[0]
+        assert len(ax.lines) == 3
+        plt.close(fig)
 

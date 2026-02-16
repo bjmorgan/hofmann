@@ -48,6 +48,12 @@ Rendering
 .. autoclass:: CellEdgeStyle
    :members:
 
+.. autoclass:: AxesStyle
+   :members:
+
+.. autoclass:: WidgetCorner
+   :members:
+
 .. autoclass:: SlabClipMode
    :members:
 

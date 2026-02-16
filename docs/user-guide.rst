@@ -141,6 +141,10 @@ Key style options:
   see :ref:`unit-cell` below)
 - ``cell_style`` -- :class:`~hofmann.CellEdgeStyle` for cell edge
   colour, width, and linestyle
+- ``show_axes`` -- toggle axes orientation widget (auto-detected by
+  default; see :ref:`axes-widget` below)
+- ``axes_style`` -- :class:`~hofmann.AxesStyle` for widget
+  colour, labels, corner, and sizing
 - ``slab_clip_mode`` -- how slab clipping interacts with polyhedra
   (see :ref:`slab-clipping` below)
 - ``circle_segments`` / ``arc_segments`` -- polygon resolution for
@@ -264,6 +268,40 @@ edges are not drawn.  You can set a lattice manually:
    import numpy as np
    scene = StructureScene.from_xbs("structure.bs")
    scene.lattice = np.diag([5.43, 5.43, 5.43])  # Cubic, 5.43 A
+
+
+.. _axes-widget:
+
+Axes orientation widget
+-----------------------
+
+For periodic structures, an axes orientation widget shows the
+crystallographic **a**, **b**, **c** lattice directions as lines in
+a corner of the figure.  The widget is drawn automatically when a
+lattice is present (the same auto-detection as unit cell edges) and
+rotates in sync with the structure.
+
+Disable or customise the widget via :class:`~hofmann.RenderStyle`:
+
+.. code-block:: python
+
+   # Disable the axes widget:
+   scene.render_mpl("output.svg", show_axes=False)
+
+   # Custom widget style:
+   from hofmann import AxesStyle, RenderStyle
+
+   style = RenderStyle(
+       axes_style=AxesStyle(
+           corner="top_right",
+           colours=("red", "green", "blue"),
+           labels=("x", "y", "z"),
+       ),
+   )
+   scene.render_mpl("output.svg", style=style)
+
+The widget also rotates interactively in
+:meth:`~hofmann.StructureScene.render_mpl_interactive`.
 
 
 Interactive viewer
