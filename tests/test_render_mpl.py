@@ -1095,7 +1095,7 @@ class TestPolyhedraDepthOrdering:
         order = np.argsort(depth)
         slab_visible = np.ones(len(coords), dtype=bool)
 
-        face_by_depth_slot = _collect_polyhedra_faces(
+        face_by_depth_slot, _ = _collect_polyhedra_faces(
             precomputed=precomputed,
             polyhedra_list=precomputed.polyhedra,
             poly_skip=set(),

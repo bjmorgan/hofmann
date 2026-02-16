@@ -113,9 +113,11 @@ class PolyhedraVertexMode(StrEnum):
     """How polyhedron vertex atoms are ordered relative to faces.
 
     Attributes:
-        IN_FRONT: Draw all vertex atoms in front of (on top of) all
-            polyhedral faces.  Best for opaque polyhedra where back
-            vertices would not be visible through the faces anyway.
+        IN_FRONT: Draw each vertex atom in front of all faces it
+            belongs to.  Each vertex is deferred until after its
+            last connected face has been painted.  Non-vertex atoms
+            (e.g. the centre) draw at their natural depth.  Best
+            for opaque polyhedra.
         DEPTH_SORTED: Draw front vertices (closer to the viewer than
             the centroid) on top of faces, and back vertices in their
             natural depth position behind front-facing faces.  Correct
@@ -298,10 +300,10 @@ class RenderStyle:
             faces are dimmed.
         polyhedra_vertex_mode: How vertex atoms are ordered relative
             to polyhedral faces.  ``"in_front"`` (the default) draws
-            all vertices on top of all faces — best for opaque
-            polyhedra.  ``"depth_sorted"`` draws front vertices on
-            top but back vertices behind front-facing faces — correct
-            for transparent polyhedra.
+            each vertex on top of the faces it belongs to.
+            ``"depth_sorted"`` draws front vertices on top but back
+            vertices behind front-facing faces — an alternative for
+            transparent polyhedra.
         polyhedra_outline_width: Global override for polyhedra outline
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
