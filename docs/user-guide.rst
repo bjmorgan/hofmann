@@ -117,19 +117,21 @@ Here is the same SrTiO3 perovskite rendered with different styles:
 .. list-table::
    :widths: 50 50
 
-   * - .. figure:: _static/perovskite.svg
+   * - .. figure:: _static/perovskite_plain.svg
 
-          Ball-and-stick with polyhedra (default)
+          Ball-and-stick
 
-     - .. figure:: _static/perovskite_spacefill.svg
+     - .. figure:: _static/perovskite.svg
+
+          With polyhedra
+
+   * - .. figure:: _static/perovskite_spacefill.svg
 
           Space-filling (``atom_scale=1.0``)
 
-   * - .. figure:: _static/perovskite_no_outlines.svg
+     - .. figure:: _static/perovskite_no_outlines.svg
 
           Outlines disabled (``show_outlines=False``)
-
-     - ..
 
 Key style options:
 
@@ -148,7 +150,10 @@ Key style options:
 - ``slab_clip_mode`` -- how slab clipping interacts with polyhedra
   (see :ref:`slab-clipping` below)
 - ``circle_segments`` / ``arc_segments`` -- polygon resolution for
-  vector output (increase for publication quality)
+  static output (defaults are publication quality)
+- ``interactive_circle_segments`` / ``interactive_arc_segments`` --
+  polygon resolution for the interactive viewer (lower defaults
+  for responsive redraws)
 
 
 Bonds

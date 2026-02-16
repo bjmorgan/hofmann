@@ -471,6 +471,12 @@ class TestRenderStyle:
         with pytest.raises(ValueError, match="must be non-negative"):
             RenderStyle(**{field: value})
 
+    def test_circle_segments_default(self):
+        assert RenderStyle().circle_segments == 72
+
+    def test_arc_segments_default(self):
+        assert RenderStyle().arc_segments == 12
+
     def test_circle_segments_minimum(self):
         with pytest.raises(ValueError, match="circle_segments must be >= 3"):
             RenderStyle(circle_segments=2)
@@ -478,6 +484,20 @@ class TestRenderStyle:
     def test_arc_segments_minimum(self):
         with pytest.raises(ValueError, match="arc_segments must be >= 2"):
             RenderStyle(arc_segments=1)
+
+    def test_interactive_circle_segments_default(self):
+        assert RenderStyle().interactive_circle_segments == 24
+
+    def test_interactive_arc_segments_default(self):
+        assert RenderStyle().interactive_arc_segments == 5
+
+    def test_interactive_circle_segments_minimum(self):
+        with pytest.raises(ValueError, match="interactive_circle_segments must be >= 3"):
+            RenderStyle(interactive_circle_segments=2)
+
+    def test_interactive_arc_segments_minimum(self):
+        with pytest.raises(ValueError, match="interactive_arc_segments must be >= 2"):
+            RenderStyle(interactive_arc_segments=1)
 
     @pytest.mark.parametrize("value", [-0.1, 1.1])
     def test_polyhedra_shading_range(self, value):
