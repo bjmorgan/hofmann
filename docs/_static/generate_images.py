@@ -50,7 +50,7 @@ def perovskite_scene() -> StructureScene:
     # Centre on Sr (index 0) so PBC expansion surrounds the A-site.
     scene = StructureScene.from_pymatgen(
         structure, bond_specs, polyhedra=polyhedra,
-        pbc=True, pbc_cutoff=0.1, centre_atom=0,
+        pbc=True, pbc_padding=0.1, centre_atom=0,
     )
 
     # Custom colours.
@@ -89,7 +89,7 @@ def si_scene() -> StructureScene:
         BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
                  radius=0.1, colour=0.5),
     ]
-    scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True, pbc_cutoff=0.1)
+    scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True, pbc_padding=0.1)
     scene.view.look_along([1, 1, 1])
     return scene
 
@@ -114,7 +114,7 @@ def llzo_scene() -> StructureScene:
 
     scene = StructureScene.from_pymatgen(
         structure, bond_specs=bond_specs, polyhedra=polyhedra_specs,
-        pbc=True, pbc_cutoff=0.1, centre_atom=95,
+        pbc=True, pbc_padding=0.1, centre_atom=95,
     )
 
     # Custom colours for clarity.

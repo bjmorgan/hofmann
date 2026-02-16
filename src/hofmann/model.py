@@ -608,8 +608,8 @@ class StructureScene:
         bond_specs: list[BondSpec] | None = None,
         *,
         polyhedra: list[PolyhedronSpec] | None = None,
-        pbc: bool = False,
-        pbc_cutoff: float | None = None,
+        pbc: bool = True,
+        pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
     ) -> "StructureScene":
         """Create a StructureScene from pymatgen ``Structure`` object(s).
@@ -622,12 +622,15 @@ class StructureScene:
                 list to disable bonds.
             polyhedra: Polyhedron rendering rules.  ``None`` disables
                 polyhedra.
-            pbc: If ``True``, add periodic image atoms at cell
-                boundaries so that bonds crossing periodic boundaries
-                are drawn.
-            pbc_cutoff: Cartesian distance cutoff (angstroms) for PBC
-                image generation.  ``None`` uses the maximum bond
-                length from *bond_specs*.
+            pbc: If ``True`` (the default), add periodic image atoms
+                at cell boundaries so that bonds crossing periodic
+                boundaries are drawn.  Set to ``False`` to disable
+                all PBC expansion.
+            pbc_padding: Cartesian margin (angstroms) around the unit
+                cell for placing periodic image atoms.  The default of
+                0.1 angstroms captures atoms on cell boundaries.
+                ``None`` falls back to the maximum bond length from
+                *bond_specs* for wider geometric expansion.
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
                 at (0.5, 0.5, 0.5) before PBC expansion.
@@ -645,7 +648,7 @@ class StructureScene:
 
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
-            pbc=pbc, pbc_cutoff=pbc_cutoff, centre_atom=centre_atom,
+            pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
         )
 
     def centre_on(self, atom_index: int, *, frame: int = 0) -> None:

@@ -61,7 +61,7 @@ class TestFromPymatgen:
     def test_single_structure(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct)
+        scene = from_pymatgen(struct, pbc=False)
         assert len(scene.species) == 2
         assert len(scene.frames) == 1
         assert "Na" in scene.atom_styles
@@ -71,21 +71,30 @@ class TestFromPymatgen:
         lattice = Lattice.cubic(5.0)
         s1 = Structure(lattice, ["Si", "Si"], [[0, 0, 0], [0.25, 0.25, 0.25]])
         s2 = Structure(lattice, ["Si", "Si"], [[0, 0, 0], [0.26, 0.26, 0.26]])
-        scene = from_pymatgen([s1, s2])
+        scene = from_pymatgen([s1, s2], pbc=False)
         assert len(scene.frames) == 2
 
     def test_classmethod(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-        scene = StructureScene.from_pymatgen(struct)
+        scene = StructureScene.from_pymatgen(struct, pbc=False)
         assert isinstance(scene, StructureScene)
 
     def test_view_centred(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct)
+        scene = from_pymatgen(struct, pbc=False)
         expected = np.mean(scene.frames[0].coords, axis=0)
         np.testing.assert_allclose(scene.view.centre, expected)
+
+    def test_pbc_on_by_default(self):
+        """PBC expansion is enabled by default for pymatgen structures."""
+        lattice = Lattice.cubic(10.0)
+        # Na at origin gets image atoms from the default pbc_padding=0.1.
+        struct = Structure(lattice, ["Na"], [[0.0, 0.5, 0.5]])
+        scene = from_pymatgen(struct, bond_specs=[])
+        # Na at frac 0.0 is within 0.1 A of the face, so gets a +1 image.
+        assert len(scene.species) == 2
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
@@ -97,7 +106,7 @@ class TestFromPymatgenPbc:
             lattice, ["Na", "Na"],
             [[0.01, 0.5, 0.5], [0.5, 0.5, 0.5]],
         )
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         # Atom 0 near origin face -> +1 image.  Atom 1 at centre -> none.
         assert len(scene.species) == 3
 
@@ -105,7 +114,7 @@ class TestFromPymatgenPbc:
         """An atom near frac=1 gets an image shifted by -1."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.99, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         # Near far face on x -> -1 image.
         assert len(scene.species) == 2
         xs = sorted(scene.frames[0].coords[:, 0])
@@ -116,14 +125,14 @@ class TestFromPymatgenPbc:
         """An atom far from all faces should get no images."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         assert len(scene.species) == 1
 
     def test_corner_atom_near_origin(self):
         """An atom near the origin corner gets 7 images (+1 on each axis combo)."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.01, 0.01, 0.01]])
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         # 3 faces + 3 edges + 1 corner = 7 images.
         assert len(scene.species) == 8
 
@@ -131,7 +140,7 @@ class TestFromPymatgenPbc:
         """An atom near the far corner gets 7 images (-1 on each axis combo)."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.99, 0.99, 0.99]])
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         assert len(scene.species) == 8
 
     def test_pbc_false_no_expansion(self):
@@ -145,7 +154,7 @@ class TestFromPymatgenPbc:
         """A +1 image should be one lattice vector beyond the far face."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.02, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         coords = scene.frames[0].coords
         xs = sorted(coords[:, 0])
         np.testing.assert_allclose(xs[0], 0.2, atol=1e-10)
@@ -181,8 +190,8 @@ class TestFromPymatgenPbc:
         # Atom at frac -0.01 is equivalent to frac 0.99.
         struct_neg = Structure(lattice, ["Na"], [[-.01, 0.5, 0.5]])
         struct_pos = Structure(lattice, ["Na"], [[0.99, 0.5, 0.5]])
-        scene_neg = from_pymatgen(struct_neg, pbc=True, pbc_cutoff=1.0)
-        scene_pos = from_pymatgen(struct_pos, pbc=True, pbc_cutoff=1.0)
+        scene_neg = from_pymatgen(struct_neg, pbc=True, pbc_padding=1.0)
+        scene_pos = from_pymatgen(struct_pos, pbc=True, pbc_padding=1.0)
         assert len(scene_neg.species) == len(scene_pos.species)
         np.testing.assert_allclose(
             np.sort(scene_neg.frames[0].coords, axis=0),
@@ -198,19 +207,19 @@ class TestFromPymatgenPbc:
             lattice, ["Na", "Na"],
             [[0.02, 0.5, 0.5], [0.98, 0.5, 0.5]],
         )
-        scene = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
+        scene = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
         orig_centroid = np.mean(struct.cart_coords, axis=0)
         expanded_centroid = np.mean(scene.frames[0].coords, axis=0)
         np.testing.assert_allclose(expanded_centroid, orig_centroid, atol=1e-10)
 
-    def test_custom_pbc_cutoff(self):
-        """A custom pbc_cutoff should override the bond-derived cutoff."""
+    def test_custom_pbc_padding(self):
+        """A custom pbc_padding should override the bond-derived default."""
         lattice = Lattice.cubic(10.0)
         # Atom at frac 0.05 (cart 0.5) -- within a 1.0 cutoff, but
         # outside a tight 0.3 cutoff.
         struct = Structure(lattice, ["Na"], [[0.05, 0.5, 0.5]])
-        scene_wide = from_pymatgen(struct, pbc=True, pbc_cutoff=1.0)
-        scene_tight = from_pymatgen(struct, pbc=True, pbc_cutoff=0.3)
+        scene_wide = from_pymatgen(struct, pbc=True, pbc_padding=1.0)
+        scene_tight = from_pymatgen(struct, pbc=True, pbc_padding=0.3)
         # Wide cutoff includes this atom; tight cutoff excludes it.
         assert len(scene_wide.species) == 2
         assert len(scene_tight.species) == 1
@@ -238,12 +247,12 @@ class TestExpandBonds:
             species=("Na", "Cl"), min_length=0.0,
             max_length=3.0, radius=0.1, colour=0.5,
         )
-        # With a tight pbc_cutoff=0.5, _expand_pbc won't add the Cl image
+        # With a tight pbc_padding=0.5, _expand_pbc won't add the Cl image
         # (Cl is at frac 0.95, cutoff/face_dist = 0.5/5 = 0.1, and
         # 1 - 0.95 = 0.05 < 0.1, so actually it WILL be added).
         # Use an even tighter cutoff of 0.1 to exclude it.
         scene = from_pymatgen(
-            struct, bond_specs=[bond_spec], pbc=True, pbc_cutoff=0.1,
+            struct, bond_specs=[bond_spec], pbc=True, pbc_padding=0.1,
         )
         # _expand_pbc with cutoff=0.1: Cl at frac 0.95 has
         # 1-0.95=0.05, frac_cutoff=0.1/5=0.02. 0.05 > 0.02, so
@@ -256,7 +265,7 @@ class TestExpandBonds:
         """With no bond specs, no extra images are added."""
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, bond_specs=[], pbc=True, pbc_cutoff=0.1)
+        scene = from_pymatgen(struct, bond_specs=[], pbc=True, pbc_padding=0.1)
         assert len(scene.species) == 1
 
     def test_non_recursive(self):
@@ -275,7 +284,7 @@ class TestExpandBonds:
             max_length=2.0, radius=0.1, colour=0.5,
         )
         scene = from_pymatgen(
-            struct, bond_specs=[bond_spec], pbc=True, pbc_cutoff=0.5,
+            struct, bond_specs=[bond_spec], pbc=True, pbc_padding=0.5,
         )
         # We should have the 2 unit-cell atoms + their images, but
         # not images-of-images (which would be at frac ~2.0 or ~-1.0).
@@ -311,7 +320,7 @@ class TestExpandPolyhedraVertices:
             bond_specs=[ti_o_bond],
             polyhedra=[PolyhedronSpec(centre="Ti")],
             pbc=True,
-            pbc_cutoff=1.0,
+            pbc_padding=1.0,
         )
         # The image Ti should have vertex atoms added for it.
         # Count Ti atoms — should be at least 2 (original + image).
@@ -335,12 +344,12 @@ class TestExpandPolyhedraVertices:
             max_length=3.0, radius=0.1, colour=0.5,
         )
         scene_no_poly = from_pymatgen(
-            struct, bond_specs=[ti_o_bond], pbc=True, pbc_cutoff=1.0,
+            struct, bond_specs=[ti_o_bond], pbc=True, pbc_padding=1.0,
         )
         scene_with_poly = from_pymatgen(
             struct, bond_specs=[ti_o_bond],
             polyhedra=[PolyhedronSpec(centre="Ti")],
-            pbc=True, pbc_cutoff=1.0,
+            pbc=True, pbc_padding=1.0,
         )
         # With polyhedra, more atoms are added for vertex expansion.
         assert len(scene_with_poly.species) >= len(scene_no_poly.species)
@@ -362,7 +371,7 @@ class TestExpandPolyhedraVertices:
         scene = from_pymatgen(
             struct, bond_specs=[bond],
             polyhedra=[PolyhedronSpec(centre="Ti")],
-            pbc=True, pbc_cutoff=1.0,
+            pbc=True, pbc_padding=1.0,
         )
         coords = scene.frames[0].coords
         # All coordinates should be within a reasonable range of the cell,
@@ -408,7 +417,7 @@ class TestCentreAtom:
             lattice, ["Na", "Cl"],
             [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         )
-        scene = from_pymatgen(struct, bond_specs=[])
+        scene = from_pymatgen(struct, bond_specs=[], pbc=False)
         centroid = np.mean(scene.frames[0].coords, axis=0)
         np.testing.assert_allclose(scene.view.centre, centroid, atol=1e-10)
 

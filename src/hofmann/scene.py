@@ -406,8 +406,8 @@ def from_pymatgen(
     bond_specs: list[BondSpec] | None = None,
     *,
     polyhedra: list[PolyhedronSpec] | None = None,
-    pbc: bool = False,
-    pbc_cutoff: float | None = None,
+    pbc: bool = True,
+    pbc_padding: float | None = 0.1,
     centre_atom: int | None = None,
 ) -> StructureScene:
     """Create a StructureScene from pymatgen Structure(s).
@@ -420,13 +420,16 @@ def from_pymatgen(
             Pass an empty list to disable bonds.
         polyhedra: Optional polyhedron rendering rules.  If ``None``,
             no polyhedra are drawn.
-        pbc: If ``True``, add periodic image atoms at cell boundaries
-            so that bonds crossing periodic boundaries are drawn.
-        pbc_cutoff: Cartesian distance cutoff (angstroms) for PBC
-            image generation.  Atoms within this distance of a cell
-            face get an image on the opposite side.  If ``None``
-            (the default), the maximum bond length from *bond_specs*
-            is used.
+        pbc: If ``True`` (the default), add periodic image atoms at
+            cell boundaries so that bonds crossing periodic boundaries
+            are drawn.  Set to ``False`` to disable all PBC expansion.
+        pbc_padding: Cartesian margin (angstroms) around the unit cell
+            for placing periodic image atoms.  Atoms within this
+            distance of a cell face get an image on the opposite side.
+            The default of 0.1 angstroms captures atoms sitting on cell
+            boundaries without cluttering the scene.  Set to ``None``
+            to fall back to the maximum bond length from *bond_specs*
+            for wider geometric expansion.
         centre_atom: Index of the atom to centre the unit cell on.
             When set, all fractional coordinates are shifted so that
             this atom sits at (0.5, 0.5, 0.5) before PBC expansion,
@@ -482,7 +485,7 @@ def from_pymatgen(
         first_species: list[str] | None = None
         for i, s in enumerate(structures):
             # Geometric expansion: add images near cell faces.
-            exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_cutoff)
+            exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
 
             # Bond-aware expansion: add any bonded periodic images
             # not already captured by the geometric expansion.
