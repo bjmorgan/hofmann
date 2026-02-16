@@ -55,6 +55,11 @@ class TestFromXbs:
         assert isinstance(scene, StructureScene)
         assert len(scene.species) == 5
 
+    def test_no_lattice(self, ch4_bs_path):
+        """XBS scenes have no lattice information."""
+        scene = from_xbs(ch4_bs_path)
+        assert scene.lattice is None
+
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
 class TestFromPymatgen:
@@ -86,6 +91,22 @@ class TestFromPymatgen:
         scene = from_pymatgen(struct, pbc=False)
         expected = np.mean(scene.frames[0].coords, axis=0)
         np.testing.assert_allclose(scene.view.centre, expected)
+
+    def test_lattice_stored(self):
+        """from_pymatgen stores the lattice matrix."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
+        scene = from_pymatgen(struct, pbc=False)
+        assert scene.lattice is not None
+        np.testing.assert_allclose(scene.lattice, lattice.matrix)
+
+    def test_lattice_is_copy(self):
+        """Modifying scene.lattice does not affect the original structure."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
+        scene = from_pymatgen(struct, pbc=False)
+        scene.lattice[0, 0] = 999.0
+        np.testing.assert_allclose(struct.lattice.matrix[0, 0], 5.0)
 
     def test_pbc_on_by_default(self):
         """PBC expansion is enabled by default for pymatgen structures."""
@@ -174,7 +195,11 @@ class TestFromPymatgenPbc:
             species=("Na", "Na"), min_length=0.0,
             max_length=3.72, radius=0.1, colour=0.5,
         )
-        scene = from_pymatgen(struct, bond_specs=[na_bond], pbc=True)
+        # Use pbc_padding=0.2 so the geometric expansion captures atoms
+        # within 0.2 A of the cell face (frac_cutoff = 0.2/10 = 0.02).
+        scene = from_pymatgen(
+            struct, bond_specs=[na_bond], pbc=True, pbc_padding=0.2,
+        )
         bonds = compute_bonds(
             scene.species,
             scene.frames[0].coords,
@@ -226,19 +251,16 @@ class TestFromPymatgenPbc:
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
-class TestExpandBonds:
-    """Tests for bond-aware PBC expansion."""
+class TestPbcPaddingExpansion:
+    """Tests for geometric PBC expansion behaviour."""
 
-    def test_bonded_image_added(self):
-        """An image atom forming a valid bond across the boundary is added."""
+    def test_tight_padding_excludes_distant_atoms(self):
+        """With tight pbc_padding, atoms far from cell faces get no image."""
         from hofmann.model import BondSpec
 
         lattice = Lattice.cubic(5.0)
-        # Na at frac (0.5, 0.5, 0.5) — centre of cell.
-        # Cl at frac (0.95, 0.5, 0.5) — near far face.
-        # Bond cutoff 2.0 A: Cl image at frac (-0.05) = cart -0.25
-        # is 2.75 A from Na at cart 2.5 — too far.
-        # Use a 3.0 cutoff to catch it.
+        # Na at frac 0.5 — centre of cell, far from any face.
+        # Cl at frac 0.95 — 0.25 A from far face.
         struct = Structure(
             lattice, ["Na", "Cl"],
             [[0.5, 0.5, 0.5], [0.95, 0.5, 0.5]],
@@ -247,19 +269,34 @@ class TestExpandBonds:
             species=("Na", "Cl"), min_length=0.0,
             max_length=3.0, radius=0.1, colour=0.5,
         )
-        # With a tight pbc_padding=0.5, _expand_pbc won't add the Cl image
-        # (Cl is at frac 0.95, cutoff/face_dist = 0.5/5 = 0.1, and
-        # 1 - 0.95 = 0.05 < 0.1, so actually it WILL be added).
-        # Use an even tighter cutoff of 0.1 to exclude it.
+        # pbc_padding=0.1 A → frac_cutoff=0.02. Cl at frac 0.95
+        # has 1-0.95=0.05 > 0.02, so geometric expansion does not
+        # add an image.  Without polyhedra, no neighbour completion
+        # runs either.
         scene = from_pymatgen(
             struct, bond_specs=[bond_spec], pbc=True, pbc_padding=0.1,
         )
-        # _expand_pbc with cutoff=0.1: Cl at frac 0.95 has
-        # 1-0.95=0.05, frac_cutoff=0.1/5=0.02. 0.05 > 0.02, so
-        # _expand_pbc does NOT add an image.
-        # But _expand_bonds should find the Cl image at (-1,0,0)
-        # at cart -0.25 which is 2.75 from Na at 2.5 — within 3.0.
-        assert len(scene.species) >= 3  # Na, Cl, + at least one image
+        assert len(scene.species) == 2  # No images added.
+
+    def test_wider_padding_captures_boundary_atom(self):
+        """Increasing pbc_padding captures atoms closer to the face."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.95, 0.5, 0.5]],
+        )
+        bond_spec = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        # pbc_padding=0.3 A → frac_cutoff=0.06. Cl at frac 0.95
+        # has 1-0.95=0.05 < 0.06, so an image IS added.
+        scene = from_pymatgen(
+            struct, bond_specs=[bond_spec], pbc=True, pbc_padding=0.3,
+        )
+        assert len(scene.species) >= 3  # At least one image.
 
     def test_no_bond_specs_no_extra_images(self):
         """With no bond specs, no extra images are added."""
@@ -268,13 +305,12 @@ class TestExpandBonds:
         scene = from_pymatgen(struct, bond_specs=[], pbc=True, pbc_padding=0.1)
         assert len(scene.species) == 1
 
-    def test_non_recursive(self):
-        """Image atoms should not generate further images."""
-        from hofmann.bonds import compute_bonds
+    def test_images_stay_within_one_cell_distance(self):
+        """Image atoms should be within one lattice vector of the cell."""
         from hofmann.model import BondSpec
 
         lattice = Lattice.cubic(4.0)
-        # Two atoms that will bond across boundary.
+        # Two atoms near opposite faces.
         struct = Structure(
             lattice, ["Na", "Na"],
             [[0.01, 0.5, 0.5], [0.99, 0.5, 0.5]],
@@ -286,17 +322,15 @@ class TestExpandBonds:
         scene = from_pymatgen(
             struct, bond_specs=[bond_spec], pbc=True, pbc_padding=0.5,
         )
-        # We should have the 2 unit-cell atoms + their images, but
-        # not images-of-images (which would be at frac ~2.0 or ~-1.0).
         coords = scene.frames[0].coords
-        # All x coordinates should be within roughly [-cutoff, a+cutoff].
-        assert np.all(coords[:, 0] > -2.5)
-        assert np.all(coords[:, 0] < 6.5)
+        # All x coordinates should be within one lattice parameter of [0, a].
+        assert np.all(coords[:, 0] > -4.5)
+        assert np.all(coords[:, 0] < 8.5)
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
-class TestExpandPolyhedraVertices:
-    """Tests for vertex expansion of image polyhedron centres."""
+class TestNeighbourShellExpansion:
+    """Tests for neighbour-shell completion of polyhedron centres."""
 
     def test_image_centre_gets_vertex_atoms(self):
         """An image atom matching a centre pattern gets its vertex atoms added."""

@@ -7,6 +7,7 @@ from hofmann.model import (
     AtomStyle,
     Bond,
     BondSpec,
+    CellEdgeStyle,
     Frame,
     Polyhedron,
     PolyhedronSpec,
@@ -493,6 +494,20 @@ class TestRenderStyle:
         )
         RenderStyle(polyhedra_shading=1.0)
 
+    def test_show_cell_default_none(self):
+        style = RenderStyle()
+        assert style.show_cell is None
+
+    def test_cell_style_default(self):
+        style = RenderStyle()
+        assert isinstance(style.cell_style, CellEdgeStyle)
+        assert style.cell_style.linestyle == "solid"
+
+    def test_cell_style_override(self):
+        cs = CellEdgeStyle(colour="red", line_width=2.0)
+        style = RenderStyle(cell_style=cs)
+        assert style.cell_style.colour == "red"
+
 
 # --- StructureScene ---
 
@@ -528,6 +543,70 @@ class TestStructureScene:
         scene.centre_on(0)
         scene.view.centre[0] = 999.0
         assert scene.frames[0].coords[0, 0] == 1.0
+
+    def test_lattice_default_none(self):
+        coords = np.zeros((1, 3))
+        scene = StructureScene(species=["A"], frames=[Frame(coords=coords)])
+        assert scene.lattice is None
+
+    def test_lattice_accepted(self):
+        coords = np.zeros((1, 3))
+        lat = np.eye(3) * 5.0
+        scene = StructureScene(
+            species=["A"], frames=[Frame(coords=coords)], lattice=lat,
+        )
+        np.testing.assert_array_equal(scene.lattice, lat)
+
+    def test_lattice_bad_shape_raises(self):
+        coords = np.zeros((1, 3))
+        with pytest.raises(ValueError, match="shape"):
+            StructureScene(
+                species=["A"], frames=[Frame(coords=coords)],
+                lattice=np.eye(2),
+            )
+
+    def test_lattice_coerced_to_float(self):
+        coords = np.zeros((1, 3))
+        lat_int = np.eye(3, dtype=int) * 5
+        scene = StructureScene(
+            species=["A"], frames=[Frame(coords=coords)], lattice=lat_int,
+        )
+        assert scene.lattice.dtype == float
+
+
+# --- CellEdgeStyle ---
+
+
+class TestCellEdgeStyle:
+    def test_defaults(self):
+        style = CellEdgeStyle()
+        assert style.colour == (0.3, 0.3, 0.3)
+        assert style.line_width == 0.8
+        assert style.linestyle == "solid"
+
+    def test_custom_values(self):
+        style = CellEdgeStyle(colour="blue", line_width=1.5, linestyle="dashed")
+        assert style.colour == "blue"
+        assert style.line_width == 1.5
+        assert style.linestyle == "dashed"
+
+    def test_negative_line_width_raises(self):
+        with pytest.raises(ValueError, match="line_width must be non-negative"):
+            CellEdgeStyle(line_width=-0.1)
+
+    def test_invalid_linestyle_raises(self):
+        with pytest.raises(ValueError, match="linestyle must be one of"):
+            CellEdgeStyle(linestyle="wavy")
+
+    def test_is_frozen(self):
+        style = CellEdgeStyle()
+        with pytest.raises(AttributeError):
+            style.line_width = 2.0
+
+    @pytest.mark.parametrize("ls", ["solid", "dashed", "dotted", "dashdot"])
+    def test_valid_linestyles(self, ls):
+        style = CellEdgeStyle(linestyle=ls)
+        assert style.linestyle == ls
 
 
 # --- PolyhedronSpec ---

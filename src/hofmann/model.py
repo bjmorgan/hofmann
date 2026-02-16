@@ -93,6 +93,37 @@ class SlabClipMode(StrEnum):
     INCLUDE_WHOLE = "include_whole"
 
 
+_VALID_LINESTYLES = frozenset({"solid", "dashed", "dotted", "dashdot"})
+
+
+@dataclass(frozen=True)
+class CellEdgeStyle:
+    """Visual style for unit cell edges.
+
+    Attributes:
+        colour: Edge colour.  Accepts any format understood by
+            :func:`normalise_colour`.
+        line_width: Width of the edge line in display units.
+        linestyle: Line pattern: ``"solid"``, ``"dashed"``,
+            ``"dotted"``, or ``"dashdot"``.
+    """
+
+    colour: Colour = (0.3, 0.3, 0.3)
+    line_width: float = 0.8
+    linestyle: str = "solid"
+
+    def __post_init__(self) -> None:
+        if self.line_width < 0:
+            raise ValueError(
+                f"line_width must be non-negative, got {self.line_width}"
+            )
+        if self.linestyle not in _VALID_LINESTYLES:
+            raise ValueError(
+                f"linestyle must be one of {sorted(_VALID_LINESTYLES)}, "
+                f"got {self.linestyle!r}"
+            )
+
+
 @dataclass
 class RenderStyle:
     """Visual style settings for rendering.
@@ -149,6 +180,13 @@ class RenderStyle:
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
             When set, overrides all per-spec values.
+        show_cell: Whether to draw unit cell edges.  ``None``
+            (the default) auto-detects: edges are drawn when the
+            scene has a lattice.  ``True`` forces drawing (raises
+            :class:`ValueError` at render time if no lattice is
+            available).  ``False`` suppresses drawing.
+        cell_style: Visual style for unit cell edges.  See
+            :class:`CellEdgeStyle`.
 
     Raises:
         ValueError: If *atom_scale* or *bond_scale* are not positive,
@@ -173,6 +211,8 @@ class RenderStyle:
     arc_segments: int = 5
     polyhedra_shading: float = 1.0
     polyhedra_outline_width: float | None = None
+    show_cell: bool | None = None
+    cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
 
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
@@ -567,6 +607,8 @@ class StructureScene:
         polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
+        lattice: Unit cell lattice matrix, shape ``(3, 3)`` with rows
+            as lattice vectors, or ``None`` for non-periodic structures.
     """
 
     species: list[str]
@@ -576,6 +618,15 @@ class StructureScene:
     polyhedra: list[PolyhedronSpec] = field(default_factory=list)
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
+    lattice: np.ndarray | None = None
+
+    def __post_init__(self) -> None:
+        if self.lattice is not None:
+            self.lattice = np.asarray(self.lattice, dtype=float)
+            if self.lattice.shape != (3, 3):
+                raise ValueError(
+                    f"lattice must have shape (3, 3), got {self.lattice.shape}"
+                )
 
     @classmethod
     def from_xbs(

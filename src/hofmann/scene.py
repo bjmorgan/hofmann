@@ -280,54 +280,55 @@ def _expand_bonds(
     return [], np.empty((0, 3))
 
 
-def _expand_polyhedra_vertices(
+def _expand_neighbour_shells(
     structure: "Structure",
     expanded_species: list[str],
     expanded_coords: np.ndarray,
     n_uc: int,
     bond_specs: list[BondSpec],
-    polyhedra_specs: list[PolyhedronSpec],
+    centre_species_only: list[str] | None = None,
 ) -> tuple[list[str], np.ndarray]:
-    """Add vertex atoms needed by image atoms that are polyhedron centres.
+    """Ensure bonded neighbours are present for atoms already in the scene.
 
-    For each image atom (index >= *n_uc*) whose species matches a
-    polyhedron-centre pattern, find its coordination shell by looking up
-    the equivalent unit-cell atom's periodic neighbours and shifting them
-    by the same lattice translation.  Any neighbour not already present
-    in the expanded set is appended.
+    For each atom (unit-cell or image) in the expanded set, look up its
+    bonded periodic neighbours from the original structure and add any
+    that are missing.  This completes coordination shells at cell
+    boundaries without the aggressive expansion of the old
+    ``_expand_bonds`` (which searched from *all* unit-cell atoms).
 
-    This is **non-recursive**: only existing image atoms are checked as
-    potential centres; newly added vertex atoms are never themselves
-    expanded.
+    When *centre_species_only* is given, only atoms whose species
+    matches one of the patterns have their shells completed.  This is
+    used by polyhedra expansion to avoid adding unnecessary atoms.
+
+    This is **non-recursive**: only atoms already present are checked;
+    newly added neighbour atoms are never themselves expanded.
 
     Args:
         structure: The pymatgen ``Structure`` (single frame).
-        expanded_species: Species list after geometric + bond expansion.
-        expanded_coords: Coordinates after geometric + bond expansion.
+        expanded_species: Species list after geometric expansion.
+        expanded_coords: Coordinates after geometric expansion.
         n_uc: Number of unit-cell atoms (before any expansion).
         bond_specs: Bond specification rules.
-        polyhedra_specs: Polyhedron rendering rules (used to identify
-            centre species).
+        centre_species_only: If given, only expand shells for atoms
+            matching one of these species patterns (fnmatch).  If
+            ``None``, expand shells for all atoms.
 
     Returns:
-        Updated ``(species, coords)`` with additional vertex atoms
+        Updated ``(species, coords)`` with additional neighbour atoms
         appended.
     """
-    if not polyhedra_specs or not bond_specs:
+    if not bond_specs:
         return expanded_species, expanded_coords
 
-    centre_patterns = [spec.centre for spec in polyhedra_specs]
     lattice = structure.lattice
 
     # Precompute periodic neighbour data for each unit-cell atom.
-    # For each (centre_index, neighbour_index, image_vector) triple
-    # that matches a bond spec, record it so we can replicate for images.
     max_cutoff = max(spec.max_length for spec in bond_specs)
     all_neighbours = structure.get_all_neighbors(max_cutoff)
     species_list = [site.specie.symbol for site in structure]
 
     # For each unit-cell atom, store its bonded neighbours as
-    # (neighbour_uc_index, image_vector) pairs with their Cartesian offset.
+    # (species, Cartesian offset) pairs.
     uc_neighbour_offsets: dict[int, list[tuple[str, np.ndarray]]] = {}
     for i, neighbours in enumerate(all_neighbours):
         sp_i = species_list[i]
@@ -341,7 +342,6 @@ def _expand_polyhedra_vertices(
                 for spec in bond_specs
             )
             if matched:
-                # Cartesian offset from atom i to this neighbour.
                 image = np.array([int(x) for x in nbr.image])
                 offset = (
                     structure[nbr.index].coords
@@ -352,49 +352,62 @@ def _expand_polyhedra_vertices(
         if offsets:
             uc_neighbour_offsets[i] = offsets
 
-    # For each image atom matching a centre pattern, identify its
-    # source unit-cell atom and replicate the neighbour shell.
     inv_matrix = lattice.inv_matrix
     new_species = list(expanded_species)
     new_coords_list: list[np.ndarray] = [expanded_coords]
-    # Track all existing coordinates for deduplication.
     all_coords = expanded_coords
 
-    for img_idx in range(n_uc, len(expanded_species)):
-        sp = expanded_species[img_idx]
-        if not any(fnmatch(sp, pat) for pat in centre_patterns):
-            continue
+    def _should_expand(sp: str) -> bool:
+        if centre_species_only is None:
+            return True
+        return any(fnmatch(sp, pat) for pat in centre_species_only)
 
-        img_coord = expanded_coords[img_idx]
-
-        # Find which unit-cell atom this image corresponds to.
-        # The difference should be a lattice vector.
-        source_idx = None
-        for j in range(n_uc):
-            if species_list[j] != sp:
-                continue
-            diff = img_coord - structure[j].coords
-            # Convert to fractional; should be near-integer.
-            frac_diff = diff @ inv_matrix
-            if np.allclose(frac_diff, np.round(frac_diff), atol=0.01):
-                source_idx = j
-                break
-
-        if source_idx is None or source_idx not in uc_neighbour_offsets:
-            continue
-
-        # Add each neighbour of the source atom, shifted to the image position.
-        translation = img_coord - structure[source_idx].coords
+    def _add_neighbour_shell(
+        source_idx: int, translation: np.ndarray,
+    ) -> None:
+        """Add missing bonded neighbours for an atom."""
+        nonlocal all_coords
+        if source_idx not in uc_neighbour_offsets:
+            return
         for nbr_sp, offset in uc_neighbour_offsets[source_idx]:
             nbr_coord = structure[source_idx].coords + translation + offset
-            # Check if this coordinate already exists.
             diffs = np.linalg.norm(all_coords - nbr_coord, axis=1)
             if np.any(diffs < 1e-6):
                 continue
             new_species.append(nbr_sp)
             new_coords_list.append(nbr_coord[np.newaxis, :])
-            # Update all_coords for subsequent deduplication checks.
             all_coords = np.vstack([all_coords, nbr_coord[np.newaxis, :]])
+
+    # Process unit-cell atoms.
+    for uc_idx in range(n_uc):
+        if not _should_expand(species_list[uc_idx]):
+            continue
+        _add_neighbour_shell(uc_idx, np.zeros(3))
+
+    # Process image atoms.
+    for img_idx in range(n_uc, len(expanded_species)):
+        sp = expanded_species[img_idx]
+        if not _should_expand(sp):
+            continue
+
+        img_coord = expanded_coords[img_idx]
+
+        # Find which unit-cell atom this image corresponds to.
+        source_idx = None
+        for j in range(n_uc):
+            if species_list[j] != sp:
+                continue
+            diff = img_coord - structure[j].coords
+            frac_diff = diff @ inv_matrix
+            if np.allclose(frac_diff, np.round(frac_diff), atol=0.01):
+                source_idx = j
+                break
+
+        if source_idx is None:
+            continue
+
+        translation = img_coord - structure[source_idx].coords
+        _add_neighbour_shell(source_idx, translation)
 
     if len(new_coords_list) > 1:
         return new_species, np.vstack(new_coords_list)
@@ -487,25 +500,15 @@ def from_pymatgen(
             # Geometric expansion: add images near cell faces.
             exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
 
-            # Bond-aware expansion: add any bonded periodic images
-            # not already captured by the geometric expansion.
-            if bond_specs:
-                bond_img_species, bond_img_coords = _expand_bonds(
-                    s, bond_specs,
-                )
-                if len(bond_img_species) > 0:
-                    exp_species, exp_coords = _merge_expansions(
-                        exp_species, exp_coords,
-                        bond_img_species, bond_img_coords,
-                    )
-
-            # Vertex expansion: for image atoms that are polyhedron
-            # centres, add their coordination-shell atoms so that
+            # Neighbour-shell completion for polyhedra centres:
+            # ensure every atom matching a polyhedron centre pattern
+            # has its full coordination shell present, so that
             # boundary polyhedra are complete.
             if poly_specs and bond_specs:
-                exp_species, exp_coords = _expand_polyhedra_vertices(
-                    s, exp_species, exp_coords, n_uc,
-                    bond_specs, poly_specs,
+                centre_patterns = [sp.centre for sp in poly_specs]
+                exp_species, exp_coords = _expand_neighbour_shells(
+                    s, exp_species, exp_coords, n_uc, bond_specs,
+                    centre_species_only=centre_patterns,
                 )
 
             if first_species is None:
@@ -534,4 +537,5 @@ def from_pymatgen(
         polyhedra=polyhedra if polyhedra is not None else [],
         view=view,
         title="",
+        lattice=structures[0].lattice.matrix.copy(),
     )
