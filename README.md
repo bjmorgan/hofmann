@@ -1,5 +1,8 @@
 # hofmann
 
+[![CI](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml/badge.svg)](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml)
+[![Documentation](https://readthedocs.org/projects/hofmann/badge/?version=latest)](https://hofmann.readthedocs.io/en/latest/)
+
 A modern Python reimagining of Methfessel's [XBS](https://www.ccl.net/cca/software/X-WINDOW/xbs/) ball-and-stick viewer (1995), named after [August Wilhelm von Hofmann](https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann) who built the first ball-and-stick molecular models in 1865.
 
 hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images with static, publication-quality vector output (SVG, PDF) via matplotlib.
