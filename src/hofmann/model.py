@@ -924,18 +924,26 @@ class StructureScene:
         dpi: int = 150,
         background: Colour = "white",
         **style_kwargs: object,
-    ) -> ViewState:
-        """Open an interactive matplotlib viewer with mouse rotation and zoom.
+    ) -> tuple[ViewState, RenderStyle]:
+        """Open an interactive matplotlib viewer with mouse and keyboard controls.
 
-        Left-drag rotates the structure; scroll zooms.  When the window
-        is closed the updated :class:`ViewState` is returned so it can
-        be reused for static rendering.
+        Left-drag rotates, scroll zooms, and keyboard shortcuts control
+        rotation, pan, perspective, display toggles, and frame navigation.
+        Press **h** to show a help overlay listing all keybindings.
+
+        When the window is closed the updated :class:`ViewState` and
+        :class:`RenderStyle` are returned so they can be reused for
+        static rendering::
+
+            view, style = scene.render_mpl_interactive()
+            scene.view = view
+            scene.render_mpl("output.svg", style=style)
 
         Args:
             style: A :class:`RenderStyle` controlling visual appearance.
                 Any :class:`RenderStyle` field name may also be passed
                 as a keyword argument to override individual fields.
-            frame_index: Which frame to render.
+            frame_index: Which frame to render initially.
             figsize: Figure size in inches ``(width, height)``.
             dpi: Resolution.
             background: Background colour.
@@ -943,8 +951,8 @@ class StructureScene:
                 keyword argument (e.g. ``show_bonds=False``).
 
         Returns:
-            The :class:`ViewState` reflecting any rotation/zoom applied
-            during the interactive session.
+            A ``(ViewState, RenderStyle)`` tuple reflecting any view
+            and style changes applied during the interactive session.
 
         See Also:
             :func:`hofmann.render_mpl.render_mpl_interactive`

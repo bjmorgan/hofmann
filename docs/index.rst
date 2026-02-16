@@ -33,6 +33,7 @@ Quick example
 
    getting-started
    user-guide
+   interactive
    api
    xbs-format
    changelog

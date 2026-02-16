@@ -388,15 +388,5 @@ The widget also rotates interactively in
 Interactive viewer
 ------------------
 
-Open an interactive matplotlib window with mouse rotation and zoom:
-
-.. code-block:: python
-
-   view = scene.render_mpl_interactive()
-
-   # Reuse the adjusted view for static output:
-   scene.view = view
-   scene.render_mpl("adjusted.svg")
-
-Left-drag rotates; scroll zooms.  The returned
-:class:`~hofmann.ViewState` captures the final orientation.
+See :doc:`interactive` for full documentation of the interactive viewer,
+including mouse and keyboard controls.
