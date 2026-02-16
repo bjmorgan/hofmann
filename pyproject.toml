@@ -46,6 +46,9 @@ docs = [
 ]
 all = ["hofmann[pymatgen,dev,docs]"]
 
+[tool.setuptools.package-data]
+hofmann = ["py.typed"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
