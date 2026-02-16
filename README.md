@@ -10,15 +10,14 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 
 ## Features
 
-- **Publication-quality output** -- vector SVG and PDF via matplotlib's painter's algorithm with depth sorting
-- **XBS file support** -- reads classic `.bs` and `.mv` (trajectory) file formats
-- **pymatgen interoperability** -- build scenes directly from pymatgen `Structure` objects (optional dependency)
-- **Periodic boundary conditions** -- automatic image expansion with bond-aware and polyhedra-vertex-aware generation
-- **Coordination polyhedra** -- convex hull construction from the bond graph with configurable shading and slab clipping
-- **Unit cell wireframe** -- depth-interleaved cell edges that correctly occlude and are occluded by atoms and bonds
-- **Interactive viewer** -- mouse rotation, scroll zoom, keyboard controls, and frame navigation for trajectories
-- **Perspective projection** -- tuneable perspective strength with XBS-style foreshortened bond caps
-- **Clean data model** -- Python dataclasses throughout, no global state, numpy-vectorised coordinate maths
+- Static publication-quality output (SVG, PDF, PNG) via matplotlib
+- XBS `.bs` and `.mv` (trajectory) file formats
+- Optional pymatgen `Structure` interoperability
+- Periodic boundary conditions with automatic image expansion
+- Coordination polyhedra with configurable shading and slab clipping
+- Unit cell wireframe rendering
+- Interactive viewer with mouse rotation, zoom, and keyboard controls
+- Orthographic and perspective projection
 
 ## Installation
 
