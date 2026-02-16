@@ -4,7 +4,7 @@ from pathlib import Path
 
 import numpy as np
 
-from hofmann.model import AtomStyle, BondSpec, Frame, PolyhedronSpec
+from hofmann.model import AtomStyle, BondSpec, Colour, Frame, PolyhedronSpec
 
 
 def _read_source(source: str | Path) -> str:
@@ -96,12 +96,12 @@ def parse_bs(
         elif command == "poly":
             centre = parts[1]
             alpha = float(parts[2]) if len(parts) > 2 else 0.4
-            colour = (
+            poly_colour: Colour | None = (
                 _parse_colour_tokens(parts[3:]) if len(parts) > 3
                 else None
             )
             polyhedra_specs.append(PolyhedronSpec(
-                centre=centre, alpha=alpha, colour=colour,
+                centre=centre, alpha=alpha, colour=poly_colour,
             ))
 
     frame = Frame(coords=np.array(coords), label="")

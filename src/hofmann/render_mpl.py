@@ -16,6 +16,7 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, TYPE_CHECKING
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
@@ -23,9 +24,13 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
+
 from hofmann.bonds import compute_bonds
 from hofmann.model import (
     AxesStyle,
+    Bond,
     CellEdgeStyle,
     Colour,
     PolyhedraVertexMode,
@@ -619,7 +624,7 @@ class _PrecomputedScene:
     radii_3d: np.ndarray
     atom_colours: list[tuple[float, float, float]]
     bond_half_colours: list[tuple[float, float, float]]
-    adjacency: dict[int, list[tuple[int, object]]]
+    adjacency: dict[int, list[tuple[int, Bond]]]
     bond_ia: np.ndarray
     bond_ib: np.ndarray
     bond_radii: np.ndarray
@@ -664,7 +669,7 @@ def _precompute_scene(
         atom_colours.append(rgb)
 
     bonds = compute_bonds(scene.species, coords, scene.bond_specs)
-    adjacency: dict[int, list[tuple[int, object]]] = defaultdict(list)
+    adjacency: dict[int, list[tuple[int, Bond]]] = defaultdict(list)
     for bond in bonds:
         adjacency[bond.index_a].append((bond.index_b, bond))
         adjacency[bond.index_b].append((bond.index_a, bond))
@@ -780,7 +785,7 @@ def _apply_slab_clip(
     slab_visible: np.ndarray,
     slab_clip_mode: SlabClipMode,
     polyhedra_list: list,
-    adjacency: dict[int, list[tuple[int, object]]],
+    adjacency: dict[int, list[tuple[int, Bond]]],
     show_polyhedra: bool,
 ) -> tuple[np.ndarray, set[int], set[int]]:
     """Apply polyhedra-aware slab-clip overrides.
@@ -978,7 +983,7 @@ def _split_dashes(
         List of ``(dash_start, dash_end)`` pairs for drawn segments.
     """
     direction = end_2d - start_2d
-    length = np.linalg.norm(direction)
+    length = float(np.linalg.norm(direction))
     if length < 1e-12:
         return []
     unit = direction / length
@@ -1453,6 +1458,9 @@ def _draw_scene(
     if draw_cell and scene.lattice is None:
         raise ValueError("show_cell=True but scene has no lattice")
 
+    cell_edge_by_depth_slot: dict[
+        int, list[tuple[np.ndarray, tuple[float, ...], float]]
+    ] = {}
     if draw_cell:
         # Compute pad for line-width scaling (same logic as axes limits).
         if viewport_extent is not None:
@@ -1469,10 +1477,6 @@ def _draw_scene(
             scene, view, style.cell_style, depth, order, cell_pad,
             coords, radii_3d * atom_scale,
         )
-    else:
-        cell_edge_by_depth_slot: dict[
-            int, list[tuple[np.ndarray, tuple[float, ...], float]]
-        ] = {}
 
     # Collect raw vertex arrays in painter's order, then batch-add
     # via PolyCollection (avoids costly Patch object creation).
@@ -1739,6 +1743,7 @@ def _draw_axes_widget(
         pad: Viewport half-extent in data coordinates.
     """
     lattice = scene.lattice  # (3, 3), rows are a, b, c
+    assert lattice is not None, "axes widget requires a lattice"
     arrow_len = style.arrow_length * pad
 
     # Widget origin in data coordinates.
@@ -1765,6 +1770,7 @@ def _draw_axes_widget(
     # by comparing the actual arrow length in points against a
     # reference value.
     fig = ax.get_figure()
+    assert isinstance(fig, Figure)
     fig_width_in = fig.get_figwidth()
     # Approximate: the axes span 2*pad data units over fig_width_in.
     pts_per_data = fig_width_in * 72.0 / (2.0 * pad)
@@ -1863,7 +1869,7 @@ _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(Rende
 
 def _resolve_style(
     style: RenderStyle | None,
-    **kwargs: object,
+    **kwargs: Any,
 ) -> RenderStyle:
     """Build a :class:`RenderStyle` from an optional base plus overrides.
 
@@ -2250,7 +2256,7 @@ def render_mpl_interactive(
     # during interactive rotation / zoom.
     pre = _precompute_scene(scene, frame_index, resolved)
 
-    draw_kwargs = dict(
+    draw_kwargs: dict[str, Any] = dict(
         frame_index=frame_index,
         bg_rgb=bg_rgb,
         precomputed=pre,
@@ -2399,10 +2405,11 @@ def render_mpl_interactive(
 
     # Disconnect matplotlib's default key handler to avoid conflicts
     # (e.g. 'p' for pan tool, 'o' for zoom-to-rect).
-    try:
-        fig.canvas.mpl_disconnect(fig.canvas.manager.key_press_handler_id)
-    except AttributeError:
-        pass
+    manager = fig.canvas.manager
+    if manager is not None:
+        handler_id = getattr(manager, "key_press_handler_id", None)
+        if handler_id is not None:
+            fig.canvas.mpl_disconnect(handler_id)
 
     plt.show()
 
