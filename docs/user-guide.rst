@@ -71,6 +71,17 @@ Perspective
    scene.view.perspective = 0.3  # Mild perspective
    scene.view.perspective = 0.0  # Orthographic (default)
 
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/perovskite_ortho.svg
+
+          Orthographic (``perspective=0.0``)
+
+     - .. figure:: _static/perovskite_perspective.svg
+
+          Perspective (``perspective=0.5``)
+
 Slab clipping
 ~~~~~~~~~~~~~
 
@@ -155,6 +166,25 @@ Key style options:
   polygon resolution for the interactive viewer (lower defaults
   for responsive redraws)
 
+Half-bonds
+~~~~~~~~~~
+
+When ``half_bonds=True`` (the default), each bond is split at the
+midpoint and each half is coloured to match the nearest atom.  With
+``half_bonds=False``, bonds use the colour from their
+:class:`~hofmann.BondSpec`.
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/octahedron_half_bonds.svg
+
+          ``half_bonds=True`` (default)
+
+     - .. figure:: _static/octahedron_no_half_bonds.svg
+
+          ``half_bonds=False``
+
 
 Bonds
 -----
@@ -216,6 +246,57 @@ direction:
    :align: center
    :alt: LLZO garnet with ZrO6 polyhedra
 
+Polyhedra shading
+~~~~~~~~~~~~~~~~~
+
+The ``polyhedra_shading`` setting controls diffuse (Lambertian) shading
+on polyhedra faces.  At ``0.0`` all faces are flat; at ``1.0`` (the
+default) faces pointing towards the viewer are bright and edge-on faces
+are dimmed.
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/octahedron_shading_flat.svg
+
+          ``polyhedra_shading=0.0`` (flat)
+
+     - .. figure:: _static/octahedron_shading_full.svg
+
+          ``polyhedra_shading=1.0`` (Lambertian)
+
+Vertex draw order
+~~~~~~~~~~~~~~~~~
+
+The ``polyhedra_vertex_mode`` setting controls how vertex atoms are
+layered relative to polyhedral faces.  ``"in_front"`` (the default)
+draws each vertex on top of the faces it belongs to.
+``"depth_sorted"`` draws front vertices in front but back vertices
+behind front-facing faces -- an alternative for transparent polyhedra.
+
+.. list-table::
+   :widths: 50 50
+   :header-rows: 1
+
+   * - ``"in_front"`` (default)
+     - ``"depth_sorted"``
+
+   * - .. figure:: _static/octahedron_vertex_in_front.svg
+
+          opaque
+
+     - .. figure:: _static/octahedron_vertex_depth_sorted.svg
+
+          opaque
+
+   * - .. figure:: _static/octahedron_vertex_in_front_transparent.svg
+
+          transparent
+
+     - .. figure:: _static/octahedron_vertex_depth_sorted_transparent.svg
+
+          transparent
+
 .. _slab-clipping:
 
 Slab clipping and polyhedra
@@ -230,6 +311,24 @@ controls how polyhedra at the slab boundary are handled:
   clipped
 - ``"include_whole"`` -- force the complete polyhedron to be visible
   when its centre atom is within the slab
+
+Here is the LLZO garnet with a depth slab that clips through several
+ZrO6 octahedra, rendered with each mode:
+
+.. list-table::
+   :widths: 33 33 33
+
+   * - .. figure:: _static/llzo_clip_per_face.svg
+
+          ``"per_face"``
+
+     - .. figure:: _static/llzo_clip_whole.svg
+
+          ``"clip_whole"``
+
+     - .. figure:: _static/llzo_clip_include_whole.svg
+
+          ``"include_whole"``
 
 
 .. _unit-cell:

@@ -18,6 +18,35 @@ def ch4_scene() -> StructureScene:
     return StructureScene.from_xbs(fixture)
 
 
+def octahedron_scene(**poly_kwargs) -> StructureScene:
+    """Build a TiO6 octahedron scene for visual examples."""
+    species = ["Ti"] + ["O"] * 6
+    coords = np.array([
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0],
+        [-2.0, 0.0, 0.0],
+        [0.0, 2.0, 0.0],
+        [0.0, -2.0, 0.0],
+        [0.0, 0.0, 2.0],
+        [0.0, 0.0, -2.0],
+    ])
+    scene = StructureScene(
+        species=species,
+        frames=[Frame(coords=coords)],
+        atom_styles={
+            "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+            "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+        },
+        bond_specs=[BondSpec(
+            species=("Ti", "O"), min_length=0.0, max_length=3.0,
+            radius=0.1, colour=0.5,
+        )],
+        polyhedra=[PolyhedronSpec(centre="Ti", **poly_kwargs)],
+    )
+    scene.view.look_along([1, 0.3, 0.15])
+    return scene
+
+
 def _perovskite_structure():
     """Return the SrTiO3 pymatgen Structure and shared style parameters."""
     from pymatgen.core import Lattice, Structure as PmgStructure
@@ -216,6 +245,140 @@ def main() -> None:
         figsize=(5, 5), dpi=150, style=style,
     )
     print(f"  wrote {OUT / 'llzo.svg'}")
+
+    # --- Visual examples for user guide settings ---
+
+    # 1. Polyhedra shading: flat vs full Lambertian
+    octa_shading = octahedron_scene(
+        colour=(0.5, 0.7, 1.0), alpha=0.8,
+        edge_colour=(0.15, 0.15, 0.15),
+    )
+    octa_shading.render_mpl(
+        OUT / "octahedron_shading_flat.svg",
+        figsize=(3, 3), dpi=150, polyhedra_shading=0.0,
+    )
+    print(f"  wrote {OUT / 'octahedron_shading_flat.svg'}")
+    octa_shading.render_mpl(
+        OUT / "octahedron_shading_full.svg",
+        figsize=(3, 3), dpi=150, polyhedra_shading=1.0,
+    )
+    print(f"  wrote {OUT / 'octahedron_shading_full.svg'}")
+
+    # 2. Polyhedra vertex mode: in_front vs depth_sorted
+    #    Use different angles so no face is perpendicular to the viewer.
+    #    in_front: opaque polyhedra (its intended use case).
+    octa_in_front = octahedron_scene(
+        colour=(0.5, 0.7, 1.0), alpha=1.0,
+        edge_colour=(0.15, 0.15, 0.15),
+    )
+    octa_in_front.render_mpl(
+        OUT / "octahedron_vertex_in_front.svg",
+        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
+    )
+    print(f"  wrote {OUT / 'octahedron_vertex_in_front.svg'}")
+    #    in_front with transparent polyhedra.
+    octa_in_front_trans = octahedron_scene(
+        colour=(0.5, 0.7, 1.0), alpha=0.4,
+        edge_colour=(0.15, 0.15, 0.15),
+    )
+    octa_in_front_trans.render_mpl(
+        OUT / "octahedron_vertex_in_front_transparent.svg",
+        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
+    )
+    print(f"  wrote {OUT / 'octahedron_vertex_in_front_transparent.svg'}")
+    #    depth_sorted: opaque polyhedra.
+    octa_depth_opaque = octahedron_scene(
+        colour=(0.5, 0.7, 1.0), alpha=1.0,
+        edge_colour=(0.15, 0.15, 0.15),
+    )
+    octa_depth_opaque.render_mpl(
+        OUT / "octahedron_vertex_depth_sorted.svg",
+        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="depth_sorted",
+    )
+    print(f"  wrote {OUT / 'octahedron_vertex_depth_sorted.svg'}")
+    #    depth_sorted: transparent polyhedra.
+    octa_depth_trans = octahedron_scene(
+        colour=(0.5, 0.7, 1.0), alpha=0.4,
+        edge_colour=(0.15, 0.15, 0.15),
+    )
+    octa_depth_trans.render_mpl(
+        OUT / "octahedron_vertex_depth_sorted_transparent.svg",
+        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="depth_sorted",
+    )
+    print(f"  wrote {OUT / 'octahedron_vertex_depth_sorted_transparent.svg'}")
+
+    # 3. Slab clipping modes on LLZO garnet
+    #    The LLZO scene already has a depth slab that clips through
+    #    several ZrO6 octahedra, making the three modes clearly distinct.
+    llzo_clip = llzo_scene()
+    clip_style = RenderStyle(
+        show_outlines=True,
+        bond_outline_width=0.6,
+        atom_outline_width=0.6,
+        polyhedra_outline_width=0.6,
+        half_bonds=False,
+        show_axes=False,
+    )
+    clip_names = {
+        "per_face": "llzo_clip_per_face.svg",
+        "clip_whole": "llzo_clip_whole.svg",
+        "include_whole": "llzo_clip_include_whole.svg",
+    }
+    for mode, filename in clip_names.items():
+        clip_style.slab_clip_mode = mode
+        llzo_clip.render_mpl(
+            OUT / filename,
+            figsize=(3, 3), dpi=150, style=clip_style,
+        )
+        print(f"  wrote {OUT / filename}")
+
+    # 4. Half-bonds: on vs off
+    #    Build without polyhedra so bonds are visible.
+    octa_bonds = StructureScene(
+        species=["Ti"] + ["O"] * 6,
+        frames=[Frame(coords=np.array([
+            [0.0, 0.0, 0.0],
+            [2.0, 0.0, 0.0],
+            [-2.0, 0.0, 0.0],
+            [0.0, 2.0, 0.0],
+            [0.0, -2.0, 0.0],
+            [0.0, 0.0, 2.0],
+            [0.0, 0.0, -2.0],
+        ]))],
+        atom_styles={
+            "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
+            "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+        },
+        bond_specs=[BondSpec(
+            species=("Ti", "O"), min_length=0.0, max_length=3.0,
+            radius=0.1, colour=0.5,
+        )],
+    )
+    octa_bonds.view.look_along([1, 0.3, 0.15])
+    octa_bonds.render_mpl(
+        OUT / "octahedron_half_bonds.svg",
+        figsize=(3, 3), dpi=150, half_bonds=True,
+    )
+    print(f"  wrote {OUT / 'octahedron_half_bonds.svg'}")
+    octa_bonds.render_mpl(
+        OUT / "octahedron_no_half_bonds.svg",
+        figsize=(3, 3), dpi=150, half_bonds=False,
+    )
+    print(f"  wrote {OUT / 'octahedron_no_half_bonds.svg'}")
+
+    # 5. Perspective: orthographic vs perspective (perovskite)
+    perov_plain.render_mpl(
+        OUT / "perovskite_ortho.svg",
+        figsize=(3, 3), dpi=150,
+    )
+    print(f"  wrote {OUT / 'perovskite_ortho.svg'}")
+    perov_plain.view.perspective = 0.5
+    perov_plain.render_mpl(
+        OUT / "perovskite_perspective.svg",
+        figsize=(3, 3), dpi=150,
+    )
+    print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
+    perov_plain.view.perspective = 0.0  # Reset
 
 
 if __name__ == "__main__":
