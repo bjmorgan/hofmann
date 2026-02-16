@@ -34,8 +34,8 @@ def octahedron_scene(**poly_kwargs) -> StructureScene:
         species=species,
         frames=[Frame(coords=coords)],
         atom_styles={
-            "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
-            "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+            "Ti": AtomStyle(1.0, "#477B9D"),
+            "O": AtomStyle(0.8, "#F03F37"),
         },
         bond_specs=[BondSpec(
             species=("Ti", "O"), min_length=0.0, max_length=3.0,
@@ -67,11 +67,11 @@ def _perovskite_structure():
 
 def _style_perovskite(scene: StructureScene) -> None:
     """Apply shared atom colours and view to a perovskite scene."""
-    scene.atom_styles["Sr"].colour = (0.0, 0.8, 0.2)
+    scene.atom_styles["Sr"].colour = "#51b04d"
     scene.atom_styles["Sr"].radius = 1.4
-    scene.atom_styles["Ti"].colour = (0.2, 0.4, 0.9)
+    scene.atom_styles["Ti"].colour = "#477B9D"
     scene.atom_styles["Ti"].radius = 1.0
-    scene.atom_styles["O"].colour = (0.9, 0.1, 0.1)
+    scene.atom_styles["O"].colour = "#F03F37"
     scene.atom_styles["O"].radius = 0.8
     scene.view.look_along([1, 0.18, 0.2])
 
@@ -108,9 +108,8 @@ def perovskite_scene() -> StructureScene:
     polyhedra = [
         PolyhedronSpec(
             centre="Ti",
-            colour=(0.5, 0.7, 1.0), alpha=1.0,
+            colour=(0.5, 0.7, 1.0), alpha=0.3,
             edge_colour=(0.3, 0.3, 0.3),
-            hide_centre=True, hide_bonds=True, hide_vertices=True,
         ),
     ]
 
@@ -222,10 +221,10 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'perovskite_spacefill.svg'}")
 
-    perov.render_mpl(
+    perov_plain.render_mpl(
         OUT / "perovskite_no_outlines.svg",
-        figsize=(4, 4), dpi=150, half_bonds=False,
-        show_outlines=False, slab_clip_mode="include_whole",
+        figsize=(4, 4), dpi=150,
+        show_outlines=False,
     )
     print(f"  wrote {OUT / 'perovskite_no_outlines.svg'}")
 
@@ -286,26 +285,6 @@ def main() -> None:
         figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
     )
     print(f"  wrote {OUT / 'octahedron_vertex_in_front_transparent.svg'}")
-    #    depth_sorted: opaque polyhedra.
-    octa_depth_opaque = octahedron_scene(
-        colour=(0.5, 0.7, 1.0), alpha=1.0,
-        edge_colour=(0.15, 0.15, 0.15),
-    )
-    octa_depth_opaque.render_mpl(
-        OUT / "octahedron_vertex_depth_sorted.svg",
-        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="depth_sorted",
-    )
-    print(f"  wrote {OUT / 'octahedron_vertex_depth_sorted.svg'}")
-    #    depth_sorted: transparent polyhedra.
-    octa_depth_trans = octahedron_scene(
-        colour=(0.5, 0.7, 1.0), alpha=0.4,
-        edge_colour=(0.15, 0.15, 0.15),
-    )
-    octa_depth_trans.render_mpl(
-        OUT / "octahedron_vertex_depth_sorted_transparent.svg",
-        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="depth_sorted",
-    )
-    print(f"  wrote {OUT / 'octahedron_vertex_depth_sorted_transparent.svg'}")
 
     # 3. Slab clipping modes on LLZO garnet
     #    The LLZO scene already has a depth slab that clips through
@@ -346,8 +325,8 @@ def main() -> None:
             [0.0, 0.0, -2.0],
         ]))],
         atom_styles={
-            "Ti": AtomStyle(1.0, (0.2, 0.4, 0.9)),
-            "O": AtomStyle(0.8, (0.9, 0.1, 0.1)),
+            "Ti": AtomStyle(1.0, "#477B9D"),
+            "O": AtomStyle(0.8, "#F03F37"),
         },
         bond_specs=[BondSpec(
             species=("Ti", "O"), min_length=0.0, max_length=3.0,

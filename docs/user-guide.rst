@@ -237,15 +237,6 @@ constructed from its bonded neighbours.
        structure, bonds, polyhedra=[spec], pbc=True,
    )
 
-Here is Li7La3Zr2O12 (LLZO) with ZrO6 octahedra rendered using
-``slab_clip_mode="include_whole"`` and a depth slab along the [100]
-direction:
-
-.. image:: _static/llzo.svg
-   :width: 400px
-   :align: center
-   :alt: LLZO garnet with ZrO6 polyhedra
-
 Polyhedra shading
 ~~~~~~~~~~~~~~~~~
 
@@ -271,31 +262,17 @@ Vertex draw order
 The ``polyhedra_vertex_mode`` setting controls how vertex atoms are
 layered relative to polyhedral faces.  ``"in_front"`` (the default)
 draws each vertex on top of the faces it belongs to.
-``"depth_sorted"`` draws front vertices in front but back vertices
-behind front-facing faces -- an alternative for transparent polyhedra.
 
 .. list-table::
    :widths: 50 50
-   :header-rows: 1
-
-   * - ``"in_front"`` (default)
-     - ``"depth_sorted"``
 
    * - .. figure:: _static/octahedron_vertex_in_front.svg
 
-          opaque
+          Opaque polyhedra
 
-     - .. figure:: _static/octahedron_vertex_depth_sorted.svg
+     - .. figure:: _static/octahedron_vertex_in_front_transparent.svg
 
-          opaque
-
-   * - .. figure:: _static/octahedron_vertex_in_front_transparent.svg
-
-          transparent
-
-     - .. figure:: _static/octahedron_vertex_depth_sorted_transparent.svg
-
-          transparent
+          Transparent polyhedra
 
 .. _slab-clipping:
 
@@ -318,13 +295,13 @@ ZrO6 octahedra, rendered with each mode:
 .. list-table::
    :widths: 33 33 33
 
-   * - .. figure:: _static/llzo_clip_per_face.svg
-
-          ``"per_face"``
-
-     - .. figure:: _static/llzo_clip_whole.svg
+   * - .. figure:: _static/llzo_clip_whole.svg
 
           ``"clip_whole"``
+
+     - .. figure:: _static/llzo_clip_per_face.svg
+
+          ``"per_face"``
 
      - .. figure:: _static/llzo_clip_include_whole.svg
 

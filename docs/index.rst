@@ -9,10 +9,10 @@ hofmann renders crystal and molecular structures as depth-sorted
 ball-and-stick images with static, publication-quality output via
 matplotlib (vector SVG/PDF).
 
-.. image:: _static/perovskite.svg
+.. image:: _static/llzo.svg
    :width: 480px
    :align: center
-   :alt: SrTiO3 perovskite rendered with hofmann
+   :alt: LLZO garnet with ZrO6 polyhedra rendered with hofmann
 
 .. _XBS: https://www.ccl.net/cca/software/X-WINDOW/xbs/
 .. _August Wilhelm von Hofmann: https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann
