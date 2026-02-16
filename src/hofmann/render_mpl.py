@@ -28,6 +28,7 @@ from hofmann.model import (
     AxesStyle,
     CellEdgeStyle,
     Colour,
+    PolyhedraVertexMode,
     RenderStyle,
     SlabClipMode,
     StructureScene,
@@ -630,6 +631,7 @@ class _PrecomputedScene:
     poly_alphas: list[float]
     poly_edge_colours: list[tuple[float, float, float]]
     poly_edge_widths: list[float]
+    poly_vertex_centres: dict[int, set[int]]
 
 
 def _precompute_scene(
@@ -695,14 +697,25 @@ def _precompute_scene(
     vertex_keep: set[int] = set()
     poly_centres: set[int] = set()
     poly_members: set[int] = set()  # All centres + vertices in any polyhedron.
+    # Map each vertex atom to the centre indices of the polyhedra it
+    # belongs to.  Used in the draw loop to decide whether a vertex
+    # should paint in front of or behind all polyhedral faces.
+    poly_vertex_centres: dict[int, set[int]] = defaultdict(set)
     for poly in polyhedra:
         poly_centres.add(poly.centre_index)
         poly_members.add(poly.centre_index)
         poly_members.update(poly.neighbour_indices)
+        for ni in poly.neighbour_indices:
+            poly_vertex_centres[ni].add(poly.centre_index)
         if poly.spec.hide_centre:
             hidden_atoms.add(poly.centre_index)
-        if poly.spec.hide_bonds:
-            for kk, bond in adjacency.get(poly.centre_index, []):
+        # Always hide centre-to-vertex bonds when a polyhedron is
+        # drawn.  These bonds are entirely inside the convex hull and
+        # cannot be depth-sorted correctly against the polyhedral
+        # faces in a painter's algorithm.
+        neighbour_set = set(poly.neighbour_indices)
+        for kk, bond in adjacency.get(poly.centre_index, []):
+            if poly.spec.hide_bonds or kk in neighbour_set:
                 hidden_bond_ids.add(id(bond))
         for ni in poly.neighbour_indices:
             if poly.spec.hide_vertices:
@@ -759,6 +772,7 @@ def _precompute_scene(
         poly_alphas=poly_alphas,
         poly_edge_colours=poly_edge_colours,
         poly_edge_widths=poly_edge_widths,
+        poly_vertex_centres=dict(poly_vertex_centres),
     )
 
 
@@ -1367,6 +1381,37 @@ def _draw_scene(
         show_polyhedra, polyhedra_shading, rotated, depth, xy, order,
     )
 
+    # Decide which vertex atoms to defer (paint after all polyhedral
+    # faces) based on polyhedra_vertex_mode.
+    #
+    # IN_FRONT: defer all vertex atoms — best for opaque polyhedra
+    #   where back vertices would not be visible through the faces.
+    #
+    # DEPTH_SORTED: defer only front vertices (closer to the viewer
+    #   than the centroid); back vertices draw in their normal depth
+    #   slot behind front-facing faces.  Correct for transparent
+    #   polyhedra but may produce minor painter's-algorithm artefacts
+    #   at silhouette edges.
+    poly_vertex_centres = precomputed.poly_vertex_centres
+    vertex_mode = style.polyhedra_vertex_mode
+    deferred_vertex_atoms: set[int] = set()
+    if show_polyhedra and poly_vertex_centres:
+        if vertex_mode == PolyhedraVertexMode.IN_FRONT:
+            for vi in poly_vertex_centres:
+                if vi not in hidden_atoms:
+                    deferred_vertex_atoms.add(vi)
+        else:
+            # DEPTH_SORTED: only defer front vertices.
+            for vi, centres in poly_vertex_centres.items():
+                if vi in hidden_atoms:
+                    continue
+                centroid_depths = [depth[ci] for ci in centres]
+                mean_centroid_depth = (
+                    sum(centroid_depths) / len(centroid_depths)
+                )
+                if depth[vi] > mean_centroid_depth + 1e-6:
+                    deferred_vertex_atoms.add(vi)
+
     # ---- Cell edge data ----
     draw_cell = style.show_cell
     if draw_cell is None:
@@ -1515,8 +1560,10 @@ def _draw_scene(
         if not slab_visible[k]:
             continue
 
-        # Draw atom circle (unless hidden by a polyhedron spec).
-        if k not in hidden_atoms:
+        # Draw atom circle (unless hidden by a polyhedron spec, or
+        # deferred for polyhedron vertex ordering).
+        if (k not in hidden_atoms
+                and k not in deferred_vertex_atoms):
             fc_atom = (*atom_colours[k], 1.0)
             all_verts.append(unit_circle * atom_screen_radii[k] + xy[k])
             face_colours.append(fc_atom)
@@ -1540,6 +1587,23 @@ def _draw_scene(
         face_colours.append(face_fc)
         edge_colours.append(face_ec if show_outlines else face_fc)
         line_widths.append(face_lw if show_outlines else 0.0)
+
+    # Draw deferred (front) vertex atoms on top of all polyhedral
+    # faces, sorted back-to-front so they occlude each other correctly.
+    if deferred_vertex_atoms:
+        deferred_sorted = sorted(deferred_vertex_atoms, key=lambda v: depth[v])
+        for vi in deferred_sorted:
+            if not slab_visible[vi]:
+                continue
+            fc_atom = (*atom_colours[vi], 1.0)
+            all_verts.append(unit_circle * atom_screen_radii[vi] + xy[vi])
+            face_colours.append(fc_atom)
+            edge_colours.append(
+                (*outline_rgb, 1.0) if show_outlines else fc_atom,
+            )
+            line_widths.append(
+                atom_outline_width if show_outlines else 0.0,
+            )
 
     if all_verts:
         pc = PolyCollection(

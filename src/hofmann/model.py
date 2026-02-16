@@ -109,6 +109,24 @@ class WidgetCorner(StrEnum):
     TOP_RIGHT = "top_right"
 
 
+class PolyhedraVertexMode(StrEnum):
+    """How polyhedron vertex atoms are ordered relative to faces.
+
+    Attributes:
+        IN_FRONT: Draw all vertex atoms in front of (on top of) all
+            polyhedral faces.  Best for opaque polyhedra where back
+            vertices would not be visible through the faces anyway.
+        DEPTH_SORTED: Draw front vertices (closer to the viewer than
+            the centroid) on top of faces, and back vertices in their
+            natural depth position behind front-facing faces.  Correct
+            for transparent polyhedra but may produce minor painter's-
+            algorithm artefacts at silhouette edges.
+    """
+
+    IN_FRONT = "in_front"
+    DEPTH_SORTED = "depth_sorted"
+
+
 _VALID_LINESTYLES = frozenset({"solid", "dashed", "dotted", "dashdot"})
 
 
@@ -258,18 +276,32 @@ class RenderStyle:
             ``"include_whole"`` forces the complete polyhedron to be
             visible when its centre atom is in the slab.
         circle_segments: Number of line segments used to approximate
-            atom circles.  Higher values give smoother circles in
-            vector output (PDF/SVG).  ``24`` is fine for screen;
-            ``72`` is recommended for publication.
+            atom circles in static output.  Higher values give
+            smoother circles in vector output (PDF/SVG).  The default
+            (``72``) gives publication-quality output.
         arc_segments: Number of line segments per semicircular bond
-            end-cap.  Higher values give smoother bond ends in vector
-            output.  ``5`` is fine for screen; ``12`` is recommended
-            for publication.
+            end-cap in static output.  Higher values give smoother
+            bond ends in vector output.  The default (``12``) gives
+            publication-quality output.
+        interactive_circle_segments: Number of line segments for atom
+            circles in the interactive viewer.  Lower values give
+            faster redraws.  The default (``24``) balances quality
+            and responsiveness.
+        interactive_arc_segments: Number of line segments per bond
+            end-cap in the interactive viewer.  Lower values give
+            faster redraws.  The default (``5``) balances quality
+            and responsiveness.
         polyhedra_shading: Strength of diffuse shading on polyhedra
             faces.  ``0.0`` gives flat colouring (no shading);
             ``1.0`` (the default) gives full Lambertian-style shading
             where faces pointing at the viewer are bright and edge-on
             faces are dimmed.
+        polyhedra_vertex_mode: How vertex atoms are ordered relative
+            to polyhedral faces.  ``"in_front"`` (the default) draws
+            all vertices on top of all faces — best for opaque
+            polyhedra.  ``"depth_sorted"`` draws front vertices on
+            top but back vertices behind front-facing faces — correct
+            for transparent polyhedra.
         polyhedra_outline_width: Global override for polyhedra outline
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
@@ -293,7 +325,8 @@ class RenderStyle:
     Raises:
         ValueError: If *atom_scale* or *bond_scale* are not positive,
             *atom_outline_width* or *bond_outline_width* are negative,
-            *circle_segments* < 3, *arc_segments* < 2,
+            *circle_segments* or *interactive_circle_segments* < 3,
+            *arc_segments* or *interactive_arc_segments* < 2,
             *polyhedra_shading* is outside ``[0, 1]``, or
             *polyhedra_outline_width* is negative.
     """
@@ -309,9 +342,12 @@ class RenderStyle:
     atom_outline_width: float = 1.0
     bond_outline_width: float = 1.0
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
-    circle_segments: int = 24
-    arc_segments: int = 5
+    circle_segments: int = 72
+    arc_segments: int = 12
+    interactive_circle_segments: int = 24
+    interactive_arc_segments: int = 5
     polyhedra_shading: float = 1.0
+    polyhedra_vertex_mode: PolyhedraVertexMode = PolyhedraVertexMode.IN_FRONT
     polyhedra_outline_width: float | None = None
     show_cell: bool | None = None
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
@@ -321,6 +357,10 @@ class RenderStyle:
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
             self.slab_clip_mode = SlabClipMode(self.slab_clip_mode)
+        if isinstance(self.polyhedra_vertex_mode, str):
+            self.polyhedra_vertex_mode = PolyhedraVertexMode(
+                self.polyhedra_vertex_mode
+            )
         if self.atom_scale <= 0:
             raise ValueError(f"atom_scale must be positive, got {self.atom_scale}")
         if self.bond_scale <= 0:
@@ -340,6 +380,16 @@ class RenderStyle:
         if self.arc_segments < 2:
             raise ValueError(
                 f"arc_segments must be >= 2, got {self.arc_segments}"
+            )
+        if self.interactive_circle_segments < 3:
+            raise ValueError(
+                f"interactive_circle_segments must be >= 3, "
+                f"got {self.interactive_circle_segments}"
+            )
+        if self.interactive_arc_segments < 2:
+            raise ValueError(
+                f"interactive_arc_segments must be >= 2, "
+                f"got {self.interactive_arc_segments}"
             )
         if not 0.0 <= self.polyhedra_shading <= 1.0:
             raise ValueError(
