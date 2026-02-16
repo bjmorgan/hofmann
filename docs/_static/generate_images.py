@@ -50,7 +50,7 @@ def perovskite_scene() -> StructureScene:
     # Centre on Sr (index 0) so PBC expansion surrounds the A-site.
     scene = StructureScene.from_pymatgen(
         structure, bond_specs, polyhedra=polyhedra,
-        pbc=True, centre_atom=0,
+        pbc=True, pbc_cutoff=0.1, centre_atom=0,
     )
 
     # Custom colours.
@@ -71,15 +71,25 @@ def si_scene() -> StructureScene:
 
     lattice = Lattice.cubic(5.43)
     structure = PmgStructure(
-        lattice, ["Si", "Si"],
-        [[0, 0, 0], [0.25, 0.25, 0.25]],
+        lattice,
+        ["Si"] * 8,
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.0],
+            [0.5, 0.0, 0.5],
+            [0.0, 0.5, 0.5],
+            [0.25, 0.25, 0.25],
+            [0.75, 0.75, 0.25],
+            [0.75, 0.25, 0.75],
+            [0.25, 0.75, 0.75],
+        ],
     )
 
     bond_specs = [
         BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
                  radius=0.1, colour=0.5),
     ]
-    scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True)
+    scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True, pbc_cutoff=0.1)
     scene.view.look_along([1, 1, 1])
     return scene
 
@@ -98,7 +108,7 @@ def llzo_scene() -> StructureScene:
                  radius=0.1, colour=0.5),
     ]
     polyhedra_specs = [
-        PolyhedronSpec(centre="Zr", alpha=1.0, hide_vertices=True,
+        PolyhedronSpec(centre="Zr", alpha=0.5, hide_vertices=True,
                        hide_centre=True, hide_bonds=True, min_vertices=6),
     ]
 

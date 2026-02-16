@@ -60,16 +60,21 @@ Example::
    bonds  C  H  0.000  3.400  0.109  1.00
    bonds  H  H  0.000  2.800  0.109  1.00
 
-``polyhedra``
-~~~~~~~~~~~~~
+``poly``
+~~~~~~~~
 
 Declares a coordination polyhedron rule::
 
-   polyhedra  <centre_sp>  <vertex_sp>  <max_dist>  <colour>  [alpha]  [edge_colour]  [edge_width]
+   poly  <centre_sp>  [alpha]  [colour]
+
+Polyhedra are drawn around atoms of species ``<centre_sp>`` using bonded
+neighbours as vertices.  The optional ``alpha`` sets face transparency
+(default 0.4).  Colour can be a grey float or three RGB floats; if
+omitted, the centre atom's colour is used.
 
 Example::
 
-   polyhedra  Ti  O  2.5  0.5 0.7 1.0  0.3
+   poly  Ti  0.3  0.5 0.7 1.0
 
 
 Complete example (CH4)

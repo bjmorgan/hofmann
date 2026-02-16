@@ -65,11 +65,17 @@ If you have pymatgen installed, you can build a scene directly from a
    from pymatgen.core import Lattice, Structure
    from hofmann import StructureScene, BondSpec
 
-   lattice = Lattice.cubic(5.4)
-   structure = Structure(lattice, ["Si", "Si"],
-                         [[0, 0, 0], [0.25, 0.25, 0.25]])
+   lattice = Lattice.cubic(5.43)
+   structure = Structure(
+       lattice, ["Si"] * 8,
+       [[0.0, 0.0, 0.0], [0.5, 0.5, 0.0],
+        [0.5, 0.0, 0.5], [0.0, 0.5, 0.5],
+        [0.25, 0.25, 0.25], [0.75, 0.75, 0.25],
+        [0.75, 0.25, 0.75], [0.25, 0.75, 0.75]],
+   )
 
-   bonds = [BondSpec(("Si", "Si"), 0.0, 2.8, 0.1, 0.5)]
+   bonds = [BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
+                     radius=0.1, colour=0.5)]
    scene = StructureScene.from_pymatgen(structure, bonds, pbc=True)
    scene.render_mpl("si.pdf", show=False)
 
