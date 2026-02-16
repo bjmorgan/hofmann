@@ -93,6 +93,40 @@ class SlabClipMode(StrEnum):
     INCLUDE_WHOLE = "include_whole"
 
 
+class WidgetCorner(StrEnum):
+    """Which corner of the viewport to place the axes widget.
+
+    Attributes:
+        BOTTOM_LEFT: Bottom-left corner (default).
+        BOTTOM_RIGHT: Bottom-right corner.
+        TOP_LEFT: Top-left corner.
+        TOP_RIGHT: Top-right corner.
+    """
+
+    BOTTOM_LEFT = "bottom_left"
+    BOTTOM_RIGHT = "bottom_right"
+    TOP_LEFT = "top_left"
+    TOP_RIGHT = "top_right"
+
+
+class PolyhedraVertexMode(StrEnum):
+    """How polyhedron vertex atoms are ordered relative to faces.
+
+    Attributes:
+        IN_FRONT: Draw all vertex atoms in front of (on top of) all
+            polyhedral faces.  Best for opaque polyhedra where back
+            vertices would not be visible through the faces anyway.
+        DEPTH_SORTED: Draw front vertices (closer to the viewer than
+            the centroid) on top of faces, and back vertices in their
+            natural depth position behind front-facing faces.  Correct
+            for transparent polyhedra but may produce minor painter's-
+            algorithm artefacts at silhouette edges.
+    """
+
+    IN_FRONT = "in_front"
+    DEPTH_SORTED = "depth_sorted"
+
+
 _VALID_LINESTYLES = frozenset({"solid", "dashed", "dotted", "dashdot"})
 
 
@@ -121,6 +155,84 @@ class CellEdgeStyle:
             raise ValueError(
                 f"linestyle must be one of {sorted(_VALID_LINESTYLES)}, "
                 f"got {self.linestyle!r}"
+            )
+
+
+@dataclass(frozen=True)
+class AxesStyle:
+    """Visual style for the crystallographic axes orientation widget.
+
+    The widget draws three axis lines (a, b, c lattice directions)
+    from a common origin in a corner of the viewport.  Lines rotate
+    in sync with the structure, with italic labels at the tips.
+
+    Attributes:
+        colours: Tuple of three colours for the (a, b, c) axes.
+            Each element accepts any format understood by
+            :func:`normalise_colour`.  Defaults to uniform dark grey.
+            Pass distinct colours for per-axis colouring.
+        labels: Tuple of three label strings for the axes.
+        font_size: Font size for axis labels in points.
+        italic: Whether to render labels in italic (crystallographic
+            convention).
+        arrow_length: Axis line length as a fraction of the viewport
+            half-extent.
+        line_width: Width of the axis lines in points.
+        corner: Widget origin position.  Pass a :class:`WidgetCorner`
+            (or its string value) for automatic placement in one of
+            the four viewport corners, offset by *margin*.  Pass an
+            ``(x, y)`` tuple of fractional viewport coordinates
+            (0.0 = left/bottom, 1.0 = right/top) for an explicit
+            position; *margin* is ignored in this case.
+        margin: Offset from the corner as a fraction of the viewport
+            half-extent.  Only used when *corner* is a
+            :class:`WidgetCorner`.
+    """
+
+    colours: tuple[Colour, Colour, Colour] = (
+        (0.3, 0.3, 0.3),
+        (0.3, 0.3, 0.3),
+        (0.3, 0.3, 0.3),
+    )
+    labels: tuple[str, str, str] = ("a", "b", "c")
+    font_size: float = 10.0
+    italic: bool = True
+    arrow_length: float = 0.08
+    line_width: float = 1.0
+    corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_LEFT
+    margin: float = 0.15
+
+    def __post_init__(self) -> None:
+        if isinstance(self.corner, tuple):
+            if len(self.corner) != 2:
+                raise ValueError(
+                    f"corner tuple must have 2 elements, got {len(self.corner)}"
+                )
+        elif isinstance(self.corner, str):
+            object.__setattr__(self, "corner", WidgetCorner(self.corner))
+        if self.font_size <= 0:
+            raise ValueError(
+                f"font_size must be positive, got {self.font_size}"
+            )
+        if self.arrow_length <= 0:
+            raise ValueError(
+                f"arrow_length must be positive, got {self.arrow_length}"
+            )
+        if self.line_width < 0:
+            raise ValueError(
+                f"line_width must be non-negative, got {self.line_width}"
+            )
+        if self.margin < 0:
+            raise ValueError(
+                f"margin must be non-negative, got {self.margin}"
+            )
+        if len(self.colours) != 3:
+            raise ValueError(
+                f"colours must have exactly 3 elements, got {len(self.colours)}"
+            )
+        if len(self.labels) != 3:
+            raise ValueError(
+                f"labels must have exactly 3 elements, got {len(self.labels)}"
             )
 
 
@@ -164,18 +276,32 @@ class RenderStyle:
             ``"include_whole"`` forces the complete polyhedron to be
             visible when its centre atom is in the slab.
         circle_segments: Number of line segments used to approximate
-            atom circles.  Higher values give smoother circles in
-            vector output (PDF/SVG).  ``24`` is fine for screen;
-            ``72`` is recommended for publication.
+            atom circles in static output.  Higher values give
+            smoother circles in vector output (PDF/SVG).  The default
+            (``72``) gives publication-quality output.
         arc_segments: Number of line segments per semicircular bond
-            end-cap.  Higher values give smoother bond ends in vector
-            output.  ``5`` is fine for screen; ``12`` is recommended
-            for publication.
+            end-cap in static output.  Higher values give smoother
+            bond ends in vector output.  The default (``12``) gives
+            publication-quality output.
+        interactive_circle_segments: Number of line segments for atom
+            circles in the interactive viewer.  Lower values give
+            faster redraws.  The default (``24``) balances quality
+            and responsiveness.
+        interactive_arc_segments: Number of line segments per bond
+            end-cap in the interactive viewer.  Lower values give
+            faster redraws.  The default (``5``) balances quality
+            and responsiveness.
         polyhedra_shading: Strength of diffuse shading on polyhedra
             faces.  ``0.0`` gives flat colouring (no shading);
             ``1.0`` (the default) gives full Lambertian-style shading
             where faces pointing at the viewer are bright and edge-on
             faces are dimmed.
+        polyhedra_vertex_mode: How vertex atoms are ordered relative
+            to polyhedral faces.  ``"in_front"`` (the default) draws
+            all vertices on top of all faces — best for opaque
+            polyhedra.  ``"depth_sorted"`` draws front vertices on
+            top but back vertices behind front-facing faces — correct
+            for transparent polyhedra.
         polyhedra_outline_width: Global override for polyhedra outline
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
@@ -187,11 +313,20 @@ class RenderStyle:
             available).  ``False`` suppresses drawing.
         cell_style: Visual style for unit cell edges.  See
             :class:`CellEdgeStyle`.
+        show_axes: Whether to draw the crystallographic axes
+            orientation widget.  ``None`` (the default) auto-detects:
+            the widget is drawn when the scene has a lattice.
+            ``True`` forces drawing (raises :class:`ValueError` at
+            render time if no lattice is available).  ``False``
+            suppresses drawing.
+        axes_style: Visual style for the axes widget.  See
+            :class:`AxesStyle`.
 
     Raises:
         ValueError: If *atom_scale* or *bond_scale* are not positive,
             *atom_outline_width* or *bond_outline_width* are negative,
-            *circle_segments* < 3, *arc_segments* < 2,
+            *circle_segments* or *interactive_circle_segments* < 3,
+            *arc_segments* or *interactive_arc_segments* < 2,
             *polyhedra_shading* is outside ``[0, 1]``, or
             *polyhedra_outline_width* is negative.
     """
@@ -204,19 +339,28 @@ class RenderStyle:
     show_polyhedra: bool = True
     show_outlines: bool = True
     outline_colour: Colour = (0.15, 0.15, 0.15)
-    atom_outline_width: float = 1.5
+    atom_outline_width: float = 1.0
     bond_outline_width: float = 1.0
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
-    circle_segments: int = 24
-    arc_segments: int = 5
+    circle_segments: int = 72
+    arc_segments: int = 12
+    interactive_circle_segments: int = 24
+    interactive_arc_segments: int = 5
     polyhedra_shading: float = 1.0
+    polyhedra_vertex_mode: PolyhedraVertexMode = PolyhedraVertexMode.IN_FRONT
     polyhedra_outline_width: float | None = None
     show_cell: bool | None = None
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
+    show_axes: bool | None = None
+    axes_style: AxesStyle = field(default_factory=AxesStyle)
 
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
             self.slab_clip_mode = SlabClipMode(self.slab_clip_mode)
+        if isinstance(self.polyhedra_vertex_mode, str):
+            self.polyhedra_vertex_mode = PolyhedraVertexMode(
+                self.polyhedra_vertex_mode
+            )
         if self.atom_scale <= 0:
             raise ValueError(f"atom_scale must be positive, got {self.atom_scale}")
         if self.bond_scale <= 0:
@@ -236,6 +380,16 @@ class RenderStyle:
         if self.arc_segments < 2:
             raise ValueError(
                 f"arc_segments must be >= 2, got {self.arc_segments}"
+            )
+        if self.interactive_circle_segments < 3:
+            raise ValueError(
+                f"interactive_circle_segments must be >= 3, "
+                f"got {self.interactive_circle_segments}"
+            )
+        if self.interactive_arc_segments < 2:
+            raise ValueError(
+                f"interactive_arc_segments must be >= 2, "
+                f"got {self.interactive_arc_segments}"
             )
         if not 0.0 <= self.polyhedra_shading <= 1.0:
             raise ValueError(
@@ -362,7 +516,7 @@ class PolyhedronSpec:
     colour: Colour | None = None
     alpha: float = 0.4
     edge_colour: Colour = (0.15, 0.15, 0.15)
-    edge_width: float = 0.8
+    edge_width: float = 1.0
     hide_centre: bool = False
     hide_bonds: bool = False
     hide_vertices: bool = False

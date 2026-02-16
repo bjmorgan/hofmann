@@ -18,12 +18,12 @@ def ch4_scene() -> StructureScene:
     return StructureScene.from_xbs(fixture)
 
 
-def perovskite_scene() -> StructureScene:
-    """Build SrTiO3 perovskite unit cell centred on Sr with PBC expansion."""
+def _perovskite_structure():
+    """Return the SrTiO3 pymatgen Structure and shared style parameters."""
     from pymatgen.core import Lattice, Structure as PmgStructure
 
     lattice = Lattice.cubic(3.905)
-    structure = PmgStructure(
+    return PmgStructure(
         lattice,
         ["Sr", "Ti", "O", "O", "O"],
         [
@@ -35,6 +35,43 @@ def perovskite_scene() -> StructureScene:
         ],
     )
 
+
+def _style_perovskite(scene: StructureScene) -> None:
+    """Apply shared atom colours and view to a perovskite scene."""
+    scene.atom_styles["Sr"].colour = (0.0, 0.8, 0.2)
+    scene.atom_styles["Sr"].radius = 1.4
+    scene.atom_styles["Ti"].colour = (0.2, 0.4, 0.9)
+    scene.atom_styles["Ti"].radius = 1.0
+    scene.atom_styles["O"].colour = (0.9, 0.1, 0.1)
+    scene.atom_styles["O"].radius = 0.8
+    scene.view.look_along([1, 0.18, 0.2])
+
+
+def perovskite_plain_scene() -> StructureScene:
+    """Build SrTiO3 with default PBC but no polyhedra.
+
+    Without polyhedra specs, neighbour-shell expansion is not
+    triggered, so only atoms within *pbc_padding* of a cell face
+    are replicated.  Bonds connect only existing atoms.
+    """
+    structure = _perovskite_structure()
+
+    bond_specs = [
+        BondSpec(species=("Ti", "O"), min_length=0.5, max_length=2.5,
+                 radius=0.12, colour=(0.4, 0.4, 0.4)),
+    ]
+
+    scene = StructureScene.from_pymatgen(
+        structure, bond_specs, centre_atom=0,
+    )
+    _style_perovskite(scene)
+    return scene
+
+
+def perovskite_scene() -> StructureScene:
+    """Build SrTiO3 with PBC expansion and TiO6 polyhedra."""
+    structure = _perovskite_structure()
+
     bond_specs = [
         BondSpec(species=("Ti", "O"), min_length=0.5, max_length=2.5,
                  radius=0.12, colour=(0.4, 0.4, 0.4)),
@@ -42,8 +79,9 @@ def perovskite_scene() -> StructureScene:
     polyhedra = [
         PolyhedronSpec(
             centre="Ti",
-            colour=(0.5, 0.7, 1.0), alpha=0.25,
-            edge_colour=(0.3, 0.3, 0.3), edge_width=0.8,
+            colour=(0.5, 0.7, 1.0), alpha=1.0,
+            edge_colour=(0.3, 0.3, 0.3),
+            hide_centre=True, hide_bonds=True, hide_vertices=True,
         ),
     ]
 
@@ -52,16 +90,7 @@ def perovskite_scene() -> StructureScene:
         structure, bond_specs, polyhedra=polyhedra,
         pbc=True, pbc_padding=0.1, centre_atom=0,
     )
-
-    # Custom colours.
-    scene.atom_styles["Sr"].colour = (0.0, 0.8, 0.2)
-    scene.atom_styles["Sr"].radius = 1.4
-    scene.atom_styles["Ti"].colour = (0.2, 0.4, 0.9)
-    scene.atom_styles["Ti"].radius = 1.0
-    scene.atom_styles["O"].colour = (0.9, 0.1, 0.1)
-    scene.atom_styles["O"].radius = 0.8
-
-    scene.view.look_along([1, 0.18, 0.2])
+    _style_perovskite(scene)
     return scene
 
 
@@ -150,7 +179,14 @@ def main() -> None:
     print(f"  wrote {OUT / 'perovskite.svg'}")
 
     # Style variations for user guide
-    perov.render_mpl(
+    perov_plain = perovskite_plain_scene()
+    perov_plain.render_mpl(
+        OUT / "perovskite_plain.svg",
+        figsize=(4, 4), dpi=150,
+    )
+    print(f"  wrote {OUT / 'perovskite_plain.svg'}")
+
+    perov_plain.render_mpl(
         OUT / "perovskite_spacefill.svg",
         figsize=(4, 4), dpi=150, atom_scale=1.0,
         show_bonds=False, show_polyhedra=False,
@@ -173,8 +209,7 @@ def main() -> None:
         polyhedra_outline_width=0.6,
         slab_clip_mode="include_whole",
         half_bonds=False,
-        circle_segments=72,
-        arc_segments=12,
+        show_axes=False,
     )
     llzo.render_mpl(
         OUT / "llzo.svg",

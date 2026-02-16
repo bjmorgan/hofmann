@@ -21,6 +21,7 @@ from hofmann.defaults import (
 )
 from hofmann.model import (
     AtomStyle,
+    AxesStyle,
     Bond,
     BondSpec,
     CellEdgeStyle,
@@ -32,12 +33,14 @@ from hofmann.model import (
     SlabClipMode,
     StructureScene,
     ViewState,
+    WidgetCorner,
     normalise_colour,
 )
 from hofmann.scene import from_pymatgen, from_xbs
 
 __all__ = [
     "AtomStyle",
+    "AxesStyle",
     "Bond",
     "BondSpec",
     "CellEdgeStyle",
@@ -51,6 +54,7 @@ __all__ = [
     "SlabClipMode",
     "StructureScene",
     "ViewState",
+    "WidgetCorner",
     "compute_bonds",
     "compute_polyhedra",
     "default_atom_style",
