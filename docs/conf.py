@@ -3,7 +3,7 @@
 project = "hofmann"
 copyright = "2025, hofmann contributors"
 author = "hofmann contributors"
-release = "0.2.0"
+release = "0.2.2"
 
 extensions = [
     "sphinx.ext.autodoc",

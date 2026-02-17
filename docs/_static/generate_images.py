@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 from hofmann import (
     AtomStyle, BondSpec, Frame, PolyhedronSpec,
@@ -186,7 +187,85 @@ def llzo_scene() -> StructureScene:
     return scene
 
 
+def logo_scene() -> StructureScene:
+    """Build a dodecahedron scene for the project logo."""
+    phi = (1 + np.sqrt(5)) / 2
+    inv_phi = 1 / phi
+
+    verts_orig = np.array([
+        [ 1,  1,  1], [ 1,  1, -1], [ 1, -1,  1], [ 1, -1, -1],
+        [-1,  1,  1], [-1,  1, -1], [-1, -1,  1], [-1, -1, -1],
+        [0,  phi,  inv_phi], [0,  phi, -inv_phi],
+        [0, -phi,  inv_phi], [0, -phi, -inv_phi],
+        [ inv_phi, 0,  phi], [-inv_phi, 0,  phi],
+        [ inv_phi, 0, -phi], [-inv_phi, 0, -phi],
+        [ phi,  inv_phi, 0], [ phi, -inv_phi, 0],
+        [-phi,  inv_phi, 0], [-phi, -inv_phi, 0],
+    ])
+    edge_len = 2 * inv_phi
+    n_verts = len(verts_orig)
+
+    # Spin around the view direction for a pleasing orientation.
+    look_dir = np.array([0.3, 0.5, 1.0])
+    look_dir = look_dir / np.linalg.norm(look_dir)
+    R_spin = Rotation.from_rotvec(look_dir * np.radians(261.3)).as_matrix()
+    verts = (R_spin @ verts_orig.T).T
+
+    # Colour by projected screen x-coordinate (reversed: warm left,
+    # cool right) so the gradient follows the inferno colourmap.
+    right_ax = np.cross([0, 1, 0], look_dir)
+    right_ax /= np.linalg.norm(right_ax)
+    proj_x = verts @ right_ax
+    colour_vals = 1.0 - (proj_x - proj_x.min()) / (proj_x.max() - proj_x.min())
+
+    # Hidden centre atom to anchor dodecahedron polyhedra faces.
+    centre = np.array([[0.0, 0.0, 0.0]])
+    all_coords = np.vstack([centre, verts])
+    species = ["M"] + ["V"] * n_verts
+
+    scene = StructureScene(
+        species=species,
+        frames=[Frame(coords=all_coords)],
+        atom_styles={
+            "M": AtomStyle(0.01, (0.5, 0.5, 0.5)),
+            "V": AtomStyle(0.40, (0.5, 0.5, 0.5)),
+        },
+        bond_specs=[
+            BondSpec(species=("V", "V"), min_length=0.0,
+                     max_length=edge_len + 0.05, radius=0.03, colour=0.15),
+            BondSpec(species=("M", "V"), min_length=0.0,
+                     max_length=2.5, radius=0.01, colour=0.5),
+        ],
+        polyhedra=[PolyhedronSpec(
+            centre="M", colour=(0.5, 0.5, 0.5), alpha=0.05,
+            hide_bonds=True, hide_centre=True, hide_vertices=False,
+        )],
+    )
+
+    data = dict(zip(range(1, 1 + n_verts), colour_vals))
+    scene.set_atom_data("gradient", data)
+
+    scene.view.look_along(look_dir)
+    scene.view.perspective = 0.12
+    scene.view.view_distance = 5.0
+
+    return scene
+
+
 def main() -> None:
+    # Project logo: dodecahedron with inferno gradient
+    logo = logo_scene()
+    logo_style = RenderStyle(polyhedra_shading=1.0, half_bonds=False)
+    logo_kw = dict(colour_by="gradient", cmap="inferno", show=False,
+                   style=logo_style)
+    repo_root = OUT.parent.parent
+    logo.render_mpl(repo_root / "logo.svg", figsize=(3, 3), dpi=150,
+                    **logo_kw)
+    print(f"  wrote {repo_root / 'logo.svg'}")
+    logo.render_mpl(repo_root / "logo.png", figsize=(3, 3), dpi=300,
+                    **logo_kw)
+    print(f"  wrote {repo_root / 'logo.png'}")
+
     # CH4 -- simple ball-and-stick
     ch4 = ch4_scene()
     ch4.render_mpl(OUT / "ch4.svg", figsize=(4, 4), dpi=150)
