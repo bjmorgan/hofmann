@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.1.1
+0.2.0
 -----
 
 - Per-atom metadata colouring via colourmaps.  Use
@@ -13,6 +13,9 @@ Changelog
   subsets; the first non-missing value wins for each atom.
 - Polyhedra without an explicit colour now inherit the resolved
   ``colour_by`` colour of their centre atom.
+- New public API: :func:`~hofmann.resolve_atom_colours` for
+  programmatic colour resolution, and :data:`~hofmann.CmapSpec` type
+  alias for colourmap specifications.
 
 0.1.0
 -----
