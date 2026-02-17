@@ -418,25 +418,6 @@ class WidgetCorner(StrEnum):
     TOP_RIGHT = "top_right"
 
 
-class PolyhedraVertexMode(StrEnum):
-    """How polyhedron vertex atoms are ordered relative to faces.
-
-    Attributes:
-        IN_FRONT: Draw each vertex atom in front of all faces it
-            belongs to.  Each vertex is deferred until after its
-            last connected face has been painted.  Non-vertex atoms
-            (e.g. the centre) draw at their natural depth.  Best
-            for opaque polyhedra.
-        DEPTH_SORTED: Draw front vertices (closer to the viewer than
-            the centroid) on top of faces, and back vertices in their
-            natural depth position behind front-facing faces.  Correct
-            for transparent polyhedra but may produce minor painter's-
-            algorithm artefacts at silhouette edges.
-    """
-
-    IN_FRONT = "in_front"
-    DEPTH_SORTED = "depth_sorted"
-
 
 _VALID_LINESTYLES = frozenset({"solid", "dashed", "dotted", "dashdot"})
 
@@ -607,12 +588,6 @@ class RenderStyle:
             ``1.0`` (the default) gives full Lambertian-style shading
             where faces pointing at the viewer are bright and edge-on
             faces are dimmed.
-        polyhedra_vertex_mode: How vertex atoms are ordered relative
-            to polyhedral faces.  ``"in_front"`` (the default) draws
-            each vertex on top of the faces it belongs to.
-            ``"depth_sorted"`` draws front vertices on top but back
-            vertices behind front-facing faces — an alternative for
-            transparent polyhedra.
         polyhedra_outline_width: Global override for polyhedra outline
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
@@ -658,7 +633,6 @@ class RenderStyle:
     interactive_circle_segments: int = 24
     interactive_arc_segments: int = 5
     polyhedra_shading: float = 1.0
-    polyhedra_vertex_mode: PolyhedraVertexMode = PolyhedraVertexMode.IN_FRONT
     polyhedra_outline_width: float | None = None
     show_cell: bool | None = None
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
@@ -668,10 +642,6 @@ class RenderStyle:
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
             self.slab_clip_mode = SlabClipMode(self.slab_clip_mode)
-        if isinstance(self.polyhedra_vertex_mode, str):
-            self.polyhedra_vertex_mode = PolyhedraVertexMode(
-                self.polyhedra_vertex_mode
-            )
         if self.atom_scale <= 0:
             raise ValueError(f"atom_scale must be positive, got {self.atom_scale}")
         if self.bond_scale <= 0:
