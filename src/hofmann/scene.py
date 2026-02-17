@@ -526,15 +526,15 @@ def from_pymatgen(
             # is applied independently.  Specs that are also
             # recursive are skipped — recursive already subsumes
             # the single-pass search.
-            for sp in bond_specs:
-                if not sp.complete or sp.recursive:
+            for bond_spec in bond_specs:
+                if not bond_spec.complete or bond_spec.recursive:
                     continue
                 centres: list[str] | None = (
-                    None if sp.complete == "*"
-                    else [str(sp.complete)]
+                    None if bond_spec.complete == "*"
+                    else [str(bond_spec.complete)]
                 )
                 exp_species, exp_coords = _expand_neighbour_shells(
-                    s, exp_species, exp_coords, n_uc, [sp],
+                    s, exp_species, exp_coords, n_uc, [bond_spec],
                     centre_species_only=centres,
                 )
 
