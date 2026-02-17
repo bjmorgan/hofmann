@@ -107,9 +107,10 @@ Bond completion across boundaries
 
 When atoms sit near cell boundaries, some of their bonded neighbours
 may lie outside the ``pbc_padding`` margin and are not included in the
-scene.  Without those image atoms the bonds are missing entirely.  In
-the structure below, Zr atoms at the cell boundary are missing some
-of their S neighbours:
+scene.  Without those image atoms the bonds are missing entirely.
+In the Zr-S network below (large green = Zr, small yellow = S),
+some atoms have fewer bonds than expected because their partners
+across the cell face are missing:
 
 .. image:: _static/pbc_bonds_plain.svg
    :width: 400px
