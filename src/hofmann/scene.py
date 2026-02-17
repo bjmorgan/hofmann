@@ -203,83 +203,6 @@ def _merge_expansions(
     return new_species, all_coords
 
 
-def _expand_bonds(
-    structure: "Structure",
-    bond_specs: list[BondSpec],
-) -> tuple[list[str], np.ndarray]:
-    """Add periodic image atoms that form valid bonds with unit-cell atoms.
-
-    For each bond spec, finds all periodic neighbours of unit-cell atoms
-    within the bond length range.  Any neighbour whose image vector is
-    non-zero (i.e. it is a periodic image, not a unit-cell atom) is
-    added to the output.
-
-    This search is **non-recursive**: only atoms in the original unit
-    cell are used as centres.  Image atoms added here are never
-    themselves searched for further neighbours.
-
-    Args:
-        structure: A pymatgen ``Structure``.
-        bond_specs: Bond specification rules.
-
-    Returns:
-        Tuple of ``(species, coords)`` containing **only** the image
-        atoms (not the original unit-cell atoms).
-    """
-    if not bond_specs:
-        return [], np.empty((0, 3))
-
-    max_cutoff = max(spec.max_length for spec in bond_specs)
-    lattice = structure.lattice
-
-    # get_all_neighbors returns, for each site, a list of
-    # PeriodicNeighbor objects with .species_string, .nn_distance,
-    # .index (original site index), .image (lattice image vector).
-    all_neighbours = structure.get_all_neighbors(max_cutoff)
-
-    # Deduplicate by (site_index, image_tuple).
-    seen: set[tuple[int, tuple[int, ...]]] = set()
-    image_species: list[str] = []
-    image_coords_list: list[np.ndarray] = []
-
-    species_list = [site.specie.symbol for site in structure]
-
-    for i, neighbours in enumerate(all_neighbours):
-        sp_i = species_list[i]
-        for nbr in neighbours:
-            image = tuple(int(x) for x in nbr.image)
-            if image == (0, 0, 0):
-                continue  # Unit-cell atom, not an image.
-
-            nbr_index = nbr.index
-            key = (nbr_index, image)
-            if key in seen:
-                continue
-
-            sp_j = nbr.specie.symbol
-            dist = nbr.nn_distance
-
-            # Check if any bond spec matches this pair.
-            matched = False
-            for spec in bond_specs:
-                if spec.matches(sp_i, sp_j) and spec.min_length <= dist <= spec.max_length:
-                    matched = True
-                    break
-
-            if not matched:
-                continue
-
-            seen.add(key)
-            image_species.append(sp_j)
-            # Compute Cartesian position of the image.
-            image_cart = structure[nbr_index].coords + np.array(image) @ lattice.matrix
-            image_coords_list.append(image_cart)
-
-    if image_coords_list:
-        return image_species, np.array(image_coords_list)
-    return [], np.empty((0, 3))
-
-
 def _identify_source_atom(
     img_coord: np.ndarray,
     species: str,
@@ -328,8 +251,7 @@ def _expand_neighbour_shells(
     For each atom (unit-cell or image) in the expanded set, look up its
     bonded periodic neighbours from the original structure and add any
     that are missing.  This completes coordination shells at cell
-    boundaries without the aggressive expansion of the old
-    ``_expand_bonds`` (which searched from *all* unit-cell atoms).
+    boundaries by only searching atoms already present in the scene.
 
     When *centre_species_only* is given, only atoms whose species
     matches one of the patterns have their shells completed.  This is
