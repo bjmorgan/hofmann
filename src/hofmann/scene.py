@@ -566,6 +566,12 @@ def from_pymatgen(
             "Install it with: pip install pymatgen"
         )
 
+    if max_recursive_depth < 0:
+        raise ValueError(
+            f"max_recursive_depth must be non-negative, "
+            f"got {max_recursive_depth}"
+        )
+
     if isinstance(structure, Structure):
         structures = [structure]
     else:

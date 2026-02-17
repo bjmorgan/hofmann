@@ -548,6 +548,26 @@ class TestRecursiveBondExpansion:
         cl_count = sum(1 for sp in scene.species if sp == "Cl")
         assert cl_count >= 2
 
+    def test_recursive_negative_max_depth_raises(self):
+        """max_recursive_depth < 0 raises ValueError."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        with pytest.raises(ValueError, match="max_recursive_depth"):
+            from_pymatgen(
+                struct, bond_specs=[bond], pbc=True,
+                max_recursive_depth=-1,
+            )
+
     def test_recursive_respects_max_depth(self):
         """max_recursive_depth=0 disables recursive expansion."""
         from hofmann.model import BondSpec
