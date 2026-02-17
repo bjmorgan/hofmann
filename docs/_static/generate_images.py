@@ -159,8 +159,11 @@ def pbc_bonds_scene(
     """Build the Zr-S-N-H structure for bond completion examples.
 
     Args:
-        complete: Set ``complete="Zr"`` on the S-Zr bond spec.
-        recursive: Set ``recursive=True`` on the N-N and H-N bond specs.
+        complete: If ``True``, set ``complete="Zr"`` on the S-Zr bond
+            spec; if ``False``, leave bond completion disabled.
+        recursive: If ``True``, set ``recursive=True`` on the N-N and
+            H-N bond specs; if ``False``, leave those bonds
+            non-recursive.
         polyhedra: Include ZrS6 polyhedra with hidden centres.
         molecular: Include N-N and H-N bond specs.  Set to ``False``
             to show only the Zr-S network.
