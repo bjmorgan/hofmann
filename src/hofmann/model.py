@@ -25,6 +25,15 @@ if TYPE_CHECKING:
 #: See :func:`normalise_colour` for conversion to a normalised RGB tuple.
 Colour = str | float | tuple[float, float, float] | list[float]
 
+#: A colourmap specification for atom-data colouring.
+#:
+#: Can be any of:
+#:
+#: - A matplotlib colourmap name (e.g. ``"viridis"``).
+#: - A callable mapping a float in ``[0, 1]`` to an ``(r, g, b)`` tuple.
+#: - A matplotlib :class:`~matplotlib.colors.Colormap` object.
+CmapSpec = str | Callable[[float], tuple[float, float, float]]
+
 
 def normalise_colour(colour: Colour) -> tuple[float, float, float]:
     """Convert a colour specification to a normalised (r, g, b) tuple.
@@ -76,19 +85,27 @@ def _species_colours(
     species: list[str],
     atom_styles: dict[str, "AtomStyle"],
 ) -> list[tuple[float, float, float]]:
-    """Return per-atom colours from species styles (the default path)."""
+    """Return per-atom colours from species styles (the default path).
+
+    Colours are normalised once per species and cached, so the cost is
+    proportional to the number of unique species rather than the number
+    of atoms.
+    """
+    cache: dict[str, tuple[float, float, float]] = {}
     colours: list[tuple[float, float, float]] = []
     for sp in species:
-        style = atom_styles.get(sp)
-        if style is not None:
-            colours.append(normalise_colour(style.colour))
-        else:
-            colours.append((0.5, 0.5, 0.5))
+        if sp not in cache:
+            style = atom_styles.get(sp)
+            if style is not None:
+                cache[sp] = normalise_colour(style.colour)
+            else:
+                cache[sp] = (0.5, 0.5, 0.5)
+        colours.append(cache[sp])
     return colours
 
 
 def _resolve_cmap(
-    cmap: "str | object",
+    cmap: CmapSpec,
 ) -> Callable[[float], tuple[float, float, float]]:
     """Turn a colourmap specification into a callable float -> RGB.
 
@@ -102,12 +119,14 @@ def _resolve_cmap(
     """
     if isinstance(cmap, str):
         import matplotlib
-        cmap = matplotlib.colormaps[cmap]
-    if not callable(cmap):
+        fn: Callable[..., tuple] = matplotlib.colormaps[cmap]
+    elif callable(cmap):
+        fn = cmap
+    else:
         raise TypeError(f"Unsupported cmap type: {type(cmap)}")
 
     def _wrap(val: float) -> tuple[float, float, float]:
-        result = cmap(val)  # type: ignore[operator]
+        result = fn(val)
         return (result[0], result[1], result[2])
     return _wrap
 
@@ -116,7 +135,7 @@ def _resolve_single_layer(
     atom_data: dict[str, np.ndarray],
     key: str,
     fallback: list[tuple[float, float, float]],
-    cmap: "str | Callable[[float], tuple[float, float, float]] | object",
+    cmap: CmapSpec,
     colour_range: tuple[float, float] | None,
 ) -> tuple[list[tuple[float, float, float]], np.ndarray]:
     """Resolve colours for a single colour_by key.
@@ -139,7 +158,7 @@ def resolve_atom_colours(
     atom_styles: dict[str, "AtomStyle"],
     atom_data: dict[str, np.ndarray],
     colour_by: str | list[str] | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> list[tuple[float, float, float]]:
     """Resolve per-atom RGB colours, optionally using a colourmap.
@@ -288,7 +307,7 @@ def _resolve_numerical(
 
     colours: list[tuple[float, float, float]] = []
     for i, val in enumerate(normalised):
-        if np.isnan(val):
+        if mask[i]:
             colours.append(fallback[i])
         else:
             colours.append(cmap_fn(float(val)))
@@ -324,19 +343,17 @@ def _resolve_categorical(
         a boolean array that is ``True`` for atoms whose values are
         missing (``None``, ``NaN``, or empty string).
     """
-    # Build a boolean mask of missing entries.
-    missing = np.array(
-        [_is_categorical_missing(v) for v in values], dtype=bool,
-    )
-
-    # Find unique non-empty labels, preserving first-occurrence order.
+    # Build missing mask and unique labels in a single pass.
+    missing = np.empty(len(values), dtype=bool)
     seen: dict[str, int] = {}
-    for v in values:
+    for i, v in enumerate(values):
         if _is_categorical_missing(v):
-            continue
-        s = str(v)
-        if s not in seen:
-            seen[s] = len(seen)
+            missing[i] = True
+        else:
+            missing[i] = False
+            s = str(v)
+            if s not in seen:
+                seen[s] = len(seen)
 
     n_labels = len(seen)
     if n_labels == 0:
@@ -1231,7 +1248,7 @@ class StructureScene:
         background: Colour = "white",
         show: bool | None = None,
         colour_by: str | list[str] | None = None,
-        cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+        cmap: CmapSpec | list[CmapSpec] = "viridis",
         colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
         **style_kwargs: object,
     ) -> Figure:
@@ -1251,14 +1268,20 @@ class StructureScene:
             show: Whether to call ``plt.show()``.  Defaults to
                 ``True`` when *output* is ``None``, ``False`` when
                 saving to a file.
-            colour_by: Key into :attr:`atom_data` to colour atoms by.
-                When ``None`` (the default), species-based colouring
-                is used.
-            cmap: Matplotlib colourmap name (e.g. ``"viridis"``),
-                ``Colormap`` object, or callable mapping a float in
-                ``[0, 1]`` to an ``(r, g, b)`` tuple.
+            colour_by: Key (or list of keys) into :attr:`atom_data`
+                to colour atoms by.  When ``None`` (the default),
+                species-based colouring is used.  When a list, layers
+                are tried in priority order and the first non-missing
+                value determines the atom's colour.
+            cmap: A :type:`CmapSpec` — matplotlib colourmap name
+                (e.g. ``"viridis"``), ``Colormap`` object, or callable
+                mapping a float in ``[0, 1]`` to an ``(r, g, b)``
+                tuple.  When *colour_by* is a list, *cmap* may also
+                be a list of the same length (one per layer).
             colour_range: Explicit ``(vmin, vmax)`` for normalising
                 numerical data.  ``None`` auto-ranges from the data.
+                When *colour_by* is a list, may also be a list of the
+                same length.
             **style_kwargs: Any :class:`RenderStyle` field name as a
                 keyword argument (e.g. ``show_bonds=False``).
 
@@ -1286,7 +1309,7 @@ class StructureScene:
         dpi: int = 150,
         background: Colour = "white",
         colour_by: str | list[str] | None = None,
-        cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+        cmap: CmapSpec | list[CmapSpec] = "viridis",
         colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
         **style_kwargs: object,
     ) -> tuple[ViewState, RenderStyle]:
@@ -1312,9 +1335,15 @@ class StructureScene:
             figsize: Figure size in inches ``(width, height)``.
             dpi: Resolution.
             background: Background colour.
-            colour_by: Key into :attr:`atom_data` to colour atoms by.
-            cmap: Matplotlib colourmap name, object, or callable.
-            colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+            colour_by: Key (or list of keys) into :attr:`atom_data`
+                to colour atoms by.  When a list, layers are tried in
+                priority order.
+            cmap: A :type:`CmapSpec` — colourmap name, object, or
+                callable.  When *colour_by* is a list, may also be a
+                list of the same length.
+            colour_range: Explicit ``(vmin, vmax)`` for numerical
+                data.  When *colour_by* is a list, may also be a list
+                of the same length.
             **style_kwargs: Any :class:`RenderStyle` field name as a
                 keyword argument (e.g. ``show_bonds=False``).
 

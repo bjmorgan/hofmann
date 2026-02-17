@@ -14,7 +14,6 @@ zoom.
 
 import time
 from collections import defaultdict
-from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, TYPE_CHECKING
@@ -33,6 +32,7 @@ from hofmann.model import (
     AxesStyle,
     Bond,
     CellEdgeStyle,
+    CmapSpec,
     Colour,
     PolyhedraVertexMode,
     RenderStyle,
@@ -647,7 +647,7 @@ def _precompute_scene(
     render_style: RenderStyle | None = None,
     *,
     colour_by: str | list[str] | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> _PrecomputedScene:
     """Pre-compute frame-independent data for repeated rendering.
@@ -1291,7 +1291,7 @@ def _draw_scene(
     viewport_extent: float | None = None,
     precomputed: _PrecomputedScene | None = None,
     colour_by: str | list[str] | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> None:
     """Paint atoms and bonds onto *ax* using the painter's algorithm.
@@ -1918,7 +1918,7 @@ def render_mpl(
     background: Colour = "white",
     show: bool | None = None,
     colour_by: str | list[str] | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
     **style_kwargs: object,
 ) -> Figure:
@@ -2204,7 +2204,7 @@ def render_mpl_interactive(
     dpi: int = 150,
     background: Colour = "white",
     colour_by: str | list[str] | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
     **style_kwargs: object,
 ) -> tuple["ViewState", "RenderStyle"]:
