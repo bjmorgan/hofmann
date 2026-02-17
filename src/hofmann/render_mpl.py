@@ -1474,17 +1474,17 @@ def _draw_scene(
         int, list[tuple[np.ndarray, tuple[float, ...], float]]
     ] = {}
     if draw_cell:
-        # Compute pad for line-width scaling (same logic as axes limits).
+        # Compute pad for line-width scaling (max of x/y half-extents).
         if viewport_extent is not None:
             cell_pad = viewport_extent * 1.15
         elif len(xy) == 0:
             cell_pad = 1.0
         else:
-            cell_pad = np.max(atom_screen_radii) + 1.0
+            cell_margin = np.max(atom_screen_radii) + 1.0
             cell_pad = max(
-                xy[:, 0].max() - xy[:, 0].min(),
-                xy[:, 1].max() - xy[:, 1].min(),
-            ) / 2 + cell_pad
+                (xy[:, 0].max() - xy[:, 0].min()) / 2,
+                (xy[:, 1].max() - xy[:, 1].min()) / 2,
+            ) + cell_margin
         cell_edge_by_depth_slot = _collect_cell_edges(
             scene, view, style.cell_style, depth, order, cell_pad,
             coords, radii_3d * atom_scale,
@@ -1699,16 +1699,20 @@ def _draw_scene(
     ax.set_aspect("equal")
     if viewport_extent is not None:
         pad = viewport_extent * 1.15
+        pad_x = pad_y = pad
+        cx = cy = 0.0
     elif len(xy) == 0:
-        pad = 1.0
+        pad = pad_x = pad_y = 1.0
+        cx = cy = 0.0
     else:
-        pad = np.max(atom_screen_radii) + 1.0
-        pad = max(
-            xy[:, 0].max() - xy[:, 0].min(),
-            xy[:, 1].max() - xy[:, 1].min(),
-        ) / 2 + pad
-    ax.set_xlim(-pad, pad)
-    ax.set_ylim(-pad, pad)
+        margin = np.max(atom_screen_radii) + 1.0
+        cx = (xy[:, 0].max() + xy[:, 0].min()) / 2
+        cy = (xy[:, 1].max() + xy[:, 1].min()) / 2
+        pad_x = (xy[:, 0].max() - xy[:, 0].min()) / 2 + margin
+        pad_y = (xy[:, 1].max() - xy[:, 1].min()) / 2 + margin
+        pad = max(pad_x, pad_y)
+    ax.set_xlim(cx - pad_x, cx + pad_x)
+    ax.set_ylim(cy - pad_y, cy + pad_y)
     ax.axis("off")
 
     if scene.title:

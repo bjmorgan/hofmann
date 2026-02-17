@@ -1,6 +1,11 @@
 Colouring by per-atom data
 ==========================
 
+.. image:: _static/helix.svg
+   :width: 480px
+   :align: center
+   :alt: Helix of corner-sharing tetrahedra coloured by position
+
 Atoms can be coloured by arbitrary metadata instead of by species.
 Use :meth:`~hofmann.StructureScene.set_atom_data` to attach a named
 array and the ``colour_by`` parameter on
