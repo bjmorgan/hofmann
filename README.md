@@ -1,6 +1,6 @@
-# hofmann
-
 <img src="logo.svg" width="150" alt="hofmann logo" align="right">
+
+# hofmann
 
 [![CI](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml/badge.svg)](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml)
 [![Documentation](https://readthedocs.org/projects/hofmann/badge/?version=latest)](https://hofmann.readthedocs.io/en/latest/)
