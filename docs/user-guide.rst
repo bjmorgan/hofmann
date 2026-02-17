@@ -457,9 +457,9 @@ the inner ring uses a numerical charge gradient:
 .. code-block:: python
 
    # Outer atoms: categorical type.
-   scene.set_atom_data("metal", {0: "Fe", 1: "Co", 2: "Ni", ...})
+   scene.set_atom_data("metal", {0: "Fe", 1: "Co", 2: "Ni"})
    # Inner atoms: numerical charge.
-   scene.set_atom_data("charge", {12: 0.0, 13: 0.3, ...})
+   scene.set_atom_data("charge", {12: 0.0, 13: 0.3})
    scene.render_mpl(
        "output.svg",
        colour_by=["metal", "charge"],

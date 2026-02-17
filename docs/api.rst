@@ -81,6 +81,14 @@ Colours and defaults
 
 .. autofunction:: normalise_colour
 
+.. autofunction:: resolve_atom_colours
+
+.. data:: CmapSpec
+
+   Type alias for colourmap specifications accepted by
+   :func:`resolve_atom_colours` and the ``cmap`` parameter of render
+   methods.  See the type definition in :mod:`hofmann.model` for details.
+
 .. data:: ELEMENT_COLOURS
    :type: dict[str, tuple[float, float, float]]
 

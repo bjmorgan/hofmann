@@ -30,9 +30,13 @@ Colour = str | float | tuple[float, float, float] | list[float]
 #: Can be any of:
 #:
 #: - A matplotlib colourmap name (e.g. ``"viridis"``).
-#: - A callable mapping a float in ``[0, 1]`` to an ``(r, g, b)`` tuple.
-#: - A matplotlib :class:`~matplotlib.colors.Colormap` object.
-CmapSpec = str | Callable[[float], tuple[float, float, float]]
+#: - A callable mapping a float in ``[0, 1]`` to an RGB or RGBA sequence.
+#: - A matplotlib :class:`~matplotlib.colors.Colormap` object (which is
+#:   callable and returns RGBA).
+#:
+#: Callables returning RGBA are automatically truncated to RGB by
+#: :func:`_resolve_cmap`.
+CmapSpec = str | Callable[[float], Sequence[float]]
 
 
 def normalise_colour(colour: Colour) -> tuple[float, float, float]:
@@ -119,7 +123,7 @@ def _resolve_cmap(
     """
     if isinstance(cmap, str):
         import matplotlib
-        fn: Callable[..., tuple] = matplotlib.colormaps[cmap]
+        fn: Callable[..., Sequence[float]] = matplotlib.colormaps[cmap]
     elif callable(cmap):
         fn = cmap
     else:
@@ -317,13 +321,14 @@ def _resolve_numerical(
 def _is_categorical_missing(v: object) -> bool:
     """Return True if *v* should be treated as a missing categorical value.
 
-    Missing values are ``None``, empty strings, and float ``NaN``.
+    Missing values are ``None``, empty strings, and float ``NaN``
+    (including numpy floating scalars such as ``np.float64('nan')``).
     """
     if v is None:
         return True
     if isinstance(v, str) and v == "":
         return True
-    if isinstance(v, float) and np.isnan(v):
+    if isinstance(v, (float, np.floating)) and np.isnan(v):
         return True
     return False
 
@@ -1200,8 +1205,10 @@ class StructureScene:
                 ``"site"``).
             values: Either an array-like of length ``n_atoms``, or a
                 dict mapping atom indices to values.  When a dict is
-                given, missing atoms are filled with ``NaN`` for
-                numeric values or ``""`` for string values.
+                given, the fill value for missing atoms is inferred
+                from the first entry: ``NaN`` for numeric values or
+                ``""`` for string values.  All values in a dict must
+                be of compatible types (all numeric or all strings).
 
         Raises:
             ValueError: If an array-like has the wrong length, or a
