@@ -51,6 +51,8 @@ intersphinx_mapping = {
 # -- HTML output -------------------------------------------------------------
 
 html_theme = "sphinx_rtd_theme"
+html_logo = "_static/logo.svg"
 html_theme_options = {
     "navigation_depth": 3,
+    "logo_only": True,
 }
