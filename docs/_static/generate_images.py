@@ -359,7 +359,7 @@ def main() -> None:
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
     perov_plain.view.perspective = 0.0  # Reset
 
-    # 6–7. Per-atom colouring examples: ring of atoms coloured by angle.
+    # 6–9. Per-atom colouring examples: ring of atoms.
     n = 16
     angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
     r = 3.0
@@ -376,6 +376,8 @@ def main() -> None:
         species=("X", "X"), min_length=0.0,
         max_length=chord + 0.1, radius=0.08, colour=0.5,
     )
+    colour_by_style = dict(show=False, figsize=(3, 3), dpi=150,
+                           half_bonds=False)
 
     # 6. Continuous: colour by angle.
     cont_scene = StructureScene(
@@ -387,8 +389,8 @@ def main() -> None:
     cont_scene.set_atom_data("angle", np.degrees(angles))
     cont_scene.render_mpl(
         OUT / "colour_by_continuous.svg",
-        show=False, figsize=(3, 3), dpi=150,
         colour_by="angle", cmap="twilight",
+        **colour_by_style,
     )
     print(f"  wrote {OUT / 'colour_by_continuous.svg'}")
 
@@ -403,10 +405,80 @@ def main() -> None:
     cat_scene.set_atom_data("site", labels)
     cat_scene.render_mpl(
         OUT / "colour_by_categorical.svg",
-        show=False, figsize=(3, 3), dpi=150,
         colour_by="site", cmap="Set2",
+        **colour_by_style,
     )
     print(f"  wrote {OUT / 'colour_by_categorical.svg'}")
+
+    # 8. Custom colouring function: red-to-blue interpolation.
+    custom_scene = StructureScene(
+        species=ring_species,
+        frames=[Frame(coords=ring_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[ring_bond],
+    )
+    custom_scene.set_atom_data("angle", np.degrees(angles))
+
+    def red_blue(t: float) -> tuple[float, float, float]:
+        return (1.0 - t, 0.0, t)
+
+    custom_scene.render_mpl(
+        OUT / "colour_by_custom.svg",
+        colour_by="angle", cmap=red_blue,
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_custom.svg'}")
+
+    # 9. Multiple colouring layers: two concentric rings.
+    #    Outer ring coloured by categorical type, inner by numerical value.
+    n_outer, n_inner = 12, 8
+    n_total = n_outer + n_inner
+    outer_angles = np.linspace(0, 2 * np.pi, n_outer, endpoint=False)
+    inner_angles = np.linspace(0, 2 * np.pi, n_inner, endpoint=False)
+    r_outer, r_inner = 3.5, 1.8
+    outer_coords = np.column_stack([
+        r_outer * np.cos(outer_angles),
+        r_outer * np.sin(outer_angles),
+        np.zeros(n_outer),
+    ])
+    inner_coords = np.column_stack([
+        r_inner * np.cos(inner_angles),
+        r_inner * np.sin(inner_angles),
+        np.zeros(n_inner),
+    ])
+    multi_coords = np.vstack([outer_coords, inner_coords])
+    multi_species = ["X"] * n_total
+
+    outer_chord = 2 * r_outer * np.sin(np.pi / n_outer)
+    inner_chord = 2 * r_inner * np.sin(np.pi / n_inner)
+    multi_bond = BondSpec(
+        species=("X", "X"), min_length=0.0,
+        max_length=max(outer_chord, inner_chord) + 0.1,
+        radius=0.08, colour=0.5,
+    )
+    multi_scene = StructureScene(
+        species=multi_species,
+        frames=[Frame(coords=multi_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[multi_bond],
+    )
+    # Outer ring: categorical type labels.
+    type_dict: dict[int, object] = {}
+    for i in range(n_outer):
+        type_dict[i] = ["Fe", "Co", "Ni"][i % 3]
+    multi_scene.set_atom_data("metal", type_dict)
+    # Inner ring: numerical charge.
+    charge_dict: dict[int, object] = {}
+    for i in range(n_inner):
+        charge_dict[n_outer + i] = float(i) / max(n_inner - 1, 1)
+    multi_scene.set_atom_data("charge", charge_dict)
+    multi_scene.render_mpl(
+        OUT / "colour_by_multi.svg",
+        colour_by=["metal", "charge"],
+        cmap=["Set2", "YlOrRd"],
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_multi.svg'}")
 
 
 if __name__ == "__main__":

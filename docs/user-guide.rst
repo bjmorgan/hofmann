@@ -433,6 +433,11 @@ float in ``[0, 1]`` to an ``(r, g, b)`` tuple:
 
    scene.render_mpl("output.svg", colour_by="charge", cmap=red_blue)
 
+.. image:: _static/colour_by_custom.svg
+   :width: 320px
+   :align: center
+   :alt: Ring of atoms coloured by a custom red-to-blue function
+
 This works with any callable, including ``lambda`` expressions and
 matplotlib ``Colormap`` objects.
 
@@ -443,18 +448,28 @@ When different subsets of atoms should use different colouring rules,
 pass a list of keys to ``colour_by``.  Each layer is tried in order
 and the first non-missing value wins.  ``cmap`` and ``colour_range``
 can also be lists of the same length (or a single value broadcast to
-all layers):
+all layers).
+
+Layers can freely mix categorical and continuous data.  In this
+example the outer ring is coloured by a categorical metal type while
+the inner ring uses a numerical charge gradient:
 
 .. code-block:: python
 
-   # Colour metals by type, oxygens by coordination number.
-   scene.set_atom_data("metal_type", {0: "Fe", 2: "Co"})
-   scene.set_atom_data("o_coord", {1: 4, 3: 6})
+   # Outer atoms: categorical type.
+   scene.set_atom_data("metal", {0: "Fe", 1: "Co", 2: "Ni", ...})
+   # Inner atoms: numerical charge.
+   scene.set_atom_data("charge", {12: 0.0, 13: 0.3, ...})
    scene.render_mpl(
        "output.svg",
-       colour_by=["metal_type", "o_coord"],
-       cmap=["Set1", "Blues"],
+       colour_by=["metal", "charge"],
+       cmap=["Set2", "YlOrRd"],
    )
+
+.. image:: _static/colour_by_multi.svg
+   :width: 320px
+   :align: center
+   :alt: Concentric rings coloured by categorical and continuous layers
 
 Atoms with missing data in all layers fall back to their species
 colour.
