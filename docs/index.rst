@@ -32,8 +32,11 @@ Quick example
    :hidden:
 
    getting-started
-   user-guide
+   scenes
+   rendering
+   colouring
    interactive
    api
    xbs-format
+   citing
    changelog

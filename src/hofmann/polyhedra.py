@@ -19,7 +19,9 @@ def compute_polyhedra(
 
     For each atom whose species matches a :class:`PolyhedronSpec`
     centre pattern, the bonded neighbours are collected and their
-    convex hull is computed to produce triangulated faces.
+    convex hull is computed.  Adjacent coplanar triangles are then
+    merged into polygonal faces to reduce visual artefacts from
+    triangulation seams.
 
     Specs are applied in order; the first matching spec wins for
     each atom (consistent with :func:`~hofmann.bonds.compute_bonds`).

@@ -65,9 +65,29 @@ Rendering
 Colours and defaults
 --------------------
 
-.. autodata:: Colour
+.. data:: Colour
+   :type: str | float | tuple[float, float, float] | list[float]
+
+   A colour specification accepted throughout hofmann.
+
+   Can be any of:
+
+   - A CSS colour name or hex string (e.g. ``"red"``, ``"#ff0000"``).
+   - A single float for grey (``0.0`` = black, ``1.0`` = white).
+   - An RGB tuple or list with values in ``[0, 1]``
+     (e.g. ``(1.0, 0.0, 0.0)``).
+
+   See :func:`normalise_colour` for conversion to a normalised RGB tuple.
 
 .. autofunction:: normalise_colour
+
+.. autofunction:: resolve_atom_colours
+
+.. data:: CmapSpec
+
+   Type alias for colourmap specifications accepted by
+   :func:`resolve_atom_colours` and the ``cmap`` parameter of render
+   methods.  See the type definition in :mod:`hofmann.model` for details.
 
 .. data:: ELEMENT_COLOURS
    :type: dict[str, tuple[float, float, float]]

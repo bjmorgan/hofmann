@@ -1,38 +1,5 @@
-User guide
-==========
-
-Scenes and frames
------------------
-
-A :class:`~hofmann.StructureScene` is the central object in hofmann.  It
-holds everything needed to render a structure:
-
-- **species** -- one label per atom (e.g. ``["C", "H", "H", "H", "H"]``)
-- **frames** -- one or more :class:`~hofmann.Frame` coordinate snapshots
-- **atom_styles** -- mapping from species to :class:`~hofmann.AtomStyle`
-  (radius and colour)
-- **bond_specs** -- declarative :class:`~hofmann.BondSpec` rules
-- **polyhedra** -- optional :class:`~hofmann.PolyhedronSpec` rules
-- **view** -- a :class:`~hofmann.ViewState` controlling the camera
-
-Scenes are typically created via :meth:`~hofmann.StructureScene.from_xbs`
-or :meth:`~hofmann.StructureScene.from_pymatgen`, but you can also
-construct one directly from data.
-
-Here is a simple CH4 molecule loaded from an XBS file:
-
-.. plot::
-   :context: reset
-
-   import hofmann
-   from pathlib import Path
-   from hofmann import StructureScene
-
-   pkg_dir = Path(hofmann.__file__).resolve().parent
-   fixture = pkg_dir.parent.parent / "tests" / "fixtures" / "ch4.bs"
-   scene = StructureScene.from_xbs(fixture)
-   scene.render_mpl(show=False, figsize=(4, 4))
-
+Rendering
+=========
 
 Controlling the view
 --------------------
@@ -186,59 +153,8 @@ midpoint and each half is coloured to match the nearest atom.  With
           ``half_bonds=False``
 
 
-Bonds
------
-
-Bonds are detected at render time from declarative
-:class:`~hofmann.BondSpec` rules.  Each rule specifies a species pair,
-a length range, a display radius, and a colour:
-
-.. code-block:: python
-
-   from hofmann import BondSpec
-
-   spec = BondSpec(
-       species=("C", "H"),
-       min_length=0.0,
-       max_length=1.2,
-       radius=0.1,
-       colour=0.8,  # Grey
-   )
-
-Species matching supports wildcards:
-
-.. code-block:: python
-
-   # Match any bond between any species:
-   BondSpec(species=("*", "*"), min_length=0.0, max_length=2.5,
-            radius=0.1, colour="grey")
-
-When no bond specs are provided, :func:`~hofmann.from_pymatgen`
-generates sensible defaults from :data:`~hofmann.COVALENT_RADII`.
-
-
-Polyhedra
----------
-
-Coordination polyhedra are built from the bond graph: for each atom
-whose species matches the ``centre`` pattern, a convex hull is
-constructed from its bonded neighbours.
-
-.. code-block:: python
-
-   from hofmann import PolyhedronSpec
-
-   spec = PolyhedronSpec(
-       centre="Ti",
-       colour=(0.5, 0.7, 1.0),
-       alpha=0.3,
-   )
-   scene = StructureScene.from_pymatgen(
-       structure, bonds, polyhedra=[spec], pbc=True,
-   )
-
 Polyhedra shading
-~~~~~~~~~~~~~~~~~
+-----------------
 
 The ``polyhedra_shading`` setting controls diffuse (Lambertian) shading
 on polyhedra faces.  At ``0.0`` all faces are flat; at ``1.0`` (the
@@ -256,28 +172,10 @@ are dimmed.
 
           ``polyhedra_shading=1.0`` (Lambertian)
 
-Vertex draw order
-~~~~~~~~~~~~~~~~~
-
-The ``polyhedra_vertex_mode`` setting controls how vertex atoms are
-layered relative to polyhedral faces.  ``"in_front"`` (the default)
-draws each vertex on top of the faces it belongs to.
-
-.. list-table::
-   :widths: 50 50
-
-   * - .. figure:: _static/octahedron_vertex_in_front.svg
-
-          Opaque polyhedra
-
-     - .. figure:: _static/octahedron_vertex_in_front_transparent.svg
-
-          Transparent polyhedra
-
 .. _slab-clipping:
 
 Slab clipping and polyhedra
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 The ``slab_clip_mode`` setting on :class:`~hofmann.RenderStyle`
 controls how polyhedra at the slab boundary are handled:
@@ -380,13 +278,3 @@ Disable or customise the widget via :class:`~hofmann.RenderStyle`:
        ),
    )
    scene.render_mpl("output.svg", style=style)
-
-The widget also rotates interactively in
-:meth:`~hofmann.StructureScene.render_mpl_interactive`.
-
-
-Interactive viewer
-------------------
-
-See :doc:`interactive` for full documentation of the interactive viewer,
-including mouse and keyboard controls.

@@ -4,23 +4,23 @@ Getting started
 Installation
 ------------
 
-Install hofmann from source:
+Install hofmann from PyPI:
 
 .. code-block:: bash
 
-   pip install .
+   pip install hofmann
 
 For pymatgen interoperability (optional):
 
 .. code-block:: bash
 
-   pip install ".[pymatgen]"
+   pip install "hofmann[pymatgen]"
 
 For development (tests + docs):
 
 .. code-block:: bash
 
-   pip install ".[all]"
+   pip install "hofmann[all]"
 
 Requirements
 ~~~~~~~~~~~~

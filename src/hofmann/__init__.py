@@ -25,6 +25,7 @@ from hofmann.model import (
     Bond,
     BondSpec,
     CellEdgeStyle,
+    CmapSpec,
     Colour,
     Frame,
     Polyhedron,
@@ -35,6 +36,7 @@ from hofmann.model import (
     ViewState,
     WidgetCorner,
     normalise_colour,
+    resolve_atom_colours,
 )
 from hofmann.scene import from_pymatgen, from_xbs
 
@@ -44,6 +46,7 @@ __all__ = [
     "Bond",
     "BondSpec",
     "CellEdgeStyle",
+    "CmapSpec",
     "COVALENT_RADII",
     "Colour",
     "ELEMENT_COLOURS",
@@ -62,4 +65,5 @@ __all__ = [
     "from_pymatgen",
     "from_xbs",
     "normalise_colour",
+    "resolve_atom_colours",
 ]

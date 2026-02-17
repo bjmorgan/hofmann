@@ -359,6 +359,231 @@ def main() -> None:
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
     perov_plain.view.perspective = 0.0  # Reset
 
+    # 6–9. Per-atom colouring examples: ring of atoms.
+    n = 16
+    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    r = 3.0
+    ring_coords = np.column_stack([
+        r * np.cos(angles),
+        r * np.sin(angles),
+        np.zeros(n),
+    ])
+    ring_species = ["X"] * n
+
+    # Bond each atom to its neighbour around the ring.
+    chord = 2 * r * np.sin(np.pi / n)
+    ring_bond = BondSpec(
+        species=("X", "X"), min_length=0.0,
+        max_length=chord + 0.1, radius=0.08, colour=0.5,
+    )
+    colour_by_style = dict(show=False, figsize=(3, 3), dpi=150,
+                           half_bonds=False)
+
+    # 6. Continuous: colour by angle.
+    cont_scene = StructureScene(
+        species=ring_species,
+        frames=[Frame(coords=ring_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[ring_bond],
+    )
+    cont_scene.set_atom_data("angle", np.degrees(angles))
+    cont_scene.render_mpl(
+        OUT / "colour_by_continuous.svg",
+        colour_by="angle", cmap="twilight",
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_continuous.svg'}")
+
+    # 7. Categorical: alternate labels around the ring.
+    cat_scene = StructureScene(
+        species=ring_species,
+        frames=[Frame(coords=ring_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[ring_bond],
+    )
+    labels = ["alpha", "beta", "gamma", "delta"] * (n // 4)
+    cat_scene.set_atom_data("site", labels)
+    cat_scene.render_mpl(
+        OUT / "colour_by_categorical.svg",
+        colour_by="site", cmap="Set2",
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_categorical.svg'}")
+
+    # 8. Custom colouring function: red-to-blue interpolation.
+    custom_scene = StructureScene(
+        species=ring_species,
+        frames=[Frame(coords=ring_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[ring_bond],
+    )
+    custom_scene.set_atom_data("angle", np.degrees(angles))
+
+    def red_blue(t: float) -> tuple[float, float, float]:
+        return (1.0 - t, 0.0, t)
+
+    custom_scene.render_mpl(
+        OUT / "colour_by_custom.svg",
+        colour_by="angle", cmap=red_blue,
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_custom.svg'}")
+
+    # 9. Multiple colouring layers: two concentric rings.
+    #    Outer ring coloured by categorical type, inner by numerical value.
+    n_outer, n_inner = 12, 8
+    n_total = n_outer + n_inner
+    outer_angles = np.linspace(0, 2 * np.pi, n_outer, endpoint=False)
+    inner_angles = np.linspace(0, 2 * np.pi, n_inner, endpoint=False)
+    r_outer, r_inner = 3.5, 1.8
+    outer_coords = np.column_stack([
+        r_outer * np.cos(outer_angles),
+        r_outer * np.sin(outer_angles),
+        np.zeros(n_outer),
+    ])
+    inner_coords = np.column_stack([
+        r_inner * np.cos(inner_angles),
+        r_inner * np.sin(inner_angles),
+        np.zeros(n_inner),
+    ])
+    multi_coords = np.vstack([outer_coords, inner_coords])
+    # Use separate species so bonds only form within each ring.
+    multi_species = ["A"] * n_outer + ["B"] * n_inner
+
+    outer_chord = 2 * r_outer * np.sin(np.pi / n_outer)
+    inner_chord = 2 * r_inner * np.sin(np.pi / n_inner)
+    multi_scene = StructureScene(
+        species=multi_species,
+        frames=[Frame(coords=multi_coords)],
+        atom_styles={
+            "A": AtomStyle(0.7, "grey"),
+            "B": AtomStyle(0.7, "grey"),
+        },
+        bond_specs=[
+            BondSpec(species=("A", "A"), min_length=0.0,
+                     max_length=outer_chord + 0.1, radius=0.08, colour=0.5),
+            BondSpec(species=("B", "B"), min_length=0.0,
+                     max_length=inner_chord + 0.1, radius=0.08, colour=0.5),
+        ],
+    )
+    # Outer ring: categorical type labels.
+    type_dict: dict[int, object] = {}
+    for i in range(n_outer):
+        type_dict[i] = ["Fe", "Co", "Ni"][i % 3]
+    multi_scene.set_atom_data("metal", type_dict)
+    # Inner ring: numerical charge.
+    charge_dict: dict[int, object] = {}
+    for i in range(n_inner):
+        charge_dict[n_outer + i] = float(i) / max(n_inner - 1, 1)
+    multi_scene.set_atom_data("charge", charge_dict)
+    multi_scene.render_mpl(
+        OUT / "colour_by_multi.svg",
+        colour_by=["metal", "charge"],
+        cmap=["Set2", "YlOrRd"],
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_multi.svg'}")
+
+    # 10. Polyhedra inheriting colour_by: ring of corner-sharing tetrahedra.
+    #     Build regular tetrahedra first, then place centres at centroids.
+    n_tet = 8
+    tet_edge = 2.5
+    tet_ring_r = tet_edge / (2 * np.sin(np.pi / n_tet))
+
+    # Shared (bridging) vertices on a ring in the z=0 plane.
+    shared_angles = np.linspace(0, 2 * np.pi, n_tet, endpoint=False)
+    shared_verts = np.column_stack([
+        tet_ring_r * np.cos(shared_angles),
+        tet_ring_r * np.sin(shared_angles),
+        np.zeros(n_tet),
+    ])
+
+    # For each tetrahedron, compute the other two vertices so all six
+    # edges equal tet_edge, then place the centre at the centroid.
+    all_tet_verts: list[np.ndarray] = []
+    all_centroids: list[np.ndarray] = []
+    for i in range(n_tet):
+        va = shared_verts[i]
+        vb = shared_verts[(i + 1) % n_tet]
+        mid = (va + vb) / 2
+        u = (vb - va) / np.linalg.norm(vb - va)
+        n1 = np.cross(u, [0, 0, 1])
+        if np.linalg.norm(n1) < 1e-10:
+            n1 = np.cross(u, [1, 0, 0])
+        n1 /= np.linalg.norm(n1)
+        n2 = np.cross(u, n1)
+        d_perp = tet_edge * np.sqrt(3) / 2
+        h2 = tet_edge / 2
+        h1 = np.sqrt(d_perp**2 - h2**2)
+        vc = mid + h1 * n1 + h2 * n2
+        vd = mid + h1 * n1 - h2 * n2
+        verts = np.array([va, vb, vc, vd])
+        all_tet_verts.append(verts)
+        all_centroids.append(verts.mean(axis=0))
+
+    poly_species: list[str] = []
+    poly_coords: list[list[float]] = []
+
+    # Centres (at centroids).
+    for i in range(n_tet):
+        poly_coords.append(all_centroids[i].tolist())
+        poly_species.append("M")
+
+    # Shared bridging vertices.
+    for i in range(n_tet):
+        poly_coords.append(shared_verts[i].tolist())
+        poly_species.append("O")
+
+    # Non-bridging vertices (C, D for each tetrahedron).
+    for i in range(n_tet):
+        poly_coords.append(all_tet_verts[i][2].tolist())
+        poly_species.append("O")
+        poly_coords.append(all_tet_verts[i][3].tolist())
+        poly_species.append("O")
+
+    centroid_to_vert = tet_edge * np.sqrt(3.0 / 8.0)
+    poly_scene = StructureScene(
+        species=poly_species,
+        frames=[Frame(coords=np.array(poly_coords))],
+        atom_styles={
+            "M": AtomStyle(0.45, "grey"),
+            "O": AtomStyle(0.3, (0.6, 0.6, 0.6)),
+        },
+        bond_specs=[BondSpec(
+            species=("M", "O"), min_length=0.0,
+            max_length=centroid_to_vert + 0.2,
+            radius=0.06, colour=0.5,
+        )],
+        polyhedra=[PolyhedronSpec(
+            centre="M", alpha=0.4,
+            hide_bonds=True,
+        )],
+    )
+    poly_scene.view.look_along([0.15, 0.05, 1])
+
+    poly_vals = np.full(len(poly_species), np.nan)
+    for i in range(n_tet):
+        poly_vals[i] = float(i) / (n_tet - 1)
+    poly_scene.set_atom_data("val", poly_vals)
+
+    # With atoms visible -- shows inheritance clearly.
+    poly_scene.render_mpl(
+        OUT / "colour_by_polyhedra_atoms.svg",
+        colour_by="val", cmap="coolwarm",
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_polyhedra_atoms.svg'}")
+
+    # Without atoms -- typical usage.
+    poly_scene.polyhedra[0].hide_centre = True
+    poly_scene.polyhedra[0].hide_vertices = True
+    poly_scene.render_mpl(
+        OUT / "colour_by_polyhedra.svg",
+        colour_by="val", cmap="coolwarm",
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_polyhedra.svg'}")
+
 
 if __name__ == "__main__":
     main()

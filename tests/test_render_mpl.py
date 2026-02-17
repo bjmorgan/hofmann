@@ -1852,3 +1852,116 @@ class TestKeyActions:
         assert "Rotate" in _HELP_TEXT
         assert "help" in _HELP_TEXT.lower()
 
+
+# --- Atom metadata colouring ---
+
+
+class TestColourBy:
+    """Smoke tests for colourmap-based atom colouring via render_mpl."""
+
+    def test_numerical_colour_by(self):
+        """render_mpl with colour_by for numerical data produces a Figure."""
+        scene = _minimal_scene()
+        scene.set_atom_data("charge", [0.5, -0.5])
+        fig = render_mpl(scene, colour_by="charge", cmap="coolwarm", show=False)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_numerical_colour_by_with_range(self):
+        scene = _minimal_scene()
+        scene.set_atom_data("charge", [0.5, -0.5])
+        fig = render_mpl(
+            scene, colour_by="charge", colour_range=(-1.0, 1.0), show=False,
+        )
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_categorical_colour_by(self):
+        """render_mpl with colour_by for categorical data produces a Figure."""
+        scene = _minimal_scene()
+        scene.set_atom_data("site", np.array(["4a", "8b"], dtype=object))
+        fig = render_mpl(scene, colour_by="site", cmap="Set2", show=False)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_colour_by_missing_key_raises(self):
+        scene = _minimal_scene()
+        with pytest.raises(KeyError):
+            render_mpl(scene, colour_by="nonexistent", show=False)
+
+    def test_callable_cmap(self):
+        """A callable cmap works through render_mpl."""
+        scene = _minimal_scene()
+        scene.set_atom_data("val", [0.0, 1.0])
+        fig = render_mpl(
+            scene, colour_by="val",
+            cmap=lambda v: (v, 0.0, 1.0 - v), show=False,
+        )
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_colour_by_with_nan(self):
+        """Atoms with NaN data fall back to species colour."""
+        scene = _minimal_scene()
+        scene.set_atom_data("charge", {0: 1.0})  # atom 1 gets NaN
+        fig = render_mpl(scene, colour_by="charge", show=False)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_convenience_method(self):
+        """StructureScene.render_mpl forwards colour_by correctly."""
+        scene = _minimal_scene()
+        scene.set_atom_data("charge", [0.5, -0.5])
+        fig = scene.render_mpl(colour_by="charge", show=False)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_list_colour_by_smoke(self):
+        """render_mpl with a list of colour_by keys produces a Figure."""
+        scene = _minimal_scene()
+        scene.set_atom_data("a", {0: 1.0})
+        scene.set_atom_data("b", {1: 2.0})
+        fig = render_mpl(
+            scene, colour_by=["a", "b"], cmap=["viridis", "plasma"],
+            show=False,
+        )
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_polyhedra_inherit_colour_by(self):
+        """Polyhedra inherit the centre atom's resolved colour_by colour."""
+        from hofmann.render_mpl import _precompute_scene
+
+        scene = _octahedron_scene()
+        # Ti is atom 0; give it a numerical value so it gets a cmap colour.
+        n_atoms = len(scene.species)
+        scene.set_atom_data("val", {0: 0.5})
+
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        precomputed = _precompute_scene(
+            scene, 0, colour_by="val", cmap=red,
+        )
+        # The polyhedron should inherit (1.0, 0.0, 0.0) from the cmap,
+        # not the Ti species colour.
+        assert len(precomputed.poly_base_colours) == 1
+        assert precomputed.poly_base_colours[0] == (1.0, 0.0, 0.0)
+
+    def test_polyhedra_spec_colour_overrides_colour_by(self):
+        """PolyhedronSpec.colour still wins over colour_by."""
+        from hofmann.render_mpl import _precompute_scene
+
+        scene = _octahedron_scene(colour=(0.0, 0.0, 1.0))
+        n_atoms = len(scene.species)
+        scene.set_atom_data("val", {0: 0.5})
+
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        precomputed = _precompute_scene(
+            scene, 0, colour_by="val", cmap=red,
+        )
+        # Explicit spec colour should override the colour_by value.
+        assert precomputed.poly_base_colours[0] == (0.0, 0.0, 1.0)
+

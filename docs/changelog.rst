@@ -1,8 +1,24 @@
 Changelog
 =========
 
-0.1.0 (unreleased)
--------------------
+0.2.0
+-----
+
+- Per-atom metadata colouring via colourmaps.  Use
+  :meth:`~hofmann.StructureScene.set_atom_data` and the ``colour_by``
+  parameter on :meth:`~hofmann.StructureScene.render_mpl` to map
+  numerical or categorical data to atom colours.
+- Multiple ``colour_by`` layers with priority merging.  Pass a list
+  of keys to apply different colouring rules to different atom
+  subsets; the first non-missing value wins for each atom.
+- Polyhedra without an explicit colour now inherit the resolved
+  ``colour_by`` colour of their centre atom.
+- New public API: :func:`~hofmann.resolve_atom_colours` for
+  programmatic colour resolution, and :data:`~hofmann.CmapSpec` type
+  alias for colourmap specifications.
+
+0.1.0
+-----
 
 Initial release.
 
