@@ -637,6 +637,18 @@ def from_pymatgen(
             # Geometric expansion: add images near cell faces.
             exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
 
+            # Single-pass bond completion: for bond specs with
+            # complete set, add missing bonded partners across
+            # periodic boundaries (non-recursive).
+            complete_specs = [sp for sp in bond_specs if sp.complete]
+            if complete_specs:
+                centres = [sp.complete for sp in complete_specs
+                           if sp.complete != "*"]
+                exp_species, exp_coords = _expand_neighbour_shells(
+                    s, exp_species, exp_coords, n_uc, complete_specs,
+                    centre_species_only=centres or None,
+                )
+
             # Recursive bond expansion: iteratively add bonded
             # atoms across periodic boundaries for bond specs
             # with recursive=True.

@@ -725,10 +725,14 @@ class AtomStyle:
             starting points.
         colour: Fill colour specification (CSS name, hex string, grey
             float, or RGB tuple/list).  See :data:`Colour`.
+        visible: Whether atoms of this species are drawn.  Set to
+            ``False`` to hide atoms without removing them from the
+            scene.  Bonds to hidden atoms are also suppressed.
     """
 
     radius: float
     colour: Colour
+    visible: bool = True
 
 
 @dataclass
@@ -749,6 +753,13 @@ class BondSpec:
             the render style.  When ``half_bonds`` is ``True`` (the
             default), each half of the bond is coloured to match the
             nearest atom and this field is ignored.
+        complete: Controls single-pass bond completion across periodic
+            boundaries.  A species string (e.g. ``"Zr"``) adds
+            missing partners around visible atoms of that species.
+            ``"*"`` completes around both species in the pair.
+            ``False`` (default) disables completion.  Unlike
+            *recursive*, newly added atoms are **not** themselves
+            searched.
         recursive: If ``True``, atoms bonded via this spec are
             searched recursively across periodic boundaries.  When
             an atom matching this spec is already visible in the
@@ -763,10 +774,16 @@ class BondSpec:
     max_length: float
     radius: float
     colour: Colour
+    complete: bool | str = False
     recursive: bool = False
 
     def __post_init__(self) -> None:
         self.species = tuple(sorted(self.species))  # type: ignore[assignment]
+        if self.complete is True:
+            raise ValueError(
+                "complete=True is not supported; use a species name "
+                "(e.g. complete='Zr') or complete='*' for both directions"
+            )
 
     def matches(self, species_1: str, species_2: str) -> bool:
         """Check whether this spec matches a given species pair.

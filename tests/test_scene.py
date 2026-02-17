@@ -639,3 +639,135 @@ class TestRecursiveBondExpansion:
         o_count = sum(1 for sp in scene.species if sp == "O")
         assert ti_count >= 2
         assert o_count >= 2
+
+
+class TestCompleteBondExpansion:
+    """Tests for single-pass bond completion across periodic boundaries."""
+
+    def test_complete_adds_bonded_atom_across_pbc(self):
+        """complete="*" adds the missing partner in a single pass."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        # Na at centre, Cl near the far face.  The Cl's bonded Na image
+        # is beyond pbc_padding=0.1, but complete="*" should add it.
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="*",
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
+        )
+        na_coords = [
+            scene.frames[0].coords[i]
+            for i, sp in enumerate(scene.species) if sp == "Na"
+        ]
+        # The Na image at x ~ 7.5 should be added.
+        assert len(na_coords) >= 2
+
+    def test_complete_is_not_recursive(self):
+        """complete="*" only does one pass — it does not follow chains."""
+        from hofmann.model import BondSpec
+
+        # 3-atom chain: A at 0.02, B at 0.35, C at 0.68 in a 10 A cell.
+        # A is near the boundary; geometric expansion adds an image of A
+        # at frac ~1.0.  B is bonded to A (dist ~3.3), C is bonded to B
+        # (dist ~3.3), but C is NOT directly bonded to the A image.
+        #
+        # With complete="*" (single pass): C should NOT gain an image,
+        # because C's bonded partner (an image of B) is not already
+        # present.
+        #
+        # With recursive=True: the chain would be followed iteratively.
+        lattice = Lattice.cubic(10.0)
+        struct = Structure(
+            lattice, ["Na", "Na", "Na"],
+            [[0.02, 0.5, 0.5], [0.35, 0.5, 0.5], [0.68, 0.5, 0.5]],
+        )
+        bond_complete = BondSpec(
+            species=("Na", "Na"), min_length=0.0,
+            max_length=3.5, radius=0.1, colour=0.5,
+            complete="*",
+        )
+        bond_recursive = BondSpec(
+            species=("Na", "Na"), min_length=0.0,
+            max_length=3.5, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        scene_complete = from_pymatgen(
+            struct, bond_specs=[bond_complete], pbc=True, pbc_padding=0.1,
+        )
+        scene_recursive = from_pymatgen(
+            struct, bond_specs=[bond_recursive], pbc=True, pbc_padding=0.1,
+        )
+        # Recursive should find more atoms than the single-pass complete.
+        assert len(scene_recursive.species) > len(scene_complete.species)
+
+    def test_complete_default_false(self):
+        """complete defaults to False and adds no extra atoms."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond_default = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        bond_complete = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="*",
+        )
+        scene_default = from_pymatgen(
+            struct, bond_specs=[bond_default], pbc=True, pbc_padding=0.1,
+        )
+        scene_complete = from_pymatgen(
+            struct, bond_specs=[bond_complete], pbc=True, pbc_padding=0.1,
+        )
+        assert len(scene_complete.species) > len(scene_default.species)
+
+    def test_complete_directed_only_expands_named_species(self):
+        """complete='Cl' only adds neighbours around visible Cl atoms."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        # Na at centre, Cl near far face.  With complete="*" (both
+        # directions), both Na images around Cl AND Cl images around Na
+        # are added.  With complete="Cl", only Na images around the
+        # visible Cl should be added — no new Cl atoms.
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond_directed = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="Cl",
+        )
+        bond_both = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="*",
+        )
+        scene_directed = from_pymatgen(
+            struct, bond_specs=[bond_directed], pbc=True, pbc_padding=0.1,
+        )
+        scene_both = from_pymatgen(
+            struct, bond_specs=[bond_both], pbc=True, pbc_padding=0.1,
+        )
+        # Directed should add fewer atoms than bidirectional.
+        assert len(scene_both.species) > len(scene_directed.species)
+        # Directed should still add the Na image for the Cl atom.
+        na_count = sum(1 for sp in scene_directed.species if sp == "Na")
+        assert na_count >= 2
+        # But no new Cl images should be added.
+        cl_count = sum(1 for sp in scene_directed.species if sp == "Cl")
+        assert cl_count == 1
