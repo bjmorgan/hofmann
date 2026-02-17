@@ -541,11 +541,10 @@ def from_pymatgen(
             # Recursive bond expansion: iteratively add bonded
             # atoms across periodic boundaries for bond specs
             # with recursive=True.
-            if bond_specs:
-                exp_species, exp_coords = _expand_recursive_bonds(
-                    s, exp_species, exp_coords, n_uc, bond_specs,
-                    max_depth=max_recursive_depth,
-                )
+            exp_species, exp_coords = _expand_recursive_bonds(
+                s, exp_species, exp_coords, n_uc, bond_specs,
+                max_depth=max_recursive_depth,
+            )
 
             # Neighbour-shell completion for polyhedra centres:
             # ensure every atom matching a polyhedron centre pattern
