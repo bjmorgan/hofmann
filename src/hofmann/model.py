@@ -749,6 +749,13 @@ class BondSpec:
             the render style.  When ``half_bonds`` is ``True`` (the
             default), each half of the bond is coloured to match the
             nearest atom and this field is ignored.
+        recursive: If ``True``, atoms bonded via this spec are
+            searched recursively across periodic boundaries.  When
+            an atom matching this spec is already visible in the
+            scene, its bonded partners are added even if they fall
+            outside the ``pbc_padding`` margin, and those new atoms
+            are themselves checked on the next iteration.  Useful
+            for molecules that span periodic boundaries.
     """
 
     species: tuple[str, str]
@@ -756,6 +763,7 @@ class BondSpec:
     max_length: float
     radius: float
     colour: Colour
+    recursive: bool = False
 
     def __post_init__(self) -> None:
         self.species = tuple(sorted(self.species))  # type: ignore[assignment]
@@ -1141,6 +1149,7 @@ class StructureScene:
         pbc: bool = True,
         pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
+        max_recursive_depth: int = 5,
     ) -> "StructureScene":
         """Create a StructureScene from pymatgen ``Structure`` object(s).
 
@@ -1164,6 +1173,9 @@ class StructureScene:
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
                 at (0.5, 0.5, 0.5) before PBC expansion.
+            max_recursive_depth: Maximum number of iterations for
+                recursive bond expansion.  Only relevant when one or
+                more *bond_specs* have ``recursive=True``.
 
         Returns:
             A StructureScene with default element styles.
@@ -1179,6 +1191,7 @@ class StructureScene:
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
             pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
+            max_recursive_depth=max_recursive_depth,
         )
 
     def centre_on(self, atom_index: int, *, frame: int = 0) -> None:

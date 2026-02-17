@@ -280,6 +280,41 @@ def _expand_bonds(
     return [], np.empty((0, 3))
 
 
+def _identify_source_atom(
+    img_coord: np.ndarray,
+    species: str,
+    structure: "Structure",
+    species_list: list[str],
+    inv_matrix: np.ndarray,
+    n_uc: int,
+) -> int | None:
+    """Identify which unit-cell atom a periodic image corresponds to.
+
+    Compares the image coordinate against each unit-cell atom of the
+    same species.  If the fractional difference is close to integer
+    lattice vectors, the image is a periodic copy of that atom.
+
+    Args:
+        img_coord: Cartesian coordinate of the image atom.
+        species: Species label of the image atom.
+        structure: The pymatgen ``Structure``.
+        species_list: Species labels for unit-cell atoms.
+        inv_matrix: Inverse of the lattice matrix.
+        n_uc: Number of unit-cell atoms.
+
+    Returns:
+        Index of the source unit-cell atom, or ``None`` if no match.
+    """
+    for j in range(n_uc):
+        if species_list[j] != species:
+            continue
+        diff = img_coord - structure[j].coords
+        frac_diff = diff @ inv_matrix
+        if np.allclose(frac_diff, np.round(frac_diff), atol=0.01):
+            return j
+    return None
+
+
 def _expand_neighbour_shells(
     structure: "Structure",
     expanded_species: list[str],
@@ -391,18 +426,9 @@ def _expand_neighbour_shells(
             continue
 
         img_coord = expanded_coords[img_idx]
-
-        # Find which unit-cell atom this image corresponds to.
-        source_idx = None
-        for j in range(n_uc):
-            if species_list[j] != sp:
-                continue
-            diff = img_coord - structure[j].coords
-            frac_diff = diff @ inv_matrix
-            if np.allclose(frac_diff, np.round(frac_diff), atol=0.01):
-                source_idx = j
-                break
-
+        source_idx = _identify_source_atom(
+            img_coord, sp, structure, species_list, inv_matrix, n_uc,
+        )
         if source_idx is None:
             continue
 
@@ -414,6 +440,113 @@ def _expand_neighbour_shells(
     return new_species, expanded_coords
 
 
+def _expand_recursive_bonds(
+    structure: "Structure",
+    expanded_species: list[str],
+    expanded_coords: np.ndarray,
+    n_uc: int,
+    bond_specs: list[BondSpec],
+    max_depth: int,
+) -> tuple[list[str], np.ndarray]:
+    """Iteratively add bonded atoms across periodic boundaries.
+
+    For each :class:`BondSpec` with ``recursive=True``, atoms already
+    in the scene have their bonded periodic neighbours added.  Newly
+    added atoms are themselves checked on the next iteration, so that
+    molecules spanning multiple cell widths are completed.  Iteration
+    stops when no new atoms are found or *max_depth* is reached.
+
+    Args:
+        structure: The pymatgen ``Structure`` (single frame).
+        expanded_species: Species list after geometric expansion.
+        expanded_coords: Coordinates after geometric expansion.
+        n_uc: Number of unit-cell atoms (before any expansion).
+        bond_specs: All bond specification rules.
+        max_depth: Maximum number of iterations.
+
+    Returns:
+        Updated ``(species, coords)`` with additional atoms appended.
+    """
+    recursive_specs = [s for s in bond_specs if s.recursive]
+    if not recursive_specs:
+        return expanded_species, expanded_coords
+
+    lattice = structure.lattice
+    max_cutoff = max(spec.max_length for spec in recursive_specs)
+    all_neighbours = structure.get_all_neighbors(max_cutoff)
+    species_list = [site.specie.symbol for site in structure]
+    inv_matrix = lattice.inv_matrix
+
+    # Precompute bonded neighbours for each UC atom, filtered to
+    # recursive specs only.
+    uc_neighbour_offsets: dict[int, list[tuple[str, np.ndarray]]] = {}
+    for i, neighbours in enumerate(all_neighbours):
+        sp_i = species_list[i]
+        offsets: list[tuple[str, np.ndarray]] = []
+        for nbr in neighbours:
+            sp_j = nbr.specie.symbol
+            dist = nbr.nn_distance
+            matched = any(
+                spec.matches(sp_i, sp_j)
+                and spec.min_length <= dist <= spec.max_length
+                for spec in recursive_specs
+            )
+            if matched:
+                image = np.array([int(x) for x in nbr.image])
+                offset = (
+                    structure[nbr.index].coords
+                    + image @ lattice.matrix
+                    - structure[i].coords
+                )
+                offsets.append((sp_j, offset))
+        if offsets:
+            uc_neighbour_offsets[i] = offsets
+
+    new_species = list(expanded_species)
+    all_coords = expanded_coords.copy()
+
+    for _depth in range(max_depth):
+        added_this_round: list[tuple[str, np.ndarray]] = []
+        n_current = len(new_species)
+
+        for idx in range(n_current):
+            sp = new_species[idx]
+            coord = all_coords[idx]
+
+            # Identify the UC source atom for this atom.
+            if idx < n_uc:
+                source_idx = idx
+                translation = np.zeros(3)
+            else:
+                source_idx = _identify_source_atom(
+                    coord, sp, structure, species_list, inv_matrix, n_uc,
+                )
+                if source_idx is None:
+                    continue
+                translation = coord - structure[source_idx].coords
+
+            if source_idx not in uc_neighbour_offsets:
+                continue
+
+            for nbr_sp, offset in uc_neighbour_offsets[source_idx]:
+                nbr_coord = structure[source_idx].coords + translation + offset
+                diffs = np.linalg.norm(all_coords - nbr_coord, axis=1)
+                if np.any(diffs < 1e-6):
+                    continue
+                added_this_round.append((nbr_sp, nbr_coord))
+                new_species.append(nbr_sp)
+                all_coords = np.vstack(
+                    [all_coords, nbr_coord[np.newaxis, :]],
+                )
+
+        if not added_this_round:
+            break
+
+    if len(new_species) > len(expanded_species):
+        return new_species, all_coords
+    return expanded_species, expanded_coords
+
+
 def from_pymatgen(
     structure: "Structure | Sequence[Structure]",
     bond_specs: list[BondSpec] | None = None,
@@ -422,6 +555,7 @@ def from_pymatgen(
     pbc: bool = True,
     pbc_padding: float | None = 0.1,
     centre_atom: int | None = None,
+    max_recursive_depth: int = 5,
 ) -> StructureScene:
     """Create a StructureScene from pymatgen Structure(s).
 
@@ -447,6 +581,9 @@ def from_pymatgen(
             When set, all fractional coordinates are shifted so that
             this atom sits at (0.5, 0.5, 0.5) before PBC expansion,
             and the view is centred on this atom.
+        max_recursive_depth: Maximum number of iterations for
+            recursive bond expansion.  Only relevant when one or
+            more *bond_specs* have ``recursive=True``.
 
     Returns:
         A StructureScene with default element styles.
@@ -499,6 +636,15 @@ def from_pymatgen(
         for i, s in enumerate(structures):
             # Geometric expansion: add images near cell faces.
             exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
+
+            # Recursive bond expansion: iteratively add bonded
+            # atoms across periodic boundaries for bond specs
+            # with recursive=True.
+            if bond_specs:
+                exp_species, exp_coords = _expand_recursive_bonds(
+                    s, exp_species, exp_coords, n_uc, bond_specs,
+                    max_depth=max_recursive_depth,
+                )
 
             # Neighbour-shell completion for polyhedra centres:
             # ensure every atom matching a polyhedron centre pattern

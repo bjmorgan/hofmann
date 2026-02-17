@@ -485,3 +485,157 @@ class TestMultiFramePbc:
         scene = from_pymatgen([s1, s2], pbc=True)
         assert len(scene.species) == len(scene.frames[0].coords)
         assert len(scene.species) == len(scene.frames[1].coords)
+
+
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestRecursiveBondExpansion:
+    """Tests for recursive bond search across periodic boundaries."""
+
+    def test_recursive_adds_bonded_atom_across_pbc(self):
+        """A dimer spanning the boundary is completed by recursive search."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        # A at frac (0.5, 0.5, 0.5), B at frac (0.98, 0.5, 0.5).
+        # B is near the far face; its bonded partner would be an image
+        # of A at frac (1.5, 0.5, 0.5) — well beyond pbc_padding=0.1.
+        # With recursive=True, the bond from B should pull in the A image.
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
+        )
+        # Without recursive, only the 2 UC atoms and possibly one
+        # geometric image of B.  With recursive, the Na image at
+        # x ~ 7.5 should appear as a bonded partner to the Cl at x=4.9.
+        na_coords = [
+            scene.frames[0].coords[i]
+            for i, sp in enumerate(scene.species) if sp == "Na"
+        ]
+        # There should be at least 2 Na atoms (original + image).
+        assert len(na_coords) >= 2
+
+    def test_recursive_chain_follows_multiple_hops(self):
+        """A chain of atoms spanning PBC is completed over multiple iterations."""
+        from hofmann.model import BondSpec
+
+        # Place 3 atoms in a row along x, each ~3 A apart.
+        # The chain wraps around a 10 A cell.
+        # A at frac 0.0, B at frac 0.3, C at frac 0.6.
+        # With pbc_padding=0.1 and recursive on A-B bonds:
+        # - geometric expansion adds image of A at frac 1.0 (x=10)
+        # - iteration 1: C's bonded neighbour (image of A at ~9 A) may appear
+        # The key point: all atoms on the chain should eventually appear.
+        lattice = Lattice.cubic(10.0)
+        struct = Structure(
+            lattice, ["Na", "Na", "Na"],
+            [[0.02, 0.5, 0.5], [0.35, 0.5, 0.5], [0.68, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Na", "Na"), min_length=0.0,
+            max_length=3.5, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
+        )
+        # The recursive search should add images so that every Na
+        # has at least one bonded partner within the scene.
+        from hofmann.bonds import compute_bonds
+        bonds = compute_bonds(
+            scene.species, scene.frames[0].coords, [bond],
+        )
+        # Each of the 3 UC atoms should participate in at least one bond.
+        bonded_indices = set()
+        for b in bonds:
+            bonded_indices.add(b.index_a)
+            bonded_indices.add(b.index_b)
+        for uc_idx in range(3):
+            assert uc_idx in bonded_indices
+
+    def test_recursive_respects_max_depth(self):
+        """max_recursive_depth=0 disables recursive expansion."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        scene_no_recurse = from_pymatgen(
+            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
+            max_recursive_depth=0,
+        )
+        scene_with_recurse = from_pymatgen(
+            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
+            max_recursive_depth=5,
+        )
+        # With depth=0, no recursive atoms are added.
+        assert len(scene_with_recurse.species) > len(scene_no_recurse.species)
+
+    def test_non_recursive_spec_unchanged(self):
+        """A bond spec without recursive=True adds no extra atoms."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        bond_no_flag = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        bond_with_flag = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        scene_default = from_pymatgen(
+            struct, bond_specs=[bond_no_flag], pbc=True, pbc_padding=0.1,
+        )
+        scene_recursive = from_pymatgen(
+            struct, bond_specs=[bond_with_flag], pbc=True, pbc_padding=0.1,
+        )
+        # Recursive adds more atoms; default does not.
+        assert len(scene_recursive.species) > len(scene_default.species)
+
+    def test_recursive_with_polyhedra(self):
+        """Recursive expansion provides atoms that polyhedra can use."""
+        from hofmann.model import BondSpec, PolyhedronSpec
+
+        lattice = Lattice.cubic(5.0)
+        # Ti near far face, O in centre.  The recursive bond pulls
+        # in an O image for the Ti image atom.
+        struct = Structure(
+            lattice, ["Ti", "O"],
+            [[0.98, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Ti", "O"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond],
+            polyhedra=[PolyhedronSpec(centre="Ti")],
+            pbc=True, pbc_padding=0.1,
+        )
+        # The recursive expansion + polyhedra completion should give
+        # more atoms than just geometric expansion alone.
+        ti_count = sum(1 for sp in scene.species if sp == "Ti")
+        o_count = sum(1 for sp in scene.species if sp == "O")
+        assert ti_count >= 2
+        assert o_count >= 2
