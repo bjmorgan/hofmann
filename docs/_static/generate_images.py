@@ -410,26 +410,23 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'octahedron_shading_full.svg'}")
 
-    # 2. Polyhedra vertex mode: in_front vs depth_sorted
-    #    Use different angles so no face is perpendicular to the viewer.
-    #    in_front: opaque polyhedra (its intended use case).
+    # 2. Polyhedra vertex ordering: opaque and transparent examples.
     octa_in_front = octahedron_scene(
         colour=(0.5, 0.7, 1.0), alpha=1.0,
         edge_colour=(0.15, 0.15, 0.15),
     )
     octa_in_front.render_mpl(
         OUT / "octahedron_vertex_in_front.svg",
-        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
+        figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'octahedron_vertex_in_front.svg'}")
-    #    in_front with transparent polyhedra.
     octa_in_front_trans = octahedron_scene(
         colour=(0.5, 0.7, 1.0), alpha=0.4,
         edge_colour=(0.15, 0.15, 0.15),
     )
     octa_in_front_trans.render_mpl(
         OUT / "octahedron_vertex_in_front_transparent.svg",
-        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
+        figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'octahedron_vertex_in_front_transparent.svg'}")
 
