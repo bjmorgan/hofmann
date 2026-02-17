@@ -34,7 +34,6 @@ from hofmann.model import (
     CellEdgeStyle,
     CmapSpec,
     Colour,
-    PolyhedraVertexMode,
     RenderStyle,
     SlabClipMode,
     StructureScene,
@@ -640,7 +639,6 @@ class _PrecomputedScene:
     poly_alphas: list[float]
     poly_edge_colours: list[tuple[float, float, float]]
     poly_edge_widths: list[float]
-    poly_vertex_centres: dict[int, set[int]]
 
 
 def _precompute_scene(
@@ -721,16 +719,10 @@ def _precompute_scene(
     vertex_keep: set[int] = set()
     poly_centres: set[int] = set()
     poly_members: set[int] = set()  # All centres + vertices in any polyhedron.
-    # Map each vertex atom to the centre indices of the polyhedra it
-    # belongs to.  Used in the draw loop to decide whether a vertex
-    # should paint in front of or behind all polyhedral faces.
-    poly_vertex_centres: dict[int, set[int]] = defaultdict(set)
     for poly in polyhedra:
         poly_centres.add(poly.centre_index)
         poly_members.add(poly.centre_index)
         poly_members.update(poly.neighbour_indices)
-        for ni in poly.neighbour_indices:
-            poly_vertex_centres[ni].add(poly.centre_index)
         if poly.spec.hide_centre:
             hidden_atoms.add(poly.centre_index)
         # Always hide centre-to-vertex bonds when a polyhedron is
@@ -797,7 +789,6 @@ def _precompute_scene(
         poly_alphas=poly_alphas,
         poly_edge_colours=poly_edge_colours,
         poly_edge_widths=poly_edge_widths,
-        poly_vertex_centres=dict(poly_vertex_centres),
     )
 
 
@@ -1433,50 +1424,25 @@ def _draw_scene(
         hidden_atoms |= precomputed.hidden_atoms
         hidden_bond_ids |= precomputed.hidden_bond_ids
 
-    vertex_mode = style.polyhedra_vertex_mode
     face_by_depth_slot, vertex_max_face_slot = _collect_polyhedra_faces(
         precomputed, polyhedra_list, poly_skip, slab_visible,
         show_polyhedra, polyhedra_shading, rotated, depth, xy, order,
     )
 
-    # Decide which vertex atoms to defer based on polyhedra_vertex_mode.
-    #
-    # IN_FRONT: each vertex is deferred until after all its connected
-    #   faces have been painted.  The vertex draws right after its
-    #   latest face slot.  Centre atoms and faces keep their correct
-    #   depth order.
-    #
-    # DEPTH_SORTED: defer only front vertices (closer to the viewer
-    #   than the centroid); back vertices draw in their natural depth
-    #   slot behind front-facing faces.  Correct for transparent
-    #   polyhedra.
-    poly_vertex_centres = precomputed.poly_vertex_centres
+    # Defer vertex atoms so they paint after all their connected
+    # polyhedral faces.  Each vertex draws right after the latest
+    # depth-slot containing one of its faces.
     deferred_vertex_atoms: set[int] = set()
-    # For IN_FRONT: map from depth-slot to list of vertex atoms to
-    # draw immediately after that slot's faces.
     in_front_after_slot: dict[int, list[int]] = defaultdict(list)
-    if show_polyhedra and poly_vertex_centres:
-        if vertex_mode == PolyhedraVertexMode.IN_FRONT:
-            atom_depths_sorted = depth[order]
-            for vi, max_slot in vertex_max_face_slot.items():
-                if vi in hidden_atoms:
-                    continue
-                vi_slot = int(np.searchsorted(atom_depths_sorted, depth[vi]))
-                if vi_slot <= max_slot:
-                    # Vertex would paint before or at a face it
-                    # belongs to — defer to after that face slot.
-                    deferred_vertex_atoms.add(vi)
-                    in_front_after_slot[max_slot].append(vi)
-        elif vertex_mode == PolyhedraVertexMode.DEPTH_SORTED:
-            for vi, centres in poly_vertex_centres.items():
-                if vi in hidden_atoms:
-                    continue
-                centroid_depths = [depth[ci] for ci in centres]
-                mean_centroid_depth = (
-                    sum(centroid_depths) / len(centroid_depths)
-                )
-                if depth[vi] > mean_centroid_depth + 1e-6:
-                    deferred_vertex_atoms.add(vi)
+    if show_polyhedra and vertex_max_face_slot:
+        atom_depths_sorted = depth[order]
+        for vi, max_slot in vertex_max_face_slot.items():
+            if vi in hidden_atoms:
+                continue
+            vi_slot = int(np.searchsorted(atom_depths_sorted, depth[vi]))
+            if vi_slot <= max_slot:
+                deferred_vertex_atoms.add(vi)
+                in_front_after_slot[max_slot].append(vi)
     # Sort deferred vertices within each slot back-to-front.
     for slot in in_front_after_slot:
         in_front_after_slot[slot].sort(key=lambda v: depth[v])
@@ -1685,23 +1651,6 @@ def _draw_scene(
         line_widths.append(
             atom_outline_width if show_outlines else 0.0,
         )
-
-    # DEPTH_SORTED: draw deferred (front) vertex atoms on top of all
-    # polyhedral faces, sorted back-to-front.
-    if deferred_vertex_atoms and vertex_mode == PolyhedraVertexMode.DEPTH_SORTED:
-        deferred_sorted = sorted(deferred_vertex_atoms, key=lambda v: depth[v])
-        for vi in deferred_sorted:
-            if not slab_visible[vi]:
-                continue
-            fc_atom = (*atom_colours[vi], 1.0)
-            all_verts.append(unit_circle * atom_screen_radii[vi] + xy[vi])
-            face_colours.append(fc_atom)
-            edge_colours.append(
-                (*outline_rgb, 1.0) if show_outlines else fc_atom,
-            )
-            line_widths.append(
-                atom_outline_width if show_outlines else 0.0,
-            )
 
     if all_verts:
         pc = PolyCollection(
