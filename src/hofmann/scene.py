@@ -295,6 +295,8 @@ def _expand_neighbour_shells(
     n_uc: int,
     bond_specs: list[BondSpec],
     centre_species_only: list[str] | None = None,
+    *,
+    _neighbour_cache: dict[int, list[tuple[str, np.ndarray]]] | None = None,
 ) -> tuple[list[str], np.ndarray]:
     """Ensure bonded neighbours are present for atoms already in the scene.
 
@@ -319,6 +321,11 @@ def _expand_neighbour_shells(
         centre_species_only: If given, only expand shells for atoms
             matching one of these species patterns (fnmatch).  If
             ``None``, expand shells for all atoms.
+        _neighbour_cache: Pre-computed neighbour lookup from
+            :func:`_precompute_bonded_neighbours`.  When provided,
+            ``get_all_neighbors`` is not called again.  Callers that
+            invoke this function repeatedly with the same *structure*
+            and *bond_specs* should pass this to avoid redundant work.
 
     Returns:
         Updated ``(species, coords)`` with additional neighbour atoms
@@ -328,7 +335,10 @@ def _expand_neighbour_shells(
         return expanded_species, expanded_coords
 
     species_list = [site.specie.symbol for site in structure]
-    uc_neighbour_offsets = _precompute_bonded_neighbours(structure, bond_specs)
+    if _neighbour_cache is not None:
+        uc_neighbour_offsets = _neighbour_cache
+    else:
+        uc_neighbour_offsets = _precompute_bonded_neighbours(structure, bond_specs)
     inv_matrix = structure.lattice.inv_matrix
     new_species = list(expanded_species)
     # Collect new coordinates in a plain list; only vstack once at
@@ -424,6 +434,7 @@ def _expand_recursive_bonds(
     if not recursive_specs:
         return expanded_species, expanded_coords
 
+    cache = _precompute_bonded_neighbours(structure, recursive_specs)
     species = list(expanded_species)
     coords = expanded_coords
 
@@ -431,6 +442,7 @@ def _expand_recursive_bonds(
         prev_count = len(species)
         species, coords = _expand_neighbour_shells(
             structure, species, coords, n_uc, recursive_specs,
+            _neighbour_cache=cache,
         )
         if len(species) == prev_count:
             break
@@ -563,9 +575,11 @@ def from_pymatgen(
             # boundary polyhedra are complete.
             if poly_specs and bond_specs:
                 centre_patterns = [sp.centre for sp in poly_specs]
+                poly_cache = _precompute_bonded_neighbours(s, bond_specs)
                 exp_species, exp_coords = _expand_neighbour_shells(
                     s, exp_species, exp_coords, n_uc, bond_specs,
                     centre_species_only=centre_patterns,
+                    _neighbour_cache=poly_cache,
                 )
 
             if first_species is None:
