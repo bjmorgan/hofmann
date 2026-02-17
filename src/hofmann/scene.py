@@ -331,29 +331,37 @@ def _expand_neighbour_shells(
     uc_neighbour_offsets = _precompute_bonded_neighbours(structure, bond_specs)
     inv_matrix = structure.lattice.inv_matrix
     new_species = list(expanded_species)
-    new_coords_list: list[np.ndarray] = [expanded_coords]
-    all_coords = expanded_coords
+    # Collect new coordinates in a plain list; only vstack once at
+    # the end.  Deduplication checks the original array (vectorised)
+    # plus the growing list of additions (short Python loop).
+    added_coords: list[np.ndarray] = []
 
     def _should_expand(sp: str) -> bool:
         if centre_species_only is None:
             return True
         return any(fnmatch(sp, pat) for pat in centre_species_only)
 
+    def _is_duplicate(coord: np.ndarray) -> bool:
+        """Check whether *coord* duplicates an existing atom."""
+        diffs = np.linalg.norm(expanded_coords - coord, axis=1)
+        if np.any(diffs < 1e-6):
+            return True
+        return any(
+            np.linalg.norm(c - coord) < 1e-6 for c in added_coords
+        )
+
     def _add_neighbour_shell(
         source_idx: int, translation: np.ndarray,
     ) -> None:
         """Add missing bonded neighbours for an atom."""
-        nonlocal all_coords
         if source_idx not in uc_neighbour_offsets:
             return
         for nbr_sp, offset in uc_neighbour_offsets[source_idx]:
             nbr_coord = structure[source_idx].coords + translation + offset
-            diffs = np.linalg.norm(all_coords - nbr_coord, axis=1)
-            if np.any(diffs < 1e-6):
+            if _is_duplicate(nbr_coord):
                 continue
             new_species.append(nbr_sp)
-            new_coords_list.append(nbr_coord[np.newaxis, :])
-            all_coords = np.vstack([all_coords, nbr_coord[np.newaxis, :]])
+            added_coords.append(nbr_coord)
 
     # Process unit-cell atoms.
     for uc_idx in range(n_uc):
@@ -377,8 +385,11 @@ def _expand_neighbour_shells(
         translation = img_coord - structure[source_idx].coords
         _add_neighbour_shell(source_idx, translation)
 
-    if len(new_coords_list) > 1:
-        return new_species, np.vstack(new_coords_list)
+    if added_coords:
+        all_new = np.vstack(
+            [expanded_coords] + [c[np.newaxis, :] for c in added_coords],
+        )
+        return new_species, all_new
     return new_species, expanded_coords
 
 
