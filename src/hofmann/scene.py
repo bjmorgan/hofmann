@@ -515,7 +515,7 @@ def _expand_recursive_bonds(
 
             # Identify the UC source atom for this atom.
             if idx < n_uc:
-                source_idx = idx
+                source_idx: int | None = idx
                 translation = np.zeros(3)
             else:
                 source_idx = _identify_source_atom(
@@ -645,8 +645,10 @@ def from_pymatgen(
             complete_specs = [sp for sp in bond_specs
                               if sp.complete and not sp.recursive]
             if complete_specs:
-                centres = [sp.complete for sp in complete_specs
-                           if sp.complete != "*"]
+                centres: list[str] = [
+                    str(sp.complete) for sp in complete_specs
+                    if sp.complete != "*"
+                ]
                 exp_species, exp_coords = _expand_neighbour_shells(
                     s, exp_species, exp_coords, n_uc, complete_specs,
                     centre_species_only=centres or None,

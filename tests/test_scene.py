@@ -641,6 +641,7 @@ class TestRecursiveBondExpansion:
         assert o_count >= 2
 
 
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
 class TestCompleteBondExpansion:
     """Tests for single-pass bond completion across periodic boundaries."""
 
