@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.2.3
+-----
+
+- Recursive bond search across periodic boundaries.
+  :class:`~hofmann.BondSpec` gains a ``recursive`` flag that
+  iteratively adds bonded atoms across cell boundaries, completing
+  molecules that span periodic images without the blunt
+  ``pbc_padding`` workaround.  See :doc:`scenes` for details.
+
 0.2.2
 -----
 

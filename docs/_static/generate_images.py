@@ -152,6 +152,42 @@ def si_scene() -> StructureScene:
     return scene
 
 
+def recursive_bonds_scene(*, recursive: bool = True) -> StructureScene:
+    """Build the Zr-S-N-H structure demonstrating recursive bond search.
+
+    N2H6 molecules span periodic boundaries; setting recursive=True
+    on the N-N and H-N bond specs completes them without inflating
+    pbc_padding.  Pass ``recursive=False`` to show the "before" state.
+    """
+    from pymatgen.core import Structure as PmgStructure
+
+    vasp = Path(__file__).resolve().parent.parent.parent / "examples" / "Zr4S12N8H24.vasp"
+    structure = PmgStructure.from_file(str(vasp))
+
+    bond_specs = [
+        BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
+                 radius=0.1, colour=0.5),
+        BondSpec(species=("N", "N"), min_length=0.0, max_length=1.9,
+                 radius=0.1, colour=0.5, recursive=recursive),
+        BondSpec(species=("H", "N"), min_length=0.0, max_length=1.2,
+                 radius=0.1, colour=0.5, recursive=recursive),
+    ]
+
+    polyhedra = [
+        PolyhedronSpec(
+            centre="Zr", colour=(0.55, 0.71, 0.67), alpha=0.4,
+            hide_centre=True,
+        ),
+    ]
+
+    scene = StructureScene.from_pymatgen(
+        structure, bond_specs, polyhedra=polyhedra, pbc=True,
+    )
+    scene.atom_styles["Zr"].colour = (0.55, 0.71, 0.67)
+    scene.atom_styles["N"].colour = (0.35, 0.55, 0.75)
+    return scene
+
+
 def llzo_scene() -> StructureScene:
     """Build an LLZO garnet scene from a bundled CIF file."""
     from pymatgen.core import Structure
@@ -275,6 +311,18 @@ def main() -> None:
     si = si_scene()
     si.render_mpl(OUT / "si.svg", figsize=(4, 4), dpi=150)
     print(f"  wrote {OUT / 'si.svg'}")
+
+    # Recursive bond search -- Zr-S-N-H with N2H6 molecules across PBC
+    rec_kw = dict(figsize=(4, 4), dpi=150, show=False,
+                  show_axes=False, atom_scale=0.4)
+    # "Before": without recursive, molecules are chopped at boundaries.
+    rec_before = recursive_bonds_scene(recursive=False)
+    rec_before.render_mpl(OUT / "recursive_bonds_before.svg", **rec_kw)
+    print(f"  wrote {OUT / 'recursive_bonds_before.svg'}")
+    # "After": with recursive=True, molecules are completed.
+    rec = recursive_bonds_scene(recursive=True)
+    rec.render_mpl(OUT / "recursive_bonds.svg", **rec_kw)
+    print(f"  wrote {OUT / 'recursive_bonds.svg'}")
 
     # SrTiO3 perovskite with polyhedra -- hero image
     perov = perovskite_scene()
