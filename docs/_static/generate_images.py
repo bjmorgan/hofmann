@@ -584,6 +584,99 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'colour_by_polyhedra.svg'}")
 
+    # 11. Hero image: helix of corner-sharing tetrahedra coloured by position.
+    #     Helix axis along x, viewed from the side so the axis is horizontal.
+    n_helix = 30
+    helix_edge = 2.0
+    helix_turns = 4.0
+    helix_total_angle = helix_turns * 2 * np.pi
+    helix_dtheta = helix_total_angle / n_helix
+    helix_length = 20.0  # total length along x-axis
+    helix_dx = helix_length / n_helix
+
+    # Helix radius so consecutive shared vertices are exactly edge apart.
+    helix_chord_yz = np.sqrt(helix_edge**2 - helix_dx**2)
+    helix_r = helix_chord_yz / (2 * np.sin(helix_dtheta / 2))
+
+    # Shared vertices on the helix: axis along x, coil in yz-plane.
+    n_helix_shared = n_helix + 1
+    helix_angles = np.linspace(0, helix_total_angle, n_helix_shared)
+    helix_x = np.linspace(-helix_length / 2, helix_length / 2, n_helix_shared)
+    helix_shared = np.column_stack([
+        helix_x,
+        helix_r * np.cos(helix_angles),
+        helix_r * np.sin(helix_angles),
+    ])
+
+    # Build regular tetrahedra from consecutive shared vertex pairs.
+    helix_tet_verts: list[np.ndarray] = []
+    helix_centroids: list[np.ndarray] = []
+    for i in range(n_helix):
+        va = helix_shared[i]
+        vb = helix_shared[i + 1]
+        mid = (va + vb) / 2
+        u = (vb - va) / np.linalg.norm(vb - va)
+        ref = np.array([1.0, 0.0, 0.0])
+        if abs(np.dot(u, ref)) > 0.9:
+            ref = np.array([0.0, 1.0, 0.0])
+        n1 = np.cross(u, ref)
+        n1 /= np.linalg.norm(n1)
+        n2 = np.cross(u, n1)
+        d1 = helix_edge / np.sqrt(2)
+        d2 = helix_edge / 2
+        vc = mid + d1 * n1 + d2 * n2
+        vd = mid + d1 * n1 - d2 * n2
+        helix_tet_verts.append(np.array([va, vb, vc, vd]))
+        helix_centroids.append(np.array([va, vb, vc, vd]).mean(axis=0))
+
+    helix_species: list[str] = []
+    helix_coords: list[np.ndarray] = []
+    for i in range(n_helix):
+        helix_coords.append(helix_centroids[i])
+        helix_species.append("M")
+    for i in range(n_helix_shared):
+        helix_coords.append(helix_shared[i])
+        helix_species.append("O")
+    for i in range(n_helix):
+        helix_coords.append(helix_tet_verts[i][2])
+        helix_species.append("O")
+        helix_coords.append(helix_tet_verts[i][3])
+        helix_species.append("O")
+
+    helix_ctv = helix_edge * np.sqrt(3.0 / 8.0)
+    helix_scene = StructureScene(
+        species=helix_species,
+        frames=[Frame(coords=np.array(helix_coords))],
+        atom_styles={
+            "M": AtomStyle(0.35, "grey"),
+            "O": AtomStyle(0.2, (0.6, 0.6, 0.6)),
+        },
+        bond_specs=[BondSpec(
+            species=("M", "O"), min_length=0.0,
+            max_length=helix_ctv + 0.2,
+            radius=0.06, colour=0.5,
+        )],
+        polyhedra=[PolyhedronSpec(
+            centre="M", alpha=0.5,
+            hide_bonds=True, hide_centre=True, hide_vertices=True,
+        )],
+    )
+
+    # Colour by position along the helix.
+    helix_vals = np.full(len(helix_species), np.nan)
+    for i in range(n_helix):
+        helix_vals[i] = float(i) / (n_helix - 1)
+    helix_scene.set_atom_data("pos", helix_vals)
+
+    # View from the side: look along y so the x-axis is horizontal.
+    helix_scene.view.look_along([0, 1, 0.15])
+    helix_scene.render_mpl(
+        OUT / "helix.svg",
+        colour_by="pos", cmap="viridis",
+        show=False, figsize=(5, 3), dpi=150, half_bonds=False,
+    )
+    print(f"  wrote {OUT / 'helix.svg'}")
+
 
 if __name__ == "__main__":
     main()
