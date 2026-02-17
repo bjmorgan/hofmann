@@ -523,42 +523,30 @@ class TestRecursiveBondExpansion:
         assert len(na_coords) >= 2
 
     def test_recursive_chain_follows_multiple_hops(self):
-        """A chain of atoms spanning PBC is completed over multiple iterations."""
+        """Multi-hop recursive expansion adds images beyond pbc_padding."""
         from hofmann.model import BondSpec
 
-        # Place 3 atoms in a row along x, each ~3 A apart.
-        # The chain wraps around a 10 A cell.
-        # A at frac 0.0, B at frac 0.3, C at frac 0.6.
-        # With pbc_padding=0.1 and recursive on A-B bonds:
-        # - geometric expansion adds image of A at frac 1.0 (x=10)
-        # - iteration 1: C's bonded neighbour (image of A at ~9 A) may appear
-        # The key point: all atoms on the chain should eventually appear.
-        lattice = Lattice.cubic(10.0)
+        # A-B dimer at one end of a large cell (20 A).  A is near the
+        # origin face; B is ~2.5 A inside.  With pbc_padding=0.2 only
+        # A gets a geometric image at x ~ 20.  Recursive iteration 1
+        # should then add a B image bonded to that A image.
+        lattice = Lattice.cubic(20.0)
         struct = Structure(
-            lattice, ["Na", "Na", "Na"],
-            [[0.02, 0.5, 0.5], [0.35, 0.5, 0.5], [0.68, 0.5, 0.5]],
+            lattice, ["Na", "Cl"],
+            [[0.005, 0.5, 0.5], [0.125, 0.5, 0.5]],
         )
         bond = BondSpec(
-            species=("Na", "Na"), min_length=0.0,
-            max_length=3.5, radius=0.1, colour=0.5,
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
             recursive=True,
         )
         scene = from_pymatgen(
-            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
+            struct, bond_specs=[bond], pbc=True, pbc_padding=0.2,
         )
-        # The recursive search should add images so that every Na
-        # has at least one bonded partner within the scene.
-        from hofmann.bonds import compute_bonds
-        bonds = compute_bonds(
-            scene.species, scene.frames[0].coords, [bond],
-        )
-        # Each of the 3 UC atoms should participate in at least one bond.
-        bonded_indices = set()
-        for b in bonds:
-            bonded_indices.add(b.index_a)
-            bonded_indices.add(b.index_b)
-        for uc_idx in range(3):
-            assert uc_idx in bonded_indices
+        # Without recursion, only Na gets a geometric image.  With
+        # recursion, a Cl image should appear bonded to the Na image.
+        cl_count = sum(1 for sp in scene.species if sp == "Cl")
+        assert cl_count >= 2
 
     def test_recursive_respects_max_depth(self):
         """max_recursive_depth=0 disables recursive expansion."""

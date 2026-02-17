@@ -632,6 +632,8 @@ class _PrecomputedScene:
     bond_radii: np.ndarray
     bond_index: dict[int, int]
     polyhedra: list
+    invisible_atoms: set[int]
+    invisible_bond_ids: set[int]
     hidden_atoms: set[int]
     hidden_bond_ids: set[int]
     poly_base_colours: list[tuple[float, float, float]]
@@ -694,18 +696,23 @@ def _precompute_scene(
         scene.species, coords, bonds, scene.polyhedra,
     )
 
-    # Build sets of hidden atoms/bonds.
-    hidden_atoms: set[int] = set()
-    hidden_bond_ids: set[int] = set()
-    # Hide atoms whose AtomStyle has visible=False, and their bonds.
+    # Atoms hidden by AtomStyle.visible=False — always applied,
+    # regardless of show_polyhedra.
+    invisible_atoms: set[int] = set()
+    invisible_bond_ids: set[int] = set()
     for i, sp in enumerate(scene.species):
         style = scene.atom_styles.get(sp)
         if style is not None and not style.visible:
-            hidden_atoms.add(i)
-    if hidden_atoms:
+            invisible_atoms.add(i)
+    if invisible_atoms:
         for bond in bonds:
-            if bond.index_a in hidden_atoms or bond.index_b in hidden_atoms:
-                hidden_bond_ids.add(id(bond))
+            if bond.index_a in invisible_atoms or bond.index_b in invisible_atoms:
+                invisible_bond_ids.add(id(bond))
+
+    # Atoms/bonds hidden by polyhedra options (hide_centre, hide_bonds,
+    # hide_vertices) — only applied when show_polyhedra is True.
+    hidden_atoms: set[int] = set()
+    hidden_bond_ids: set[int] = set()
     # For hide_vertices: an atom is hidden only if *every* polyhedron
     # it participates in has hide_vertices=True AND it has no bonds
     # to atoms outside those polyhedra (e.g. Li-O bonds keep O visible
@@ -782,6 +789,8 @@ def _precompute_scene(
         bond_radii=bond_radii,
         bond_index=bond_index,
         polyhedra=polyhedra,
+        invisible_atoms=invisible_atoms,
+        invisible_bond_ids=invisible_bond_ids,
         hidden_atoms=hidden_atoms,
         hidden_bond_ids=hidden_bond_ids,
         poly_base_colours=poly_base_colours,
@@ -1415,14 +1424,14 @@ def _draw_scene(
         bond_spec_colours: dict[int, tuple[float, float, float]] = {}
 
     # ---- Polyhedra face data ----
-    # Atoms and bonds hidden by polyhedra should only be hidden when
-    # polyhedra are actually being drawn.
+    # AtomStyle.visible=False hiding is always applied.  Polyhedra-
+    # driven hiding (hide_centre, hide_bonds, hide_vertices) is only
+    # applied when polyhedra are actually being drawn.
+    hidden_atoms = set(precomputed.invisible_atoms)
+    hidden_bond_ids = set(precomputed.invisible_bond_ids)
     if show_polyhedra:
-        hidden_atoms = precomputed.hidden_atoms
-        hidden_bond_ids = precomputed.hidden_bond_ids
-    else:
-        hidden_atoms = set()
-        hidden_bond_ids = set()
+        hidden_atoms |= precomputed.hidden_atoms
+        hidden_bond_ids |= precomputed.hidden_bond_ids
 
     vertex_mode = style.polyhedra_vertex_mode
     face_by_depth_slot, vertex_max_face_slot = _collect_polyhedra_faces(
