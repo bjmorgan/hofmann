@@ -14,6 +14,15 @@ Changelog
   ``True``).  Setting it to ``False`` hides atoms of that species
   and suppresses their bonds without removing them from the scene.
 
+- ``BondSpec.complete`` now validates the species name against the
+  bond spec's species pair, catching typos that previously resulted
+  in a silent no-op.
+
+- Removed ``PolyhedraVertexMode`` enum and the
+  ``polyhedra_vertex_mode`` field on :class:`~hofmann.RenderStyle`.
+  Vertex atoms are now always drawn in front of their connected
+  polyhedral faces (the previous default behaviour).
+
 0.2.2
 -----
 
