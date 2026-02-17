@@ -1,10 +1,6 @@
 <p align="center">
-  <img src="logo.svg" width="200" alt="hofmann logo">
-</p>
-
-<h1 align="center">hofmann</h1>
-
-<p align="center">
+  <img src="logo.svg" width="150" alt="hofmann logo"><br>
+  <strong style="font-size:1.4em">hofmann</strong><br><br>
   <a href="https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml"><img src="https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://hofmann.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/hofmann/badge/?version=latest" alt="Documentation"></a>
   <a href="https://pypi.org/project/hofmann/"><img src="https://img.shields.io/pypi/v/hofmann" alt="PyPI"></a>
