@@ -931,6 +931,102 @@ class TestResolveAtomColours:
         assert result[1] == (0.0, 0.0, 1.0)  # O
         assert result[2] == (0.6, 0.0, 0.0)  # fallback
 
+    def test_numerical_integer_array(self):
+        """Integer arrays are coerced to float without error."""
+        import matplotlib
+        cmap = matplotlib.colormaps["viridis"]
+
+        data = {"val": np.array([1, 2, 3])}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="val",
+        )
+        # 1->0.0, 2->0.5, 3->1.0 after normalisation
+        assert result[0] == pytest.approx(cmap(0.0)[:3])
+        assert result[1] == pytest.approx(cmap(0.5)[:3])
+        assert result[2] == pytest.approx(cmap(1.0)[:3])
+
+    def test_categorical_nan_falls_back(self):
+        """np.nan in categorical data is treated as missing."""
+        data = {"site": np.array(["4a", np.nan, "8b"], dtype=object)}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="site",
+        )
+        # Middle atom (H) should get species colour
+        assert result[1] == (1.0, 1.0, 1.0)
+        # Others should NOT be the species colour
+        assert result[0] != (0.4, 0.4, 0.4)
+        assert result[2] != (0.6, 0.0, 0.0)
+
+    def test_categorical_none_falls_back(self):
+        """None in categorical data is treated as missing."""
+        data = {"site": np.array(["4a", None, "8b"], dtype=object)}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data, colour_by="site",
+        )
+        # Middle atom (H) should get species colour
+        assert result[1] == (1.0, 1.0, 1.0)
+        # Others should NOT be the species colour
+        assert result[0] != (0.4, 0.4, 0.4)
+        assert result[2] != (0.6, 0.0, 0.0)
+
+    def test_list_colour_by_mismatched_cmap_length(self):
+        """Mismatched cmap list length raises ValueError."""
+        data = {
+            "a": np.array([1.0, np.nan, np.nan]),
+            "b": np.array([np.nan, 2.0, np.nan]),
+        }
+        with pytest.raises(ValueError, match="cmap"):
+            resolve_atom_colours(
+                self.SPECIES, self.STYLES, data,
+                colour_by=["a", "b"],
+                cmap=["viridis", "plasma", "inferno"],
+            )
+
+    def test_list_colour_by_mismatched_colour_range_length(self):
+        """Mismatched colour_range list length raises ValueError."""
+        data = {
+            "a": np.array([1.0, np.nan, np.nan]),
+            "b": np.array([np.nan, 2.0, np.nan]),
+        }
+        with pytest.raises(ValueError, match="colour_range"):
+            resolve_atom_colours(
+                self.SPECIES, self.STYLES, data,
+                colour_by=["a", "b"],
+                colour_range=[(0.0, 1.0), (0.0, 2.0), (0.0, 3.0)],
+            )
+
+    def test_list_colour_by_fallback_colour_collision(self):
+        """Merge uses data masks, not colour equality with fallback.
+
+        If a cmap returns the same RGB as the species fallback, the
+        atom should still get the cmap colour (not be skipped).
+        """
+        # C's species colour is (0.4, 0.4, 0.4).  Create a cmap that
+        # always returns exactly (0.4, 0.4, 0.4).
+        def grey_cmap(_v: float) -> tuple[float, float, float]:
+            return (0.4, 0.4, 0.4)
+
+        def blue(_v: float) -> tuple[float, float, float]:
+            return (0.0, 0.0, 1.0)
+
+        data = {
+            # Layer "a" has data for atom 0 (C) — cmap will return same
+            # as species colour.
+            "a": np.array([1.0, np.nan, np.nan]),
+            # Layer "b" has data for atom 1.
+            "b": np.array([np.nan, 2.0, np.nan]),
+        }
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by=["a", "b"], cmap=[grey_cmap, blue],
+        )
+        # Atom 0 has data in layer "a", so it should NOT fall through
+        # to layer "b".  With colour-equality merge it would be treated
+        # as missing because grey_cmap returns the same as fallback.
+        assert result[0] == (0.4, 0.4, 0.4)  # from grey_cmap
+        assert result[1] == (0.0, 0.0, 1.0)  # from blue
+        assert result[2] == (0.6, 0.0, 0.0)  # fallback (O)
+
 
 # --- CellEdgeStyle ---
 

@@ -113,8 +113,15 @@ def _resolve_single_layer(
     fallback: list[tuple[float, float, float]],
     cmap: "str | Callable[[float], tuple[float, float, float]] | object",
     colour_range: tuple[float, float] | None,
-) -> list[tuple[float, float, float]]:
-    """Resolve colours for a single colour_by key."""
+) -> tuple[list[tuple[float, float, float]], np.ndarray]:
+    """Resolve colours for a single colour_by key.
+
+    Returns:
+        A tuple of ``(colours, missing_mask)`` where *colours* is a
+        per-atom list of ``(r, g, b)`` tuples and *missing_mask* is a
+        boolean array that is ``True`` for atoms with missing data
+        (which received their species fallback colour).
+    """
     values = atom_data[key]
     cmap_fn = _resolve_cmap(cmap)
     if values.dtype.kind in ("U", "O"):
@@ -172,6 +179,8 @@ def resolve_atom_colours(
     Raises:
         KeyError: If *colour_by* (or any key in the list) is not
             found in *atom_data*.
+        ValueError: If *colour_by* is a list and *cmap* or
+            *colour_range* is also a list of a different length.
     """
     if colour_by is None:
         return _species_colours(species, atom_styles)
@@ -181,9 +190,10 @@ def resolve_atom_colours(
     # --- Single key (common case) ---
     if isinstance(colour_by, str):
         cr = colour_range if not isinstance(colour_range, list) else None
-        return _resolve_single_layer(
+        colours, _mask = _resolve_single_layer(
             atom_data, colour_by, fallback, cmap, cr,
         )
+        return colours
 
     # --- List of keys (priority merge) ---
     n_layers = len(colour_by)
@@ -199,19 +209,30 @@ def resolve_atom_colours(
     else:
         ranges = colour_range
 
+    if len(cmaps) != n_layers:
+        raise ValueError(
+            f"colour_by has {n_layers} keys but cmap has "
+            f"{len(cmaps)} entries"
+        )
+    if len(ranges) != n_layers:
+        raise ValueError(
+            f"colour_by has {n_layers} keys but colour_range has "
+            f"{len(ranges)} entries"
+        )
+
     # Resolve each layer independently.
     layers = [
         _resolve_single_layer(atom_data, key, fallback, cm, cr)
         for key, cm, cr in zip(colour_by, cmaps, ranges)
     ]
 
-    # Merge: first layer with a non-fallback colour wins.
+    # Merge: first layer with non-missing data wins.
     n_atoms = len(species)
     result: list[tuple[float, float, float]] = list(fallback)
     for i in range(n_atoms):
-        for layer in layers:
-            if layer[i] != fallback[i]:
-                result[i] = layer[i]
+        for layer_colours, layer_mask in layers:
+            if not layer_mask[i]:
+                result[i] = layer_colours[i]
                 break
 
     return result
@@ -222,8 +243,18 @@ def _resolve_numerical(
     fallback: list[tuple[float, float, float]],
     cmap_fn: Callable[[float], tuple[float, float, float]],
     colour_range: tuple[float, float] | None,
-) -> list[tuple[float, float, float]]:
-    """Map numerical values through a colourmap."""
+) -> tuple[list[tuple[float, float, float]], np.ndarray]:
+    """Map numerical values through a colourmap.
+
+    Integer arrays are automatically coerced to float so that NaN
+    sentinels (used for missing data) are representable.
+
+    Returns:
+        A tuple of ``(colours, missing_mask)`` where *missing_mask* is
+        a boolean array that is ``True`` for atoms whose values are
+        NaN.
+    """
+    values = values.astype(float, copy=False)
     mask = np.isnan(values)
 
     if colour_range is not None:
@@ -231,7 +262,7 @@ def _resolve_numerical(
     else:
         valid = values[~mask]
         if len(valid) == 0:
-            return list(fallback)
+            return list(fallback), mask
         vmin, vmax = float(np.min(valid)), float(np.max(valid))
 
     if vmin == vmax:
@@ -246,25 +277,55 @@ def _resolve_numerical(
             colours.append(fallback[i])
         else:
             colours.append(cmap_fn(float(val)))
-    return colours
+    return colours, mask
+
+
+def _is_categorical_missing(v: object) -> bool:
+    """Return True if *v* should be treated as a missing categorical value.
+
+    Missing values are ``None``, empty strings, and float ``NaN``.
+    """
+    if v is None:
+        return True
+    if isinstance(v, str) and v == "":
+        return True
+    if isinstance(v, float) and np.isnan(v):
+        return True
+    return False
 
 
 def _resolve_categorical(
     values: np.ndarray,
     fallback: list[tuple[float, float, float]],
     cmap_fn: Callable[[float], tuple[float, float, float]],
-) -> list[tuple[float, float, float]]:
-    """Map categorical labels through a colourmap."""
+) -> tuple[list[tuple[float, float, float]], np.ndarray]:
+    """Map categorical labels through a colourmap.
+
+    Values of ``None``, ``NaN``, and empty strings are treated as
+    missing and receive their species fallback colour.
+
+    Returns:
+        A tuple of ``(colours, missing_mask)`` where *missing_mask* is
+        a boolean array that is ``True`` for atoms whose values are
+        missing (``None``, ``NaN``, or empty string).
+    """
+    # Build a boolean mask of missing entries.
+    missing = np.array(
+        [_is_categorical_missing(v) for v in values], dtype=bool,
+    )
+
     # Find unique non-empty labels, preserving first-occurrence order.
     seen: dict[str, int] = {}
     for v in values:
+        if _is_categorical_missing(v):
+            continue
         s = str(v)
-        if s and s not in seen:
+        if s not in seen:
             seen[s] = len(seen)
 
     n_labels = len(seen)
     if n_labels == 0:
-        return list(fallback)
+        return list(fallback), missing
 
     # Space labels evenly across [0, 1].
     if n_labels == 1:
@@ -276,12 +337,11 @@ def _resolve_categorical(
 
     colours: list[tuple[float, float, float]] = []
     for i, v in enumerate(values):
-        s = str(v)
-        if s and s in positions:
-            colours.append(cmap_fn(positions[s]))
-        else:
+        if missing[i]:
             colours.append(fallback[i])
-    return colours
+        else:
+            colours.append(cmap_fn(positions[str(v)]))
+    return colours, missing
 
 
 class SlabClipMode(StrEnum):
