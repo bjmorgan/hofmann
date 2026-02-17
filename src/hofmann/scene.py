@@ -206,7 +206,7 @@ def _merge_expansions(
 def _identify_source_atom(
     img_coord: np.ndarray,
     species: str,
-    structure: "Structure",
+    uc_coords: np.ndarray,
     species_list: list[str],
     inv_matrix: np.ndarray,
     n_uc: int,
@@ -220,7 +220,10 @@ def _identify_source_atom(
     Args:
         img_coord: Cartesian coordinate of the image atom.
         species: Species label of the image atom.
-        structure: The pymatgen ``Structure``.
+        uc_coords: Wrapped Cartesian coordinates of unit-cell atoms,
+            shape ``(n_uc, 3)``.  Must use the same coordinate basis
+            as *img_coord* (i.e. both derived from wrapped fractional
+            coordinates).
         species_list: Species labels for unit-cell atoms.
         inv_matrix: Inverse of the lattice matrix.
         n_uc: Number of unit-cell atoms.
@@ -231,7 +234,7 @@ def _identify_source_atom(
     for j in range(n_uc):
         if species_list[j] != species:
             continue
-        diff = img_coord - structure[j].coords
+        diff = img_coord - uc_coords[j]
         frac_diff = diff @ inv_matrix
         if np.allclose(frac_diff, np.round(frac_diff), atol=0.01):
             return j
@@ -241,17 +244,30 @@ def _identify_source_atom(
 def _precompute_bonded_neighbours(
     structure: "Structure",
     bond_specs: list[BondSpec],
+    uc_coords: np.ndarray | None = None,
 ) -> dict[int, list[tuple[str, np.ndarray]]]:
     """Build a lookup of bonded periodic neighbours for each unit-cell atom.
 
     For each atom in *structure*, finds all periodic neighbours that
     match at least one *bond_spec* (species + distance).  Results are
     stored as ``(species, Cartesian_offset)`` pairs, where the offset
-    is relative to the source atom.
+    is relative to the source atom's position in *uc_coords*.
+
+    When *uc_coords* are provided, offsets are computed relative to
+    those (wrapped) positions, ensuring consistency with coordinates
+    produced by :func:`_expand_pbc`.  Pymatgen's
+    ``get_all_neighbors`` returns image vectors relative to the raw
+    fractional coordinates, so the neighbour's absolute Cartesian
+    position is always ``structure[j].coords + image @ L`` (using raw
+    coords), and the offset stored here is that absolute position
+    minus ``uc_coords[i]``.
 
     Args:
         structure: The pymatgen ``Structure`` (single frame).
         bond_specs: Bond specification rules to match against.
+        uc_coords: Wrapped Cartesian coordinates of unit-cell atoms,
+            shape ``(n_atoms, 3)``.  When ``None``, raw
+            ``structure[i].coords`` are used.
 
     Returns:
         Dict mapping unit-cell atom index to a list of
@@ -262,10 +278,25 @@ def _precompute_bonded_neighbours(
     all_neighbours = structure.get_all_neighbors(max_cutoff)
     species_list = [site.specie.symbol for site in structure]
 
+    # When uc_coords differs from raw coords (i.e. coordinates were
+    # wrapped to [0, 1)), the same physical bond can map to a
+    # different periodic image.  Pymatgen's image vectors are relative
+    # to the raw fractional basis, so we must adjust them to the
+    # wrapped basis.  The shift per atom is the integer lattice
+    # translation introduced by wrapping:
+    #   raw_cart = wrap_cart + wrap_shift @ L
+    # where wrap_shift = floor(raw_frac).
+    if uc_coords is not None:
+        raw_frac = structure.frac_coords
+        wrap_shift = np.floor(raw_frac).astype(int)
+    else:
+        wrap_shift = None
+
     uc_neighbour_offsets: dict[int, list[tuple[str, np.ndarray]]] = {}
     for i, neighbours in enumerate(all_neighbours):
         sp_i = species_list[i]
         offsets: list[tuple[str, np.ndarray]] = []
+        src_pos = uc_coords[i] if uc_coords is not None else structure[i].coords
         for nbr in neighbours:
             sp_j = nbr.specie.symbol
             dist = nbr.nn_distance
@@ -276,11 +307,25 @@ def _precompute_bonded_neighbours(
             )
             if matched:
                 image = np.array([int(x) for x in nbr.image])
-                offset = (
-                    structure[nbr.index].coords
-                    + image @ lattice.matrix
-                    - structure[i].coords
-                )
+                if uc_coords is not None:
+                    # Adjust the image vector from the raw basis to
+                    # the wrapped basis.  In the raw basis, the
+                    # neighbour is at raw[j] + image*L.  Since
+                    # raw[k] = wrap[k] + shift_k*L, this equals
+                    # wrap[j] + (shift_j + image)*L.  The offset
+                    # from wrap[i] = raw[i] - shift_i*L becomes
+                    # wrap[j] + (image + shift_j - shift_i)*L - wrap[i].
+                    adj_image = image + wrap_shift[nbr.index] - wrap_shift[i]
+                    nbr_abs = (
+                        uc_coords[nbr.index]
+                        + adj_image @ lattice.matrix
+                    )
+                else:
+                    nbr_abs = (
+                        structure[nbr.index].coords
+                        + image @ lattice.matrix
+                    )
+                offset = nbr_abs - src_pos
                 offsets.append((sp_j, offset))
         if offsets:
             uc_neighbour_offsets[i] = offsets
@@ -297,6 +342,7 @@ def _expand_neighbour_shells(
     centre_species_only: list[str] | None = None,
     *,
     _neighbour_cache: dict[int, list[tuple[str, np.ndarray]]] | None = None,
+    _uc_coords: np.ndarray | None = None,
 ) -> tuple[list[str], np.ndarray]:
     """Ensure bonded neighbours are present for atoms already in the scene.
 
@@ -326,6 +372,11 @@ def _expand_neighbour_shells(
             ``get_all_neighbors`` is not called again.  Callers that
             invoke this function repeatedly with the same *structure*
             and *bond_specs* should pass this to avoid redundant work.
+        _uc_coords: Wrapped Cartesian coordinates of unit-cell atoms,
+            shape ``(n_uc, 3)``.  When ``None``, the first *n_uc*
+            rows of *expanded_coords* are used.  Callers that have
+            already computed wrapped coordinates should pass them for
+            consistency with *expanded_coords*.
 
     Returns:
         Updated ``(species, coords)`` with additional neighbour atoms
@@ -335,10 +386,16 @@ def _expand_neighbour_shells(
         return expanded_species, expanded_coords
 
     species_list = [site.specie.symbol for site in structure]
+    # Use wrapped UC coordinates — either explicitly provided or
+    # extracted from the head of expanded_coords (which _expand_pbc
+    # already wrapped).
+    uc_coords = _uc_coords if _uc_coords is not None else expanded_coords[:n_uc]
     if _neighbour_cache is not None:
         uc_neighbour_offsets = _neighbour_cache
     else:
-        uc_neighbour_offsets = _precompute_bonded_neighbours(structure, bond_specs)
+        uc_neighbour_offsets = _precompute_bonded_neighbours(
+            structure, bond_specs, uc_coords=uc_coords,
+        )
     inv_matrix = structure.lattice.inv_matrix
     new_species = list(expanded_species)
     # Collect new coordinates in a plain list; only vstack once at
@@ -367,7 +424,7 @@ def _expand_neighbour_shells(
         if source_idx not in uc_neighbour_offsets:
             return
         for nbr_sp, offset in uc_neighbour_offsets[source_idx]:
-            nbr_coord = structure[source_idx].coords + translation + offset
+            nbr_coord = uc_coords[source_idx] + translation + offset
             if _is_duplicate(nbr_coord):
                 continue
             new_species.append(nbr_sp)
@@ -387,12 +444,12 @@ def _expand_neighbour_shells(
 
         img_coord = expanded_coords[img_idx]
         source_idx = _identify_source_atom(
-            img_coord, sp, structure, species_list, inv_matrix, n_uc,
+            img_coord, sp, uc_coords, species_list, inv_matrix, n_uc,
         )
         if source_idx is None:
             continue
 
-        translation = img_coord - structure[source_idx].coords
+        translation = img_coord - uc_coords[source_idx]
         _add_neighbour_shell(source_idx, translation)
 
     if added_coords:
@@ -410,6 +467,7 @@ def _expand_recursive_bonds(
     n_uc: int,
     bond_specs: list[BondSpec],
     max_depth: int,
+    uc_coords: np.ndarray | None = None,
 ) -> tuple[list[str], np.ndarray]:
     """Iteratively add bonded atoms across periodic boundaries.
 
@@ -426,6 +484,8 @@ def _expand_recursive_bonds(
         n_uc: Number of unit-cell atoms (before any expansion).
         bond_specs: All bond specification rules.
         max_depth: Maximum number of iterations.
+        uc_coords: Wrapped Cartesian coordinates of unit-cell atoms,
+            shape ``(n_uc, 3)``.  See :func:`_expand_neighbour_shells`.
 
     Returns:
         Updated ``(species, coords)`` with additional atoms appended.
@@ -434,7 +494,9 @@ def _expand_recursive_bonds(
     if not recursive_specs:
         return expanded_species, expanded_coords
 
-    cache = _precompute_bonded_neighbours(structure, recursive_specs)
+    cache = _precompute_bonded_neighbours(
+        structure, recursive_specs, uc_coords=uc_coords,
+    )
     species = list(expanded_species)
     coords = expanded_coords
 
@@ -442,7 +504,7 @@ def _expand_recursive_bonds(
         prev_count = len(species)
         species, coords = _expand_neighbour_shells(
             structure, species, coords, n_uc, recursive_specs,
-            _neighbour_cache=cache,
+            _neighbour_cache=cache, _uc_coords=uc_coords,
         )
         if len(species) == prev_count:
             break
@@ -542,6 +604,13 @@ def from_pymatgen(
             # Geometric expansion: add images near cell faces.
             exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
 
+            # Wrapped UC coordinates: _expand_pbc wraps fractional
+            # coordinates to [0, 1) before converting to Cartesian.
+            # All downstream expansion functions must use the same
+            # wrapped basis to avoid coordinate-frame mismatches when
+            # pymatgen stores frac_coords outside [0, 1).
+            uc_coords = exp_coords[:n_uc]
+
             # Single-pass bond completion: for each bond spec with
             # complete set, add missing bonded partners across
             # periodic boundaries (non-recursive).  Each spec is
@@ -559,6 +628,7 @@ def from_pymatgen(
                 exp_species, exp_coords = _expand_neighbour_shells(
                     s, exp_species, exp_coords, n_uc, [bond_spec],
                     centre_species_only=centres,
+                    _uc_coords=uc_coords,
                 )
 
             # Recursive bond expansion: iteratively add bonded
@@ -567,6 +637,7 @@ def from_pymatgen(
             exp_species, exp_coords = _expand_recursive_bonds(
                 s, exp_species, exp_coords, n_uc, bond_specs,
                 max_depth=max_recursive_depth,
+                uc_coords=uc_coords,
             )
 
             # Neighbour-shell completion for polyhedra centres:
@@ -575,11 +646,14 @@ def from_pymatgen(
             # boundary polyhedra are complete.
             if poly_specs and bond_specs:
                 centre_patterns = [sp.centre for sp in poly_specs]
-                poly_cache = _precompute_bonded_neighbours(s, bond_specs)
+                poly_cache = _precompute_bonded_neighbours(
+                    s, bond_specs, uc_coords=uc_coords,
+                )
                 exp_species, exp_coords = _expand_neighbour_shells(
                     s, exp_species, exp_coords, n_uc, bond_specs,
                     centre_species_only=centre_patterns,
                     _neighbour_cache=poly_cache,
+                    _uc_coords=uc_coords,
                 )
 
             if first_species is None:

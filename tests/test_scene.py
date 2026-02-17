@@ -828,3 +828,50 @@ class TestCompleteBondExpansion:
             struct, bond_specs=[bond_both], pbc=True, pbc_padding=0.1,
         )
         assert len(scene_both.species) == len(scene_recursive.species)
+
+    def test_complete_with_unwrapped_frac_coords(self):
+        """Bond completion is consistent regardless of frac coord wrapping.
+
+        Regression: _expand_pbc wraps fractional coordinates to [0, 1),
+        but _expand_neighbour_shells used raw structure[i].coords for
+        unit-cell atoms, leading to neighbour positions computed in the
+        wrong coordinate frame.
+
+        This test verifies that structures with equivalent fractional
+        coordinates (one in [0, 1) and one outside) produce the same
+        expansion results.
+        """
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(10.0)
+        # Two equivalent structures: Na at frac -0.01 vs frac 0.99.
+        # They are the same physical structure; expansion should give
+        # identical results.
+        struct_neg = Structure(
+            lattice, ["Na", "Cl"],
+            [[-0.01, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        )
+        struct_pos = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.99, 0.5, 0.5], [0.5, 0.5, 0.5]],
+        )
+        bond = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=5.5, radius=0.1, colour=0.5,
+            complete="*",
+        )
+        scene_neg = from_pymatgen(
+            struct_neg, bond_specs=[bond], pbc=True, pbc_padding=1.5,
+        )
+        scene_pos = from_pymatgen(
+            struct_pos, bond_specs=[bond], pbc=True, pbc_padding=1.5,
+        )
+        # Same number of atoms.
+        assert len(scene_neg.species) == len(scene_pos.species), (
+            f"species count mismatch: {len(scene_neg.species)} vs "
+            f"{len(scene_pos.species)}"
+        )
+        # Same sorted coordinates.
+        coords_neg = np.sort(scene_neg.frames[0].coords, axis=0)
+        coords_pos = np.sort(scene_pos.frames[0].coords, axis=0)
+        np.testing.assert_allclose(coords_neg, coords_pos, atol=1e-10)
