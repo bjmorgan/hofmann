@@ -447,20 +447,24 @@ def main() -> None:
         np.zeros(n_inner),
     ])
     multi_coords = np.vstack([outer_coords, inner_coords])
-    multi_species = ["X"] * n_total
+    # Use separate species so bonds only form within each ring.
+    multi_species = ["A"] * n_outer + ["B"] * n_inner
 
     outer_chord = 2 * r_outer * np.sin(np.pi / n_outer)
     inner_chord = 2 * r_inner * np.sin(np.pi / n_inner)
-    multi_bond = BondSpec(
-        species=("X", "X"), min_length=0.0,
-        max_length=max(outer_chord, inner_chord) + 0.1,
-        radius=0.08, colour=0.5,
-    )
     multi_scene = StructureScene(
         species=multi_species,
         frames=[Frame(coords=multi_coords)],
-        atom_styles={"X": AtomStyle(0.7, "grey")},
-        bond_specs=[multi_bond],
+        atom_styles={
+            "A": AtomStyle(0.7, "grey"),
+            "B": AtomStyle(0.7, "grey"),
+        },
+        bond_specs=[
+            BondSpec(species=("A", "A"), min_length=0.0,
+                     max_length=outer_chord + 0.1, radius=0.08, colour=0.5),
+            BondSpec(species=("B", "B"), min_length=0.0,
+                     max_length=inner_chord + 0.1, radius=0.08, colour=0.5),
+        ],
     )
     # Outer ring: categorical type labels.
     type_dict: dict[int, object] = {}
