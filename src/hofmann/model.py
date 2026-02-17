@@ -1213,6 +1213,8 @@ class StructureScene:
         Raises:
             ValueError: If an array-like has the wrong length, or a
                 dict contains indices outside the valid range.
+            TypeError: If a dict contains a mixture of string and
+                numeric values.
         """
         n_atoms = len(self.species)
 
@@ -1226,7 +1228,15 @@ class StructureScene:
                         f"{n_atoms} atoms"
                     )
             sample = next(iter(values.values()))
-            if isinstance(sample, str):
+            is_str = isinstance(sample, str)
+            for idx, val in values.items():
+                if isinstance(val, str) != is_str:
+                    raise TypeError(
+                        f"atom_data dict values must all be the same "
+                        f"type (string or numeric), but index {idx} "
+                        f"has type {type(val).__name__!r}"
+                    )
+            if is_str:
                 arr = np.array([""] * n_atoms, dtype=object)
                 for idx, val in values.items():
                     arr[idx] = val

@@ -701,6 +701,12 @@ class TestSetAtomData:
         assert "charge" in scene.atom_data
         assert "site" in scene.atom_data
 
+    def test_sparse_dict_mixed_types_raises(self):
+        """Dict with mixed string and numeric values raises TypeError."""
+        scene = self._scene()
+        with pytest.raises(TypeError, match="same type"):
+            scene.set_atom_data("bad", {0: 1, 2: "text"})
+
 
 # --- resolve_atom_colours ---
 
