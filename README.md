@@ -99,7 +99,9 @@ scene.render_mpl("final.svg", style=style)
 Full documentation is available at [hofmann.readthedocs.io](https://hofmann.readthedocs.io/), covering:
 
 - [Getting started](https://hofmann.readthedocs.io/en/latest/getting-started.html) -- installation and first renders
-- [User guide](https://hofmann.readthedocs.io/en/latest/user-guide.html) -- views, render styles, bonds, polyhedra, unit cells
+- [Scenes and structures](https://hofmann.readthedocs.io/en/latest/scenes.html) -- scenes, frames, bonds, polyhedra
+- [Rendering](https://hofmann.readthedocs.io/en/latest/rendering.html) -- views, render styles, unit cells, axes
+- [Colouring](https://hofmann.readthedocs.io/en/latest/colouring.html) -- per-atom data colouring, custom functions, multiple layers
 - [Interactive viewer](https://hofmann.readthedocs.io/en/latest/interactive.html) -- mouse and keyboard controls
 - [XBS file format](https://hofmann.readthedocs.io/en/latest/xbs-format.html) -- `.bs` and `.mv` format reference
 - [API reference](https://hofmann.readthedocs.io/en/latest/api.html) -- full autodoc API

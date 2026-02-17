@@ -11,6 +11,8 @@ Changelog
 - Multiple ``colour_by`` layers with priority merging.  Pass a list
   of keys to apply different colouring rules to different atom
   subsets; the first non-missing value wins for each atom.
+- Polyhedra without an explicit colour now inherit the resolved
+  ``colour_by`` colour of their centre atom.
 
 0.1.0
 -----

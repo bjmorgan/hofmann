@@ -484,6 +484,106 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'colour_by_multi.svg'}")
 
+    # 10. Polyhedra inheriting colour_by: ring of corner-sharing tetrahedra.
+    #     Build regular tetrahedra first, then place centres at centroids.
+    n_tet = 8
+    tet_edge = 2.5
+    tet_ring_r = tet_edge / (2 * np.sin(np.pi / n_tet))
+
+    # Shared (bridging) vertices on a ring in the z=0 plane.
+    shared_angles = np.linspace(0, 2 * np.pi, n_tet, endpoint=False)
+    shared_verts = np.column_stack([
+        tet_ring_r * np.cos(shared_angles),
+        tet_ring_r * np.sin(shared_angles),
+        np.zeros(n_tet),
+    ])
+
+    # For each tetrahedron, compute the other two vertices so all six
+    # edges equal tet_edge, then place the centre at the centroid.
+    all_tet_verts: list[np.ndarray] = []
+    all_centroids: list[np.ndarray] = []
+    for i in range(n_tet):
+        va = shared_verts[i]
+        vb = shared_verts[(i + 1) % n_tet]
+        mid = (va + vb) / 2
+        u = (vb - va) / np.linalg.norm(vb - va)
+        n1 = np.cross(u, [0, 0, 1])
+        if np.linalg.norm(n1) < 1e-10:
+            n1 = np.cross(u, [1, 0, 0])
+        n1 /= np.linalg.norm(n1)
+        n2 = np.cross(u, n1)
+        d_perp = tet_edge * np.sqrt(3) / 2
+        h2 = tet_edge / 2
+        h1 = np.sqrt(d_perp**2 - h2**2)
+        vc = mid + h1 * n1 + h2 * n2
+        vd = mid + h1 * n1 - h2 * n2
+        verts = np.array([va, vb, vc, vd])
+        all_tet_verts.append(verts)
+        all_centroids.append(verts.mean(axis=0))
+
+    poly_species: list[str] = []
+    poly_coords: list[list[float]] = []
+
+    # Centres (at centroids).
+    for i in range(n_tet):
+        poly_coords.append(all_centroids[i].tolist())
+        poly_species.append("M")
+
+    # Shared bridging vertices.
+    for i in range(n_tet):
+        poly_coords.append(shared_verts[i].tolist())
+        poly_species.append("O")
+
+    # Non-bridging vertices (C, D for each tetrahedron).
+    for i in range(n_tet):
+        poly_coords.append(all_tet_verts[i][2].tolist())
+        poly_species.append("O")
+        poly_coords.append(all_tet_verts[i][3].tolist())
+        poly_species.append("O")
+
+    centroid_to_vert = tet_edge * np.sqrt(3.0 / 8.0)
+    poly_scene = StructureScene(
+        species=poly_species,
+        frames=[Frame(coords=np.array(poly_coords))],
+        atom_styles={
+            "M": AtomStyle(0.45, "grey"),
+            "O": AtomStyle(0.3, (0.6, 0.6, 0.6)),
+        },
+        bond_specs=[BondSpec(
+            species=("M", "O"), min_length=0.0,
+            max_length=centroid_to_vert + 0.2,
+            radius=0.06, colour=0.5,
+        )],
+        polyhedra=[PolyhedronSpec(
+            centre="M", alpha=0.4,
+            hide_bonds=True,
+        )],
+    )
+    poly_scene.view.look_along([0.15, 0.05, 1])
+
+    poly_vals = np.full(len(poly_species), np.nan)
+    for i in range(n_tet):
+        poly_vals[i] = float(i) / (n_tet - 1)
+    poly_scene.set_atom_data("val", poly_vals)
+
+    # With atoms visible -- shows inheritance clearly.
+    poly_scene.render_mpl(
+        OUT / "colour_by_polyhedra_atoms.svg",
+        colour_by="val", cmap="coolwarm",
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_polyhedra_atoms.svg'}")
+
+    # Without atoms -- typical usage.
+    poly_scene.polyhedra[0].hide_centre = True
+    poly_scene.polyhedra[0].hide_vertices = True
+    poly_scene.render_mpl(
+        OUT / "colour_by_polyhedra.svg",
+        colour_by="val", cmap="coolwarm",
+        **colour_by_style,
+    )
+    print(f"  wrote {OUT / 'colour_by_polyhedra.svg'}")
+
 
 if __name__ == "__main__":
     main()

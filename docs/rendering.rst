@@ -1,38 +1,5 @@
-User guide
-==========
-
-Scenes and frames
------------------
-
-A :class:`~hofmann.StructureScene` is the central object in hofmann.  It
-holds everything needed to render a structure:
-
-- **species** -- one label per atom (e.g. ``["C", "H", "H", "H", "H"]``)
-- **frames** -- one or more :class:`~hofmann.Frame` coordinate snapshots
-- **atom_styles** -- mapping from species to :class:`~hofmann.AtomStyle`
-  (radius and colour)
-- **bond_specs** -- declarative :class:`~hofmann.BondSpec` rules
-- **polyhedra** -- optional :class:`~hofmann.PolyhedronSpec` rules
-- **view** -- a :class:`~hofmann.ViewState` controlling the camera
-
-Scenes are typically created via :meth:`~hofmann.StructureScene.from_xbs`
-or :meth:`~hofmann.StructureScene.from_pymatgen`, but you can also
-construct one directly from data.
-
-Here is a simple CH4 molecule loaded from an XBS file:
-
-.. plot::
-   :context: reset
-
-   import hofmann
-   from pathlib import Path
-   from hofmann import StructureScene
-
-   pkg_dir = Path(hofmann.__file__).resolve().parent
-   fixture = pkg_dir.parent.parent / "tests" / "fixtures" / "ch4.bs"
-   scene = StructureScene.from_xbs(fixture)
-   scene.render_mpl(show=False, figsize=(4, 4))
-
+Rendering
+=========
 
 Controlling the view
 --------------------
@@ -186,59 +153,8 @@ midpoint and each half is coloured to match the nearest atom.  With
           ``half_bonds=False``
 
 
-Bonds
------
-
-Bonds are detected at render time from declarative
-:class:`~hofmann.BondSpec` rules.  Each rule specifies a species pair,
-a length range, a display radius, and a colour:
-
-.. code-block:: python
-
-   from hofmann import BondSpec
-
-   spec = BondSpec(
-       species=("C", "H"),
-       min_length=0.0,
-       max_length=1.2,
-       radius=0.1,
-       colour=0.8,  # Grey
-   )
-
-Species matching supports wildcards:
-
-.. code-block:: python
-
-   # Match any bond between any species:
-   BondSpec(species=("*", "*"), min_length=0.0, max_length=2.5,
-            radius=0.1, colour="grey")
-
-When no bond specs are provided, :func:`~hofmann.from_pymatgen`
-generates sensible defaults from :data:`~hofmann.COVALENT_RADII`.
-
-
-Polyhedra
----------
-
-Coordination polyhedra are built from the bond graph: for each atom
-whose species matches the ``centre`` pattern, a convex hull is
-constructed from its bonded neighbours.
-
-.. code-block:: python
-
-   from hofmann import PolyhedronSpec
-
-   spec = PolyhedronSpec(
-       centre="Ti",
-       colour=(0.5, 0.7, 1.0),
-       alpha=0.3,
-   )
-   scene = StructureScene.from_pymatgen(
-       structure, bonds, polyhedra=[spec], pbc=True,
-   )
-
 Polyhedra shading
-~~~~~~~~~~~~~~~~~
+-----------------
 
 The ``polyhedra_shading`` setting controls diffuse (Lambertian) shading
 on polyhedra faces.  At ``0.0`` all faces are flat; at ``1.0`` (the
@@ -259,7 +175,7 @@ are dimmed.
 .. _slab-clipping:
 
 Slab clipping and polyhedra
-~~~~~~~~~~~~~~~~~~~~~~~~~~~
+---------------------------
 
 The ``slab_clip_mode`` setting on :class:`~hofmann.RenderStyle`
 controls how polyhedra at the slab boundary are handled:
@@ -362,121 +278,3 @@ Disable or customise the widget via :class:`~hofmann.RenderStyle`:
        ),
    )
    scene.render_mpl("output.svg", style=style)
-
-The widget also rotates interactively in
-:meth:`~hofmann.StructureScene.render_mpl_interactive`.
-
-
-Colouring by per-atom data
---------------------------
-
-Atoms can be coloured by arbitrary metadata instead of by species.
-Use :meth:`~hofmann.StructureScene.set_atom_data` to attach a named
-array and the ``colour_by`` parameter on
-:meth:`~hofmann.StructureScene.render_mpl` to activate it.
-
-Continuous data
-~~~~~~~~~~~~~~~
-
-Numerical arrays are mapped through a colourmap.  By default the
-data range is auto-scaled; use ``colour_range`` to fix the limits.
-
-.. code-block:: python
-
-   import numpy as np
-
-   angles = np.linspace(0, 360, len(scene.species), endpoint=False)
-   scene.set_atom_data("angle", angles)
-   scene.render_mpl("output.svg", colour_by="angle", cmap="twilight")
-
-.. image:: _static/colour_by_continuous.svg
-   :width: 320px
-   :align: center
-   :alt: Ring of atoms coloured by angle
-
-Categorical data
-~~~~~~~~~~~~~~~~
-
-String arrays assign a distinct colour to each unique value.
-
-.. code-block:: python
-
-   labels = ["alpha", "beta", "gamma", "delta"] * 4
-   scene.set_atom_data("site", labels)
-   scene.render_mpl("output.svg", colour_by="site", cmap="Set2")
-
-.. image:: _static/colour_by_categorical.svg
-   :width: 320px
-   :align: center
-   :alt: Ring of atoms coloured by categorical site labels
-
-Atoms with ``NaN`` (numeric) or ``""`` (categorical) values fall
-back to their species colour.  This is useful when metadata is only
-available for a subset of atoms:
-
-.. code-block:: python
-
-   # Only colour specific atoms by charge; the rest keep species colours.
-   scene.set_atom_data("charge", {0: 1.2, 3: -0.8, 5: 0.4})
-
-Custom colouring functions
-~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Instead of a colourmap name you can pass any callable that maps a
-float in ``[0, 1]`` to an ``(r, g, b)`` tuple:
-
-.. code-block:: python
-
-   def red_blue(t: float) -> tuple[float, float, float]:
-       """Linearly interpolate from red to blue."""
-       return (1.0 - t, 0.0, t)
-
-   scene.render_mpl("output.svg", colour_by="charge", cmap=red_blue)
-
-.. image:: _static/colour_by_custom.svg
-   :width: 320px
-   :align: center
-   :alt: Ring of atoms coloured by a custom red-to-blue function
-
-This works with any callable, including ``lambda`` expressions and
-matplotlib ``Colormap`` objects.
-
-Multiple colouring layers
-~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When different subsets of atoms should use different colouring rules,
-pass a list of keys to ``colour_by``.  Each layer is tried in order
-and the first non-missing value wins.  ``cmap`` and ``colour_range``
-can also be lists of the same length (or a single value broadcast to
-all layers).
-
-Layers can freely mix categorical and continuous data.  In this
-example the outer ring is coloured by a categorical metal type while
-the inner ring uses a numerical charge gradient:
-
-.. code-block:: python
-
-   # Outer atoms: categorical type.
-   scene.set_atom_data("metal", {0: "Fe", 1: "Co", 2: "Ni"})
-   # Inner atoms: numerical charge.
-   scene.set_atom_data("charge", {12: 0.0, 13: 0.3})
-   scene.render_mpl(
-       "output.svg",
-       colour_by=["metal", "charge"],
-       cmap=["Set2", "YlOrRd"],
-   )
-
-.. image:: _static/colour_by_multi.svg
-   :width: 320px
-   :align: center
-   :alt: Concentric rings coloured by categorical and continuous layers
-
-Atoms with missing data in all layers fall back to their species
-colour.
-
-
-Interactive viewer
-------------------
-
-See :doc:`interactive` for full documentation of the interactive viewer,
-including mouse and keyboard controls.
