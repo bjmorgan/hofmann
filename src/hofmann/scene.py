@@ -238,6 +238,56 @@ def _identify_source_atom(
     return None
 
 
+def _precompute_bonded_neighbours(
+    structure: "Structure",
+    bond_specs: list[BondSpec],
+) -> dict[int, list[tuple[str, np.ndarray]]]:
+    """Build a lookup of bonded periodic neighbours for each unit-cell atom.
+
+    For each atom in *structure*, finds all periodic neighbours that
+    match at least one *bond_spec* (species + distance).  Results are
+    stored as ``(species, Cartesian_offset)`` pairs, where the offset
+    is relative to the source atom.
+
+    Args:
+        structure: The pymatgen ``Structure`` (single frame).
+        bond_specs: Bond specification rules to match against.
+
+    Returns:
+        Dict mapping unit-cell atom index to a list of
+        ``(neighbour_species, offset_vector)`` tuples.
+    """
+    lattice = structure.lattice
+    max_cutoff = max(spec.max_length for spec in bond_specs)
+    all_neighbours = structure.get_all_neighbors(max_cutoff)
+    species_list = [site.specie.symbol for site in structure]
+
+    uc_neighbour_offsets: dict[int, list[tuple[str, np.ndarray]]] = {}
+    for i, neighbours in enumerate(all_neighbours):
+        sp_i = species_list[i]
+        offsets: list[tuple[str, np.ndarray]] = []
+        for nbr in neighbours:
+            sp_j = nbr.specie.symbol
+            dist = nbr.nn_distance
+            matched = any(
+                spec.matches(sp_i, sp_j)
+                and spec.min_length <= dist <= spec.max_length
+                for spec in bond_specs
+            )
+            if matched:
+                image = np.array([int(x) for x in nbr.image])
+                offset = (
+                    structure[nbr.index].coords
+                    + image @ lattice.matrix
+                    - structure[i].coords
+                )
+                offsets.append((sp_j, offset))
+        if offsets:
+            uc_neighbour_offsets[i] = offsets
+
+    return uc_neighbour_offsets
+
+
 def _expand_neighbour_shells(
     structure: "Structure",
     expanded_species: list[str],
@@ -277,39 +327,9 @@ def _expand_neighbour_shells(
     if not bond_specs:
         return expanded_species, expanded_coords
 
-    lattice = structure.lattice
-
-    # Precompute periodic neighbour data for each unit-cell atom.
-    max_cutoff = max(spec.max_length for spec in bond_specs)
-    all_neighbours = structure.get_all_neighbors(max_cutoff)
     species_list = [site.specie.symbol for site in structure]
-
-    # For each unit-cell atom, store its bonded neighbours as
-    # (species, Cartesian offset) pairs.
-    uc_neighbour_offsets: dict[int, list[tuple[str, np.ndarray]]] = {}
-    for i, neighbours in enumerate(all_neighbours):
-        sp_i = species_list[i]
-        offsets: list[tuple[str, np.ndarray]] = []
-        for nbr in neighbours:
-            sp_j = nbr.specie.symbol
-            dist = nbr.nn_distance
-            matched = any(
-                spec.matches(sp_i, sp_j)
-                and spec.min_length <= dist <= spec.max_length
-                for spec in bond_specs
-            )
-            if matched:
-                image = np.array([int(x) for x in nbr.image])
-                offset = (
-                    structure[nbr.index].coords
-                    + image @ lattice.matrix
-                    - structure[i].coords
-                )
-                offsets.append((sp_j, offset))
-        if offsets:
-            uc_neighbour_offsets[i] = offsets
-
-    inv_matrix = lattice.inv_matrix
+    uc_neighbour_offsets = _precompute_bonded_neighbours(structure, bond_specs)
+    inv_matrix = structure.lattice.inv_matrix
     new_species = list(expanded_species)
     new_coords_list: list[np.ndarray] = [expanded_coords]
     all_coords = expanded_coords
@@ -393,36 +413,11 @@ def _expand_recursive_bonds(
     if not recursive_specs:
         return expanded_species, expanded_coords
 
-    lattice = structure.lattice
-    max_cutoff = max(spec.max_length for spec in recursive_specs)
-    all_neighbours = structure.get_all_neighbors(max_cutoff)
     species_list = [site.specie.symbol for site in structure]
-    inv_matrix = lattice.inv_matrix
-
-    # Precompute bonded neighbours for each UC atom, filtered to
-    # recursive specs only.
-    uc_neighbour_offsets: dict[int, list[tuple[str, np.ndarray]]] = {}
-    for i, neighbours in enumerate(all_neighbours):
-        sp_i = species_list[i]
-        offsets: list[tuple[str, np.ndarray]] = []
-        for nbr in neighbours:
-            sp_j = nbr.specie.symbol
-            dist = nbr.nn_distance
-            matched = any(
-                spec.matches(sp_i, sp_j)
-                and spec.min_length <= dist <= spec.max_length
-                for spec in recursive_specs
-            )
-            if matched:
-                image = np.array([int(x) for x in nbr.image])
-                offset = (
-                    structure[nbr.index].coords
-                    + image @ lattice.matrix
-                    - structure[i].coords
-                )
-                offsets.append((sp_j, offset))
-        if offsets:
-            uc_neighbour_offsets[i] = offsets
+    inv_matrix = structure.lattice.inv_matrix
+    uc_neighbour_offsets = _precompute_bonded_neighbours(
+        structure, recursive_specs,
+    )
 
     new_species = list(expanded_species)
     all_coords = expanded_coords.copy()
