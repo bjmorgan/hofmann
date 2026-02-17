@@ -839,6 +839,98 @@ class TestResolveAtomColours:
                 colour_by="nonexistent",
             )
 
+    def test_list_colour_by_priority(self):
+        """Non-overlapping layers: each atom gets its layer's colour."""
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        def blue(_v: float) -> tuple[float, float, float]:
+            return (0.0, 0.0, 1.0)
+
+        data = {
+            "a": np.array([1.0, np.nan, np.nan]),
+            "b": np.array([np.nan, 2.0, np.nan]),
+        }
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by=["a", "b"], cmap=[red, blue],
+        )
+        assert result[0] == (1.0, 0.0, 0.0)  # from layer "a"
+        assert result[1] == (0.0, 0.0, 1.0)  # from layer "b"
+        # Atom 2 has NaN in both — species fallback (O)
+        assert result[2] == (0.6, 0.0, 0.0)
+
+    def test_list_colour_by_first_wins(self):
+        """When an atom has data in multiple layers, first wins."""
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        def blue(_v: float) -> tuple[float, float, float]:
+            return (0.0, 0.0, 1.0)
+
+        data = {
+            "a": np.array([1.0, np.nan, np.nan]),
+            "b": np.array([2.0, 2.0, np.nan]),  # atom 0 in both
+        }
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by=["a", "b"], cmap=[red, blue],
+        )
+        # Atom 0: layer "a" has data, so red wins over blue.
+        assert result[0] == (1.0, 0.0, 0.0)
+        assert result[1] == (0.0, 0.0, 1.0)
+
+    def test_list_colour_by_broadcast_cmap(self):
+        """A single cmap string is broadcast to all layers."""
+        data = {
+            "a": np.array([0.0, np.nan, np.nan]),
+            "b": np.array([np.nan, 1.0, np.nan]),
+        }
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by=["a", "b"], cmap="viridis",
+        )
+        import matplotlib
+        cmap = matplotlib.colormaps["viridis"]
+        assert result[0] == pytest.approx(cmap(0.5)[:3])  # constant -> 0.5
+        assert result[1] == pytest.approx(cmap(0.5)[:3])
+
+    def test_list_colour_by_all_missing_falls_back(self):
+        """Atom with NaN in all layers gets species colour."""
+        data = {
+            "a": np.array([np.nan, np.nan, np.nan]),
+            "b": np.array([np.nan, np.nan, np.nan]),
+        }
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by=["a", "b"],
+        )
+        assert result == [
+            (0.4, 0.4, 0.4),
+            (1.0, 1.0, 1.0),
+            (0.6, 0.0, 0.0),
+        ]
+
+    def test_list_colour_by_categorical(self):
+        """List colour_by works with categorical layers."""
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        def blue(_v: float) -> tuple[float, float, float]:
+            return (0.0, 0.0, 1.0)
+
+        data = {
+            "metal": np.array(["Fe", "", ""], dtype=object),
+            "anion": np.array(["", "O", ""], dtype=object),
+        }
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by=["metal", "anion"], cmap=[red, blue],
+        )
+        assert result[0] == (1.0, 0.0, 0.0)  # Fe
+        assert result[1] == (0.0, 0.0, 1.0)  # O
+        assert result[2] == (0.6, 0.0, 0.0)  # fallback
+
 
 # --- CellEdgeStyle ---
 

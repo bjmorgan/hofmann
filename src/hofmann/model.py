@@ -107,51 +107,114 @@ def _resolve_cmap(
     return _wrap_obj
 
 
+def _resolve_single_layer(
+    atom_data: dict[str, np.ndarray],
+    key: str,
+    fallback: list[tuple[float, float, float]],
+    cmap: "str | Callable[[float], tuple[float, float, float]] | object",
+    colour_range: tuple[float, float] | None,
+) -> list[tuple[float, float, float]]:
+    """Resolve colours for a single colour_by key."""
+    values = atom_data[key]
+    cmap_fn = _resolve_cmap(cmap)
+    if values.dtype.kind in ("U", "O"):
+        return _resolve_categorical(values, fallback, cmap_fn)
+    return _resolve_numerical(values, fallback, cmap_fn, colour_range)
+
+
 def resolve_atom_colours(
     species: list[str],
     atom_styles: dict[str, "AtomStyle"],
     atom_data: dict[str, np.ndarray],
-    colour_by: str | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-    colour_range: tuple[float, float] | None = None,
+    colour_by: str | list[str] | None = None,
+    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> list[tuple[float, float, float]]:
     """Resolve per-atom RGB colours, optionally using a colourmap.
 
     When *colour_by* is ``None`` (the default) the usual species-based
-    colours from *atom_styles* are returned.  Otherwise the named array
-    from *atom_data* is mapped through *cmap*.
+    colours from *atom_styles* are returned.  When it is a single
+    string, the named array from *atom_data* is mapped through *cmap*.
+
+    When *colour_by* is a **list** of keys, each layer is tried in
+    order and the first non-missing value (non-NaN for numerical,
+    non-empty for categorical) determines the atom's colour.  This
+    allows different colouring rules for different atom subsets::
+
+        scene.set_atom_data("metal_type", {0: "Fe", 2: "Co"})
+        scene.set_atom_data("o_coord", {1: 4, 3: 6})
+        scene.render_mpl(
+            colour_by=["metal_type", "o_coord"],
+            cmap=["Set1", "Blues"],
+        )
 
     Args:
         species: Per-atom species labels.
         atom_styles: Species-to-style mapping.
         atom_data: Per-atom metadata arrays from the scene.
-        colour_by: Key into *atom_data* to colour by, or ``None``
-            for species-based colouring.
+        colour_by: Key (or list of keys) into *atom_data* to colour
+            by, or ``None`` for species-based colouring.  When a
+            list, layers are tried in priority order.
         cmap: A matplotlib colourmap name (e.g. ``"viridis"``), a
             matplotlib ``Colormap`` object, or a callable mapping a
-            float in ``[0, 1]`` to an ``(r, g, b)`` tuple.
+            float in ``[0, 1]`` to an ``(r, g, b)`` tuple.  When
+            *colour_by* is a list, *cmap* may also be a list of the
+            same length (one per layer).  A single value is broadcast
+            to all layers.
         colour_range: Explicit ``(vmin, vmax)`` for normalising
             numerical data.  ``None`` auto-ranges from the data.
-            Ignored for categorical data.
+            Ignored for categorical data.  When *colour_by* is a
+            list, may also be a list of the same length.
 
     Returns:
         List of ``(r, g, b)`` tuples, one per atom.
 
     Raises:
-        KeyError: If *colour_by* is not found in *atom_data*.
+        KeyError: If *colour_by* (or any key in the list) is not
+            found in *atom_data*.
     """
     if colour_by is None:
         return _species_colours(species, atom_styles)
 
-    values = atom_data[colour_by]
     fallback = _species_colours(species, atom_styles)
-    cmap_fn = _resolve_cmap(cmap)
 
-    # Categorical: object or unicode string dtype.
-    if values.dtype.kind in ("U", "O"):
-        return _resolve_categorical(values, fallback, cmap_fn)
+    # --- Single key (common case) ---
+    if isinstance(colour_by, str):
+        cr = colour_range if not isinstance(colour_range, list) else None
+        return _resolve_single_layer(
+            atom_data, colour_by, fallback, cmap, cr,
+        )
 
-    return _resolve_numerical(values, fallback, cmap_fn, colour_range)
+    # --- List of keys (priority merge) ---
+    n_layers = len(colour_by)
+
+    # Broadcast cmap / colour_range to lists.
+    if not isinstance(cmap, list):
+        cmaps = [cmap] * n_layers
+    else:
+        cmaps = cmap
+
+    if not isinstance(colour_range, list):
+        ranges: list[tuple[float, float] | None] = [colour_range] * n_layers
+    else:
+        ranges = colour_range
+
+    # Resolve each layer independently.
+    layers = [
+        _resolve_single_layer(atom_data, key, fallback, cm, cr)
+        for key, cm, cr in zip(colour_by, cmaps, ranges)
+    ]
+
+    # Merge: first layer with a non-fallback colour wins.
+    n_atoms = len(species)
+    result: list[tuple[float, float, float]] = list(fallback)
+    for i in range(n_atoms):
+        for layer in layers:
+            if layer[i] != fallback[i]:
+                result[i] = layer[i]
+                break
+
+    return result
 
 
 def _resolve_numerical(
@@ -1092,9 +1155,9 @@ class StructureScene:
         dpi: int = 150,
         background: Colour = "white",
         show: bool | None = None,
-        colour_by: str | None = None,
-        cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-        colour_range: tuple[float, float] | None = None,
+        colour_by: str | list[str] | None = None,
+        cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+        colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
         **style_kwargs: object,
     ) -> Figure:
         """Render the scene as a static matplotlib figure.
@@ -1147,9 +1210,9 @@ class StructureScene:
         figsize: tuple[float, float] = (5.0, 5.0),
         dpi: int = 150,
         background: Colour = "white",
-        colour_by: str | None = None,
-        cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-        colour_range: tuple[float, float] | None = None,
+        colour_by: str | list[str] | None = None,
+        cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+        colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
         **style_kwargs: object,
     ) -> tuple[ViewState, RenderStyle]:
         """Open an interactive matplotlib viewer with mouse and keyboard controls.

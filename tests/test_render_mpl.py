@@ -1916,3 +1916,15 @@ class TestColourBy:
         assert isinstance(fig, Figure)
         plt.close(fig)
 
+    def test_list_colour_by_smoke(self):
+        """render_mpl with a list of colour_by keys produces a Figure."""
+        scene = _minimal_scene()
+        scene.set_atom_data("a", {0: 1.0})
+        scene.set_atom_data("b", {1: 2.0})
+        fig = render_mpl(
+            scene, colour_by=["a", "b"], cmap=["viridis", "plasma"],
+            show=False,
+        )
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+

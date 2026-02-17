@@ -646,9 +646,9 @@ def _precompute_scene(
     frame_index: int,
     render_style: RenderStyle | None = None,
     *,
-    colour_by: str | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-    colour_range: tuple[float, float] | None = None,
+    colour_by: str | list[str] | None = None,
+    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> _PrecomputedScene:
     """Pre-compute frame-independent data for repeated rendering.
 
@@ -1290,9 +1290,9 @@ def _draw_scene(
     bg_rgb: tuple[float, float, float] = (1.0, 1.0, 1.0),
     viewport_extent: float | None = None,
     precomputed: _PrecomputedScene | None = None,
-    colour_by: str | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-    colour_range: tuple[float, float] | None = None,
+    colour_by: str | list[str] | None = None,
+    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> None:
     """Paint atoms and bonds onto *ax* using the painter's algorithm.
 
@@ -1917,9 +1917,9 @@ def render_mpl(
     dpi: int = 150,
     background: Colour = "white",
     show: bool | None = None,
-    colour_by: str | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-    colour_range: tuple[float, float] | None = None,
+    colour_by: str | list[str] | None = None,
+    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
     **style_kwargs: object,
 ) -> Figure:
     """Render a StructureScene as a static matplotlib figure.
@@ -2203,9 +2203,9 @@ def render_mpl_interactive(
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
-    colour_by: str | None = None,
-    cmap: str | Callable[[float], tuple[float, float, float]] | object = "viridis",
-    colour_range: tuple[float, float] | None = None,
+    colour_by: str | list[str] | None = None,
+    cmap: str | Callable[[float], tuple[float, float, float]] | object | list = "viridis",
+    colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
     **style_kwargs: object,
 ) -> tuple["ViewState", "RenderStyle"]:
     """Interactive matplotlib viewer with mouse and keyboard controls.
