@@ -413,64 +413,19 @@ def _expand_recursive_bonds(
     if not recursive_specs:
         return expanded_species, expanded_coords
 
-    species_list = [site.specie.symbol for site in structure]
-    inv_matrix = structure.lattice.inv_matrix
-    uc_neighbour_offsets = _precompute_bonded_neighbours(
-        structure, recursive_specs,
-    )
+    species = list(expanded_species)
+    coords = expanded_coords
 
-    new_species = list(expanded_species)
-    all_coords = expanded_coords.copy()
-
-    for _depth in range(max_depth):
-        added_species: list[str] = []
-        added_coords: list[np.ndarray] = []
-        n_current = len(new_species)
-
-        for idx in range(n_current):
-            sp = new_species[idx]
-            coord = all_coords[idx]
-
-            # Identify the UC source atom for this atom.
-            if idx < n_uc:
-                source_idx: int | None = idx
-                translation = np.zeros(3)
-            else:
-                source_idx = _identify_source_atom(
-                    coord, sp, structure, species_list, inv_matrix, n_uc,
-                )
-                if source_idx is None:
-                    continue
-                translation = coord - structure[source_idx].coords
-
-            if source_idx not in uc_neighbour_offsets:
-                continue
-
-            for nbr_sp, offset in uc_neighbour_offsets[source_idx]:
-                nbr_coord = structure[source_idx].coords + translation + offset
-                # Check against existing atoms.
-                diffs = np.linalg.norm(all_coords - nbr_coord, axis=1)
-                if np.any(diffs < 1e-6):
-                    continue
-                # Check against atoms added earlier this round.
-                if added_coords and any(
-                    np.linalg.norm(c - nbr_coord) < 1e-6
-                    for c in added_coords
-                ):
-                    continue
-                added_species.append(nbr_sp)
-                added_coords.append(nbr_coord)
-
-        if not added_coords:
+    for _ in range(max_depth):
+        prev_count = len(species)
+        species, coords = _expand_neighbour_shells(
+            structure, species, coords, n_uc, recursive_specs,
+        )
+        if len(species) == prev_count:
             break
 
-        new_species.extend(added_species)
-        all_coords = np.vstack(
-            [all_coords] + [c[np.newaxis, :] for c in added_coords],
-        )
-
-    if len(new_species) > len(expanded_species):
-        return new_species, all_coords
+    if len(species) > len(expanded_species):
+        return species, coords
     return expanded_species, expanded_coords
 
 
