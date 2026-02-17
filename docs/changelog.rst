@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.2.2
+-----
+
+- Add dodecahedron project logo to Sphinx documentation sidebar.
+
 0.2.1
 -----
 
