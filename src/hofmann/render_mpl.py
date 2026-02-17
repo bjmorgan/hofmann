@@ -1725,7 +1725,10 @@ def _draw_scene(
     if draw_axes:
         if scene.lattice is None:
             raise ValueError("show_axes=True but scene has no lattice")
-        _draw_axes_widget(ax, scene, view, style.axes_style, pad)
+        _draw_axes_widget(
+            ax, scene, view, style.axes_style,
+            pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -1738,7 +1741,10 @@ def _draw_axes_widget(
     scene: StructureScene,
     view: ViewState,
     style: AxesStyle,
-    pad: float,
+    pad_x: float,
+    pad_y: float,
+    cx: float = 0.0,
+    cy: float = 0.0,
 ) -> None:
     """Draw a crystallographic axes orientation widget on *ax*.
 
@@ -1756,29 +1762,34 @@ def _draw_axes_widget(
         scene: The structure scene (provides lattice).
         view: Camera / projection state.
         style: Visual style for the widget.
-        pad: Viewport half-extent in data coordinates.
+        pad_x: Viewport half-extent in the x direction (data coords).
+        pad_y: Viewport half-extent in the y direction (data coords).
+        cx: Viewport centre x coordinate.
+        cy: Viewport centre y coordinate.
     """
     lattice = scene.lattice  # (3, 3), rows are a, b, c
     assert lattice is not None, "axes widget requires a lattice"
+    pad = max(pad_x, pad_y)
     arrow_len = style.arrow_length * pad
 
     # Widget origin in data coordinates.
     if isinstance(style.corner, tuple):
         # Explicit fractional position: (0, 0) = bottom-left, (1, 1) = top-right.
         fx, fy = style.corner
-        ox = -pad + 2 * pad * fx
-        oy = -pad + 2 * pad * fy
+        ox = (cx - pad_x) + 2 * pad_x * fx
+        oy = (cy - pad_y) + 2 * pad_y * fy
     else:
         # Named corner with margin inset.
-        inset = style.margin * pad + arrow_len
+        inset_x = style.margin * pad_x + arrow_len
+        inset_y = style.margin * pad_y + arrow_len
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.TOP_LEFT):
-            ox = -pad + inset
+            ox = (cx - pad_x) + inset_x
         else:
-            ox = pad - inset
+            ox = (cx + pad_x) - inset_x
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.BOTTOM_RIGHT):
-            oy = -pad + inset
+            oy = (cy - pad_y) + inset_y
         else:
-            oy = pad - inset
+            oy = (cy + pad_y) - inset_y
 
     # Compute display-space scaling so that font_size and line_width
     # stay proportional to arrow_len regardless of figsize.  The
@@ -1788,8 +1799,8 @@ def _draw_axes_widget(
     fig = ax.get_figure()
     assert isinstance(fig, Figure)
     fig_width_in = fig.get_figwidth()
-    # Approximate: the axes span 2*pad data units over fig_width_in.
-    pts_per_data = fig_width_in * 72.0 / (2.0 * pad)
+    # Approximate: the axes span 2*pad_x data units over fig_width_in.
+    pts_per_data = fig_width_in * 72.0 / (2.0 * pad_x)
     arrow_len_pts = arrow_len * pts_per_data
     _REFERENCE_ARROW_PTS = 0.08 * 72.0 / 2.0 * 4.0  # ~11.5 pts at figsize=4
     scale = arrow_len_pts / _REFERENCE_ARROW_PTS
