@@ -639,8 +639,11 @@ def from_pymatgen(
 
             # Single-pass bond completion: for bond specs with
             # complete set, add missing bonded partners across
-            # periodic boundaries (non-recursive).
-            complete_specs = [sp for sp in bond_specs if sp.complete]
+            # periodic boundaries (non-recursive).  Specs that are
+            # also recursive are skipped here — recursive already
+            # subsumes the single-pass search.
+            complete_specs = [sp for sp in bond_specs
+                              if sp.complete and not sp.recursive]
             if complete_specs:
                 centres = [sp.complete for sp in complete_specs
                            if sp.complete != "*"]

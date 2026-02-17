@@ -771,3 +771,32 @@ class TestCompleteBondExpansion:
         # But no new Cl images should be added.
         cl_count = sum(1 for sp in scene_directed.species if sp == "Cl")
         assert cl_count == 1
+
+    def test_complete_plus_recursive_no_extra_depth(self):
+        """complete + recursive on the same spec does not add an extra pass."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(
+            lattice, ["Na", "Cl"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
+        )
+        # recursive-only should give the same result as complete+recursive,
+        # because complete is skipped when recursive is set.
+        bond_recursive = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            recursive=True,
+        )
+        bond_both = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="*", recursive=True,
+        )
+        scene_recursive = from_pymatgen(
+            struct, bond_specs=[bond_recursive], pbc=True, pbc_padding=0.1,
+        )
+        scene_both = from_pymatgen(
+            struct, bond_specs=[bond_both], pbc=True, pbc_padding=0.1,
+        )
+        assert len(scene_both.species) == len(scene_recursive.species)
