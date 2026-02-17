@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.2.1
+-----
+
+- Static renderer now uses per-axis viewport extents, producing
+  tightly cropped output for non-square scenes.
+
 0.2.0
 -----
 
