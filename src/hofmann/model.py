@@ -169,7 +169,7 @@ def _resolve_numerical(
         valid = values[~mask]
         if len(valid) == 0:
             return list(fallback)
-        vmin, vmax = float(np.nanmin(valid)), float(np.nanmax(valid))
+        vmin, vmax = float(np.min(valid)), float(np.max(valid))
 
     if vmin == vmax:
         normalised = np.where(mask, np.nan, 0.5)
