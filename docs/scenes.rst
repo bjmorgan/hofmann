@@ -19,7 +19,7 @@ Scenes are typically created via :meth:`~hofmann.StructureScene.from_xbs`
 or :meth:`~hofmann.StructureScene.from_pymatgen`, but you can also
 construct one directly from data.
 
-Here is a simple CH4 molecule loaded from an XBS file:
+Here is a simple CH\ :sub:`4` molecule loaded from an XBS file:
 
 .. code-block:: python
 
@@ -102,53 +102,65 @@ generates sensible defaults from :data:`~hofmann.COVALENT_RADII`.
    :align: center
    :alt: SrTiO3 perovskite with bonds
 
-Recursive bond search
-~~~~~~~~~~~~~~~~~~~~~
+Bond completion across boundaries
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Molecules sometimes span unit-cell boundaries.  With the default
-``pbc_padding``, atoms on the far side of the boundary may be missing,
-leaving half-rendered molecules.  In the structure below, N2H6
-molecules that cross a cell face are incomplete -- isolated N or H
-atoms appear at the boundary with missing bonds:
+When atoms sit near cell boundaries, some of their bonded neighbours
+may lie outside the ``pbc_padding`` margin and are not included in the
+scene.  Without those image atoms the bonds are missing entirely.  In
+the structure below, Zr atoms at the cell boundary are missing some
+of their S neighbours:
 
-.. image:: _static/recursive_bonds_before.svg
+.. image:: _static/pbc_bonds_plain.svg
    :width: 400px
    :align: center
-   :alt: Zr-S structure with incomplete N2H6 molecules at cell boundaries
+   :alt: Zr-S structure with incomplete bonds at cell boundaries
 
-Increasing ``pbc_padding`` is one workaround, but it pulls in many
-unnecessary image atoms that clutter the scene.  A more targeted
-approach is to set ``recursive=True`` on the relevant bond specs.
-This tells hofmann to iteratively search for bonded atoms across
-periodic boundaries: whenever an atom matching a recursive spec is
-already visible, its bonded partners are added even if they fall
-outside the ``pbc_padding`` margin.  Newly added atoms are themselves
-checked on the next iteration, so that entire molecules are completed:
+Setting ``complete`` on a bond spec tells hofmann to add the missing
+neighbours.  Here ``complete="Zr"`` adds missing S neighbours around
+visible Zr atoms, without pulling in new Zr images around visible S:
 
 .. code-block:: python
 
-   from hofmann import StructureScene, BondSpec, PolyhedronSpec
-   from pymatgen.core import Structure
+   BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
+            radius=0.1, colour=0.5, complete="Zr")
 
-   structure = Structure.from_file("CONTCAR")
+.. image:: _static/pbc_bonds_complete.svg
+   :width: 400px
+   :align: center
+   :alt: Zr-S network with complete="Zr" adding missing S neighbours
+
+Use ``complete="*"`` to complete around both species in the pair.
+
+Recursive bond search
+~~~~~~~~~~~~~~~~~~~~~
+
+Bond completion adds missing neighbours in a single pass, but does
+not follow chains.  For molecules that span periodic boundaries the
+missing partners may themselves have missing partners.  In the full
+structure below, the Zr-S bonds are complete but
+N\ :sub:`2`\ H\ :sub:`6` molecules that cross a cell face are broken:
+
+.. image:: _static/pbc_bonds_no_recursive.svg
+   :width: 400px
+   :align: center
+   :alt: Full structure with broken N2H6 molecules at cell boundaries
+
+Setting ``recursive=True`` tells hofmann to iteratively search for
+bonded atoms across boundaries until no new atoms are found:
+
+.. code-block:: python
 
    bonds = [
        BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
-                radius=0.1, colour=0.5),
+                radius=0.1, colour=0.5, complete="Zr"),
        BondSpec(species=("N", "N"), min_length=0.0, max_length=1.9,
                 radius=0.1, colour=0.5, recursive=True),
        BondSpec(species=("H", "N"), min_length=0.0, max_length=1.2,
                 radius=0.1, colour=0.5, recursive=True),
    ]
 
-   scene = StructureScene.from_pymatgen(
-       structure, bonds,
-       polyhedra=[PolyhedronSpec(centre="Zr", alpha=0.4, hide_centre=True)],
-       pbc=True,
-   )
-   scene.render_mpl(show_axes=False)
-
-.. image:: _static/recursive_bonds.svg
+.. image:: _static/pbc_bonds_recursive.svg
    :width: 400px
    :align: center
    :alt: Same structure with recursive=True completing all N2H6 molecules

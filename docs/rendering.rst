@@ -90,7 +90,7 @@ Any :class:`~hofmann.RenderStyle` field can be passed as a keyword
 argument to :meth:`~hofmann.StructureScene.render_mpl`.  Unknown
 keyword names raise :class:`TypeError`.
 
-Here is the same SrTiO3 perovskite rendered with different styles:
+Here is the same SrTiO\ :sub:`3` perovskite rendered with different styles:
 
 .. list-table::
    :widths: 50 50
@@ -188,7 +188,7 @@ controls how polyhedra at the slab boundary are handled:
   when its centre atom is within the slab
 
 Here is the LLZO garnet with a depth slab that clips through several
-ZrO6 octahedra, rendered with each mode:
+ZrO\ :sub:`6` octahedra, rendered with each mode:
 
 .. list-table::
    :widths: 33 33 33

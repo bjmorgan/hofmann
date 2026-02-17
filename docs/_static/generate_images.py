@@ -152,12 +152,18 @@ def si_scene() -> StructureScene:
     return scene
 
 
-def recursive_bonds_scene(*, recursive: bool = True) -> StructureScene:
-    """Build the Zr-S-N-H structure demonstrating recursive bond search.
+def pbc_bonds_scene(
+    *, complete: bool = False, recursive: bool = False,
+    polyhedra: bool = False, molecular: bool = True,
+) -> StructureScene:
+    """Build the Zr-S-N-H structure for bond completion examples.
 
-    N2H6 molecules span periodic boundaries; setting recursive=True
-    on the N-N and H-N bond specs completes them without inflating
-    pbc_padding.  Pass ``recursive=False`` to show the "before" state.
+    Args:
+        complete: Set ``complete="Zr"`` on the S-Zr bond spec.
+        recursive: Set ``recursive=True`` on the N-N and H-N bond specs.
+        polyhedra: Include ZrS6 polyhedra with hidden centres.
+        molecular: Include N-N and H-N bond specs.  Set to ``False``
+            to show only the Zr-S network.
     """
     from pymatgen.core import Structure as PmgStructure
 
@@ -166,25 +172,31 @@ def recursive_bonds_scene(*, recursive: bool = True) -> StructureScene:
 
     bond_specs = [
         BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
-                 radius=0.1, colour=0.5),
+                 radius=0.1, colour=0.5,
+                 complete="Zr" if complete else False),
         BondSpec(species=("N", "N"), min_length=0.0, max_length=1.9,
                  radius=0.1, colour=0.5, recursive=recursive),
         BondSpec(species=("H", "N"), min_length=0.0, max_length=1.2,
                  radius=0.1, colour=0.5, recursive=recursive),
     ]
 
-    polyhedra = [
-        PolyhedronSpec(
-            centre="Zr", colour=(0.55, 0.71, 0.67), alpha=0.4,
-            hide_centre=True,
-        ),
-    ]
+    poly_specs = []
+    if polyhedra:
+        poly_specs = [
+            PolyhedronSpec(
+                centre="Zr", colour=(0.55, 0.71, 0.67), alpha=0.4,
+                hide_centre=True,
+            ),
+        ]
 
     scene = StructureScene.from_pymatgen(
-        structure, bond_specs, polyhedra=polyhedra, pbc=True,
+        structure, bond_specs, polyhedra=poly_specs, pbc=True,
     )
     scene.atom_styles["Zr"].colour = (0.55, 0.71, 0.67)
     scene.atom_styles["N"].colour = (0.35, 0.55, 0.75)
+    if not molecular:
+        scene.atom_styles["N"].visible = False
+        scene.atom_styles["H"].visible = False
     return scene
 
 
@@ -312,17 +324,25 @@ def main() -> None:
     si.render_mpl(OUT / "si.svg", figsize=(4, 4), dpi=150)
     print(f"  wrote {OUT / 'si.svg'}")
 
-    # Recursive bond search -- Zr-S-N-H with N2H6 molecules across PBC
-    rec_kw = dict(figsize=(4, 4), dpi=150, show=False,
-                  show_axes=False, atom_scale=0.4)
-    # "Before": without recursive, molecules are chopped at boundaries.
-    rec_before = recursive_bonds_scene(recursive=False)
-    rec_before.render_mpl(OUT / "recursive_bonds_before.svg", **rec_kw)
-    print(f"  wrote {OUT / 'recursive_bonds_before.svg'}")
-    # "After": with recursive=True, molecules are completed.
-    rec = recursive_bonds_scene(recursive=True)
-    rec.render_mpl(OUT / "recursive_bonds.svg", **rec_kw)
-    print(f"  wrote {OUT / 'recursive_bonds.svg'}")
+    # PBC bond completion -- Zr-S network only
+    pbc_kw = dict(figsize=(4, 4), dpi=150, show=False,
+                  show_axes=False, atom_scale=0.4, half_bonds=False)
+    # Zr-S only, no completion: missing bonds at boundary.
+    plain = pbc_bonds_scene(molecular=False)
+    plain.render_mpl(OUT / "pbc_bonds_plain.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_plain.svg'}")
+    # Zr-S with complete="Zr": boundary bonds filled in.
+    comp = pbc_bonds_scene(complete=True, molecular=False)
+    comp.render_mpl(OUT / "pbc_bonds_complete.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_complete.svg'}")
+    # Full structure without recursive: N2H6 molecules broken.
+    no_rec = pbc_bonds_scene(complete=True)
+    no_rec.render_mpl(OUT / "pbc_bonds_no_recursive.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_no_recursive.svg'}")
+    # Full structure with recursive: N2H6 molecules completed.
+    rec = pbc_bonds_scene(complete=True, recursive=True)
+    rec.render_mpl(OUT / "pbc_bonds_recursive.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_recursive.svg'}")
 
     # SrTiO3 perovskite with polyhedra -- hero image
     perov = perovskite_scene()

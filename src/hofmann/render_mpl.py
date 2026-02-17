@@ -694,9 +694,18 @@ def _precompute_scene(
         scene.species, coords, bonds, scene.polyhedra,
     )
 
-    # Build sets of hidden atoms/bonds from polyhedra specs.
+    # Build sets of hidden atoms/bonds.
     hidden_atoms: set[int] = set()
     hidden_bond_ids: set[int] = set()
+    # Hide atoms whose AtomStyle has visible=False, and their bonds.
+    for i, sp in enumerate(scene.species):
+        style = scene.atom_styles.get(sp)
+        if style is not None and not style.visible:
+            hidden_atoms.add(i)
+    if hidden_atoms:
+        for bond in bonds:
+            if bond.index_a in hidden_atoms or bond.index_b in hidden_atoms:
+                hidden_bond_ids.add(id(bond))
     # For hide_vertices: an atom is hidden only if *every* polyhedron
     # it participates in has hide_vertices=True AND it has no bonds
     # to atoms outside those polyhedra (e.g. Li-O bonds keep O visible

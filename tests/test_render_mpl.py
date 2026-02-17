@@ -81,6 +81,37 @@ class TestRenderMpl:
         fig = render_mpl(scene, show=False)
         assert isinstance(fig, Figure)
 
+    def test_invisible_atom_not_drawn(self):
+        """An atom with visible=False should not appear in the render."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0],
+                                           [2.0, 0.0, 0.0]]))],
+            atom_styles={
+                "A": AtomStyle(1.0, "grey"),
+                "B": AtomStyle(0.8, "red", visible=False),
+            },
+        )
+        fig_hidden = render_mpl(scene, show=False)
+        assert isinstance(fig_hidden, Figure)
+        # Compare with both visible.
+        scene_visible = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0],
+                                           [2.0, 0.0, 0.0]]))],
+            atom_styles={
+                "A": AtomStyle(1.0, "grey"),
+                "B": AtomStyle(0.8, "red"),
+            },
+        )
+        fig_visible = render_mpl(scene_visible, show=False)
+        # The hidden scene should have fewer drawn patches.
+        ax_hidden = fig_hidden.axes[0]
+        ax_visible = fig_visible.axes[0]
+        n_hidden = sum(len(c.get_paths()) for c in ax_hidden.collections)
+        n_visible = sum(len(c.get_paths()) for c in ax_visible.collections)
+        assert n_hidden < n_visible
+
     def test_empty_scene(self):
         """An empty scene (zero atoms) should render without crashing."""
         scene = StructureScene(
