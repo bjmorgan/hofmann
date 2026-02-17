@@ -1,8 +1,14 @@
-# hofmann
+<p align="center">
+  <img src="logo.svg" width="200" alt="hofmann logo">
+</p>
 
-[![CI](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml/badge.svg)](https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml)
-[![Documentation](https://readthedocs.org/projects/hofmann/badge/?version=latest)](https://hofmann.readthedocs.io/en/latest/)
-[![PyPI](https://img.shields.io/pypi/v/hofmann)](https://pypi.org/project/hofmann/)
+<h1 align="center">hofmann</h1>
+
+<p align="center">
+  <a href="https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml"><img src="https://github.com/bjmorgan/hofmann/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="https://hofmann.readthedocs.io/en/latest/"><img src="https://readthedocs.org/projects/hofmann/badge/?version=latest" alt="Documentation"></a>
+  <a href="https://pypi.org/project/hofmann/"><img src="https://img.shields.io/pypi/v/hofmann" alt="PyPI"></a>
+</p>
 
 A modern Python reimagining of Methfessel's [XBS](https://www.ccl.net/cca/software/X-WINDOW/xbs/) ball-and-stick viewer (1995), named after [August Wilhelm von Hofmann](https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann) who built the first ball-and-stick molecular models in 1865.
 

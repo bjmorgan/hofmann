@@ -255,13 +255,16 @@ def logo_scene() -> StructureScene:
 def main() -> None:
     # Project logo: dodecahedron with inferno gradient
     logo = logo_scene()
-    style = RenderStyle(polyhedra_shading=1.0, half_bonds=False)
-    logo.render_mpl(
-        OUT / "logo.svg",
-        colour_by="gradient", cmap="inferno",
-        show=False, figsize=(3, 3), dpi=150, style=style,
-    )
-    print(f"  wrote {OUT / 'logo.svg'}")
+    logo_style = RenderStyle(polyhedra_shading=1.0, half_bonds=False)
+    logo_kw = dict(colour_by="gradient", cmap="inferno", show=False,
+                   style=logo_style)
+    repo_root = OUT.parent.parent
+    logo.render_mpl(repo_root / "logo.svg", figsize=(3, 3), dpi=150,
+                    **logo_kw)
+    print(f"  wrote {repo_root / 'logo.svg'}")
+    logo.render_mpl(repo_root / "logo.png", figsize=(3, 3), dpi=300,
+                    **logo_kw)
+    print(f"  wrote {repo_root / 'logo.png'}")
 
     # CH4 -- simple ball-and-stick
     ch4 = ch4_scene()
