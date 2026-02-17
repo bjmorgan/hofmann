@@ -149,6 +149,27 @@ class TestBondSpecMatches:
                         complete=False)
         assert spec.complete is False
 
+    def test_complete_empty_string_raises(self):
+        """An empty string is not a valid species name for complete."""
+        with pytest.raises(ValueError, match="complete must not be an empty string"):
+            BondSpec(species=("C", "H"), min_length=0.0,
+                     max_length=5.0, radius=0.1, colour=1.0,
+                     complete="")
+
+    def test_complete_species_not_in_pair_raises(self):
+        """complete='Zr' on a ('C', 'H') bond spec is rejected."""
+        with pytest.raises(ValueError, match="does not match either species"):
+            BondSpec(species=("C", "H"), min_length=0.0,
+                     max_length=5.0, radius=0.1, colour=1.0,
+                     complete="Zr")
+
+    def test_complete_species_matches_one_side(self):
+        """complete='Na' on ('Cl', 'Na') is accepted."""
+        spec = BondSpec(species=("Na", "Cl"), min_length=0.0,
+                        max_length=5.0, radius=0.1, colour=1.0,
+                        complete="Na")
+        assert spec.complete == "Na"
+
 
 # --- Bond frozen ---
 
