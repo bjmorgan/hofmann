@@ -773,6 +773,45 @@ class TestCompleteBondExpansion:
         cl_count = sum(1 for sp in scene_directed.species if sp == "Cl")
         assert cl_count == 1
 
+    def test_complete_mixed_selectors(self):
+        """Mixing complete="Cl" and complete="*" respects each spec."""
+        from hofmann.model import BondSpec
+
+        lattice = Lattice.cubic(5.0)
+        # Na at centre, Cl near far face, Br near far face on y.
+        # Two bond specs: Na-Cl with complete="Cl" (only expands
+        # around Cl — adding missing Na neighbours for Cl), and
+        # Na-Br with complete="*" (expands both ways).
+        #
+        # Bug: if we merge both specs into a single expansion call
+        # with centre_species_only=["Cl"], the "*" spec's expansion
+        # around Br is suppressed.  Per-spec processing avoids this.
+        struct = Structure(
+            lattice, ["Na", "Cl", "Br"],
+            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5], [0.5, 0.98, 0.5]],
+        )
+        bond_na_cl = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="Cl",
+        )
+        bond_na_br = BondSpec(
+            species=("Na", "Br"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+            complete="*",
+        )
+        scene = from_pymatgen(
+            struct, bond_specs=[bond_na_cl, bond_na_br],
+            pbc=True, pbc_padding=0.1,
+        )
+        # The "*" spec on Na-Br should complete around Br too,
+        # adding a Na image as a neighbour of Br.
+        na_count = sum(1 for sp in scene.species if sp == "Na")
+        assert na_count >= 2
+        # Br should also gain image atoms from the "*" expansion.
+        br_count = sum(1 for sp in scene.species if sp == "Br")
+        assert br_count >= 2
+
     def test_complete_plus_recursive_no_extra_depth(self):
         """complete + recursive on the same spec does not add an extra pass."""
         from hofmann.model import BondSpec

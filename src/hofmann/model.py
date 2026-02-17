@@ -784,6 +784,11 @@ class BondSpec:
                 "complete=True is not supported; use a species name "
                 "(e.g. complete='Zr') or complete='*' for both directions"
             )
+        if self.complete is not False and not isinstance(self.complete, str):
+            raise ValueError(
+                "complete must be False, a species name string "
+                "(e.g. 'Zr'), or '*' for both directions"
+            )
 
     def matches(self, species_1: str, species_2: str) -> bool:
         """Check whether this spec matches a given species pair.

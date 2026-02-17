@@ -506,7 +506,8 @@ def _expand_recursive_bonds(
     all_coords = expanded_coords.copy()
 
     for _depth in range(max_depth):
-        added_this_round: list[tuple[str, np.ndarray]] = []
+        added_species: list[str] = []
+        added_coords: list[np.ndarray] = []
         n_current = len(new_species)
 
         for idx in range(n_current):
@@ -530,17 +531,26 @@ def _expand_recursive_bonds(
 
             for nbr_sp, offset in uc_neighbour_offsets[source_idx]:
                 nbr_coord = structure[source_idx].coords + translation + offset
+                # Check against existing atoms.
                 diffs = np.linalg.norm(all_coords - nbr_coord, axis=1)
                 if np.any(diffs < 1e-6):
                     continue
-                added_this_round.append((nbr_sp, nbr_coord))
-                new_species.append(nbr_sp)
-                all_coords = np.vstack(
-                    [all_coords, nbr_coord[np.newaxis, :]],
-                )
+                # Check against atoms added earlier this round.
+                if added_coords and any(
+                    np.linalg.norm(c - nbr_coord) < 1e-6
+                    for c in added_coords
+                ):
+                    continue
+                added_species.append(nbr_sp)
+                added_coords.append(nbr_coord)
 
-        if not added_this_round:
+        if not added_coords:
             break
+
+        new_species.extend(added_species)
+        all_coords = np.vstack(
+            [all_coords] + [c[np.newaxis, :] for c in added_coords],
+        )
 
     if len(new_species) > len(expanded_species):
         return new_species, all_coords
@@ -637,21 +647,23 @@ def from_pymatgen(
             # Geometric expansion: add images near cell faces.
             exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
 
-            # Single-pass bond completion: for bond specs with
+            # Single-pass bond completion: for each bond spec with
             # complete set, add missing bonded partners across
-            # periodic boundaries (non-recursive).  Specs that are
-            # also recursive are skipped here — recursive already
-            # subsumes the single-pass search.
-            complete_specs = [sp for sp in bond_specs
-                              if sp.complete and not sp.recursive]
-            if complete_specs:
-                centres: list[str] = [
-                    str(sp.complete) for sp in complete_specs
-                    if sp.complete != "*"
-                ]
+            # periodic boundaries (non-recursive).  Each spec is
+            # processed individually so that its centre selector
+            # is applied independently.  Specs that are also
+            # recursive are skipped — recursive already subsumes
+            # the single-pass search.
+            for sp in bond_specs:
+                if not sp.complete or sp.recursive:
+                    continue
+                centres: list[str] | None = (
+                    None if sp.complete == "*"
+                    else [str(sp.complete)]
+                )
                 exp_species, exp_coords = _expand_neighbour_shells(
-                    s, exp_species, exp_coords, n_uc, complete_specs,
-                    centre_species_only=centres or None,
+                    s, exp_species, exp_coords, n_uc, [sp],
+                    centre_species_only=centres,
                 )
 
             # Recursive bond expansion: iteratively add bonded
