@@ -90,21 +90,26 @@ def _species_colours(
 def _resolve_cmap(
     cmap: "str | object",
 ) -> Callable[[float], tuple[float, float, float]]:
-    """Turn a colourmap specification into a callable float -> RGB."""
-    if callable(cmap) and not isinstance(cmap, str):
-        return cmap  # type: ignore[return-value]
+    """Turn a colourmap specification into a callable float -> RGB.
+
+    Accepts a colourmap name (string), a callable mapping a float in
+    ``[0, 1]`` to a colour tuple, or a matplotlib ``Colormap`` object.
+    The returned wrapper always produces 3-tuple ``(r, g, b)`` even if
+    the underlying callable returns RGBA.
+
+    Raises:
+        TypeError: If *cmap* is not a string and not callable.
+    """
     if isinstance(cmap, str):
         import matplotlib
-        mpl_cmap = matplotlib.colormaps[cmap]
-        def _wrap(val: float) -> tuple[float, float, float]:
-            rgba = mpl_cmap(val)
-            return (rgba[0], rgba[1], rgba[2])
-        return _wrap
-    # Assume a matplotlib Colormap-like object.
-    def _wrap_obj(val: float) -> tuple[float, float, float]:
-        rgba = cmap(val)  # type: ignore[operator]
-        return (rgba[0], rgba[1], rgba[2])
-    return _wrap_obj
+        cmap = matplotlib.colormaps[cmap]
+    if not callable(cmap):
+        raise TypeError(f"Unsupported cmap type: {type(cmap)}")
+
+    def _wrap(val: float) -> tuple[float, float, float]:
+        result = cmap(val)  # type: ignore[operator]
+        return (result[0], result[1], result[2])
+    return _wrap
 
 
 def _resolve_single_layer(
@@ -180,7 +185,9 @@ def resolve_atom_colours(
         KeyError: If *colour_by* (or any key in the list) is not
             found in *atom_data*.
         ValueError: If *colour_by* is a list and *cmap* or
-            *colour_range* is also a list of a different length.
+            *colour_range* is also a list of a different length, or
+            if *colour_by* is a single string and *cmap* or
+            *colour_range* is a list.
     """
     if colour_by is None:
         return _species_colours(species, atom_styles)
@@ -189,9 +196,17 @@ def resolve_atom_colours(
 
     # --- Single key (common case) ---
     if isinstance(colour_by, str):
-        cr = colour_range if not isinstance(colour_range, list) else None
+        if isinstance(cmap, list):
+            raise ValueError(
+                "cmap must not be a list when colour_by is a single string"
+            )
+        if isinstance(colour_range, list):
+            raise ValueError(
+                "colour_range must not be a list when colour_by is a "
+                "single string"
+            )
         colours, _mask = _resolve_single_layer(
-            atom_data, colour_by, fallback, cmap, cr,
+            atom_data, colour_by, fallback, cmap, colour_range,
         )
         return colours
 

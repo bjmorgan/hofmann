@@ -1027,6 +1027,44 @@ class TestResolveAtomColours:
         assert result[1] == (0.0, 0.0, 1.0)  # from blue
         assert result[2] == (0.6, 0.0, 0.0)  # fallback (O)
 
+    def test_single_key_list_cmap_raises(self):
+        """List cmap with single colour_by string raises ValueError."""
+        data = {"val": np.array([1.0, 2.0, 3.0])}
+        with pytest.raises(ValueError, match="cmap"):
+            resolve_atom_colours(
+                self.SPECIES, self.STYLES, data,
+                colour_by="val", cmap=["viridis"],
+            )
+
+    def test_single_key_list_colour_range_raises(self):
+        """List colour_range with single colour_by string raises ValueError."""
+        data = {"val": np.array([1.0, 2.0, 3.0])}
+        with pytest.raises(ValueError, match="colour_range"):
+            resolve_atom_colours(
+                self.SPECIES, self.STYLES, data,
+                colour_by="val", colour_range=[(0.0, 1.0)],
+            )
+
+    def test_colormap_object_returns_rgb(self):
+        """Passing a Colormap object produces 3-tuple (r, g, b) colours."""
+        import matplotlib
+        cmap_obj = matplotlib.colormaps["viridis"]
+
+        data = {"val": np.array([0.0, 0.5, 1.0])}
+        result = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by="val", cmap=cmap_obj,
+        )
+        for colour in result:
+            assert len(colour) == 3
+        # Check values match the string-based lookup.
+        expected = resolve_atom_colours(
+            self.SPECIES, self.STYLES, data,
+            colour_by="val", cmap="viridis",
+        )
+        for actual, exp in zip(result, expected):
+            assert actual == pytest.approx(exp)
+
 
 # --- CellEdgeStyle ---
 
