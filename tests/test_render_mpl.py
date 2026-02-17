@@ -1928,3 +1928,40 @@ class TestColourBy:
         assert isinstance(fig, Figure)
         plt.close(fig)
 
+    def test_polyhedra_inherit_colour_by(self):
+        """Polyhedra inherit the centre atom's resolved colour_by colour."""
+        from hofmann.render_mpl import _precompute_scene
+
+        scene = _octahedron_scene()
+        # Ti is atom 0; give it a numerical value so it gets a cmap colour.
+        n_atoms = len(scene.species)
+        scene.set_atom_data("val", {0: 0.5})
+
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        precomputed = _precompute_scene(
+            scene, 0, colour_by="val", cmap=red,
+        )
+        # The polyhedron should inherit (1.0, 0.0, 0.0) from the cmap,
+        # not the Ti species colour.
+        assert len(precomputed.poly_base_colours) == 1
+        assert precomputed.poly_base_colours[0] == (1.0, 0.0, 0.0)
+
+    def test_polyhedra_spec_colour_overrides_colour_by(self):
+        """PolyhedronSpec.colour still wins over colour_by."""
+        from hofmann.render_mpl import _precompute_scene
+
+        scene = _octahedron_scene(colour=(0.0, 0.0, 1.0))
+        n_atoms = len(scene.species)
+        scene.set_atom_data("val", {0: 0.5})
+
+        def red(_v: float) -> tuple[float, float, float]:
+            return (1.0, 0.0, 0.0)
+
+        precomputed = _precompute_scene(
+            scene, 0, colour_by="val", cmap=red,
+        )
+        # Explicit spec colour should override the colour_by value.
+        assert precomputed.poly_base_colours[0] == (0.0, 0.0, 1.0)
+

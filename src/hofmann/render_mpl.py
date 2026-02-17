@@ -751,10 +751,9 @@ def _precompute_scene(
         if poly.spec.colour is not None:
             base_rgb = normalise_colour(poly.spec.colour)
         else:
-            # Inherit from centre atom's style.
-            sp = scene.species[poly.centre_index]
-            style = scene.atom_styles.get(sp)
-            base_rgb = normalise_colour(style.colour) if style else (0.5, 0.5, 0.5)
+            # Inherit from centre atom's resolved colour, which
+            # accounts for colour_by / cmap when active.
+            base_rgb = atom_colours[poly.centre_index]
         poly_base_colours.append(base_rgb)
         poly_alphas.append(poly.spec.alpha)
         poly_edge_colours.append(normalise_colour(poly.spec.edge_colour))
