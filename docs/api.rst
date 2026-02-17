@@ -65,7 +65,19 @@ Rendering
 Colours and defaults
 --------------------
 
-.. autodata:: Colour
+.. data:: Colour
+   :type: str | float | tuple[float, float, float] | list[float]
+
+   A colour specification accepted throughout hofmann.
+
+   Can be any of:
+
+   - A CSS colour name or hex string (e.g. ``"red"``, ``"#ff0000"``).
+   - A single float for grey (``0.0`` = black, ``1.0`` = white).
+   - An RGB tuple or list with values in ``[0, 1]``
+     (e.g. ``(1.0, 0.0, 0.0)``).
+
+   See :func:`normalise_colour` for conversion to a normalised RGB tuple.
 
 .. autofunction:: normalise_colour
 

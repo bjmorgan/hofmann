@@ -256,24 +256,6 @@ are dimmed.
 
           ``polyhedra_shading=1.0`` (Lambertian)
 
-Vertex draw order
-~~~~~~~~~~~~~~~~~
-
-The ``polyhedra_vertex_mode`` setting controls how vertex atoms are
-layered relative to polyhedral faces.  ``"in_front"`` (the default)
-draws each vertex on top of the faces it belongs to.
-
-.. list-table::
-   :widths: 50 50
-
-   * - .. figure:: _static/octahedron_vertex_in_front.svg
-
-          Opaque polyhedra
-
-     - .. figure:: _static/octahedron_vertex_in_front_transparent.svg
-
-          Transparent polyhedra
-
 .. _slab-clipping:
 
 Slab clipping and polyhedra
@@ -383,6 +365,99 @@ Disable or customise the widget via :class:`~hofmann.RenderStyle`:
 
 The widget also rotates interactively in
 :meth:`~hofmann.StructureScene.render_mpl_interactive`.
+
+
+Colouring by per-atom data
+--------------------------
+
+Atoms can be coloured by arbitrary metadata instead of by species.
+Use :meth:`~hofmann.StructureScene.set_atom_data` to attach a named
+array and the ``colour_by`` parameter on
+:meth:`~hofmann.StructureScene.render_mpl` to activate it.
+
+Continuous data
+~~~~~~~~~~~~~~~
+
+Numerical arrays are mapped through a colourmap.  By default the
+data range is auto-scaled; use ``colour_range`` to fix the limits.
+
+.. code-block:: python
+
+   import numpy as np
+
+   angles = np.linspace(0, 360, len(scene.species), endpoint=False)
+   scene.set_atom_data("angle", angles)
+   scene.render_mpl("output.svg", colour_by="angle", cmap="twilight")
+
+.. image:: _static/colour_by_continuous.svg
+   :width: 320px
+   :align: center
+   :alt: Ring of atoms coloured by angle
+
+Categorical data
+~~~~~~~~~~~~~~~~
+
+String arrays assign a distinct colour to each unique value.
+
+.. code-block:: python
+
+   labels = ["alpha", "beta", "gamma", "delta"] * 4
+   scene.set_atom_data("site", labels)
+   scene.render_mpl("output.svg", colour_by="site", cmap="Set2")
+
+.. image:: _static/colour_by_categorical.svg
+   :width: 320px
+   :align: center
+   :alt: Ring of atoms coloured by categorical site labels
+
+Atoms with ``NaN`` (numeric) or ``""`` (categorical) values fall
+back to their species colour.  This is useful when metadata is only
+available for a subset of atoms:
+
+.. code-block:: python
+
+   # Only colour specific atoms by charge; the rest keep species colours.
+   scene.set_atom_data("charge", {0: 1.2, 3: -0.8, 5: 0.4})
+
+Custom colouring functions
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Instead of a colourmap name you can pass any callable that maps a
+float in ``[0, 1]`` to an ``(r, g, b)`` tuple:
+
+.. code-block:: python
+
+   def red_blue(t: float) -> tuple[float, float, float]:
+       """Linearly interpolate from red to blue."""
+       return (1.0 - t, 0.0, t)
+
+   scene.render_mpl("output.svg", colour_by="charge", cmap=red_blue)
+
+This works with any callable, including ``lambda`` expressions and
+matplotlib ``Colormap`` objects.
+
+Multiple colouring layers
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When different subsets of atoms should use different colouring rules,
+pass a list of keys to ``colour_by``.  Each layer is tried in order
+and the first non-missing value wins.  ``cmap`` and ``colour_range``
+can also be lists of the same length (or a single value broadcast to
+all layers):
+
+.. code-block:: python
+
+   # Colour metals by type, oxygens by coordination number.
+   scene.set_atom_data("metal_type", {0: "Fe", 2: "Co"})
+   scene.set_atom_data("o_coord", {1: 4, 3: 6})
+   scene.render_mpl(
+       "output.svg",
+       colour_by=["metal_type", "o_coord"],
+       cmap=["Set1", "Blues"],
+   )
+
+Atoms with missing data in all layers fall back to their species
+colour.
 
 
 Interactive viewer

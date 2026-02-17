@@ -104,6 +104,14 @@ Full documentation is available at [hofmann.readthedocs.io](https://hofmann.read
 - [XBS file format](https://hofmann.readthedocs.io/en/latest/xbs-format.html) -- `.bs` and `.mv` format reference
 - [API reference](https://hofmann.readthedocs.io/en/latest/api.html) -- full autodoc API
 
+## Citing hofmann
+
+If you use hofmann in published work, please cite it:
+
+> B. J. Morgan, *hofmann*, https://github.com/bjmorgan/hofmann
+
+A machine-readable citation is available in [`CITATION.cff`](CITATION.cff).
+
 ## Licence
 
 MIT. See [LICENSE](LICENSE) for details.

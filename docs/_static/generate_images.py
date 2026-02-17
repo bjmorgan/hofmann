@@ -359,6 +359,55 @@ def main() -> None:
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
     perov_plain.view.perspective = 0.0  # Reset
 
+    # 6–7. Per-atom colouring examples: ring of atoms coloured by angle.
+    n = 16
+    angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
+    r = 3.0
+    ring_coords = np.column_stack([
+        r * np.cos(angles),
+        r * np.sin(angles),
+        np.zeros(n),
+    ])
+    ring_species = ["X"] * n
+
+    # Bond each atom to its neighbour around the ring.
+    chord = 2 * r * np.sin(np.pi / n)
+    ring_bond = BondSpec(
+        species=("X", "X"), min_length=0.0,
+        max_length=chord + 0.1, radius=0.08, colour=0.5,
+    )
+
+    # 6. Continuous: colour by angle.
+    cont_scene = StructureScene(
+        species=ring_species,
+        frames=[Frame(coords=ring_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[ring_bond],
+    )
+    cont_scene.set_atom_data("angle", np.degrees(angles))
+    cont_scene.render_mpl(
+        OUT / "colour_by_continuous.svg",
+        show=False, figsize=(3, 3), dpi=150,
+        colour_by="angle", cmap="twilight",
+    )
+    print(f"  wrote {OUT / 'colour_by_continuous.svg'}")
+
+    # 7. Categorical: alternate labels around the ring.
+    cat_scene = StructureScene(
+        species=ring_species,
+        frames=[Frame(coords=ring_coords)],
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[ring_bond],
+    )
+    labels = ["alpha", "beta", "gamma", "delta"] * (n // 4)
+    cat_scene.set_atom_data("site", labels)
+    cat_scene.render_mpl(
+        OUT / "colour_by_categorical.svg",
+        show=False, figsize=(3, 3), dpi=150,
+        colour_by="site", cmap="Set2",
+    )
+    print(f"  wrote {OUT / 'colour_by_categorical.svg'}")
+
 
 if __name__ == "__main__":
     main()

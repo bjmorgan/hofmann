@@ -36,4 +36,5 @@ Quick example
    interactive
    api
    xbs-format
+   citing
    changelog

@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "hofmann"
+abstract: "A modern Python reimagining of the XBS ball-and-stick crystal structure viewer."
+type: software
+license: MIT
+url: "https://github.com/bjmorgan/hofmann"
+repository-code: "https://github.com/bjmorgan/hofmann"
+authors:
+  - family-names: Morgan
+    given-names: Benjamin J.
+    email: b.j.morgan@bath.ac.uk
+    orcid: "https://orcid.org/0000-0002-3056-8233"
+keywords:
+  - crystallography
+  - molecular visualisation
+  - ball-and-stick
+  - matplotlib
