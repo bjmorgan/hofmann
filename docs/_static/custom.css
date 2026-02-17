@@ -1,0 +1,21 @@
+/* Remove the default RTD blue/grey sidebar background so the logo
+   sits on a clean white background. */
+.wy-side-nav-search {
+    background-color: #fcfcfc;
+}
+
+/* Reduce padding around the logo image in the sidebar. */
+.wy-side-nav-search > a img.logo {
+    padding: 0;
+    margin: 0;
+    width: 100%;
+}
+
+/* Make the project name link match the clean background. */
+.wy-side-nav-search > a {
+    color: #333;
+}
+
+.wy-side-nav-search input[type="text"] {
+    border-color: #ccc;
+}
