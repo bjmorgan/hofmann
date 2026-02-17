@@ -632,8 +632,8 @@ class _PrecomputedScene:
     bond_radii: np.ndarray
     bond_index: dict[int, int]
     polyhedra: list
-    invisible_atoms: set[int]
-    invisible_bond_ids: set[int]
+    style_hidden_atoms: set[int]
+    style_hidden_bond_ids: set[int]
     hidden_atoms: set[int]
     hidden_bond_ids: set[int]
     poly_base_colours: list[tuple[float, float, float]]
@@ -698,16 +698,16 @@ def _precompute_scene(
 
     # Atoms hidden by AtomStyle.visible=False — always applied,
     # regardless of show_polyhedra.
-    invisible_atoms: set[int] = set()
-    invisible_bond_ids: set[int] = set()
+    style_hidden_atoms: set[int] = set()
+    style_hidden_bond_ids: set[int] = set()
     for i, sp in enumerate(scene.species):
         style = scene.atom_styles.get(sp)
         if style is not None and not style.visible:
-            invisible_atoms.add(i)
-    if invisible_atoms:
+            style_hidden_atoms.add(i)
+    if style_hidden_atoms:
         for bond in bonds:
-            if bond.index_a in invisible_atoms or bond.index_b in invisible_atoms:
-                invisible_bond_ids.add(id(bond))
+            if bond.index_a in style_hidden_atoms or bond.index_b in style_hidden_atoms:
+                style_hidden_bond_ids.add(id(bond))
 
     # Atoms/bonds hidden by polyhedra options (hide_centre, hide_bonds,
     # hide_vertices) — only applied when show_polyhedra is True.
@@ -789,8 +789,8 @@ def _precompute_scene(
         bond_radii=bond_radii,
         bond_index=bond_index,
         polyhedra=polyhedra,
-        invisible_atoms=invisible_atoms,
-        invisible_bond_ids=invisible_bond_ids,
+        style_hidden_atoms=style_hidden_atoms,
+        style_hidden_bond_ids=style_hidden_bond_ids,
         hidden_atoms=hidden_atoms,
         hidden_bond_ids=hidden_bond_ids,
         poly_base_colours=poly_base_colours,
@@ -1427,8 +1427,8 @@ def _draw_scene(
     # AtomStyle.visible=False hiding is always applied.  Polyhedra-
     # driven hiding (hide_centre, hide_bonds, hide_vertices) is only
     # applied when polyhedra are actually being drawn.
-    hidden_atoms = set(precomputed.invisible_atoms)
-    hidden_bond_ids = set(precomputed.invisible_bond_ids)
+    hidden_atoms = set(precomputed.style_hidden_atoms)
+    hidden_bond_ids = set(precomputed.style_hidden_bond_ids)
     if show_polyhedra:
         hidden_atoms |= precomputed.hidden_atoms
         hidden_bond_ids |= precomputed.hidden_bond_ids
