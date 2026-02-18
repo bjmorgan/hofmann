@@ -42,6 +42,9 @@ from hofmann.model import (
 )
 from hofmann.polyhedra import compute_polyhedra
 
+# Font size (points) for scene titles rendered inside the viewport.
+_TITLE_FONT_SIZE = 12.0
+
 # Default unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
 _UNIT_CIRCLE = np.column_stack([
@@ -1692,7 +1695,6 @@ def _draw_scene(
     ax.axis("off")
 
     if scene.title:
-        _TITLE_FONT_SIZE = 12.0
         ax.text(
             0.5, 0.97, scene.title,
             transform=ax.transAxes,
@@ -2011,7 +2013,6 @@ def render_mpl(
         The matplotlib :class:`~matplotlib.figure.Figure` object.
     """
     resolved = _resolve_style(style, **style_kwargs)
-    bg_rgb = normalise_colour(background)
 
     if ax is not None:
         fig = ax.get_figure()
@@ -2029,6 +2030,7 @@ def render_mpl(
 
         return fig
 
+    bg_rgb = normalise_colour(background)
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     fig.set_facecolor(bg_rgb)
     ax.set_facecolor(bg_rgb)
