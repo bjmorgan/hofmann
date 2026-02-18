@@ -16,16 +16,14 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
-
-if TYPE_CHECKING:
-    from matplotlib.axes import Axes
 
 from hofmann.bonds import compute_bonds
 from hofmann.model import (
@@ -1759,17 +1757,17 @@ def _draw_axes_widget(
             oy = (cy + pad_y) - inset_y
 
     # Compute display-space scaling so that font_size and line_width
-    # stay proportional to arrow_len regardless of figsize.  The
-    # style defaults are calibrated for 4-inch figures; scale them
-    # by comparing the actual arrow length in points against a
-    # reference value.
+    # stay proportional to arrow_len regardless of axes size.  The
+    # style defaults are calibrated for a 4-inch-wide figure with a
+    # single subplot (axes width ~3.1 inches); scale them by comparing
+    # the actual arrow length in points against a reference value.
     fig = ax.get_figure()
     assert isinstance(fig, Figure)
-    fig_width_in = fig.get_figwidth()
-    # Approximate: the axes span 2*pad_x data units over fig_width_in.
-    pts_per_data = fig_width_in * 72.0 / (2.0 * pad_x)
+    ax_width_in = fig.get_figwidth() * ax.get_position().width
+    pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
     arrow_len_pts = arrow_len * pts_per_data
-    _REFERENCE_ARROW_PTS = 0.08 * 72.0 / 2.0 * 4.0  # ~11.5 pts at figsize=4
+    # Reference: 0.08 * 72 / 2 * 3.1 = ~8.9 pts (single subplot in 4-inch fig)
+    _REFERENCE_ARROW_PTS = 0.08 * 72.0 / 2.0 * 3.1
     scale = arrow_len_pts / _REFERENCE_ARROW_PTS
     font_size = style.font_size * scale
     line_width = style.line_width * scale
@@ -1892,6 +1890,7 @@ def render_mpl(
     scene: StructureScene,
     output: str | Path | None = None,
     *,
+    ax: Axes | None = None,
     style: RenderStyle | None = None,
     frame_index: int = 0,
     figsize: tuple[float, float] = (5.0, 5.0),
@@ -1939,11 +1938,23 @@ def render_mpl(
         scene.set_atom_data("charge", charges)
         scene.render_mpl(colour_by="charge", cmap="coolwarm")
 
+        # Render into an existing axes for multi-panel figures:
+        import matplotlib.pyplot as plt
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+        ax1.plot(x, y)
+        scene.render_mpl(ax=ax2)
+        fig.savefig("panel.pdf", bbox_inches="tight")
+
     Args:
         scene: The StructureScene to render.
         output: Optional file path to save the figure.  The format is
             inferred from the extension (e.g. ``.svg``, ``.pdf``,
-            ``.png``).
+            ``.png``).  Ignored when *ax* is provided.
+        ax: Optional matplotlib :class:`~matplotlib.axes.Axes` to draw
+            into.  When provided, the scene is rendered onto this axes
+            and the caller retains control of the parent figure
+            (saving, display, layout).  The *output*, *figsize*,
+            *dpi*, and *show* parameters are ignored.
         style: A :class:`RenderStyle` controlling visual appearance.
             If ``None``, defaults are used.  Any :class:`RenderStyle`
             field name may also be passed as a keyword argument to
@@ -1975,8 +1986,14 @@ def render_mpl(
     resolved = _resolve_style(style, **style_kwargs)
     bg_rgb = normalise_colour(background)
 
-    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
-    fig.set_facecolor(bg_rgb)
+    user_axes = ax is not None
+    if user_axes:
+        fig = ax.figure
+    else:
+        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
+        fig.set_facecolor(bg_rgb)
+
+    ax.set_facecolor(bg_rgb)
 
     _draw_scene(
         ax, scene, scene.view, resolved,
@@ -1987,18 +2004,19 @@ def render_mpl(
         colour_range=colour_range,
     )
 
-    fig.tight_layout()
+    if not user_axes:
+        fig.tight_layout()
 
-    if output is not None:
-        fig.savefig(str(output), dpi=dpi, bbox_inches="tight")
+        if output is not None:
+            fig.savefig(str(output), dpi=dpi, bbox_inches="tight")
 
-    if show is None:
-        show = output is None
+        if show is None:
+            show = output is None
 
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
 
     return fig
 

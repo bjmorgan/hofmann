@@ -278,3 +278,52 @@ Disable or customise the widget via :class:`~hofmann.RenderStyle`:
        ),
    )
    scene.render_mpl("output.svg", style=style)
+
+
+Rendering into existing axes
+-----------------------------
+
+By default :meth:`~hofmann.StructureScene.render_mpl` creates its own
+figure.  Pass the ``ax`` parameter to draw into an existing matplotlib
+axes instead — useful for multi-panel figures or combining a structure
+with other plots:
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+   from hofmann import StructureScene
+
+   scene = StructureScene.from_xbs("structure.bs")
+
+   fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+   ax1.plot(x, y)              # Your own data
+   scene.render_mpl(ax=ax2)    # Structure alongside
+   fig.savefig("panel.pdf", bbox_inches="tight")
+
+When ``ax`` is provided, the caller retains full control of the parent
+figure — the *output*, *figsize*, *dpi*, and *show* parameters are
+ignored.
+
+As an example, here is rutile TiO\ :sub:`2` viewed along [100] and
+[001], showing the distinct projections perpendicular and parallel to
+the *c* axis:
+
+.. image:: _static/multi_panel_projections.svg
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+   from hofmann import StructureScene
+
+   scene = StructureScene.from_pymatgen(structure, bond_specs)
+
+   fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+   for ax, direction, label in zip(
+       [ax1, ax2], [[1, 0, 0], [0, 0, 1]], ["[100]", "[001]"],
+   ):
+       scene.view.look_along(direction)
+       scene.render_mpl(ax=ax)
+       ax.set_title(label)
+
+   fig.tight_layout()
+   fig.savefig("projections.pdf", bbox_inches="tight")
