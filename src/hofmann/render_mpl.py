@@ -2004,13 +2004,24 @@ def render_mpl(
     resolved = _resolve_style(style, **style_kwargs)
     bg_rgb = normalise_colour(background)
 
-    user_axes = ax is not None
-    if user_axes:
-        fig = ax.figure
-    else:
-        fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
-        fig.set_facecolor(bg_rgb)
+    if ax is not None:
+        fig = ax.get_figure()
+        assert isinstance(fig, Figure)
+        ax.set_facecolor(bg_rgb)
 
+        _draw_scene(
+            ax, scene, scene.view, resolved,
+            frame_index=frame_index,
+            bg_rgb=bg_rgb,
+            colour_by=colour_by,
+            cmap=cmap,
+            colour_range=colour_range,
+        )
+
+        return fig
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
+    fig.set_facecolor(bg_rgb)
     ax.set_facecolor(bg_rgb)
 
     _draw_scene(
@@ -2022,19 +2033,18 @@ def render_mpl(
         colour_range=colour_range,
     )
 
-    if not user_axes:
-        fig.tight_layout()
+    fig.tight_layout()
 
-        if output is not None:
-            fig.savefig(str(output), dpi=dpi, bbox_inches="tight")
+    if output is not None:
+        fig.savefig(str(output), dpi=dpi, bbox_inches="tight")
 
-        if show is None:
-            show = output is None
+    if show is None:
+        show = output is None
 
-        if show:
-            plt.show()
-        else:
-            plt.close(fig)
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
 
     return fig
 
