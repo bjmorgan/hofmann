@@ -430,6 +430,8 @@ def _field_defaults(cls: type, *, exclude: frozenset[str] = frozenset()) -> dict
     current values against defaults so only non-default fields are
     serialised.
     """
+    # Fields with no default and fields using default_factory both have
+    # f.default == MISSING, so this single check excludes both cases.
     return {
         f.name: f.default
         for f in dataclasses.fields(cls)
