@@ -714,5 +714,5 @@ def from_pymatgen(
         view=view,
         title=title,
         lattice=structures[0].lattice.matrix.copy(),
-        atom_data=atom_data if atom_data is not None else {},
+        atom_data=dict(atom_data) if atom_data is not None else {},
     )
