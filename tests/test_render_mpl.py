@@ -205,6 +205,16 @@ class TestRenderMpl:
             assert n_paths > 0
         plt.close(fig)
 
+    def test_title_rendered_in_viewport_on_supplied_axes(self):
+        """scene.title is drawn as text inside the viewport on user axes."""
+        scene = _minimal_scene()
+        scene.title = "Test Title"
+        fig, ax = plt.subplots()
+        render_mpl(scene, ax=ax)
+        texts = [t.get_text() for t in ax.texts]
+        assert "Test Title" in texts
+        plt.close(fig)
+
     def test_half_bonds_via_style(self, ch4_bs_path):
         """Passing half_bonds via a RenderStyle works."""
         scene = from_xbs(ch4_bs_path)
@@ -1607,6 +1617,21 @@ class TestAxesWidget:
         ax = fig.axes[0]
         assert len(ax.lines) == 3
         plt.close(fig)
+
+    def test_viewport_wider_with_axes_widget(self):
+        """Viewport expands when axes widget is enabled."""
+        scene = _scene_with_lattice()
+        fig_with = render_mpl(scene, show=False, show_axes=True)
+        xlim_with = fig_with.axes[0].get_xlim()
+        plt.close(fig_with)
+
+        fig_without = render_mpl(scene, show=False, show_axes=False)
+        xlim_without = fig_without.axes[0].get_xlim()
+        plt.close(fig_without)
+
+        extent_with = xlim_with[1] - xlim_with[0]
+        extent_without = xlim_without[1] - xlim_without[0]
+        assert extent_with > extent_without
 
 
 # ---------------------------------------------------------------------------
