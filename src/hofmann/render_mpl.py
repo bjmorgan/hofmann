@@ -1780,7 +1780,8 @@ def _draw_axes_widget(
     # single subplot (axes width ~3.1 inches); scale them by comparing
     # the actual arrow length in points against a reference value.
     fig = ax.get_figure()
-    assert isinstance(fig, Figure)
+    if not isinstance(fig, Figure):
+        raise ValueError("ax is not attached to a Figure")
     ax_width_in = fig.get_figwidth() * ax.get_position().width
     pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
     arrow_len_pts = arrow_len * pts_per_data
@@ -2012,7 +2013,8 @@ def render_mpl(
 
     if ax is not None:
         fig = ax.get_figure()
-        assert isinstance(fig, Figure)
+        if not isinstance(fig, Figure):
+            raise ValueError("ax is not attached to a Figure")
 
         _draw_scene(
             ax, scene, scene.view, resolved,
