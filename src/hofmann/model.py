@@ -1157,7 +1157,10 @@ class PolyhedronSpec:
         Fields at their default values are omitted.  Colours are
         normalised to ``[r, g, b]`` lists.
         """
-        defaults = _field_defaults(type(self), exclude=frozenset({"colour"}))
+        # centre and colour are handled separately above.
+        defaults = _field_defaults(
+            type(self), exclude=frozenset({"centre", "colour"}),
+        )
         d: dict = {"centre": self.centre}
         if self.colour is not None:
             d["colour"] = list(normalise_colour(self.colour))
@@ -1174,7 +1177,7 @@ class PolyhedronSpec:
     @classmethod
     def from_dict(cls, d: dict) -> "PolyhedronSpec":
         """Deserialise from a dictionary."""
-        defaults = _field_defaults(cls, exclude=frozenset({"colour"}))
+        defaults = _field_defaults(cls, exclude=frozenset({"centre", "colour"}))
         kwargs: dict = {"centre": d["centre"]}
         if "colour" in d:
             kwargs["colour"] = d["colour"]
