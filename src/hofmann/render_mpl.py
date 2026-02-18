@@ -1679,9 +1679,9 @@ def _draw_scene(
     if draw_axes is None:
         draw_axes = scene.lattice is not None
     if draw_axes and viewport_extent is None:
-        # Expand viewport to make room for the widget so it doesn't
-        # overlap atoms.  The widget footprint is approximately
-        # (margin + 2 * arrow_length) * max(pad) from the corner.
+        # Expand viewport so the widget doesn't overlap atoms.
+        # The expansion fraction is proportional to the widget's
+        # footprint: margin + 2 * arrow_length (inset plus arrows).
         axes_style = style.axes_style
         widget_frac = axes_style.margin + 2.0 * axes_style.arrow_length
         pad_x *= 1.0 + widget_frac * 0.5
