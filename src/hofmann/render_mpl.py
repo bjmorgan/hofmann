@@ -1691,14 +1691,16 @@ def _draw_scene(
     ax.axis("off")
 
     if scene.title:
+        _TITLE_FONT_SIZE = 12.0
         ax.text(
             0.5, 0.97, scene.title,
             transform=ax.transAxes,
             ha="center", va="top",
-            fontsize=plt.rcParams["axes.titlesize"],
-            fontweight=plt.rcParams["axes.titleweight"],
+            fontsize=_TITLE_FONT_SIZE,
             path_effects=[
-                path_effects.withStroke(linewidth=3, foreground="white"),
+                path_effects.withStroke(
+                    linewidth=_TITLE_FONT_SIZE * 0.25, foreground="white",
+                ),
             ],
         )
 
