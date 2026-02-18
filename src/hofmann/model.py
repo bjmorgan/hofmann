@@ -439,6 +439,12 @@ class CellEdgeStyle:
     line_width: float = 0.8
     linestyle: str = "solid"
 
+    _DEFAULTS: ClassVar[dict] = {
+        "colour": (0.3, 0.3, 0.3),
+        "line_width": 0.8,
+        "linestyle": "solid",
+    }
+
     def __post_init__(self) -> None:
         if self.line_width < 0:
             raise ValueError(
@@ -449,6 +455,31 @@ class CellEdgeStyle:
                 f"linestyle must be one of {sorted(_VALID_LINESTYLES)}, "
                 f"got {self.linestyle!r}"
             )
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Fields at their default values are omitted.
+        """
+        d: dict = {}
+        if normalise_colour(self.colour) != normalise_colour(
+            self._DEFAULTS["colour"]
+        ):
+            d["colour"] = list(normalise_colour(self.colour))
+        if self.line_width != self._DEFAULTS["line_width"]:
+            d["line_width"] = self.line_width
+        if self.linestyle != self._DEFAULTS["linestyle"]:
+            d["linestyle"] = self.linestyle
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "CellEdgeStyle":
+        """Deserialise from a dictionary."""
+        kwargs: dict = {}
+        for key in ("colour", "line_width", "linestyle"):
+            if key in d:
+                kwargs[key] = d[key]
+        return cls(**kwargs)
 
 
 @dataclass(frozen=True)
@@ -527,6 +558,65 @@ class AxesStyle:
             raise ValueError(
                 f"labels must have exactly 3 elements, got {len(self.labels)}"
             )
+
+    _DEFAULTS: ClassVar[dict] = {
+        "colours": ((0.3, 0.3, 0.3), (0.3, 0.3, 0.3), (0.3, 0.3, 0.3)),
+        "labels": ("a", "b", "c"),
+        "font_size": 10.0,
+        "italic": True,
+        "arrow_length": 0.12,
+        "line_width": 1.0,
+        "corner": WidgetCorner.BOTTOM_LEFT,
+        "margin": 0.15,
+    }
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Fields at their default values are omitted.
+        """
+        d: dict = {}
+        default_colours = tuple(
+            normalise_colour(c) for c in self._DEFAULTS["colours"]
+        )
+        actual_colours = tuple(normalise_colour(c) for c in self.colours)
+        if actual_colours != default_colours:
+            d["colours"] = [list(c) for c in actual_colours]
+        if self.labels != self._DEFAULTS["labels"]:
+            d["labels"] = list(self.labels)
+        for field_name in ("font_size", "italic", "arrow_length",
+                           "line_width", "margin"):
+            val = getattr(self, field_name)
+            if val != self._DEFAULTS[field_name]:
+                d[field_name] = val
+        if isinstance(self.corner, WidgetCorner):
+            if self.corner != self._DEFAULTS["corner"]:
+                d["corner"] = self.corner.value
+        else:
+            d["corner"] = list(self.corner)
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AxesStyle":
+        """Deserialise from a dictionary."""
+        kwargs: dict = {}
+        if "colours" in d:
+            kwargs["colours"] = tuple(
+                tuple(c) if isinstance(c, list) else c for c in d["colours"]
+            )
+        if "labels" in d:
+            kwargs["labels"] = tuple(d["labels"])
+        for field_name in ("font_size", "italic", "arrow_length",
+                           "line_width", "margin"):
+            if field_name in d:
+                kwargs[field_name] = d[field_name]
+        if "corner" in d:
+            val = d["corner"]
+            if isinstance(val, list):
+                kwargs["corner"] = tuple(val)
+            else:
+                kwargs["corner"] = val  # str -> WidgetCorner in __post_init__
+        return cls(**kwargs)
 
 
 @dataclass
@@ -684,6 +774,76 @@ class RenderStyle:
                 f"got {self.polyhedra_outline_width}"
             )
 
+    # Default values for comparison during serialisation.
+    _DEFAULTS: ClassVar[dict] = {
+        "atom_scale": 0.5,
+        "bond_scale": 1.0,
+        "bond_colour": None,
+        "half_bonds": True,
+        "show_bonds": True,
+        "show_polyhedra": True,
+        "show_outlines": True,
+        "outline_colour": (0.15, 0.15, 0.15),
+        "atom_outline_width": 1.0,
+        "bond_outline_width": 1.0,
+        "slab_clip_mode": SlabClipMode.PER_FACE,
+        "circle_segments": 72,
+        "arc_segments": 12,
+        "interactive_circle_segments": 24,
+        "interactive_arc_segments": 5,
+        "polyhedra_shading": 1.0,
+        "polyhedra_outline_width": None,
+        "show_cell": None,
+        "show_axes": None,
+    }
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Fields at their default values are omitted.  Nested
+        ``cell_style`` and ``axes_style`` are serialised as sub-dicts
+        (omitted entirely when they equal their own defaults).
+        """
+        d: dict = {}
+        for field_name, default in self._DEFAULTS.items():
+            val = getattr(self, field_name)
+            if field_name == "outline_colour":
+                if normalise_colour(val) != normalise_colour(default):
+                    d[field_name] = list(normalise_colour(val))
+            elif field_name == "bond_colour":
+                if val is not None:
+                    d[field_name] = list(normalise_colour(val))
+            elif field_name == "slab_clip_mode":
+                if val != default:
+                    d[field_name] = val.value
+            else:
+                if val != default:
+                    d[field_name] = val
+
+        cell_d = self.cell_style.to_dict()
+        if cell_d:
+            d["cell_style"] = cell_d
+        axes_d = self.axes_style.to_dict()
+        if axes_d:
+            d["axes_style"] = axes_d
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "RenderStyle":
+        """Deserialise from a dictionary.
+
+        Missing fields use their defaults.
+        """
+        kwargs: dict = {}
+        for field_name in cls._DEFAULTS:
+            if field_name in d:
+                kwargs[field_name] = d[field_name]
+        if "cell_style" in d:
+            kwargs["cell_style"] = CellEdgeStyle.from_dict(d["cell_style"])
+        if "axes_style" in d:
+            kwargs["axes_style"] = AxesStyle.from_dict(d["axes_style"])
+        return cls(**kwargs)
+
 
 @dataclass
 class AtomStyle:
@@ -704,6 +864,33 @@ class AtomStyle:
     radius: float
     colour: Colour
     visible: bool = True
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Colours are normalised to ``[r, g, b]`` lists.  The
+        ``visible`` field is omitted when ``True`` (the default).
+        """
+        d: dict = {
+            "radius": self.radius,
+            "colour": list(normalise_colour(self.colour)),
+        }
+        if not self.visible:
+            d["visible"] = False
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "AtomStyle":
+        """Deserialise from a dictionary.
+
+        Accepts any colour format understood by
+        :func:`normalise_colour`.
+        """
+        return cls(
+            radius=d["radius"],
+            colour=d["colour"],
+            visible=d.get("visible", True),
+        )
 
 
 class BondSpec:
@@ -878,6 +1065,46 @@ class BondSpec:
         reverse = fnmatch(species_1, b) and fnmatch(species_2, a)
         return forward or reverse
 
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Fields at their default values are omitted (``min_length=0``,
+        ``complete=False``, ``recursive=False``).  When ``radius`` or
+        ``colour`` use the class-level default (i.e. were not set
+        explicitly), they are omitted too.
+        """
+        d: dict = {
+            "species": list(self.species),
+            "max_length": self.max_length,
+        }
+        if self.min_length != 0.0:
+            d["min_length"] = self.min_length
+        if self._radius is not None:
+            d["radius"] = self._radius
+        if self._colour is not None:
+            d["colour"] = list(normalise_colour(self._colour))
+        if self.complete is not False:
+            d["complete"] = self.complete
+        if self.recursive:
+            d["recursive"] = True
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "BondSpec":
+        """Deserialise from a dictionary.
+
+        Missing optional fields use their defaults.
+        """
+        return cls(
+            species=tuple(d["species"]),
+            max_length=d["max_length"],
+            min_length=d.get("min_length", 0.0),
+            radius=d.get("radius"),
+            colour=d.get("colour"),
+            complete=d.get("complete", False),
+            recursive=d.get("recursive", False),
+        )
+
 
 @dataclass(frozen=True)
 class Bond:
@@ -932,6 +1159,49 @@ class PolyhedronSpec:
     hide_bonds: bool = False
     hide_vertices: bool = False
     min_vertices: int | None = None
+
+    _DEFAULTS: ClassVar[dict] = {
+        "alpha": 0.4,
+        "edge_colour": (0.15, 0.15, 0.15),
+        "edge_width": 1.0,
+        "hide_centre": False,
+        "hide_bonds": False,
+        "hide_vertices": False,
+        "min_vertices": None,
+    }
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Fields at their default values are omitted.  Colours are
+        normalised to ``[r, g, b]`` lists.
+        """
+        d: dict = {"centre": self.centre}
+        if self.colour is not None:
+            d["colour"] = list(normalise_colour(self.colour))
+        for field_name in ("alpha", "edge_width", "hide_centre",
+                           "hide_bonds", "hide_vertices", "min_vertices"):
+            val = getattr(self, field_name)
+            if val != self._DEFAULTS[field_name]:
+                d[field_name] = val
+        if normalise_colour(self.edge_colour) != normalise_colour(
+            self._DEFAULTS["edge_colour"]
+        ):
+            d["edge_colour"] = list(normalise_colour(self.edge_colour))
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "PolyhedronSpec":
+        """Deserialise from a dictionary."""
+        kwargs: dict = {"centre": d["centre"]}
+        if "colour" in d:
+            kwargs["colour"] = d["colour"]
+        for field_name in ("alpha", "edge_colour", "edge_width",
+                           "hide_centre", "hide_bonds", "hide_vertices",
+                           "min_vertices"):
+            if field_name in d:
+                kwargs[field_name] = d[field_name]
+        return cls(**kwargs)
 
 
 @dataclass(frozen=True)
@@ -1242,6 +1512,10 @@ class StructureScene:
         pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
         max_recursive_depth: int = 5,
+        atom_styles: dict[str, AtomStyle] | None = None,
+        title: str = "",
+        view: ViewState | None = None,
+        atom_data: dict[str, np.ndarray] | None = None,
     ) -> "StructureScene":
         """Create a StructureScene from pymatgen ``Structure`` object(s).
 
@@ -1269,6 +1543,14 @@ class StructureScene:
                 recursive bond expansion (must be >= 1).  Only
                 relevant when one or more *bond_specs* have
                 ``recursive=True``.
+            atom_styles: Per-species style overrides.  When provided,
+                these are merged on top of the auto-generated defaults
+                so you only need to specify the species you want to
+                customise.
+            title: Scene title for display.
+            view: Camera / projection state.  When ``None`` (the
+                default), the view is auto-centred on the structure.
+            atom_data: Per-atom metadata arrays, keyed by name.
 
         Returns:
             A StructureScene with default element styles.
@@ -1285,7 +1567,49 @@ class StructureScene:
             structure, bond_specs, polyhedra=polyhedra,
             pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
             max_recursive_depth=max_recursive_depth,
+            atom_styles=atom_styles, title=title, view=view,
+            atom_data=atom_data,
         )
+
+    def save_styles(self, path: str | Path) -> None:
+        """Save the scene's styles to a JSON file.
+
+        Writes ``atom_styles``, ``bond_specs``, and ``polyhedra``
+        sections.  Render style is not included (it belongs to the
+        render call, not the scene).
+
+        Args:
+            path: Destination file path.
+        """
+        from hofmann.styles import save_styles
+
+        save_styles(
+            path,
+            atom_styles=self.atom_styles,
+            bond_specs=self.bond_specs,
+            polyhedra=self.polyhedra,
+        )
+
+    def load_styles(self, path: str | Path) -> None:
+        """Load styles from a JSON file and apply them to the scene.
+
+        Atom styles are merged (existing species keep their styles
+        unless overridden).  Bond specs and polyhedra are replaced
+        entirely.  The ``render_style`` section, if present in the
+        file, is ignored — pass it to the render call instead.
+
+        Args:
+            path: Source file path.
+        """
+        from hofmann.styles import load_styles
+
+        style_set = load_styles(path)
+        if style_set.atom_styles is not None:
+            self.atom_styles.update(style_set.atom_styles)
+        if style_set.bond_specs is not None:
+            self.bond_specs = style_set.bond_specs
+        if style_set.polyhedra is not None:
+            self.polyhedra = style_set.polyhedra
 
     def centre_on(self, atom_index: int, *, frame: int = 0) -> None:
         """Centre the view on a specific atom.

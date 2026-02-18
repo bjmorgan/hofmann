@@ -39,6 +39,7 @@ from hofmann.model import (
     resolve_atom_colours,
 )
 from hofmann.scene import from_pymatgen, from_xbs
+from hofmann.styles import StyleSet, load_styles, save_styles
 
 __all__ = [
     "AtomStyle",
@@ -56,6 +57,7 @@ __all__ = [
     "RenderStyle",
     "SlabClipMode",
     "StructureScene",
+    "StyleSet",
     "ViewState",
     "WidgetCorner",
     "compute_bonds",
@@ -64,6 +66,8 @@ __all__ = [
     "default_bond_specs",
     "from_pymatgen",
     "from_xbs",
+    "load_styles",
     "normalise_colour",
     "resolve_atom_colours",
+    "save_styles",
 ]

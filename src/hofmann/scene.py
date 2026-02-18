@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 from hofmann.defaults import default_atom_style, default_bond_specs
-from hofmann.model import BondSpec, Frame, PolyhedronSpec, StructureScene, ViewState
+from hofmann.model import (
+    AtomStyle, BondSpec, Frame, PolyhedronSpec, StructureScene, ViewState,
+)
 from hofmann.parser import parse_bs, parse_mv
 
 if TYPE_CHECKING:
@@ -529,6 +531,10 @@ def from_pymatgen(
     pbc_padding: float | None = 0.1,
     centre_atom: int | None = None,
     max_recursive_depth: int = 5,
+    atom_styles: dict[str, AtomStyle] | None = None,
+    title: str = "",
+    view: ViewState | None = None,
+    atom_data: dict[str, np.ndarray] | None = None,
 ) -> StructureScene:
     """Create a StructureScene from pymatgen Structure(s).
 
@@ -557,6 +563,14 @@ def from_pymatgen(
         max_recursive_depth: Maximum number of iterations for
             recursive bond expansion (must be >= 1).  Only relevant
             when one or more *bond_specs* have ``recursive=True``.
+        atom_styles: Per-species style overrides.  When provided,
+            these are merged on top of the auto-generated defaults
+            so you only need to specify the species you want to
+            customise.
+        title: Scene title for display.
+        view: Camera / projection state.  When ``None`` (the
+            default), the view is auto-centred on the structure.
+        atom_data: Per-atom metadata arrays, keyed by name.
 
     Returns:
         A StructureScene with default element styles.
@@ -598,9 +612,11 @@ def from_pymatgen(
     # .symbol works for both Element and Species objects.
     species = [site.specie.symbol for site in structures[0]]
 
-    # Default atom styles from the element lookup.
+    # Default atom styles from the element lookup, merged with overrides.
     unique_species = sorted(set(species))
-    atom_styles = {sp: default_atom_style(sp) for sp in unique_species}
+    merged_styles = {sp: default_atom_style(sp) for sp in unique_species}
+    if atom_styles is not None:
+        merged_styles.update(atom_styles)
 
     # Generate default bond specs from VESTA cutoffs if none provided.
     if bond_specs is None:
@@ -679,20 +695,22 @@ def from_pymatgen(
             for i, s in enumerate(structures)
         ]
 
-    # Centre on first frame.
-    if centre_atom is not None:
-        view = ViewState(centre=frames[0].coords[centre_atom].copy())
-    else:
-        centroid = np.mean(frames[0].coords, axis=0)
-        view = ViewState(centre=centroid)
+    # Centre on first frame (unless the caller supplied a view).
+    if view is None:
+        if centre_atom is not None:
+            view = ViewState(centre=frames[0].coords[centre_atom].copy())
+        else:
+            centroid = np.mean(frames[0].coords, axis=0)
+            view = ViewState(centre=centroid)
 
     return StructureScene(
         species=species,
         frames=frames,
-        atom_styles=atom_styles,
+        atom_styles=merged_styles,
         bond_specs=bond_specs,
         polyhedra=polyhedra if polyhedra is not None else [],
         view=view,
-        title="",
+        title=title,
         lattice=structures[0].lattice.matrix.copy(),
+        atom_data=atom_data if atom_data is not None else {},
     )
