@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from hofmann import (
-    AtomStyle, BondSpec, Frame, PolyhedronSpec,
+    AtomStyle, AxesStyle, BondSpec, Frame, PolyhedronSpec,
     RenderStyle, StructureScene, ViewState,
 )
 
@@ -149,6 +149,39 @@ def si_scene() -> StructureScene:
     ]
     scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True, pbc_padding=0.1)
     scene.view.look_along([1, 1, 1])
+    return scene
+
+
+def rutile_scene() -> StructureScene:
+    """Build a rutile TiO2 scene from pymatgen."""
+    from pymatgen.core import Lattice, Structure as PmgStructure
+
+    # Tetragonal rutile: a = b = 4.594, c = 2.959
+    lattice = Lattice.tetragonal(4.594, 2.959)
+    structure = PmgStructure(
+        lattice,
+        ["Ti", "Ti", "O", "O", "O", "O"],
+        [
+            [0.0, 0.0, 0.0],
+            [0.5, 0.5, 0.5],
+            [0.3053, 0.3053, 0.0],
+            [0.6947, 0.6947, 0.0],
+            [0.1947, 0.8053, 0.5],
+            [0.8053, 0.1947, 0.5],
+        ],
+    )
+
+    bond_specs = [
+        BondSpec(species=("Ti", "O"), min_length=0.5, max_length=2.1,
+                 radius=0.1, colour=(0.4, 0.4, 0.4)),
+    ]
+    scene = StructureScene.from_pymatgen(
+        structure, bond_specs, pbc=True, pbc_padding=0.1,
+    )
+    scene.atom_styles["Ti"].colour = "#477B9D"
+    scene.atom_styles["Ti"].radius = 1.0
+    scene.atom_styles["O"].colour = "#F03F37"
+    scene.atom_styles["O"].radius = 0.8
     return scene
 
 
@@ -823,6 +856,25 @@ def main() -> None:
         show=False, figsize=(5, 3), dpi=150, half_bonds=False,
     )
     print(f"  wrote {OUT / 'helix.svg'}")
+
+    # 12. Multi-panel projections: rutile TiO2 along [100] and [001].
+    import matplotlib.pyplot as plt
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4), dpi=150)
+    proj_scene = rutile_scene()
+    big_labels = RenderStyle(
+        axes_style=AxesStyle(font_size=14.0),
+    )
+    for ax, direction, label in zip(
+        [ax1, ax2], [[1, 0, 0], [0, 0, 1]], ["[100]", "[001]"],
+    ):
+        proj_scene.view.look_along(direction)
+        proj_scene.title = label
+        proj_scene.render_mpl(ax=ax, style=big_labels)
+    fig.tight_layout(w_pad=0)
+    fig.savefig(OUT / "multi_panel_projections.svg", bbox_inches="tight")
+    plt.close(fig)
+    print(f"  wrote {OUT / 'multi_panel_projections.svg'}")
 
 
 if __name__ == "__main__":

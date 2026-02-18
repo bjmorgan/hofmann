@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.5.0
+-----
+
+- :meth:`~hofmann.StructureScene.render_mpl` now accepts an ``ax``
+  parameter to render into an existing matplotlib axes, enabling
+  multi-panel figures and composition with other plots.
+
 0.4.0
 -----
 

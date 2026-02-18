@@ -173,6 +173,48 @@ class TestRenderMpl:
         fig = scene.render_mpl(show=False)
         assert isinstance(fig, Figure)
 
+    def test_renders_to_supplied_axes(self):
+        """Rendering into a user-supplied axes draws on that axes."""
+        scene = _minimal_scene()
+        fig, ax = plt.subplots()
+        result = render_mpl(scene, ax=ax)
+        assert result is fig
+        n_paths = sum(len(c.get_paths()) for c in ax.collections)
+        assert n_paths > 0
+        plt.close(fig)
+
+    def test_supplied_axes_does_not_create_new_figure(self):
+        """When ax is provided, plt.subplots should not be called."""
+        scene = _minimal_scene()
+        fig, ax = plt.subplots()
+        from unittest.mock import patch
+        with patch("hofmann.render_mpl.plt.subplots") as mock_subplots:
+            render_mpl(scene, ax=ax)
+            mock_subplots.assert_not_called()
+        plt.close(fig)
+
+    def test_subplot_panels(self):
+        """Rendering the same scene into multiple subplot axes."""
+        scene = _minimal_scene()
+        fig, axes = plt.subplots(1, 3)
+        for i, direction in enumerate([[1, 0, 0], [0, 1, 0], [0, 0, 1]]):
+            scene.view.look_along(direction)
+            render_mpl(scene, ax=axes[i])
+        for ax in axes:
+            n_paths = sum(len(c.get_paths()) for c in ax.collections)
+            assert n_paths > 0
+        plt.close(fig)
+
+    def test_title_rendered_in_viewport_on_supplied_axes(self):
+        """scene.title is drawn as text inside the viewport on user axes."""
+        scene = _minimal_scene()
+        scene.title = "Test Title"
+        fig, ax = plt.subplots()
+        render_mpl(scene, ax=ax)
+        texts = [t.get_text() for t in ax.texts]
+        assert "Test Title" in texts
+        plt.close(fig)
+
     def test_half_bonds_via_style(self, ch4_bs_path):
         """Passing half_bonds via a RenderStyle works."""
         scene = from_xbs(ch4_bs_path)
@@ -1575,6 +1617,21 @@ class TestAxesWidget:
         ax = fig.axes[0]
         assert len(ax.lines) == 3
         plt.close(fig)
+
+    def test_viewport_wider_with_axes_widget(self):
+        """Viewport expands when axes widget is enabled."""
+        scene = _scene_with_lattice()
+        fig_with = render_mpl(scene, show=False, show_axes=True)
+        xlim_with = fig_with.axes[0].get_xlim()
+        plt.close(fig_with)
+
+        fig_without = render_mpl(scene, show=False, show_axes=False)
+        xlim_without = fig_without.axes[0].get_xlim()
+        plt.close(fig_without)
+
+        extent_with = xlim_with[1] - xlim_with[0]
+        extent_without = xlim_without[1] - xlim_without[0]
+        assert extent_with > extent_without
 
 
 # ---------------------------------------------------------------------------

@@ -16,16 +16,14 @@ import time
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TYPE_CHECKING
+from typing import Any
 
 import matplotlib.patheffects as path_effects
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
-
-if TYPE_CHECKING:
-    from matplotlib.axes import Axes
 
 from hofmann.bonds import compute_bonds
 from hofmann.model import (
@@ -43,6 +41,9 @@ from hofmann.model import (
     resolve_atom_colours,
 )
 from hofmann.polyhedra import compute_polyhedra
+
+# Font size (points) for scene titles rendered inside the viewport.
+_TITLE_FONT_SIZE = 12.0
 
 # Default unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
@@ -1665,11 +1666,10 @@ def _draw_scene(
     # ---- Axes and layout ----
     ax.set_aspect("equal")
     if viewport_extent is not None:
-        pad = viewport_extent * 1.15
-        pad_x = pad_y = pad
+        pad_x = pad_y = viewport_extent * 1.15
         cx = cy = 0.0
     elif len(xy) == 0:
-        pad = pad_x = pad_y = 1.0
+        pad_x = pad_y = 1.0
         cx = cy = 0.0
     else:
         margin = np.max(atom_screen_radii) + 1.0
@@ -1677,18 +1677,36 @@ def _draw_scene(
         cy = (xy[:, 1].max() + xy[:, 1].min()) / 2
         pad_x = (xy[:, 0].max() - xy[:, 0].min()) / 2 + margin
         pad_y = (xy[:, 1].max() - xy[:, 1].min()) / 2 + margin
-        pad = max(pad_x, pad_y)
+    # ---- Axes orientation widget ----
+    draw_axes = style.show_axes
+    if draw_axes is None:
+        draw_axes = scene.lattice is not None
+    if draw_axes and viewport_extent is None:
+        # Expand viewport so the widget doesn't overlap atoms.
+        # The widget spans (margin + 2 * arrow_length) * pad from the
+        # corner; halve this because expansion is applied to both sides.
+        axes_style = style.axes_style
+        widget_frac = axes_style.margin + 2.0 * axes_style.arrow_length
+        expand_per_side = widget_frac * 0.5
+        pad_x *= 1.0 + expand_per_side
+        pad_y *= 1.0 + expand_per_side
     ax.set_xlim(cx - pad_x, cx + pad_x)
     ax.set_ylim(cy - pad_y, cy + pad_y)
     ax.axis("off")
 
     if scene.title:
-        ax.set_title(scene.title)
+        ax.text(
+            0.5, 0.97, scene.title,
+            transform=ax.transAxes,
+            ha="center", va="top",
+            fontsize=_TITLE_FONT_SIZE,
+            path_effects=[
+                path_effects.withStroke(
+                    linewidth=_TITLE_FONT_SIZE * 0.25, foreground="white",
+                ),
+            ],
+        )
 
-    # ---- Axes orientation widget ----
-    draw_axes = style.show_axes
-    if draw_axes is None:
-        draw_axes = scene.lattice is not None
     if draw_axes:
         if scene.lattice is None:
             raise ValueError("show_axes=True but scene has no lattice")
@@ -1759,17 +1777,18 @@ def _draw_axes_widget(
             oy = (cy + pad_y) - inset_y
 
     # Compute display-space scaling so that font_size and line_width
-    # stay proportional to arrow_len regardless of figsize.  The
-    # style defaults are calibrated for 4-inch figures; scale them
-    # by comparing the actual arrow length in points against a
-    # reference value.
+    # stay proportional to arrow_len regardless of axes size.  The
+    # style defaults are calibrated for a 4-inch-wide figure with a
+    # single subplot (axes width ~3.1 inches); scale them by comparing
+    # the actual arrow length in points against a reference value.
     fig = ax.get_figure()
-    assert isinstance(fig, Figure)
-    fig_width_in = fig.get_figwidth()
-    # Approximate: the axes span 2*pad_x data units over fig_width_in.
-    pts_per_data = fig_width_in * 72.0 / (2.0 * pad_x)
+    if not isinstance(fig, Figure):
+        raise ValueError("ax is not attached to a Figure")
+    ax_width_in = fig.get_figwidth() * ax.get_position().width
+    pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
     arrow_len_pts = arrow_len * pts_per_data
-    _REFERENCE_ARROW_PTS = 0.08 * 72.0 / 2.0 * 4.0  # ~11.5 pts at figsize=4
+    # Reference: 0.12 * 72 / 2 * 3.1 = ~13.3 pts (single subplot in 4-inch fig)
+    _REFERENCE_ARROW_PTS = 0.12 * 72.0 / 2.0 * 3.1
     scale = arrow_len_pts / _REFERENCE_ARROW_PTS
     font_size = style.font_size * scale
     line_width = style.line_width * scale
@@ -1859,6 +1878,12 @@ def _draw_axes_widget(
 # Static renderer
 # ---------------------------------------------------------------------------
 
+def _axes_bg_rgb(ax: Axes) -> tuple[float, float, float]:
+    """Return the axes background as an (R, G, B) tuple."""
+    from matplotlib.colors import to_rgb
+    return to_rgb(ax.get_facecolor())
+
+
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
 
 def _resolve_style(
@@ -1892,6 +1917,7 @@ def render_mpl(
     scene: StructureScene,
     output: str | Path | None = None,
     *,
+    ax: Axes | None = None,
     style: RenderStyle | None = None,
     frame_index: int = 0,
     figsize: tuple[float, float] = (5.0, 5.0),
@@ -1939,11 +1965,25 @@ def render_mpl(
         scene.set_atom_data("charge", charges)
         scene.render_mpl(colour_by="charge", cmap="coolwarm")
 
+        # Render into an existing axes for multi-panel figures:
+        import matplotlib.pyplot as plt
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 5))
+        ax1.plot(x, y)
+        scene.render_mpl(ax=ax2)
+        fig.savefig("panel.pdf", bbox_inches="tight")
+
     Args:
         scene: The StructureScene to render.
         output: Optional file path to save the figure.  The format is
             inferred from the extension (e.g. ``.svg``, ``.pdf``,
-            ``.png``).
+            ``.png``).  Ignored when *ax* is provided.
+        ax: Optional matplotlib :class:`~matplotlib.axes.Axes` to draw
+            into.  When provided, the scene is rendered onto this axes
+            and the caller retains control of the parent figure
+            (saving, display, layout).  The caller is responsible
+            for saving and closing the figure.  The *output*,
+            *figsize*, *dpi*, *background*, and *show* parameters
+            are ignored.
         style: A :class:`RenderStyle` controlling visual appearance.
             If ``None``, defaults are used.  Any :class:`RenderStyle`
             field name may also be passed as a keyword argument to
@@ -1973,8 +2013,24 @@ def render_mpl(
         The matplotlib :class:`~matplotlib.figure.Figure` object.
     """
     resolved = _resolve_style(style, **style_kwargs)
-    bg_rgb = normalise_colour(background)
 
+    if ax is not None:
+        fig = ax.get_figure()
+        if not isinstance(fig, Figure):
+            raise ValueError("ax is not attached to a Figure")
+
+        _draw_scene(
+            ax, scene, scene.view, resolved,
+            frame_index=frame_index,
+            bg_rgb=_axes_bg_rgb(ax),
+            colour_by=colour_by,
+            cmap=cmap,
+            colour_range=colour_range,
+        )
+
+        return fig
+
+    bg_rgb = normalise_colour(background)
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     fig.set_facecolor(bg_rgb)
 

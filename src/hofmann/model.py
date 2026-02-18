@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
 if TYPE_CHECKING:
@@ -489,7 +490,7 @@ class AxesStyle:
     labels: tuple[str, str, str] = ("a", "b", "c")
     font_size: float = 10.0
     italic: bool = True
-    arrow_length: float = 0.08
+    arrow_length: float = 0.12
     line_width: float = 1.0
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_LEFT
     margin: float = 0.15
@@ -1274,6 +1275,7 @@ class StructureScene:
         self,
         output: str | Path | None = None,
         *,
+        ax: Axes | None = None,
         style: RenderStyle | None = None,
         frame_index: int = 0,
         figsize: tuple[float, float] = (5.0, 5.0),
@@ -1290,7 +1292,12 @@ class StructureScene:
         Args:
             output: Optional file path to save the figure.  The format
                 is inferred from the extension (``.svg``, ``.pdf``,
-                ``.png``).
+                ``.png``).  Ignored when *ax* is provided.
+            ax: Optional matplotlib
+                :class:`~matplotlib.axes.Axes` to draw into.  When
+                provided, the caller is responsible for saving and
+                closing the figure.  The *output*, *figsize*, *dpi*,
+                *background*, and *show* parameters are ignored.
             style: A :class:`RenderStyle` controlling visual appearance.
                 Any :class:`RenderStyle` field name may also be passed
                 as a keyword argument to override individual fields.
@@ -1327,7 +1334,7 @@ class StructureScene:
         from hofmann.render_mpl import render_mpl
 
         return render_mpl(
-            self, output, style=style, frame_index=frame_index,
+            self, output, ax=ax, style=style, frame_index=frame_index,
             figsize=figsize, dpi=dpi, background=background,
             show=show, colour_by=colour_by, cmap=cmap,
             colour_range=colour_range, **style_kwargs,
