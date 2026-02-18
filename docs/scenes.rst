@@ -167,8 +167,8 @@ bonded atoms across boundaries until no new atoms are found:
    :alt: Same structure with recursive=True completing all N2H6 molecules
 
 Iteration stops when no new atoms are found, or when
-``max_recursive_depth`` is reached (default 5).  You can increase this
-limit for molecules spanning many cell widths:
+``max_recursive_depth`` is reached (default 5, minimum 1).  You can
+increase this limit for molecules spanning many cell widths:
 
 .. code-block:: python
 

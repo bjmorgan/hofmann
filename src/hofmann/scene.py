@@ -400,22 +400,27 @@ def _expand_neighbour_shells(
     new_species = list(expanded_species)
     # Collect new coordinates in a plain list; only vstack once at
     # the end.  Deduplication checks the original array (vectorised)
-    # plus the growing list of additions (short Python loop).
+    # plus a set of rounded coordinate tuples for O(1) lookup of
+    # newly added atoms.
     added_coords: list[np.ndarray] = []
+    _DEDUP_DECIMALS = 5  # 0.00001 A — well within 1e-6 tolerance
+    added_keys: set[tuple[float, ...]] = set()
 
     def _should_expand(sp: str) -> bool:
         if centre_species_only is None:
             return True
         return any(fnmatch(sp, pat) for pat in centre_species_only)
 
+    def _coord_key(coord: np.ndarray) -> tuple[float, ...]:
+        """Round a coordinate to a hashable tuple for deduplication."""
+        return tuple(np.round(coord, _DEDUP_DECIMALS))
+
     def _is_duplicate(coord: np.ndarray) -> bool:
         """Check whether *coord* duplicates an existing atom."""
         diffs = np.linalg.norm(expanded_coords - coord, axis=1)
         if np.any(diffs < 1e-6):
             return True
-        return any(
-            np.linalg.norm(c - coord) < 1e-6 for c in added_coords
-        )
+        return _coord_key(coord) in added_keys
 
     def _add_neighbour_shell(
         source_idx: int, translation: np.ndarray,
@@ -429,6 +434,7 @@ def _expand_neighbour_shells(
                 continue
             new_species.append(nbr_sp)
             added_coords.append(nbr_coord)
+            added_keys.add(_coord_key(nbr_coord))
 
     # Process unit-cell atoms.
     for uc_idx in range(n_uc):
@@ -549,8 +555,8 @@ def from_pymatgen(
             this atom sits at (0.5, 0.5, 0.5) before PBC expansion,
             and the view is centred on this atom.
         max_recursive_depth: Maximum number of iterations for
-            recursive bond expansion.  Only relevant when one or
-            more *bond_specs* have ``recursive=True``.
+            recursive bond expansion (must be >= 1).  Only relevant
+            when one or more *bond_specs* have ``recursive=True``.
 
     Returns:
         A StructureScene with default element styles.

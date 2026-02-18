@@ -1176,8 +1176,9 @@ class StructureScene:
                 Fractional coordinates are shifted so this atom sits
                 at (0.5, 0.5, 0.5) before PBC expansion.
             max_recursive_depth: Maximum number of iterations for
-                recursive bond expansion.  Only relevant when one or
-                more *bond_specs* have ``recursive=True``.
+                recursive bond expansion (must be >= 1).  Only
+                relevant when one or more *bond_specs* have
+                ``recursive=True``.
 
         Returns:
             A StructureScene with default element styles.
