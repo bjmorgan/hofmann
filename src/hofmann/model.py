@@ -418,25 +418,6 @@ class WidgetCorner(StrEnum):
     TOP_RIGHT = "top_right"
 
 
-class PolyhedraVertexMode(StrEnum):
-    """How polyhedron vertex atoms are ordered relative to faces.
-
-    Attributes:
-        IN_FRONT: Draw each vertex atom in front of all faces it
-            belongs to.  Each vertex is deferred until after its
-            last connected face has been painted.  Non-vertex atoms
-            (e.g. the centre) draw at their natural depth.  Best
-            for opaque polyhedra.
-        DEPTH_SORTED: Draw front vertices (closer to the viewer than
-            the centroid) on top of faces, and back vertices in their
-            natural depth position behind front-facing faces.  Correct
-            for transparent polyhedra but may produce minor painter's-
-            algorithm artefacts at silhouette edges.
-    """
-
-    IN_FRONT = "in_front"
-    DEPTH_SORTED = "depth_sorted"
-
 
 _VALID_LINESTYLES = frozenset({"solid", "dashed", "dotted", "dashdot"})
 
@@ -607,12 +588,6 @@ class RenderStyle:
             ``1.0`` (the default) gives full Lambertian-style shading
             where faces pointing at the viewer are bright and edge-on
             faces are dimmed.
-        polyhedra_vertex_mode: How vertex atoms are ordered relative
-            to polyhedral faces.  ``"in_front"`` (the default) draws
-            each vertex on top of the faces it belongs to.
-            ``"depth_sorted"`` draws front vertices on top but back
-            vertices behind front-facing faces — an alternative for
-            transparent polyhedra.
         polyhedra_outline_width: Global override for polyhedra outline
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
@@ -658,7 +633,6 @@ class RenderStyle:
     interactive_circle_segments: int = 24
     interactive_arc_segments: int = 5
     polyhedra_shading: float = 1.0
-    polyhedra_vertex_mode: PolyhedraVertexMode = PolyhedraVertexMode.IN_FRONT
     polyhedra_outline_width: float | None = None
     show_cell: bool | None = None
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
@@ -668,10 +642,6 @@ class RenderStyle:
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
             self.slab_clip_mode = SlabClipMode(self.slab_clip_mode)
-        if isinstance(self.polyhedra_vertex_mode, str):
-            self.polyhedra_vertex_mode = PolyhedraVertexMode(
-                self.polyhedra_vertex_mode
-            )
         if self.atom_scale <= 0:
             raise ValueError(f"atom_scale must be positive, got {self.atom_scale}")
         if self.bond_scale <= 0:
@@ -725,10 +695,14 @@ class AtomStyle:
             starting points.
         colour: Fill colour specification (CSS name, hex string, grey
             float, or RGB tuple/list).  See :data:`Colour`.
+        visible: Whether atoms of this species are drawn.  Set to
+            ``False`` to hide atoms without removing them from the
+            scene.  Bonds to hidden atoms are also suppressed.
     """
 
     radius: float
     colour: Colour
+    visible: bool = True
 
 
 @dataclass
@@ -749,6 +723,20 @@ class BondSpec:
             the render style.  When ``half_bonds`` is ``True`` (the
             default), each half of the bond is coloured to match the
             nearest atom and this field is ignored.
+        complete: Controls single-pass bond completion across periodic
+            boundaries.  A species string (e.g. ``"Zr"``) adds
+            missing partners around visible atoms of that species.
+            ``"*"`` completes around both species in the pair.
+            ``False`` (default) disables completion.  Unlike
+            *recursive*, newly added atoms are **not** themselves
+            searched.
+        recursive: If ``True``, atoms bonded via this spec are
+            searched recursively across periodic boundaries.  When
+            an atom matching this spec is already visible in the
+            scene, its bonded partners are added even if they fall
+            outside the ``pbc_padding`` margin, and those new atoms
+            are themselves checked on the next iteration.  Useful
+            for molecules that span periodic boundaries.
     """
 
     species: tuple[str, str]
@@ -756,9 +744,31 @@ class BondSpec:
     max_length: float
     radius: float
     colour: Colour
+    complete: bool | str = False
+    recursive: bool = False
 
     def __post_init__(self) -> None:
         self.species = tuple(sorted(self.species))  # type: ignore[assignment]
+        if self.complete is True:
+            raise ValueError(
+                "complete=True is not supported; use a species name "
+                "(e.g. complete='Zr') or complete='*' for both directions"
+            )
+        if self.complete is not False and not isinstance(self.complete, str):
+            raise ValueError(
+                "complete must be False, a species name string "
+                "(e.g. 'Zr'), or '*' for both directions"
+            )
+        if isinstance(self.complete, str) and self.complete != "*":
+            if self.complete == "":
+                raise ValueError("complete must not be an empty string")
+            if not any(
+                fnmatch(sp, self.complete) for sp in self.species
+            ):
+                raise ValueError(
+                    f"complete={self.complete!r} does not match either "
+                    f"species in the pair {self.species}"
+                )
 
     def matches(self, species_1: str, species_2: str) -> bool:
         """Check whether this spec matches a given species pair.
@@ -1141,6 +1151,7 @@ class StructureScene:
         pbc: bool = True,
         pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
+        max_recursive_depth: int = 5,
     ) -> "StructureScene":
         """Create a StructureScene from pymatgen ``Structure`` object(s).
 
@@ -1164,6 +1175,10 @@ class StructureScene:
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
                 at (0.5, 0.5, 0.5) before PBC expansion.
+            max_recursive_depth: Maximum number of iterations for
+                recursive bond expansion (must be >= 1).  Only
+                relevant when one or more *bond_specs* have
+                ``recursive=True``.
 
         Returns:
             A StructureScene with default element styles.
@@ -1179,6 +1194,7 @@ class StructureScene:
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
             pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
+            max_recursive_depth=max_recursive_depth,
         )
 
     def centre_on(self, atom_index: int, *, frame: int = 0) -> None:

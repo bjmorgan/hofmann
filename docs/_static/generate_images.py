@@ -152,6 +152,57 @@ def si_scene() -> StructureScene:
     return scene
 
 
+def pbc_bonds_scene(
+    *, complete: bool = False, recursive: bool = False,
+    polyhedra: bool = False, molecular: bool = True,
+) -> StructureScene:
+    """Build the Zr-S-N-H structure for bond completion examples.
+
+    Args:
+        complete: If ``True``, set ``complete="Zr"`` on the S-Zr bond
+            spec; if ``False``, leave bond completion disabled.
+        recursive: If ``True``, set ``recursive=True`` on the N-N and
+            H-N bond specs; if ``False``, leave those bonds
+            non-recursive.
+        polyhedra: Include ZrS6 polyhedra with hidden centres.
+        molecular: Include N-N and H-N bond specs.  Set to ``False``
+            to show only the Zr-S network.
+    """
+    from pymatgen.core import Structure as PmgStructure
+
+    vasp = Path(__file__).resolve().parent.parent.parent / "examples" / "Zr4S12N8H24.vasp"
+    structure = PmgStructure.from_file(str(vasp))
+
+    bond_specs = [
+        BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
+                 radius=0.1, colour=0.5,
+                 complete="Zr" if complete else False),
+        BondSpec(species=("N", "N"), min_length=0.0, max_length=1.9,
+                 radius=0.1, colour=0.5, recursive=recursive),
+        BondSpec(species=("H", "N"), min_length=0.0, max_length=1.2,
+                 radius=0.1, colour=0.5, recursive=recursive),
+    ]
+
+    poly_specs = []
+    if polyhedra:
+        poly_specs = [
+            PolyhedronSpec(
+                centre="Zr", colour=(0.55, 0.71, 0.67), alpha=0.4,
+                hide_centre=True,
+            ),
+        ]
+
+    scene = StructureScene.from_pymatgen(
+        structure, bond_specs, polyhedra=poly_specs, pbc=True,
+    )
+    scene.atom_styles["Zr"].colour = (0.55, 0.71, 0.67)
+    scene.atom_styles["N"].colour = (0.35, 0.55, 0.75)
+    if not molecular:
+        scene.atom_styles["N"].visible = False
+        scene.atom_styles["H"].visible = False
+    return scene
+
+
 def llzo_scene() -> StructureScene:
     """Build an LLZO garnet scene from a bundled CIF file."""
     from pymatgen.core import Structure
@@ -276,6 +327,26 @@ def main() -> None:
     si.render_mpl(OUT / "si.svg", figsize=(4, 4), dpi=150)
     print(f"  wrote {OUT / 'si.svg'}")
 
+    # PBC bond completion -- Zr-S network only
+    pbc_kw = dict(figsize=(4, 4), dpi=150, show=False,
+                  show_axes=False, atom_scale=0.4, half_bonds=False)
+    # Zr-S only, no completion: missing bonds at boundary.
+    plain = pbc_bonds_scene(molecular=False)
+    plain.render_mpl(OUT / "pbc_bonds_plain.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_plain.svg'}")
+    # Zr-S with complete="Zr": boundary bonds filled in.
+    comp = pbc_bonds_scene(complete=True, molecular=False)
+    comp.render_mpl(OUT / "pbc_bonds_complete.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_complete.svg'}")
+    # Full structure without recursive: N2H6 molecules broken.
+    no_rec = pbc_bonds_scene(complete=True)
+    no_rec.render_mpl(OUT / "pbc_bonds_no_recursive.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_no_recursive.svg'}")
+    # Full structure with recursive: N2H6 molecules completed.
+    rec = pbc_bonds_scene(complete=True, recursive=True)
+    rec.render_mpl(OUT / "pbc_bonds_recursive.svg", **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_recursive.svg'}")
+
     # SrTiO3 perovskite with polyhedra -- hero image
     perov = perovskite_scene()
     perov.render_mpl(
@@ -342,26 +413,23 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'octahedron_shading_full.svg'}")
 
-    # 2. Polyhedra vertex mode: in_front vs depth_sorted
-    #    Use different angles so no face is perpendicular to the viewer.
-    #    in_front: opaque polyhedra (its intended use case).
+    # 2. Polyhedra vertex ordering: opaque and transparent examples.
     octa_in_front = octahedron_scene(
         colour=(0.5, 0.7, 1.0), alpha=1.0,
         edge_colour=(0.15, 0.15, 0.15),
     )
     octa_in_front.render_mpl(
         OUT / "octahedron_vertex_in_front.svg",
-        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
+        figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'octahedron_vertex_in_front.svg'}")
-    #    in_front with transparent polyhedra.
     octa_in_front_trans = octahedron_scene(
         colour=(0.5, 0.7, 1.0), alpha=0.4,
         edge_colour=(0.15, 0.15, 0.15),
     )
     octa_in_front_trans.render_mpl(
         OUT / "octahedron_vertex_in_front_transparent.svg",
-        figsize=(3, 3), dpi=150, polyhedra_vertex_mode="in_front",
+        figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'octahedron_vertex_in_front_transparent.svg'}")
 

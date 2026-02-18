@@ -1,6 +1,28 @@
 Changelog
 =========
 
+0.3.0
+-----
+
+- Bond completion across periodic boundaries.
+  :class:`~hofmann.BondSpec` gains a ``complete`` flag for
+  single-pass completion of bonds at cell boundaries, and a
+  ``recursive`` flag for iterative search that follows chains of
+  bonds across periodic images.  See :doc:`scenes` for details.
+
+- :class:`~hofmann.AtomStyle` gains a ``visible`` flag (default
+  ``True``).  Setting it to ``False`` hides atoms of that species
+  and suppresses their bonds without removing them from the scene.
+
+- ``BondSpec.complete`` now validates the species name against the
+  bond spec's species pair, catching typos that previously resulted
+  in a silent no-op.
+
+- Removed ``PolyhedraVertexMode`` enum and the
+  ``polyhedra_vertex_mode`` field on :class:`~hofmann.RenderStyle`.
+  Vertex atoms are now always drawn in front of their connected
+  polyhedral faces (the previous default behaviour).
+
 0.2.2
 -----
 
