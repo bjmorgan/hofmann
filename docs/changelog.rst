@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.4.0
+-----
+
+- Default bond detection now uses VESTA bond length cutoffs instead
+  of the covalent-radii-sum heuristic.  Self-bonds (e.g. C-C) are
+  included automatically when present in the VESTA data.  The
+  ``tolerance`` and ``self_bonds`` parameters on
+  :func:`~hofmann.default_bond_specs` have been removed.
+
 0.3.0
 -----
 
