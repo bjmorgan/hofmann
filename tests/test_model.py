@@ -171,6 +171,115 @@ class TestBondSpecMatches:
         assert spec.complete == "Na"
 
 
+# --- BondSpec defaults ---
+
+
+class TestBondSpecDefaults:
+    def test_min_length_defaults_to_zero(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert spec.min_length == 0.0
+
+    def test_radius_defaults_to_class_default(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert spec.radius == 0.1
+
+    def test_colour_defaults_to_class_default(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert spec.colour == 0.5
+
+    def test_explicit_radius_overrides_default(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, radius=0.2)
+        assert spec.radius == 0.2
+
+    def test_explicit_colour_overrides_default(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, colour="red")
+        assert spec.colour == "red"
+
+    def test_changing_class_default_radius(self):
+        original = BondSpec.default_radius
+        try:
+            BondSpec.default_radius = 0.15
+            spec = BondSpec(species=("C", "H"), max_length=3.4)
+            assert spec.radius == 0.15
+        finally:
+            BondSpec.default_radius = original
+
+    def test_changing_class_default_does_not_affect_explicit(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, radius=0.2)
+        original = BondSpec.default_radius
+        try:
+            BondSpec.default_radius = 0.99
+            assert spec.radius == 0.2
+        finally:
+            BondSpec.default_radius = original
+
+    def test_radius_setter(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        spec.radius = 0.3
+        assert spec.radius == 0.3
+
+    def test_radius_setter_none_reverts_to_default(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, radius=0.3)
+        spec.radius = None
+        assert spec.radius == 0.1
+
+    def test_colour_setter(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        spec.colour = "blue"
+        assert spec.colour == "blue"
+
+
+class TestBondSpecRepr:
+    def test_default_radius_shown(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert "radius=<default 0.1>" in repr(spec)
+
+    def test_default_colour_shown(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert "colour=<default 0.5>" in repr(spec)
+
+    def test_explicit_radius_shown(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, radius=0.2)
+        assert "radius=0.2" in repr(spec)
+
+    def test_explicit_colour_shown(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, colour="red")
+        assert "colour='red'" in repr(spec)
+
+    def test_complete_omitted_when_false(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert "complete" not in repr(spec)
+
+    def test_recursive_omitted_when_false(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert "recursive" not in repr(spec)
+
+    def test_complete_shown_when_set(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, complete="C")
+        assert "complete='C'" in repr(spec)
+
+
+class TestBondSpecEquality:
+    def test_equal_with_defaults(self):
+        a = BondSpec(species=("C", "H"), max_length=3.4)
+        b = BondSpec(species=("C", "H"), max_length=3.4)
+        assert a == b
+
+    def test_equal_with_explicit_values(self):
+        a = BondSpec(species=("C", "H"), max_length=3.4, radius=0.2, colour="red")
+        b = BondSpec(species=("C", "H"), max_length=3.4, radius=0.2, colour="red")
+        assert a == b
+
+    def test_default_not_equal_to_explicit_same_value(self):
+        a = BondSpec(species=("C", "H"), max_length=3.4)
+        b = BondSpec(species=("C", "H"), max_length=3.4, radius=0.1)
+        assert a != b
+
+    def test_not_equal_to_other_type(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert spec != "not a spec"
+
+
 # --- Bond frozen ---
 
 

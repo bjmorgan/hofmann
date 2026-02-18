@@ -71,31 +71,49 @@ Bonds
 -----
 
 Bonds are detected at render time from declarative
-:class:`~hofmann.BondSpec` rules.  Each rule specifies a species pair,
-a length range, a display radius, and a colour:
+:class:`~hofmann.BondSpec` rules.  Only the species pair and maximum
+length are required; ``min_length``, ``radius``, and ``colour`` all
+have sensible defaults:
 
 .. code-block:: python
 
    from hofmann import BondSpec
 
-   spec = BondSpec(
-       species=("C", "H"),
-       min_length=0.0,
-       max_length=1.2,
-       radius=0.1,
-       colour=0.8,  # Grey
-   )
+   spec = BondSpec(species=("C", "H"), max_length=1.2)
+
+You can override any default on a per-spec basis:
+
+.. code-block:: python
+
+   spec = BondSpec(species=("C", "H"), max_length=1.2,
+                   radius=0.15, colour="steelblue")
 
 Species matching supports wildcards:
 
 .. code-block:: python
 
    # Match any bond between any species:
-   BondSpec(species=("*", "*"), min_length=0.0, max_length=2.5,
-            radius=0.1, colour="grey")
+   BondSpec(species=("*", "*"), max_length=2.5)
 
 When no bond specs are provided, :func:`~hofmann.from_pymatgen`
 generates sensible defaults from VESTA bond length cutoffs.
+
+Bond display defaults
+~~~~~~~~~~~~~~~~~~~~~
+
+``radius`` and ``colour`` fall back to ``BondSpec.default_radius``
+(``0.1``) and ``BondSpec.default_colour`` (``0.5``, grey) when not set
+explicitly.  You can change these class-level defaults to affect all
+specs that have not been given an explicit value:
+
+.. code-block:: python
+
+   BondSpec.default_radius = 0.15
+   BondSpec.default_colour = "grey"
+
+The ``repr()`` of a spec shows ``<default ...>`` for values that will
+follow the class default, making it easy to see what has been
+explicitly set and what has not.
 
 .. image:: _static/perovskite_plain.svg
    :width: 320px
@@ -123,8 +141,7 @@ visible Zr atoms, without pulling in new Zr images around visible S:
 
 .. code-block:: python
 
-   BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
-            radius=0.1, colour=0.5, complete="Zr")
+   BondSpec(species=("S", "Zr"), max_length=2.9, complete="Zr")
 
 .. image:: _static/pbc_bonds_complete.svg
    :width: 400px
@@ -153,12 +170,9 @@ bonded atoms across boundaries until no new atoms are found:
 .. code-block:: python
 
    bonds = [
-       BondSpec(species=("S", "Zr"), min_length=0.0, max_length=2.9,
-                radius=0.1, colour=0.5, complete="Zr"),
-       BondSpec(species=("N", "N"), min_length=0.0, max_length=1.9,
-                radius=0.1, colour=0.5, recursive=True),
-       BondSpec(species=("H", "N"), min_length=0.0, max_length=1.2,
-                radius=0.1, colour=0.5, recursive=True),
+       BondSpec(species=("S", "Zr"), max_length=2.9, complete="Zr"),
+       BondSpec(species=("N", "N"), max_length=1.9, recursive=True),
+       BondSpec(species=("H", "N"), max_length=1.2, recursive=True),
    ]
 
 .. image:: _static/pbc_bonds_recursive.svg
