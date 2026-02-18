@@ -30,7 +30,10 @@ load them back:
 
 :meth:`~hofmann.StructureScene.load_styles` merges atom styles
 (existing species keep their styles unless overridden by the file) and
-replaces bond specs and polyhedra entirely.
+replaces bond specs and polyhedra entirely.  If the file contains a
+``render_style`` section it is ignored -- use
+:func:`~hofmann.load_styles` to retrieve it separately and pass it to
+the renderer.
 
 Choosing what to save
 ~~~~~~~~~~~~~~~~~~~~~

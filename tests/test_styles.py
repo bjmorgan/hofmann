@@ -108,6 +108,12 @@ class TestBondSpecDict:
         assert restored._radius is None
         assert restored.radius == BondSpec.default_radius
 
+    def test_from_dict_sorts_species(self):
+        """from_dict should sort the species pair alphabetically."""
+        d = {"species": ["Ti", "O"], "max_length": 2.5}
+        restored = BondSpec.from_dict(d)
+        assert restored.species == ("O", "Ti")
+
 
 # -- PolyhedronSpec -----------------------------------------------------------
 

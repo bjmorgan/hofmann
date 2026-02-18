@@ -1,6 +1,7 @@
 """Core data model for hofmann: dataclasses, colour handling, and projection."""
 
 from collections.abc import Callable, Sequence
+import dataclasses
 from dataclasses import dataclass, field
 from enum import StrEnum
 from fnmatch import fnmatch
@@ -420,6 +421,23 @@ class WidgetCorner(StrEnum):
 
 
 
+def _field_defaults(cls: type, *, exclude: frozenset[str] = frozenset()) -> dict:
+    """Return a dict of ``{field_name: default}`` for a dataclass.
+
+    Only fields with simple defaults (not ``MISSING`` and not
+    ``default_factory``) are included.  Fields listed in *exclude*
+    are skipped.  This is used by ``to_dict()`` methods to compare
+    current values against defaults so only non-default fields are
+    serialised.
+    """
+    return {
+        f.name: f.default
+        for f in dataclasses.fields(cls)
+        if f.default is not dataclasses.MISSING
+        and f.name not in exclude
+    }
+
+
 _VALID_LINESTYLES = frozenset({"solid", "dashed", "dotted", "dashdot"})
 
 
@@ -439,12 +457,6 @@ class CellEdgeStyle:
     line_width: float = 0.8
     linestyle: str = "solid"
 
-    _DEFAULTS: ClassVar[dict] = {
-        "colour": (0.3, 0.3, 0.3),
-        "line_width": 0.8,
-        "linestyle": "solid",
-    }
-
     def __post_init__(self) -> None:
         if self.line_width < 0:
             raise ValueError(
@@ -461,14 +473,13 @@ class CellEdgeStyle:
 
         Fields at their default values are omitted.
         """
+        defaults = _field_defaults(type(self))
         d: dict = {}
-        if normalise_colour(self.colour) != normalise_colour(
-            self._DEFAULTS["colour"]
-        ):
+        if normalise_colour(self.colour) != normalise_colour(defaults["colour"]):
             d["colour"] = list(normalise_colour(self.colour))
-        if self.line_width != self._DEFAULTS["line_width"]:
+        if self.line_width != defaults["line_width"]:
             d["line_width"] = self.line_width
-        if self.linestyle != self._DEFAULTS["linestyle"]:
+        if self.linestyle != defaults["linestyle"]:
             d["linestyle"] = self.linestyle
         return d
 
@@ -476,7 +487,7 @@ class CellEdgeStyle:
     def from_dict(cls, d: dict) -> "CellEdgeStyle":
         """Deserialise from a dictionary."""
         kwargs: dict = {}
-        for key in ("colour", "line_width", "linestyle"):
+        for key in _field_defaults(cls):
             if key in d:
                 kwargs[key] = d[key]
         return cls(**kwargs)
@@ -559,38 +570,28 @@ class AxesStyle:
                 f"labels must have exactly 3 elements, got {len(self.labels)}"
             )
 
-    _DEFAULTS: ClassVar[dict] = {
-        "colours": ((0.3, 0.3, 0.3), (0.3, 0.3, 0.3), (0.3, 0.3, 0.3)),
-        "labels": ("a", "b", "c"),
-        "font_size": 10.0,
-        "italic": True,
-        "arrow_length": 0.12,
-        "line_width": 1.0,
-        "corner": WidgetCorner.BOTTOM_LEFT,
-        "margin": 0.15,
-    }
-
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
         Fields at their default values are omitted.
         """
+        defaults = _field_defaults(type(self))
         d: dict = {}
         default_colours = tuple(
-            normalise_colour(c) for c in self._DEFAULTS["colours"]
+            normalise_colour(c) for c in defaults["colours"]
         )
         actual_colours = tuple(normalise_colour(c) for c in self.colours)
         if actual_colours != default_colours:
             d["colours"] = [list(c) for c in actual_colours]
-        if self.labels != self._DEFAULTS["labels"]:
+        if self.labels != defaults["labels"]:
             d["labels"] = list(self.labels)
         for field_name in ("font_size", "italic", "arrow_length",
                            "line_width", "margin"):
             val = getattr(self, field_name)
-            if val != self._DEFAULTS[field_name]:
+            if val != defaults[field_name]:
                 d[field_name] = val
         if isinstance(self.corner, WidgetCorner):
-            if self.corner != self._DEFAULTS["corner"]:
+            if self.corner != defaults["corner"]:
                 d["corner"] = self.corner.value
         else:
             d["corner"] = list(self.corner)
@@ -774,29 +775,6 @@ class RenderStyle:
                 f"got {self.polyhedra_outline_width}"
             )
 
-    # Default values for comparison during serialisation.
-    _DEFAULTS: ClassVar[dict] = {
-        "atom_scale": 0.5,
-        "bond_scale": 1.0,
-        "bond_colour": None,
-        "half_bonds": True,
-        "show_bonds": True,
-        "show_polyhedra": True,
-        "show_outlines": True,
-        "outline_colour": (0.15, 0.15, 0.15),
-        "atom_outline_width": 1.0,
-        "bond_outline_width": 1.0,
-        "slab_clip_mode": SlabClipMode.PER_FACE,
-        "circle_segments": 72,
-        "arc_segments": 12,
-        "interactive_circle_segments": 24,
-        "interactive_arc_segments": 5,
-        "polyhedra_shading": 1.0,
-        "polyhedra_outline_width": None,
-        "show_cell": None,
-        "show_axes": None,
-    }
-
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
@@ -804,8 +782,9 @@ class RenderStyle:
         ``cell_style`` and ``axes_style`` are serialised as sub-dicts
         (omitted entirely when they equal their own defaults).
         """
+        defaults = _field_defaults(type(self))
         d: dict = {}
-        for field_name, default in self._DEFAULTS.items():
+        for field_name, default in defaults.items():
             val = getattr(self, field_name)
             if field_name == "outline_colour":
                 if normalise_colour(val) != normalise_colour(default):
@@ -832,12 +811,22 @@ class RenderStyle:
     def from_dict(cls, d: dict) -> "RenderStyle":
         """Deserialise from a dictionary.
 
-        Missing fields use their defaults.
+        Missing fields use their defaults.  The ``slab_clip_mode``
+        string is coerced to :class:`SlabClipMode` and ``bond_colour``
+        lists are converted to tuples for type consistency.
         """
+        defaults = _field_defaults(cls)
         kwargs: dict = {}
-        for field_name in cls._DEFAULTS:
+        for field_name in defaults:
             if field_name in d:
-                kwargs[field_name] = d[field_name]
+                val = d[field_name]
+                if field_name == "slab_clip_mode" and isinstance(val, str):
+                    val = SlabClipMode(val)
+                elif field_name == "bond_colour" and isinstance(val, list):
+                    val = tuple(val)
+                elif field_name == "outline_colour" and isinstance(val, list):
+                    val = tuple(val)
+                kwargs[field_name] = val
         if "cell_style" in d:
             kwargs["cell_style"] = CellEdgeStyle.from_dict(d["cell_style"])
         if "axes_style" in d:
@@ -1160,45 +1149,34 @@ class PolyhedronSpec:
     hide_vertices: bool = False
     min_vertices: int | None = None
 
-    _DEFAULTS: ClassVar[dict] = {
-        "alpha": 0.4,
-        "edge_colour": (0.15, 0.15, 0.15),
-        "edge_width": 1.0,
-        "hide_centre": False,
-        "hide_bonds": False,
-        "hide_vertices": False,
-        "min_vertices": None,
-    }
-
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
         Fields at their default values are omitted.  Colours are
         normalised to ``[r, g, b]`` lists.
         """
+        defaults = _field_defaults(type(self), exclude=frozenset({"colour"}))
         d: dict = {"centre": self.centre}
         if self.colour is not None:
             d["colour"] = list(normalise_colour(self.colour))
-        for field_name in ("alpha", "edge_width", "hide_centre",
-                           "hide_bonds", "hide_vertices", "min_vertices"):
+        for field_name, default in defaults.items():
             val = getattr(self, field_name)
-            if val != self._DEFAULTS[field_name]:
-                d[field_name] = val
-        if normalise_colour(self.edge_colour) != normalise_colour(
-            self._DEFAULTS["edge_colour"]
-        ):
-            d["edge_colour"] = list(normalise_colour(self.edge_colour))
+            if field_name == "edge_colour":
+                if normalise_colour(val) != normalise_colour(default):
+                    d[field_name] = list(normalise_colour(val))
+            else:
+                if val != default:
+                    d[field_name] = val
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> "PolyhedronSpec":
         """Deserialise from a dictionary."""
+        defaults = _field_defaults(cls, exclude=frozenset({"colour"}))
         kwargs: dict = {"centre": d["centre"]}
         if "colour" in d:
             kwargs["colour"] = d["colour"]
-        for field_name in ("alpha", "edge_colour", "edge_width",
-                           "hide_centre", "hide_bonds", "hide_vertices",
-                           "min_vertices"):
+        for field_name in defaults:
             if field_name in d:
                 kwargs[field_name] = d[field_name]
         return cls(**kwargs)
