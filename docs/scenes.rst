@@ -34,6 +34,56 @@ Here is a simple CH\ :sub:`4` molecule loaded from an XBS file:
    :alt: CH4 rendered from an XBS file
 
 
+.. _construction-time-styles:
+
+Customising styles at construction time
+----------------------------------------
+
+When building a scene from a pymatgen ``Structure``,
+:func:`~hofmann.from_pymatgen` generates default
+:class:`~hofmann.AtomStyle` objects for every species using
+:func:`~hofmann.default_atom_style`.  You can override individual
+species by passing an ``atom_styles`` dict -- only the species you
+include are replaced; the rest keep their defaults:
+
+.. code-block:: python
+
+   from hofmann import AtomStyle, StructureScene
+
+   scene = StructureScene.from_pymatgen(
+       structure, bonds,
+       atom_styles={
+           "Zr": AtomStyle(radius=1.4, colour=(0.5, 1.0, 0.5)),
+           "O": AtomStyle(radius=0.8, colour="red"),
+       },
+       title="Custom colours",
+   )
+
+This also works with styles loaded from a file (see :doc:`styles`):
+
+.. code-block:: python
+
+   from hofmann import load_styles
+
+   styles = load_styles("my_styles.json")
+   scene = StructureScene.from_pymatgen(
+       structure, bonds,
+       atom_styles=styles.atom_styles,
+   )
+
+The following keyword arguments are accepted by both the
+:func:`~hofmann.from_pymatgen` module-level function and the
+:meth:`~hofmann.StructureScene.from_pymatgen` classmethod:
+
+- ``atom_styles`` -- per-species :class:`~hofmann.AtomStyle` overrides,
+  merged on top of auto-generated defaults.
+- ``title`` -- scene title for display.
+- ``view`` -- a :class:`~hofmann.ViewState` to use instead of the
+  auto-centred default.
+- ``atom_data`` -- per-atom metadata arrays for colourmap rendering
+  (see :doc:`colouring`).
+
+
 Periodic boundary conditions
 -----------------------------
 

@@ -34,6 +34,7 @@ Quick example
    getting-started
    scenes
    rendering
+   styles
    colouring
    interactive
    api

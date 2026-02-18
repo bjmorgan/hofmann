@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hofmann.model import StructureScene
+from hofmann.model import AtomStyle, StructureScene, ViewState
 from hofmann.scene import _merge_expansions, from_xbs, from_pymatgen
 
 _has_pymatgen = False
@@ -116,6 +116,55 @@ class TestFromPymatgen:
         scene = from_pymatgen(struct, bond_specs=[])
         # Na at frac 0.0 is within 0.1 A of the face, so gets a +1 image.
         assert len(scene.species) == 2
+
+    def test_atom_styles_override(self):
+        """Custom atom_styles override defaults while preserving others."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+        custom_na = AtomStyle(radius=2.0, colour=(1.0, 0.0, 0.0))
+        scene = from_pymatgen(
+            struct, pbc=False, atom_styles={"Na": custom_na},
+        )
+        assert scene.atom_styles["Na"] is custom_na
+        # Cl should still have the auto-generated default.
+        assert "Cl" in scene.atom_styles
+        assert scene.atom_styles["Cl"] is not custom_na
+
+    def test_title_passthrough(self):
+        """The title parameter is passed through to the scene."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
+        scene = from_pymatgen(struct, pbc=False, title="test title")
+        assert scene.title == "test title"
+
+    def test_view_override(self):
+        """A custom ViewState overrides the auto-centred default."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
+        custom_view = ViewState(centre=np.array([1.0, 2.0, 3.0]))
+        scene = from_pymatgen(struct, pbc=False, view=custom_view)
+        assert scene.view is custom_view
+
+    def test_atom_data_passthrough(self):
+        """The atom_data parameter is passed through to the scene."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+        data = {"charge": np.array([1.0, -1.0])}
+        scene = from_pymatgen(struct, pbc=False, atom_data=data)
+        np.testing.assert_array_equal(scene.atom_data["charge"], [1.0, -1.0])
+
+    def test_classmethod_forwards_kwargs(self):
+        """The classmethod variant forwards style kwargs."""
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
+        custom_na = AtomStyle(radius=2.0, colour="red")
+        scene = StructureScene.from_pymatgen(
+            struct, pbc=False,
+            atom_styles={"Na": custom_na},
+            title="via classmethod",
+        )
+        assert scene.atom_styles["Na"] is custom_na
+        assert scene.title == "via classmethod"
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")

@@ -108,6 +108,17 @@ Colours and defaults
 .. autofunction:: default_bond_specs
 
 
+Style I/O
+---------
+
+.. autoclass:: StyleSet
+   :members:
+
+.. autofunction:: save_styles
+
+.. autofunction:: load_styles
+
+
 Bond and polyhedra computation
 ------------------------------
 
