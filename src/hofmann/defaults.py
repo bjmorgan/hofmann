@@ -264,8 +264,8 @@ def _load_vesta_cutoffs() -> dict[tuple[str, str], float]:
 def default_bond_specs(
     species: list[str],
     *,
-    bond_radius: float = 0.1,
-    bond_colour: Colour = 0.5,
+    bond_radius: float | None = None,
+    bond_colour: Colour | None = None,
 ) -> list[BondSpec]:
     """Generate BondSpec rules from VESTA bond length cutoffs.
 
@@ -275,8 +275,10 @@ def default_bond_specs(
 
     Args:
         species: Species labels to generate rules for.
-        bond_radius: Visual radius of the bond cylinder.
-        bond_colour: Default colour for all generated bonds.
+        bond_radius: Visual radius of the bond cylinder.  Defaults to
+            ``BondSpec.default_radius`` when not given.
+        bond_colour: Default colour for all generated bonds.  Defaults
+            to ``BondSpec.default_colour`` when not given.
 
     Returns:
         A list of BondSpec rules, one per unique pair.
@@ -291,7 +293,6 @@ def default_bond_specs(
             if key in cutoffs:
                 specs.append(BondSpec(
                     species=key,
-                    min_length=0.0,
                     max_length=cutoffs[key],
                     radius=bond_radius,
                     colour=bond_colour,

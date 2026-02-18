@@ -74,8 +74,7 @@ If you have pymatgen installed, you can build a scene directly from a
         [0.75, 0.25, 0.75], [0.25, 0.75, 0.75]],
    )
 
-   bonds = [BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
-                     radius=0.1, colour=0.5)]
+   bonds = [BondSpec(species=("Si", "Si"), max_length=2.8)]
    scene = StructureScene.from_pymatgen(structure, bonds, pbc=True)
    scene.render_mpl("si.pdf")
 

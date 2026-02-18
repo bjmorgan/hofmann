@@ -1,6 +1,17 @@
 Changelog
 =========
 
+0.6.0
+-----
+
+- :class:`~hofmann.BondSpec` now only requires ``species`` and
+  ``max_length``.  ``min_length`` defaults to ``0.0``; ``radius`` and
+  ``colour`` default to class-level values
+  (``BondSpec.default_radius = 0.1``,
+  ``BondSpec.default_colour = 0.5``) which can be changed to set
+  project-wide defaults.  The ``repr()`` shows ``<default ...>`` for
+  values that have not been explicitly set.
+
 0.5.0
 -----
 
