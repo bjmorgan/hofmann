@@ -279,6 +279,11 @@ class TestBondSpecEquality:
         spec = BondSpec(species=("C", "H"), max_length=3.4)
         assert spec != "not a spec"
 
+    def test_unhashable(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        with pytest.raises(TypeError, match="unhashable"):
+            hash(spec)
+
 
 # --- Bond frozen ---
 

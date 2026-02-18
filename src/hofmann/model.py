@@ -773,12 +773,13 @@ class BondSpec:
         complete: bool | str = False,
         recursive: bool = False,
     ) -> None:
-        self.species: tuple[str, str] = tuple(sorted(species))  # type: ignore[assignment]
+        a, b = sorted(species)
+        self.species = (a, b)
         self.max_length = max_length
         self.min_length = min_length
         self._radius = radius
         self._colour = colour
-        self.complete: bool | str = complete
+        self.complete = complete
         self.recursive = recursive
 
         if self.complete is True:
@@ -856,6 +857,8 @@ class BondSpec:
             and self.complete == other.complete
             and self.recursive == other.recursive
         )
+
+    __hash__ = None  # type: ignore[assignment]
 
     def matches(self, species_1: str, species_2: str) -> bool:
         """Check whether this spec matches a given species pair.
