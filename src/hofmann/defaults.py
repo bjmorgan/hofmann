@@ -256,7 +256,7 @@ def _load_vesta_cutoffs() -> dict[tuple[str, str], float]:
     data_file = resources.files("hofmann.data").joinpath("vesta_cutoffs.json")
     raw = json.loads(data_file.read_text(encoding="utf-8"))
     _VESTA_CUTOFFS = {
-        tuple(k.split("-")): v for k, v in raw.items()
+        tuple(sorted(k.split("-"))): v for k, v in raw.items()
     }
     return _VESTA_CUTOFFS
 
