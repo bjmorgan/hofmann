@@ -1875,6 +1875,12 @@ def _draw_axes_widget(
 # Static renderer
 # ---------------------------------------------------------------------------
 
+def _axes_bg_rgb(ax: Axes) -> tuple[float, float, float]:
+    """Return the axes background as an (R, G, B) tuple."""
+    from matplotlib.colors import to_rgb
+    return to_rgb(ax.get_facecolor())
+
+
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
 
 def _resolve_style(
@@ -1972,7 +1978,7 @@ def render_mpl(
             into.  When provided, the scene is rendered onto this axes
             and the caller retains control of the parent figure
             (saving, display, layout).  The *output*, *figsize*,
-            *dpi*, and *show* parameters are ignored.
+            *dpi*, *background*, and *show* parameters are ignored.
         style: A :class:`RenderStyle` controlling visual appearance.
             If ``None``, defaults are used.  Any :class:`RenderStyle`
             field name may also be passed as a keyword argument to
@@ -2007,12 +2013,11 @@ def render_mpl(
     if ax is not None:
         fig = ax.get_figure()
         assert isinstance(fig, Figure)
-        ax.set_facecolor(bg_rgb)
 
         _draw_scene(
             ax, scene, scene.view, resolved,
             frame_index=frame_index,
-            bg_rgb=bg_rgb,
+            bg_rgb=_axes_bg_rgb(ax),
             colour_by=colour_by,
             cmap=cmap,
             colour_range=colour_range,

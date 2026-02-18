@@ -301,8 +301,8 @@ with other plots:
    fig.savefig("panel.pdf", bbox_inches="tight")
 
 When ``ax`` is provided, the caller retains full control of the parent
-figure — the *output*, *figsize*, *dpi*, and *show* parameters are
-ignored.
+figure — the *output*, *figsize*, *dpi*, *background*, and *show*
+parameters are ignored.
 
 As an example, here is rutile TiO\ :sub:`2` viewed along [100] and
 [001], showing the distinct projections perpendicular and parallel to
