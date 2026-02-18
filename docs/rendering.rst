@@ -322,8 +322,8 @@ the *c* axis:
        [ax1, ax2], [[1, 0, 0], [0, 0, 1]], ["[100]", "[001]"],
    ):
        scene.view.look_along(direction)
+       scene.title = label
        scene.render_mpl(ax=ax)
-       ax.set_title(label)
 
    fig.tight_layout()
    fig.savefig("projections.pdf", bbox_inches="tight")

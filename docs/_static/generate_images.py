@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import matplotlib.patheffects as path_effects
 import numpy as np
 from scipy.spatial.transform import Rotation
 
@@ -870,12 +869,8 @@ def main() -> None:
         [ax1, ax2], [[1, 0, 0], [0, 0, 1]], ["[100]", "[001]"],
     ):
         proj_scene.view.look_along(direction)
+        proj_scene.title = label
         proj_scene.render_mpl(ax=ax, style=big_labels)
-        ax.text(0.5, 0.97, label, fontsize=14, ha="center", va="top",
-                transform=ax.transAxes,
-                path_effects=[
-                    path_effects.withStroke(linewidth=3, foreground="white"),
-                ])
     fig.tight_layout(w_pad=0)
     fig.savefig(OUT / "multi_panel_projections.svg", bbox_inches="tight")
     plt.close(fig)

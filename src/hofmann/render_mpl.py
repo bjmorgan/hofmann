@@ -1694,7 +1694,16 @@ def _draw_scene(
     ax.axis("off")
 
     if scene.title:
-        ax.set_title(scene.title)
+        ax.text(
+            0.5, 0.97, scene.title,
+            transform=ax.transAxes,
+            ha="center", va="top",
+            fontsize=plt.rcParams["axes.titlesize"],
+            fontweight=plt.rcParams["axes.titleweight"],
+            path_effects=[
+                path_effects.withStroke(linewidth=3, foreground="white"),
+            ],
+        )
 
     if draw_axes:
         if scene.lattice is None:
