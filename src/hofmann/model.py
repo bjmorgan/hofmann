@@ -1159,8 +1159,8 @@ class StructureScene:
             structure: A single pymatgen ``Structure`` or a sequence of
                 structures (e.g. from an MD trajectory).
             bond_specs: Bond detection rules.  ``None`` generates
-                sensible defaults from covalent radii; pass an empty
-                list to disable bonds.
+                sensible defaults from VESTA bond length cutoffs;
+                pass an empty list to disable bonds.
             polyhedra: Polyhedron rendering rules.  ``None`` disables
                 polyhedra.
             pbc: If ``True`` (the default), add periodic image atoms

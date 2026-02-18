@@ -536,8 +536,8 @@ def from_pymatgen(
         structure: A single pymatgen ``Structure`` or a list of
             ``Structure`` objects (e.g. from an MD trajectory).
         bond_specs: Optional bond specification rules.  If ``None``,
-            sensible defaults are generated from covalent radii.
-            Pass an empty list to disable bonds.
+            sensible defaults are generated from VESTA bond length
+            cutoffs.  Pass an empty list to disable bonds.
         polyhedra: Optional polyhedron rendering rules.  If ``None``,
             no polyhedra are drawn.
         pbc: If ``True`` (the default), add periodic image atoms at
@@ -602,7 +602,7 @@ def from_pymatgen(
     unique_species = sorted(set(species))
     atom_styles = {sp: default_atom_style(sp) for sp in unique_species}
 
-    # Generate default bond specs from covalent radii if none provided.
+    # Generate default bond specs from VESTA cutoffs if none provided.
     if bond_specs is None:
         bond_specs = default_bond_specs(species)
 
