@@ -566,9 +566,9 @@ def from_pymatgen(
             "Install it with: pip install pymatgen"
         )
 
-    if max_recursive_depth < 0:
+    if max_recursive_depth < 1:
         raise ValueError(
-            f"max_recursive_depth must be non-negative, "
+            f"max_recursive_depth must be >= 1, "
             f"got {max_recursive_depth}"
         )
 

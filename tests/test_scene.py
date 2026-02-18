@@ -548,8 +548,8 @@ class TestRecursiveBondExpansion:
         cl_count = sum(1 for sp in scene.species if sp == "Cl")
         assert cl_count >= 2
 
-    def test_recursive_negative_max_depth_raises(self):
-        """max_recursive_depth < 0 raises ValueError."""
+    def test_recursive_invalid_max_depth_raises(self):
+        """max_recursive_depth < 1 raises ValueError."""
         from hofmann.model import BondSpec
 
         lattice = Lattice.cubic(5.0)
@@ -565,11 +565,16 @@ class TestRecursiveBondExpansion:
         with pytest.raises(ValueError, match="max_recursive_depth"):
             from_pymatgen(
                 struct, bond_specs=[bond], pbc=True,
+                max_recursive_depth=0,
+            )
+        with pytest.raises(ValueError, match="max_recursive_depth"):
+            from_pymatgen(
+                struct, bond_specs=[bond], pbc=True,
                 max_recursive_depth=-1,
             )
 
     def test_recursive_respects_max_depth(self):
-        """max_recursive_depth=0 disables recursive expansion."""
+        """max_recursive_depth=1 limits recursive expansion to one pass."""
         from hofmann.model import BondSpec
 
         lattice = Lattice.cubic(5.0)
@@ -577,20 +582,23 @@ class TestRecursiveBondExpansion:
             lattice, ["Na", "Cl"],
             [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
         )
-        bond = BondSpec(
+        bond_no_flag = BondSpec(
+            species=("Na", "Cl"), min_length=0.0,
+            max_length=3.0, radius=0.1, colour=0.5,
+        )
+        bond_recursive = BondSpec(
             species=("Na", "Cl"), min_length=0.0,
             max_length=3.0, radius=0.1, colour=0.5,
             recursive=True,
         )
         scene_no_recurse = from_pymatgen(
-            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
-            max_recursive_depth=0,
+            struct, bond_specs=[bond_no_flag], pbc=True, pbc_padding=0.1,
         )
         scene_with_recurse = from_pymatgen(
-            struct, bond_specs=[bond], pbc=True, pbc_padding=0.1,
-            max_recursive_depth=5,
+            struct, bond_specs=[bond_recursive], pbc=True, pbc_padding=0.1,
+            max_recursive_depth=1,
         )
-        # With depth=0, no recursive atoms are added.
+        # Recursive adds atoms even with depth=1.
         assert len(scene_with_recurse.species) > len(scene_no_recurse.species)
 
     def test_non_recursive_spec_unchanged(self):
