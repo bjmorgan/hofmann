@@ -95,7 +95,7 @@ Species matching supports wildcards:
             radius=0.1, colour="grey")
 
 When no bond specs are provided, :func:`~hofmann.from_pymatgen`
-generates sensible defaults from :data:`~hofmann.COVALENT_RADII`.
+generates sensible defaults from VESTA bond length cutoffs.
 
 .. image:: _static/perovskite_plain.svg
    :width: 320px

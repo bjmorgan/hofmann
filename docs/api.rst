@@ -101,7 +101,7 @@ Colours and defaults
    :type: dict[str, float]
 
    Covalent radii in angstroms, from Cordero *et al.*, Dalton Trans. 2008.
-   Used by :func:`default_bond_specs` to estimate bond length ranges.
+   Used by :func:`default_atom_style` for display radii.
 
 .. autofunction:: default_atom_style
 

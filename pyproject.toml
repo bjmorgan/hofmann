@@ -47,7 +47,7 @@ docs = [
 all = ["hofmann[pymatgen,dev,docs]"]
 
 [tool.setuptools.package-data]
-hofmann = ["py.typed"]
+hofmann = ["py.typed", "data/*.json"]
 
 [tool.setuptools.packages.find]
 where = ["src"]

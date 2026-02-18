@@ -1,9 +1,14 @@
-"""Default element colours and covalent radii (Cordero 2008).
+"""Default element colours, radii, and bond cutoffs.
 
 Colours are a muted, publication-friendly palette.  Conventional
 associations are preserved (red for oxygen, blue for nitrogen, etc.)
 but with desaturated tones that reproduce well in print.
 """
+
+from __future__ import annotations
+
+import json
+from importlib import resources
 
 from hofmann.model import AtomStyle, BondSpec, Colour
 
@@ -125,7 +130,7 @@ ELEMENT_COLOURS: dict[str, tuple[float, float, float]] = {
 }
 
 #: Covalent radii in angstroms, from Cordero *et al.*, Dalton Trans. 2008.
-#: Used by :func:`default_bond_specs` to estimate bond length ranges.
+#: Used by :func:`default_atom_style` for display radii.
 COVALENT_RADII: dict[str, float] = {
     "H":  0.31,
     "He": 0.28,
@@ -233,49 +238,66 @@ COVALENT_RADII: dict[str, float] = {
 }
 
 
+_VESTA_CUTOFFS: dict[tuple[str, str], float] | None = None
+
+
+def _load_vesta_cutoffs() -> dict[tuple[str, str], float]:
+    """Load VESTA bond length cutoffs from bundled JSON.
+
+    Returns a dict mapping sorted element pairs to maximum bond
+    lengths in angstroms.  Loaded lazily on first call and cached.
+
+    The cutoff data originates from the VESTA crystallographic
+    visualisation program and is distributed via pymatgen under the
+    MIT licence.
+    """
+    global _VESTA_CUTOFFS
+    if _VESTA_CUTOFFS is not None:
+        return _VESTA_CUTOFFS
+
+    data_file = resources.files("hofmann.data").joinpath("vesta_cutoffs.json")
+    raw = json.loads(data_file.read_text(encoding="utf-8"))
+    _VESTA_CUTOFFS = {
+        tuple(k.split("-")): v for k, v in raw.items()
+    }
+    return _VESTA_CUTOFFS
+
+
 def default_bond_specs(
     species: list[str],
     *,
-    tolerance: float = 0.4,
     bond_radius: float = 0.1,
     bond_colour: Colour = 0.5,
-    self_bonds: bool = False,
 ) -> list[BondSpec]:
-    """Generate BondSpec rules from covalent radii for a set of species.
+    """Generate BondSpec rules from VESTA bond length cutoffs.
 
-    Creates one spec per unique pair using the sum-of-covalent-radii
-    heuristic: ``max_length = r_a + r_b + tolerance``.  Species not
-    found in :data:`COVALENT_RADII` are silently skipped.
+    Creates one spec per unique species pair that has a VESTA cutoff
+    entry (including same-element pairs such as C-C where present).
+    Pairs absent from the VESTA data are silently skipped.
 
     Args:
         species: Species labels to generate rules for.
-        tolerance: Distance added to the sum of covalent radii (angstroms).
         bond_radius: Visual radius of the bond cylinder.
         bond_colour: Default colour for all generated bonds.
-        self_bonds: If ``True``, include same-species pairs (e.g. C-C).
-            Defaults to ``False``.
 
     Returns:
         A list of BondSpec rules, one per unique pair.
     """
+    cutoffs = _load_vesta_cutoffs()
     unique = sorted(set(species))
-    # Filter to species with known radii.
-    known = [s for s in unique if s in COVALENT_RADII]
 
     specs: list[BondSpec] = []
-    for i, sp_a in enumerate(known):
-        start = i if self_bonds else i + 1
-        for sp_b in known[start:]:
-            max_len = round(
-                COVALENT_RADII[sp_a] + COVALENT_RADII[sp_b] + tolerance, 2,
-            )
-            specs.append(BondSpec(
-                species=(sp_a, sp_b),
-                min_length=0.0,
-                max_length=max_len,
-                radius=bond_radius,
-                colour=bond_colour,
-            ))
+    for i, sp_a in enumerate(unique):
+        for sp_b in unique[i:]:
+            key = (sp_a, sp_b)
+            if key in cutoffs:
+                specs.append(BondSpec(
+                    species=key,
+                    min_length=0.0,
+                    max_length=cutoffs[key],
+                    radius=bond_radius,
+                    colour=bond_colour,
+                ))
     return specs
 
 
