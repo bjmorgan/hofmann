@@ -1189,7 +1189,7 @@ class TestAxesStyle:
         assert style.labels == ("a", "b", "c")
         assert style.font_size == 10.0
         assert style.italic is True
-        assert style.arrow_length == 0.08
+        assert style.arrow_length == 0.12
         assert style.line_width == 1.0
         assert style.corner is WidgetCorner.BOTTOM_LEFT
         assert style.margin == 0.15

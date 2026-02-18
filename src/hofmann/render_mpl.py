@@ -1676,6 +1676,19 @@ def _draw_scene(
         pad_x = (xy[:, 0].max() - xy[:, 0].min()) / 2 + margin
         pad_y = (xy[:, 1].max() - xy[:, 1].min()) / 2 + margin
         pad = max(pad_x, pad_y)
+    # ---- Axes orientation widget ----
+    draw_axes = style.show_axes
+    if draw_axes is None:
+        draw_axes = scene.lattice is not None
+    if draw_axes and viewport_extent is None:
+        # Expand viewport to make room for the widget so it doesn't
+        # overlap atoms.  The widget footprint is approximately
+        # (margin + 2 * arrow_length) * pad from the corner.
+        axes_style = style.axes_style
+        widget_frac = axes_style.margin + 2.0 * axes_style.arrow_length
+        pad_x *= 1.0 + widget_frac * 0.5
+        pad_y *= 1.0 + widget_frac * 0.5
+        pad = max(pad_x, pad_y)
     ax.set_xlim(cx - pad_x, cx + pad_x)
     ax.set_ylim(cy - pad_y, cy + pad_y)
     ax.axis("off")
@@ -1683,10 +1696,6 @@ def _draw_scene(
     if scene.title:
         ax.set_title(scene.title)
 
-    # ---- Axes orientation widget ----
-    draw_axes = style.show_axes
-    if draw_axes is None:
-        draw_axes = scene.lattice is not None
     if draw_axes:
         if scene.lattice is None:
             raise ValueError("show_axes=True but scene has no lattice")
@@ -1766,8 +1775,8 @@ def _draw_axes_widget(
     ax_width_in = fig.get_figwidth() * ax.get_position().width
     pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
     arrow_len_pts = arrow_len * pts_per_data
-    # Reference: 0.08 * 72 / 2 * 3.1 = ~8.9 pts (single subplot in 4-inch fig)
-    _REFERENCE_ARROW_PTS = 0.08 * 72.0 / 2.0 * 3.1
+    # Reference: 0.12 * 72 / 2 * 3.1 = ~13.3 pts (single subplot in 4-inch fig)
+    _REFERENCE_ARROW_PTS = 0.12 * 72.0 / 2.0 * 3.1
     scale = arrow_len_pts / _REFERENCE_ARROW_PTS
     font_size = style.font_size * scale
     line_width = style.line_width * scale

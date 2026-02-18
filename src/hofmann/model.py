@@ -490,7 +490,7 @@ class AxesStyle:
     labels: tuple[str, str, str] = ("a", "b", "c")
     font_size: float = 10.0
     italic: bool = True
-    arrow_length: float = 0.08
+    arrow_length: float = 0.12
     line_width: float = 1.0
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_LEFT
     margin: float = 0.15
