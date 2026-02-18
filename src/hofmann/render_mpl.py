@@ -2033,7 +2033,6 @@ def render_mpl(
     bg_rgb = normalise_colour(background)
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     fig.set_facecolor(bg_rgb)
-    ax.set_facecolor(bg_rgb)
 
     _draw_scene(
         ax, scene, scene.view, resolved,
