@@ -1663,11 +1663,10 @@ def _draw_scene(
     # ---- Axes and layout ----
     ax.set_aspect("equal")
     if viewport_extent is not None:
-        pad = viewport_extent * 1.15
-        pad_x = pad_y = pad
+        pad_x = pad_y = viewport_extent * 1.15
         cx = cy = 0.0
     elif len(xy) == 0:
-        pad = pad_x = pad_y = 1.0
+        pad_x = pad_y = 1.0
         cx = cy = 0.0
     else:
         margin = np.max(atom_screen_radii) + 1.0
@@ -1675,7 +1674,6 @@ def _draw_scene(
         cy = (xy[:, 1].max() + xy[:, 1].min()) / 2
         pad_x = (xy[:, 0].max() - xy[:, 0].min()) / 2 + margin
         pad_y = (xy[:, 1].max() - xy[:, 1].min()) / 2 + margin
-        pad = max(pad_x, pad_y)
     # ---- Axes orientation widget ----
     draw_axes = style.show_axes
     if draw_axes is None:
@@ -1683,12 +1681,11 @@ def _draw_scene(
     if draw_axes and viewport_extent is None:
         # Expand viewport to make room for the widget so it doesn't
         # overlap atoms.  The widget footprint is approximately
-        # (margin + 2 * arrow_length) * pad from the corner.
+        # (margin + 2 * arrow_length) * max(pad) from the corner.
         axes_style = style.axes_style
         widget_frac = axes_style.margin + 2.0 * axes_style.arrow_length
         pad_x *= 1.0 + widget_frac * 0.5
         pad_y *= 1.0 + widget_frac * 0.5
-        pad = max(pad_x, pad_y)
     ax.set_xlim(cx - pad_x, cx + pad_x)
     ax.set_ylim(cy - pad_y, cy + pad_y)
     ax.axis("off")
