@@ -1,6 +1,28 @@
 Changelog
 =========
 
+0.7.0
+-----
+
+- :func:`~hofmann.from_pymatgen` (and the
+  :meth:`~hofmann.StructureScene.from_pymatgen` classmethod) now
+  accept ``atom_styles``, ``title``, ``view``, and ``atom_data``
+  keyword arguments, allowing styles to be configured at construction
+  time rather than requiring post-hoc mutation.
+
+- New JSON-based style persistence.  All style classes gain
+  ``to_dict()`` / ``from_dict()`` methods for serialisation, and
+  module-level :func:`~hofmann.save_styles` /
+  :func:`~hofmann.load_styles` functions write and read style files
+  containing any combination of ``atom_styles``, ``bond_specs``,
+  ``polyhedra``, and ``render_style`` sections.
+  :meth:`~hofmann.StructureScene.save_styles` and
+  :meth:`~hofmann.StructureScene.load_styles` provide convenience
+  methods on the scene itself.  See :doc:`styles` for details.
+
+- New :class:`~hofmann.StyleSet` dataclass returned by
+  :func:`~hofmann.load_styles`.
+
 0.6.0
 -----
 
