@@ -1975,8 +1975,10 @@ def render_mpl(
         ax: Optional matplotlib :class:`~matplotlib.axes.Axes` to draw
             into.  When provided, the scene is rendered onto this axes
             and the caller retains control of the parent figure
-            (saving, display, layout).  The *output*, *figsize*,
-            *dpi*, *background*, and *show* parameters are ignored.
+            (saving, display, layout).  The caller is responsible
+            for saving and closing the figure.  The *output*,
+            *figsize*, *dpi*, *background*, and *show* parameters
+            are ignored.
         style: A :class:`RenderStyle` controlling visual appearance.
             If ``None``, defaults are used.  Any :class:`RenderStyle`
             field name may also be passed as a keyword argument to

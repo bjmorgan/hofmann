@@ -1295,10 +1295,9 @@ class StructureScene:
                 ``.png``).  Ignored when *ax* is provided.
             ax: Optional matplotlib
                 :class:`~matplotlib.axes.Axes` to draw into.  When
-                provided, the caller retains control of the parent
-                figure (saving, display, layout).  The *output*,
-                *figsize*, *dpi*, *background*, and *show* parameters
-                are ignored.
+                provided, the caller is responsible for saving and
+                closing the figure.  The *output*, *figsize*, *dpi*,
+                *background*, and *show* parameters are ignored.
             style: A :class:`RenderStyle` controlling visual appearance.
                 Any :class:`RenderStyle` field name may also be passed
                 as a keyword argument to override individual fields.
