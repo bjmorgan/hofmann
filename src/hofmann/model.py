@@ -1,7 +1,10 @@
 """Core data model for hofmann: dataclasses, colour handling, and projection."""
 
-from collections.abc import Callable, Sequence
+from __future__ import annotations
+
 import dataclasses
+import functools
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
 from fnmatch import fnmatch
@@ -89,7 +92,7 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
 
 def _species_colours(
     species: list[str],
-    atom_styles: dict[str, "AtomStyle"],
+    atom_styles: dict[str, AtomStyle],
 ) -> list[tuple[float, float, float]]:
     """Return per-atom colours from species styles (the default path).
 
@@ -161,7 +164,7 @@ def _resolve_single_layer(
 
 def resolve_atom_colours(
     species: list[str],
-    atom_styles: dict[str, "AtomStyle"],
+    atom_styles: dict[str, AtomStyle],
     atom_data: dict[str, np.ndarray],
     colour_by: str | list[str] | None = None,
     cmap: CmapSpec | list[CmapSpec] = "viridis",
@@ -421,6 +424,7 @@ class WidgetCorner(StrEnum):
 
 
 
+@functools.lru_cache(maxsize=None)
 def _field_defaults(cls: type, *, exclude: frozenset[str] = frozenset()) -> dict:
     """Return a dict of ``{field_name: default}`` for a dataclass.
 
@@ -486,12 +490,15 @@ class CellEdgeStyle:
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> "CellEdgeStyle":
+    def from_dict(cls, d: dict) -> CellEdgeStyle:
         """Deserialise from a dictionary."""
         kwargs: dict = {}
         for key in _field_defaults(cls):
             if key in d:
-                kwargs[key] = d[key]
+                val = d[key]
+                if key == "colour" and isinstance(val, list):
+                    val = tuple(val)
+                kwargs[key] = val
         return cls(**kwargs)
 
 
@@ -577,31 +584,33 @@ class AxesStyle:
 
         Fields at their default values are omitted.
         """
-        defaults = _field_defaults(type(self))
+        _SPECIAL = frozenset({"colours", "labels", "corner"})
+        defaults = _field_defaults(type(self), exclude=_SPECIAL)
         d: dict = {}
         default_colours = tuple(
-            normalise_colour(c) for c in defaults["colours"]
+            normalise_colour(c) for c in type(self).colours
         )
         actual_colours = tuple(normalise_colour(c) for c in self.colours)
         if actual_colours != default_colours:
             d["colours"] = [list(c) for c in actual_colours]
-        if self.labels != defaults["labels"]:
+        if self.labels != type(self).labels:
             d["labels"] = list(self.labels)
-        for field_name in ("font_size", "italic", "arrow_length",
-                           "line_width", "margin"):
+        for field_name, default in defaults.items():
             val = getattr(self, field_name)
-            if val != defaults[field_name]:
+            if val != default:
                 d[field_name] = val
         if isinstance(self.corner, WidgetCorner):
-            if self.corner != defaults["corner"]:
+            if self.corner != type(self).corner:
                 d["corner"] = self.corner.value
         else:
             d["corner"] = list(self.corner)
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> "AxesStyle":
+    def from_dict(cls, d: dict) -> AxesStyle:
         """Deserialise from a dictionary."""
+        _SPECIAL = frozenset({"colours", "labels", "corner"})
+        defaults = _field_defaults(cls, exclude=_SPECIAL)
         kwargs: dict = {}
         if "colours" in d:
             kwargs["colours"] = tuple(
@@ -609,8 +618,7 @@ class AxesStyle:
             )
         if "labels" in d:
             kwargs["labels"] = tuple(d["labels"])
-        for field_name in ("font_size", "italic", "arrow_length",
-                           "line_width", "margin"):
+        for field_name in defaults:
             if field_name in d:
                 kwargs[field_name] = d[field_name]
         if "corner" in d:
@@ -810,7 +818,7 @@ class RenderStyle:
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> "RenderStyle":
+    def from_dict(cls, d: dict) -> RenderStyle:
         """Deserialise from a dictionary.
 
         Missing fields use their defaults.  The ``slab_clip_mode``
@@ -871,7 +879,7 @@ class AtomStyle:
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> "AtomStyle":
+    def from_dict(cls, d: dict) -> AtomStyle:
         """Deserialise from a dictionary.
 
         Accepts any colour format understood by
@@ -1081,7 +1089,7 @@ class BondSpec:
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> "BondSpec":
+    def from_dict(cls, d: dict) -> BondSpec:
         """Deserialise from a dictionary.
 
         Missing optional fields use their defaults.
@@ -1175,15 +1183,19 @@ class PolyhedronSpec:
         return d
 
     @classmethod
-    def from_dict(cls, d: dict) -> "PolyhedronSpec":
+    def from_dict(cls, d: dict) -> PolyhedronSpec:
         """Deserialise from a dictionary."""
         defaults = _field_defaults(cls, exclude=frozenset({"centre", "colour"}))
         kwargs: dict = {"centre": d["centre"]}
         if "colour" in d:
-            kwargs["colour"] = d["colour"]
+            val = d["colour"]
+            kwargs["colour"] = tuple(val) if isinstance(val, list) else val
         for field_name in defaults:
             if field_name in d:
-                kwargs[field_name] = d[field_name]
+                val = d[field_name]
+                if field_name == "edge_colour" and isinstance(val, list):
+                    val = tuple(val)
+                kwargs[field_name] = val
         return cls(**kwargs)
 
 
@@ -1465,7 +1477,7 @@ class StructureScene:
         cls,
         bs_path: str | Path,
         mv_path: str | Path | None = None,
-    ) -> "StructureScene":
+    ) -> StructureScene:
         """Create a StructureScene from XBS ``.bs`` (and optional ``.mv``) files.
 
         Args:
@@ -1487,7 +1499,7 @@ class StructureScene:
     @classmethod
     def from_pymatgen(
         cls,
-        structure: "Structure | Sequence[Structure]",
+        structure: Structure | Sequence[Structure],
         bond_specs: list[BondSpec] | None = None,
         *,
         polyhedra: list[PolyhedronSpec] | None = None,
@@ -1499,7 +1511,7 @@ class StructureScene:
         title: str = "",
         view: ViewState | None = None,
         atom_data: dict[str, np.ndarray] | None = None,
-    ) -> "StructureScene":
+    ) -> StructureScene:
         """Create a StructureScene from pymatgen ``Structure`` object(s).
 
         Args:
@@ -1521,7 +1533,9 @@ class StructureScene:
                 *bond_specs* for wider geometric expansion.
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
-                at (0.5, 0.5, 0.5) before PBC expansion.
+                at (0.5, 0.5, 0.5) before PBC expansion.  If *view*
+                is also provided, the explicit view takes precedence
+                and only the fractional-coordinate shift is applied.
             max_recursive_depth: Maximum number of iterations for
                 recursive bond expansion (must be >= 1).  Only
                 relevant when one or more *bond_specs* have

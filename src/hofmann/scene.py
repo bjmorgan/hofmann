@@ -559,7 +559,9 @@ def from_pymatgen(
         centre_atom: Index of the atom to centre the unit cell on.
             When set, all fractional coordinates are shifted so that
             this atom sits at (0.5, 0.5, 0.5) before PBC expansion,
-            and the view is centred on this atom.
+            and the view is centred on this atom.  If *view* is also
+            provided, the explicit view takes precedence and only the
+            fractional-coordinate shift is applied.
         max_recursive_depth: Maximum number of iterations for
             recursive bond expansion (must be >= 1).  Only relevant
             when one or more *bond_specs* have ``recursive=True``.
