@@ -1680,6 +1680,18 @@ class StructureScene:
             atom_index: Index of the atom to centre on.
             frame: Frame index to read coordinates from.
         """
+        n_frames = len(self.frames)
+        if not 0 <= frame < n_frames:
+            raise ValueError(
+                f"frame {frame} out of range for scene "
+                f"with {n_frames} frame(s)"
+            )
+        n_atoms = len(self.species)
+        if not 0 <= atom_index < n_atoms:
+            raise ValueError(
+                f"atom_index {atom_index} out of range for scene "
+                f"with {n_atoms} atom(s)"
+            )
         self.view.centre = self.frames[frame].coords[atom_index].copy()
 
     def set_atom_data(

@@ -748,6 +748,24 @@ class TestStructureScene:
         scene.centre_on(1)
         np.testing.assert_array_equal(scene.view.centre, [4.0, 5.0, 6.0])
 
+    def test_centre_on_invalid_atom_index_raises(self):
+        coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="atom_index"):
+            scene.centre_on(5)
+
+    def test_centre_on_invalid_frame_raises(self):
+        coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="frame"):
+            scene.centre_on(0, frame=3)
+
     def test_centre_on_does_not_alias_coords(self):
         coords = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
         scene = StructureScene(

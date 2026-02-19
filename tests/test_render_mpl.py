@@ -65,6 +65,23 @@ def _minimal_scene(n_atoms=2, with_bonds=True):
     )
 
 
+class TestFrameIndexValidation:
+    def test_render_mpl_invalid_frame_index_raises(self):
+        scene = _minimal_scene()
+        with pytest.raises(ValueError, match="frame_index"):
+            render_mpl(scene, frame_index=5, show=False)
+
+    def test_render_mpl_negative_frame_index_raises(self):
+        scene = _minimal_scene()
+        with pytest.raises(ValueError, match="frame_index"):
+            render_mpl(scene, frame_index=-1, show=False)
+
+    def test_render_mpl_valid_frame_index_accepted(self):
+        scene = _minimal_scene()
+        fig = render_mpl(scene, frame_index=0, show=False)
+        assert isinstance(fig, Figure)
+
+
 class TestRenderMpl:
     def test_returns_figure(self):
         scene = _minimal_scene()

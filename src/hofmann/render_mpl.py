@@ -2016,6 +2016,13 @@ def render_mpl(
     """
     resolved = _resolve_style(style, **style_kwargs)
 
+    n_frames = len(scene.frames)
+    if not 0 <= frame_index < n_frames:
+        raise ValueError(
+            f"frame_index {frame_index} out of range for scene "
+            f"with {n_frames} frame(s)"
+        )
+
     if ax is not None:
         fig = ax.get_figure()
         if not isinstance(fig, Figure):
@@ -2300,6 +2307,14 @@ def render_mpl_interactive(
         style changes applied during the interactive session.
     """
     resolved = _resolve_style(style, **style_kwargs)
+
+    n_frames = len(scene.frames)
+    if not 0 <= frame_index < n_frames:
+        raise ValueError(
+            f"frame_index {frame_index} out of range for scene "
+            f"with {n_frames} frame(s)"
+        )
+
     bg_rgb = normalise_colour(background)
 
     # Use lower-fidelity polygon counts for interactive responsiveness.

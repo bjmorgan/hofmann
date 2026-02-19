@@ -615,6 +615,12 @@ def from_pymatgen(
     # Recentre: shift fractional coordinates so centre_atom is at
     # (0.5, 0.5, 0.5), then wrap all sites back into [0, 1).
     if centre_atom is not None:
+        n_sites = len(structures[0])
+        if not 0 <= centre_atom < n_sites:
+            raise ValueError(
+                f"centre_atom {centre_atom} out of range for structure "
+                f"with {n_sites} site(s)"
+            )
         recentred = []
         for s in structures:
             s = s.copy()

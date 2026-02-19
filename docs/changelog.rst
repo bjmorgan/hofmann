@@ -31,6 +31,13 @@ Changelog
   ``min_length > max_length``, ``alpha`` outside ``[0, 1]``,
   non-positive ``zoom`` or ``view_distance``).
 
+- :func:`~hofmann.render_mpl`, :func:`~hofmann.render_mpl_interactive`,
+  :meth:`~hofmann.StructureScene.centre_on`, and
+  :func:`~hofmann.from_pymatgen` now raise descriptive
+  :class:`ValueError` messages for out-of-range index arguments
+  (``frame_index``, ``atom_index``, ``centre_atom``) instead of
+  leaking bare :class:`IndexError` exceptions.
+
 0.7.0
 -----
 
