@@ -1885,6 +1885,7 @@ def _axes_bg_rgb(ax: Axes) -> tuple[float, float, float]:
 
 
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
+_DEFAULT_RENDER_STYLE = RenderStyle()
 
 def _resolve_style(
     style: RenderStyle | None,
@@ -1906,8 +1907,9 @@ def _resolve_style(
             f"Unknown style keyword argument(s): {', '.join(sorted(unknown))}"
         )
 
-    s = style if style is not None else RenderStyle()
-    overrides = {k: v for k, v in kwargs.items() if v is not None}
+    s = style if style is not None else _DEFAULT_RENDER_STYLE
+    overrides = {k: (v if v is not None else getattr(_DEFAULT_RENDER_STYLE, k))
+                 for k, v in kwargs.items()}
     if overrides:
         s = replace(s, **overrides)
     return s

@@ -19,6 +19,11 @@ Changelog
   one-liner construction such as
   ``ViewState(centre=centroid).look_along([1, 1, 1])``.
 
+- Passing ``None`` for a style keyword argument in
+  :func:`~hofmann.render_mpl` now resets that field to the
+  :class:`~hofmann.RenderStyle` class default instead of being silently
+  ignored.
+
 0.7.0
 -----
 
