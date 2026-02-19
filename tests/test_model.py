@@ -1469,3 +1469,87 @@ class TestPolyhedron:
         assert len(poly.faces) == 2
         assert all(len(f) == 3 for f in poly.faces)
         assert poly.spec is spec
+
+
+class TestBondSpecValidation:
+    def test_negative_max_length_raises(self):
+        with pytest.raises(ValueError, match="max_length"):
+            BondSpec(species=("C", "H"), max_length=-1.0)
+
+    def test_zero_max_length_raises(self):
+        with pytest.raises(ValueError, match="max_length"):
+            BondSpec(species=("C", "H"), max_length=0.0)
+
+    def test_negative_min_length_raises(self):
+        with pytest.raises(ValueError, match="min_length"):
+            BondSpec(species=("C", "H"), max_length=3.0, min_length=-0.5)
+
+    def test_min_length_exceeds_max_length_raises(self):
+        with pytest.raises(ValueError, match="min_length"):
+            BondSpec(species=("C", "H"), max_length=2.0, min_length=3.0)
+
+    def test_negative_radius_raises(self):
+        with pytest.raises(ValueError, match="radius"):
+            BondSpec(species=("C", "H"), max_length=3.0, radius=-0.1)
+
+    def test_valid_spec_accepted(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.0, min_length=0.5, radius=0.1)
+        assert spec.max_length == 3.0
+
+
+class TestAtomStyleValidation:
+    def test_negative_radius_raises(self):
+        with pytest.raises(ValueError, match="radius"):
+            AtomStyle(radius=-1.0, colour="red")
+
+    def test_zero_radius_raises(self):
+        with pytest.raises(ValueError, match="radius"):
+            AtomStyle(radius=0.0, colour="red")
+
+    def test_positive_radius_accepted(self):
+        style = AtomStyle(radius=0.5, colour="red")
+        assert style.radius == 0.5
+
+
+class TestPolyhedronSpecValidation:
+    def test_alpha_below_zero_raises(self):
+        with pytest.raises(ValueError, match="alpha"):
+            PolyhedronSpec(centre="Ti", alpha=-0.1)
+
+    def test_alpha_above_one_raises(self):
+        with pytest.raises(ValueError, match="alpha"):
+            PolyhedronSpec(centre="Ti", alpha=1.5)
+
+    def test_negative_edge_width_raises(self):
+        with pytest.raises(ValueError, match="edge_width"):
+            PolyhedronSpec(centre="Ti", edge_width=-1.0)
+
+    def test_min_vertices_below_three_raises(self):
+        with pytest.raises(ValueError, match="min_vertices"):
+            PolyhedronSpec(centre="Ti", min_vertices=2)
+
+    def test_valid_spec_accepted(self):
+        spec = PolyhedronSpec(centre="Ti", alpha=0.5, edge_width=1.0, min_vertices=4)
+        assert spec.centre == "Ti"
+
+
+class TestViewStateValidation:
+    def test_zero_zoom_raises(self):
+        with pytest.raises(ValueError, match="zoom"):
+            ViewState(zoom=0.0)
+
+    def test_negative_zoom_raises(self):
+        with pytest.raises(ValueError, match="zoom"):
+            ViewState(zoom=-1.0)
+
+    def test_zero_view_distance_raises(self):
+        with pytest.raises(ValueError, match="view_distance"):
+            ViewState(view_distance=0.0)
+
+    def test_negative_view_distance_raises(self):
+        with pytest.raises(ValueError, match="view_distance"):
+            ViewState(view_distance=-1.0)
+
+    def test_valid_view_state_accepted(self):
+        vs = ViewState(zoom=2.0, view_distance=15.0)
+        assert vs.zoom == 2.0

@@ -24,6 +24,13 @@ Changelog
   :class:`~hofmann.RenderStyle` class default instead of being silently
   ignored.
 
+- :class:`~hofmann.BondSpec`, :class:`~hofmann.AtomStyle`,
+  :class:`~hofmann.PolyhedronSpec`, and :class:`~hofmann.ViewState` now
+  validate their numeric fields at construction time, raising
+  :class:`ValueError` for out-of-range values (e.g. negative radii,
+  ``min_length > max_length``, ``alpha`` outside ``[0, 1]``,
+  non-positive ``zoom`` or ``view_distance``).
+
 0.7.0
 -----
 

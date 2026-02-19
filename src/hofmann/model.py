@@ -868,6 +868,10 @@ class AtomStyle:
     colour: Colour
     visible: bool = True
 
+    def __post_init__(self) -> None:
+        if self.radius <= 0:
+            raise ValueError(f"radius must be positive, got {self.radius}")
+
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
@@ -971,6 +975,24 @@ class BondSpec:
         self._colour = colour
         self.complete = complete
         self.recursive = recursive
+
+        if self.max_length <= 0:
+            raise ValueError(
+                f"max_length must be positive, got {self.max_length}"
+            )
+        if self.min_length < 0:
+            raise ValueError(
+                f"min_length must be non-negative, got {self.min_length}"
+            )
+        if self.min_length > self.max_length:
+            raise ValueError(
+                f"min_length ({self.min_length}) must not exceed "
+                f"max_length ({self.max_length})"
+            )
+        if self._radius is not None and self._radius < 0:
+            raise ValueError(
+                f"radius must be non-negative, got {self._radius}"
+            )
 
         if self.complete is True:
             raise ValueError(
@@ -1163,6 +1185,20 @@ class PolyhedronSpec:
     hide_vertices: bool = False
     min_vertices: int | None = None
 
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.alpha <= 1.0:
+            raise ValueError(
+                f"alpha must be between 0.0 and 1.0, got {self.alpha}"
+            )
+        if self.edge_width < 0:
+            raise ValueError(
+                f"edge_width must be non-negative, got {self.edge_width}"
+            )
+        if self.min_vertices is not None and self.min_vertices < 3:
+            raise ValueError(
+                f"min_vertices must be >= 3, got {self.min_vertices}"
+            )
+
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
@@ -1286,6 +1322,14 @@ class ViewState:
     slab_origin: np.ndarray | None = None
     slab_near: float | None = None
     slab_far: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.zoom <= 0:
+            raise ValueError(f"zoom must be positive, got {self.zoom}")
+        if self.view_distance <= 0:
+            raise ValueError(
+                f"view_distance must be positive, got {self.view_distance}"
+            )
 
     def project(
         self, coords: np.ndarray, radii: np.ndarray | None = None,
