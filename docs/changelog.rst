@@ -15,6 +15,10 @@ Changelog
   time, raising :class:`ValueError` immediately instead of failing
   with a confusing error during rendering.
 
+- :meth:`~hofmann.ViewState.look_along` now returns ``self``, enabling
+  one-liner construction such as
+  ``ViewState(centre=centroid).look_along([1, 1, 1])``.
+
 0.7.0
 -----
 

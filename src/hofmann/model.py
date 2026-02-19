@@ -1378,7 +1378,7 @@ class ViewState:
         direction: np.ndarray | list[float] | tuple[float, ...],
         *,
         up: np.ndarray | list[float] | tuple[float, ...] = (0.0, 1.0, 0.0),
-    ) -> None:
+    ) -> ViewState:
         """Set the rotation so the camera looks along *direction*.
 
         The view is oriented so that *direction* points into the screen
@@ -1388,11 +1388,18 @@ class ViewState:
         This is equivalent to placing the camera at a point along
         *direction* looking back towards the origin.
 
+        Returns ``self`` so callers can chain, e.g.::
+
+            scene.view = ViewState(centre=centroid).look_along([1, 1, 1])
+
         Args:
             direction: 3D vector giving the viewing direction (from
                 the camera towards the scene).  Need not be normalised.
             up: 3D vector indicating the upward direction in screen
                 space.  Defaults to ``[0, 1, 0]``.
+
+        Returns:
+            ``self``, with the rotation updated in place.
 
         Raises:
             ValueError: If *direction* is zero-length or *up* is
@@ -1427,6 +1434,7 @@ class ViewState:
         # Rotation matrix: rows are the camera basis vectors.
         # R maps world coords to camera coords: rotated = R @ world.
         self.rotation = np.array([right, up_actual, fwd])
+        return self
 
 
 @dataclass

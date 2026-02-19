@@ -485,6 +485,12 @@ class TestViewStateLookAlong:
             vs.rotation.T @ vs.rotation, np.eye(3), atol=1e-14,
         )
 
+    def test_returns_self_for_chaining(self):
+        """look_along should return self so callers can chain."""
+        vs = ViewState()
+        result = vs.look_along([1, 1, 1])
+        assert result is vs
+
 
 class TestViewStateSlab:
     """Tests for depth-slab clipping on ViewState."""
