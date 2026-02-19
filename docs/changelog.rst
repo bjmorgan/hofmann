@@ -10,6 +10,11 @@ Changelog
   concatenated once at the end, matching the approach already used by
   ``_expand_neighbour_shells``.
 
+- :class:`~hofmann.StructureScene` now validates that every frame has
+  the same number of atoms as the ``species`` list at construction
+  time, raising :class:`ValueError` immediately instead of failing
+  with a confusing error during rendering.
+
 0.7.0
 -----
 

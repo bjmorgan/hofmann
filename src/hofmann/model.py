@@ -1467,6 +1467,12 @@ class StructureScene:
                     f"lattice must have shape (3, 3), got {self.lattice.shape}"
                 )
         n_atoms = len(self.species)
+        for i, frame in enumerate(self.frames):
+            if frame.coords.shape[0] != n_atoms:
+                raise ValueError(
+                    f"species has {n_atoms} atoms but frame {i} has "
+                    f"{frame.coords.shape[0]}"
+                )
         for key, arr in self.atom_data.items():
             arr = np.asarray(arr)
             if arr.ndim != 1 or len(arr) != n_atoms:

@@ -796,6 +796,32 @@ class TestStructureScene:
                 atom_data={"charge": np.array([1.0, 2.0, 3.0])},
             )
 
+    def test_frame_atom_count_mismatch_raises(self):
+        with pytest.raises(ValueError, match="3 atoms.*frame 0.*2"):
+            StructureScene(
+                species=["A", "B", "C"],
+                frames=[Frame(coords=np.zeros((2, 3)))],
+            )
+
+    def test_later_frame_atom_count_mismatch_raises(self):
+        good = Frame(coords=np.zeros((2, 3)))
+        bad = Frame(coords=np.zeros((3, 3)))
+        with pytest.raises(ValueError, match="2 atoms.*frame 1.*3"):
+            StructureScene(
+                species=["A", "B"],
+                frames=[good, bad],
+            )
+
+    def test_matching_frame_sizes_accepted(self):
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[
+                Frame(coords=np.zeros((2, 3))),
+                Frame(coords=np.ones((2, 3))),
+            ],
+        )
+        assert len(scene.frames) == 2
+
 
 class TestSetAtomData:
     """Tests for StructureScene.set_atom_data."""
