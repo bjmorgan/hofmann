@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.7.1
+-----
+
+- Avoid quadratic array growth in ``_merge_expansions`` during
+  periodic boundary expansion.  Accepted image coordinates are now
+  collected in a list with O(1) hash-based deduplication and
+  concatenated once at the end, matching the approach already used by
+  ``_expand_neighbour_shells``.
+
 0.7.0
 -----
 

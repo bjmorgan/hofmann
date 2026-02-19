@@ -191,18 +191,31 @@ def _merge_expansions(
         return base_species, base_coords
 
     new_species = list(base_species)
-    # Track all accepted coordinates for incremental deduplication.
-    all_coords = base_coords
+    # Collect accepted coordinates in a list and vstack once at the
+    # end, avoiding quadratic copies from repeated vstack in the loop.
+    added_coords: list[np.ndarray] = []
+
+    # Round-key set for O(1) deduplication of newly added atoms,
+    # matching the approach used in _expand_neighbour_shells.
+    _DEDUP_DECIMALS = 5  # 0.00001 A — well within tol
+    added_keys: set[tuple[float, ...]] = set()
 
     for sp, coord in zip(extra_species, extra_coords):
-        # Check against base *and* previously accepted extras.
-        diffs = np.linalg.norm(all_coords - coord, axis=1)
+        # Check against base atoms (vectorised).
+        diffs = np.linalg.norm(base_coords - coord, axis=1)
         if np.any(diffs < tol):
             continue
+        # Check against previously accepted extras (O(1) lookup).
+        key = tuple(np.round(coord, _DEDUP_DECIMALS))
+        if key in added_keys:
+            continue
         new_species.append(sp)
-        all_coords = np.vstack([all_coords, coord[np.newaxis, :]])
+        added_coords.append(coord)
+        added_keys.add(key)
 
-    return new_species, all_coords
+    if added_coords:
+        return new_species, np.vstack([base_coords] + [c[np.newaxis, :] for c in added_coords])
+    return new_species, base_coords
 
 
 def _identify_source_atom(
