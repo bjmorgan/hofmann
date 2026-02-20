@@ -90,3 +90,10 @@ class TestComputeBonds:
         wrong_coords = CH4_COORDS[:3]  # 3 rows but 5 species
         with pytest.raises(ValueError, match="species.*5.*coords.*3"):
             compute_bonds(CH4_SPECIES, wrong_coords, specs)
+
+    def test_coords_wrong_columns_raises(self):
+        specs = [BondSpec(species=("C", "H"), min_length=0.0, max_length=3.4,
+                          radius=0.1, colour=1.0)]
+        coords_2d = CH4_COORDS[:, :2]  # (5, 2) instead of (5, 3)
+        with pytest.raises(ValueError, match="3 columns"):
+            compute_bonds(CH4_SPECIES, coords_2d, specs)

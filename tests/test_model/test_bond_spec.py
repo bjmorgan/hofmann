@@ -150,6 +150,11 @@ class TestBondSpecDefaults:
         spec.radius = None
         assert spec.radius == 0.1
 
+    def test_radius_setter_rejects_negative(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        with pytest.raises(ValueError, match="radius"):
+            spec.radius = -0.1
+
     def test_colour_setter(self):
         spec = BondSpec(species=("C", "H"), max_length=3.4)
         spec.colour = "blue"

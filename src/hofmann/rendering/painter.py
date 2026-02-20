@@ -37,7 +37,7 @@ from hofmann.rendering.bond_geometry import (
     _make_arc,
 )
 from hofmann.rendering.cell_edges import _collect_cell_edges
-from hofmann.rendering.projection import _make_unit_circle, _scene_extent
+from hofmann.rendering.projection import _make_unit_circle
 
 # Font size (points) for scene titles rendered inside the viewport.
 _TITLE_FONT_SIZE = 12.0

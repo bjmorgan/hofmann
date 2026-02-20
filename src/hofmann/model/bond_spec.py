@@ -129,6 +129,8 @@ class BondSpec:
 
     @radius.setter
     def radius(self, value: float | None) -> None:
+        if value is not None and value < 0:
+            raise ValueError(f"radius must be non-negative, got {value}")
         self._radius = value
 
     @property

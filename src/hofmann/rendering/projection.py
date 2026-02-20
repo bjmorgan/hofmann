@@ -76,12 +76,14 @@ def _scene_extent(
     coords = scene.frames[frame_index].coords
     dists = np.linalg.norm(coords - view.centre, axis=1)
 
-    radii_3d = np.empty(len(scene.species))
-    for i, sp in enumerate(scene.species):
-        style = scene.atom_styles.get(sp)
-        radii_3d[i] = style.radius if style is not None else 0.5
-
-    max_extent = np.max(dists + radii_3d * atom_scale)
+    if len(dists) > 0:
+        radii_3d = np.empty(len(scene.species))
+        for i, sp in enumerate(scene.species):
+            style = scene.atom_styles.get(sp)
+            radii_3d[i] = style.radius if style is not None else 0.5
+        max_extent = float(np.max(dists + radii_3d * atom_scale))
+    else:
+        max_extent = 0.0
 
     # Include cell corners when a lattice is present.
     if scene.lattice is not None:
@@ -89,12 +91,16 @@ def _scene_extent(
         corner_dists = np.linalg.norm(corners - view.centre, axis=1)
         max_extent = max(max_extent, float(np.max(corner_dists)))
 
+    # Ensure a positive extent even for empty scenes.
+    if max_extent == 0.0:
+        max_extent = 1.0
+
     # Under perspective, atoms near the camera appear larger.  The
     # worst-case magnification for an atom at distance *d* from the
     # view centre is when it is rotated to depth z = +d (closest to
     # the camera).
-    if view.perspective > 0:
-        worst_depth = np.max(dists)
+    if view.perspective > 0 and len(dists) > 0:
+        worst_depth = float(np.max(dists))
         denom = view.view_distance - worst_depth * view.perspective
         if denom > 0:
             persp_scale = view.view_distance / denom

@@ -42,6 +42,30 @@ class TestSceneExtent:
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
 
+    def test_empty_scene(self):
+        """An empty scene (zero atoms) should return a positive extent."""
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.empty((0, 3)))],
+            atom_styles={},
+        )
+        view = ViewState()
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert extent > 0
+
+    def test_empty_scene_with_lattice(self):
+        """An empty scene with a lattice uses cell corners for extent."""
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.empty((0, 3)))],
+            atom_styles={},
+            lattice=np.eye(3) * 10.0,
+        )
+        view = ViewState()
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        # Should reach at least to the far corner of the cell.
+        assert extent > 10.0
+
     def test_lattice_extends_extent(self):
         """With a lattice, extent includes cell corners."""
         scene = StructureScene(
