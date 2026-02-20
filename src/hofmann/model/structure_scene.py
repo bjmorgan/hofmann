@@ -39,6 +39,9 @@ class StructureScene:
             for periodic bond computation and image-atom expansion.
             Set to ``False`` to disable all periodic boundary handling
             even when a lattice is present.
+        pbc_padding: Cartesian margin (angstroms) around the unit cell
+            for periodic boundary handling.  ``None`` falls back to
+            the maximum bond length from *bond_specs*.
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
             must be a 1-D array of length ``n_atoms``.  Use
             :meth:`set_atom_data` to populate this and ``colour_by``
@@ -54,6 +57,7 @@ class StructureScene:
     title: str = ""
     lattice: np.ndarray | None = None
     pbc: bool = True
+    pbc_padding: float | None = 0.1
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -129,20 +133,19 @@ class StructureScene:
                 pass an empty list to disable bonds.
             polyhedra: Polyhedron rendering rules.  ``None`` disables
                 polyhedra.
-            pbc: If ``True`` (the default), add periodic image atoms
-                at cell boundaries so that bonds crossing periodic
-                boundaries are drawn.  Set to ``False`` to disable
-                all PBC expansion.
+            pbc: If ``True`` (the default), the renderer uses the
+                lattice for periodic bond computation and image-atom
+                expansion.  Set to ``False`` to disable all periodic
+                boundary handling.
             pbc_padding: Cartesian margin (angstroms) around the unit
-                cell for placing periodic image atoms.  The default of
-                0.1 angstroms captures atoms on cell boundaries.
-                ``None`` falls back to the maximum bond length from
-                *bond_specs* for wider geometric expansion.
+                cell for periodic boundary handling.  Stored on the
+                scene for use by the renderer.  ``None`` falls back
+                to the maximum bond length from *bond_specs*.
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
-                at (0.5, 0.5, 0.5) before PBC expansion.  If *view*
-                is also provided, the explicit view takes precedence
-                and only the fractional-coordinate shift is applied.
+                at (0.5, 0.5, 0.5).  If *view* is also provided, the
+                explicit view takes precedence and only the fractional-
+                coordinate shift is applied.
             max_recursive_depth: Maximum number of iterations for
                 recursive bond expansion (must be >= 1).  Only
                 relevant when one or more *bond_specs* have

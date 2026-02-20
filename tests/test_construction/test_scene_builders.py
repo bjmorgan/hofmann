@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hofmann.model import AtomStyle, StructureScene, ViewState
-from hofmann.construction.scene_builders import _merge_expansions, from_xbs, from_pymatgen
+from hofmann.construction.scene_builders import from_xbs, from_pymatgen
 
 _has_pymatgen = False
 try:
@@ -13,22 +13,6 @@ try:
     _has_pymatgen = True
 except ImportError:
     pass
-
-
-class TestMergeExpansions:
-    """Tests for _merge_expansions deduplication."""
-
-    def test_deduplicates_within_extras(self):
-        """Two extra atoms at the same position should not both be added."""
-        base_species = ["Si"]
-        base_coords = np.array([[0.0, 0.0, 0.0]])
-        extra_species = ["O", "O"]
-        extra_coords = np.array([[1.0, 0.0, 0.0], [1.0, 0.0, 0.0]])
-        merged_sp, merged_co = _merge_expansions(
-            base_species, base_coords, extra_species, extra_coords,
-        )
-        assert len(merged_sp) == 2  # Si + one O, not Si + two O
-        assert merged_co.shape[0] == 2
 
 
 class TestFromXbs:

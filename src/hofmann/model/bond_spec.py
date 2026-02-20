@@ -51,11 +51,10 @@ class BondSpec:
             searched.
         recursive: If ``True``, atoms bonded via this spec are
             searched recursively across periodic boundaries.  When
-            an atom matching this spec is already visible in the
-            scene, its bonded partners are added even if they fall
-            outside the ``pbc_padding`` margin, and those new atoms
-            are themselves checked on the next iteration.  Useful
-            for molecules that span periodic boundaries.
+            an image atom is materialised, its own bonded partners
+            are checked on the next iteration, extending the
+            expansion outward.  Useful for molecules that span
+            periodic boundaries.
     """
 
     default_radius: ClassVar[float] = 0.1

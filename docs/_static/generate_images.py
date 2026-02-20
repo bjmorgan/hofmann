@@ -80,9 +80,10 @@ def _style_perovskite(scene: StructureScene) -> None:
 def perovskite_plain_scene() -> StructureScene:
     """Build SrTiO3 with default PBC but no polyhedra.
 
-    Without polyhedra specs, neighbour-shell expansion is not
-    triggered, so only atoms within *pbc_padding* of a cell face
-    are replicated.  Bonds connect only existing atoms.
+    Without polyhedra specs, only bonds between physical atoms and
+    their periodic images are drawn.  The ``complete`` and
+    ``recursive`` settings on bond specs control image-atom
+    expansion.
     """
     structure = _perovskite_structure()
 
