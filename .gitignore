@@ -37,6 +37,7 @@ htmlcov/
 
 # Planning docs
 RESTRUCTURE.md
+PLAN-*.md
 
 # OS
 .DS_Store

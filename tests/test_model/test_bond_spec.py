@@ -244,9 +244,41 @@ class TestBondSpecValidation:
 
 
 class TestBond:
-    def test_is_frozen(self):
-        spec = BondSpec(species=("C", "H"), min_length=0.0,
+    def _spec(self) -> BondSpec:
+        return BondSpec(species=("C", "H"), min_length=0.0,
                         max_length=3.0, radius=0.1, colour=1.0)
-        bond = Bond(0, 1, 2.0, spec)
+
+    def test_is_frozen(self):
+        bond = Bond(0, 1, 2.0, self._spec())
         with pytest.raises(AttributeError):
             bond.length = 3.0  # type: ignore[misc]
+
+    def test_default_image_is_origin(self):
+        bond = Bond(0, 1, 2.0, self._spec())
+        assert bond.image == (0, 0, 0)
+
+    def test_explicit_image(self):
+        bond = Bond(0, 1, 2.0, self._spec(), image=(1, 0, 0))
+        assert bond.image == (1, 0, 0)
+
+    def test_equality_includes_image(self):
+        spec = self._spec()
+        bond_a = Bond(0, 1, 2.0, spec, image=(0, 0, 0))
+        bond_b = Bond(0, 1, 2.0, spec, image=(1, 0, 0))
+        assert bond_a != bond_b
+
+    def test_equality_same_image(self):
+        spec = self._spec()
+        bond_a = Bond(0, 1, 2.0, spec, image=(1, 0, 0))
+        bond_b = Bond(0, 1, 2.0, spec, image=(1, 0, 0))
+        assert bond_a == bond_b
+
+    def test_hash_includes_image(self):
+        spec = self._spec()
+        bond_a = Bond(0, 1, 2.0, spec, image=(0, 0, 0))
+        bond_b = Bond(0, 1, 2.0, spec, image=(1, 0, 0))
+        assert hash(bond_a) != hash(bond_b)
+
+    def test_hashable(self):
+        bond = Bond(0, 1, 2.0, self._spec(), image=(1, 0, 0))
+        {bond}  # should not raise

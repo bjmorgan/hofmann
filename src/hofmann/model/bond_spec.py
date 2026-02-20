@@ -249,9 +249,17 @@ class Bond:
         index_b: Index of the second atom.
         length: Interatomic distance.
         spec: The BondSpec rule that produced this bond.
+        image: Lattice translation applied to atom b to form the bond.
+            ``(0, 0, 0)`` means a direct bond within the cell.
+            ``(1, 0, 0)`` means atom b is shifted by +1 along lattice
+            vector **a**.  Always ``(0, 0, 0)`` for non-periodic scenes.
     """
 
     index_a: int
     index_b: int
     length: float
     spec: BondSpec
+    image: tuple[int, int, int] = (0, 0, 0)
+
+    def __hash__(self) -> int:
+        return hash((self.index_a, self.index_b, self.image))
