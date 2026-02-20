@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hofmann.model import Bond, BondSpec, Polyhedron, PolyhedronSpec
-from hofmann.polyhedra import compute_polyhedra
+from hofmann.construction.polyhedra import compute_polyhedra
 
 
 def _make_bond(i: int, j: int, spec: BondSpec) -> Bond:

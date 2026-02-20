@@ -11,9 +11,9 @@ Example usage::
     scene.render_mpl("output.svg")
 """
 
-from hofmann.bonds import compute_bonds
-from hofmann.polyhedra import compute_polyhedra
-from hofmann.defaults import (
+from hofmann.construction.bonds import compute_bonds
+from hofmann.construction.polyhedra import compute_polyhedra
+from hofmann.construction.defaults import (
     COVALENT_RADII,
     ELEMENT_COLOURS,
     default_atom_style,
@@ -38,8 +38,8 @@ from hofmann.model import (
     normalise_colour,
     resolve_atom_colours,
 )
-from hofmann.scene import from_pymatgen, from_xbs
-from hofmann.styles import StyleSet, load_styles, save_styles
+from hofmann.construction.scene_builders import from_pymatgen, from_xbs
+from hofmann.construction.styles import StyleSet, load_styles, save_styles
 
 __all__ = [
     "AtomStyle",

@@ -42,7 +42,7 @@ from hofmann.render_mpl import (
     _stick_polygon,
     render_mpl,
 )
-from hofmann.scene import from_xbs
+from hofmann.construction.scene_builders import from_xbs
 
 
 def _minimal_scene(n_atoms=2, with_bonds=True):
@@ -532,7 +532,7 @@ class TestBondPolygonsBatch:
 
     def _ch4_scene_data(self, view=None):
         """Build CH4 scene data needed by both scalar and batch paths."""
-        from hofmann.bonds import compute_bonds
+        from hofmann.construction.bonds import compute_bonds
 
         species = ["C", "H", "H", "H", "H"]
         coords = np.array([
@@ -729,7 +729,7 @@ class TestHalfBondVertsBatch:
 
     def test_ch4_halves_have_correct_shape(self):
         """All CH4 half-bond polygons should have the expected vertex count."""
-        from hofmann.bonds import compute_bonds
+        from hofmann.construction.bonds import compute_bonds
         from hofmann.render_mpl import _N_ARC
 
         species = ["C", "H", "H", "H", "H"]

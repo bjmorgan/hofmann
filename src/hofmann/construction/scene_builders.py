@@ -7,11 +7,11 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from hofmann.defaults import default_atom_style, default_bond_specs
+from hofmann.construction.defaults import default_atom_style, default_bond_specs
 from hofmann.model import (
     AtomStyle, BondSpec, Frame, PolyhedronSpec, StructureScene, ViewState,
 )
-from hofmann.parser import parse_bs, parse_mv
+from hofmann.construction.parser import parse_bs, parse_mv
 
 if TYPE_CHECKING:
     from pymatgen.core import Structure

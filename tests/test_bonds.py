@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hofmann.bonds import compute_bonds
+from hofmann.construction.bonds import compute_bonds
 from hofmann.model import BondSpec
 
 

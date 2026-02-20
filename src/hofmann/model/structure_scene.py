@@ -92,9 +92,9 @@ class StructureScene:
             specs parsed from the file.
 
         See Also:
-            :func:`hofmann.scene.from_xbs`
+            :func:`hofmann.construction.scene_builders.from_xbs`
         """
-        from hofmann.scene import from_xbs
+        from hofmann.construction.scene_builders import from_xbs
 
         return from_xbs(bs_path, mv_path)
 
@@ -158,9 +158,9 @@ class StructureScene:
             ImportError: If pymatgen is not installed.
 
         See Also:
-            :func:`hofmann.scene.from_pymatgen`
+            :func:`hofmann.construction.scene_builders.from_pymatgen`
         """
-        from hofmann.scene import from_pymatgen
+        from hofmann.construction.scene_builders import from_pymatgen
 
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
@@ -180,7 +180,7 @@ class StructureScene:
         Args:
             path: Destination file path.
         """
-        from hofmann.styles import save_styles
+        from hofmann.construction.styles import save_styles
 
         save_styles(
             path,
@@ -200,7 +200,7 @@ class StructureScene:
         Args:
             path: Source file path.
         """
-        from hofmann.styles import load_styles
+        from hofmann.construction.styles import load_styles
 
         style_set = load_styles(path)
         if style_set.atom_styles is not None:

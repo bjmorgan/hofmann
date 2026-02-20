@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hofmann.parser import parse_bs, parse_mv
+from hofmann.construction.parser import parse_bs, parse_mv
 
 
 class TestParseBs:

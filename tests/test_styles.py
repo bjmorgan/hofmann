@@ -18,7 +18,7 @@ from hofmann.model import (
     WidgetCorner,
     normalise_colour,
 )
-from hofmann.styles import StyleSet, load_styles, save_styles
+from hofmann.construction.styles import StyleSet, load_styles, save_styles
 
 
 # -- AtomStyle ---------------------------------------------------------------

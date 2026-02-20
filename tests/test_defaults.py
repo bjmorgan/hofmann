@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hofmann.defaults import (
+from hofmann.construction.defaults import (
     COVALENT_RADII,
     ELEMENT_COLOURS,
     _load_vesta_cutoffs,
@@ -115,7 +115,7 @@ class TestDefaultBondSpecs:
 
     def test_finds_ch4_bonds(self):
         """Generated specs should find C-H bonds at realistic bond length."""
-        from hofmann.bonds import compute_bonds
+        from hofmann.construction.bonds import compute_bonds
 
         # Realistic CH4: C-H distance ~ 1.09 A (tetrahedral, r = 0.6294).
         r = 1.09 / np.sqrt(3)

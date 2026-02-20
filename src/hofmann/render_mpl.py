@@ -25,7 +25,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.collections import PolyCollection
 
-from hofmann.bonds import compute_bonds
+from hofmann.construction.bonds import compute_bonds
 from hofmann.model import (
     AxesStyle,
     Bond,
@@ -40,7 +40,7 @@ from hofmann.model import (
     normalise_colour,
     resolve_atom_colours,
 )
-from hofmann.polyhedra import compute_polyhedra
+from hofmann.construction.polyhedra import compute_polyhedra
 
 # Font size (points) for scene titles rendered inside the viewport.
 _TITLE_FONT_SIZE = 12.0
