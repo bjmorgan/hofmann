@@ -20,11 +20,6 @@ Changelog
   All public import paths are preserved: ``from hofmann import BondSpec``
   and ``from hofmann.model import BondSpec`` continue to work.
 
-- :func:`~hofmann.compute_bonds` now validates that ``species`` and
-  ``coords`` have matching lengths, raising :class:`ValueError` with a
-  descriptive message instead of failing with an opaque numpy broadcast
-  error.
-
 0.7.1
 -----
 
