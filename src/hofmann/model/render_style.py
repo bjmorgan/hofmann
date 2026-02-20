@@ -238,7 +238,7 @@ class RenderStyle:
     independent of the scene data itself.  A default ``RenderStyle()``
     gives the standard ball-and-stick look.
 
-    Pass a style to :func:`~hofmann.render_mpl.render_mpl` via the
+    Pass a style to :func:`~hofmann.rendering.static.render_mpl` via the
     *style* keyword, or override individual fields with convenience
     kwargs::
 

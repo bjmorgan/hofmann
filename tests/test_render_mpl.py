@@ -1,4 +1,4 @@
-"""Tests for hofmann.render_mpl — depth-sorted matplotlib renderer."""
+"""Tests for hofmann.rendering — depth-sorted matplotlib renderer."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,29 +17,31 @@ from hofmann.model import (
     StructureScene,
     ViewState,
 )
-from hofmann.render_mpl import (
-    _apply_key_action,
+from hofmann.rendering.bond_geometry import (
     _bond_polygon,
     _bond_polygons_batch,
-    _cell_edges_3d,
     _clip_bond_3d,
-    _clip_edge_at_atoms,
     _clip_polygon_to_half_plane,
-    _collect_polyhedra_faces,
     _half_bond_verts_batch,
+    _stick_polygon,
+)
+from hofmann.rendering.cell_edges import _cell_edges_3d, _clip_edge_at_atoms
+from hofmann.rendering.interactive import (
+    _apply_key_action,
     _HELP_TEXT,
     _KEY_PAN_FRACTION,
     _KEY_ROTATION_STEP,
     _KEY_ZOOM_FACTOR,
     _PERSPECTIVE_STEP,
-    _project_point,
     _rotation_x,
     _rotation_y,
     _rotation_z,
-    _scene_extent,
+)
+from hofmann.rendering.painter import _collect_polyhedra_faces
+from hofmann.rendering.projection import _project_point, _scene_extent
+from hofmann.rendering.static import (
     _DEFAULT_RENDER_STYLE,
     _resolve_style,
-    _stick_polygon,
     render_mpl,
 )
 from hofmann.construction.scene_builders import from_xbs
@@ -207,7 +209,7 @@ class TestRenderMpl:
         scene = _minimal_scene()
         fig, ax = plt.subplots()
         from unittest.mock import patch
-        with patch("hofmann.render_mpl.plt.subplots") as mock_subplots:
+        with patch("hofmann.rendering.static.plt.subplots") as mock_subplots:
             render_mpl(scene, ax=ax)
             mock_subplots.assert_not_called()
         plt.close(fig)
@@ -672,7 +674,7 @@ class TestHalfBondVertsBatch:
 
     def test_each_half_has_seven_vertices(self):
         """Each half-bond polygon should have exactly 7 vertices."""
-        from hofmann.render_mpl import _N_ARC
+        from hofmann.rendering.bond_geometry import _N_ARC
 
         view = ViewState()
         # Simple horizontal bond.
@@ -730,7 +732,7 @@ class TestHalfBondVertsBatch:
     def test_ch4_halves_have_correct_shape(self):
         """All CH4 half-bond polygons should have the expected vertex count."""
         from hofmann.construction.bonds import compute_bonds
-        from hofmann.render_mpl import _N_ARC
+        from hofmann.rendering.bond_geometry import _N_ARC
 
         species = ["C", "H", "H", "H", "H"]
         coords = np.array([
@@ -1227,7 +1229,7 @@ class TestPolyhedraDepthOrdering:
 
     def test_faces_sorted_within_depth_slot(self):
         """Faces within the same depth slot are sorted back-to-front."""
-        from hofmann.render_mpl import _precompute_scene
+        from hofmann.rendering.painter import _precompute_scene
 
         scene = _two_octahedra_scene()
         view = scene.view
@@ -1277,7 +1279,7 @@ class TestImageAtomPolyhedra:
 
     def test_all_matching_atoms_are_centres(self):
         """Both Ti atoms should generate polyhedra regardless of index."""
-        from hofmann.render_mpl import _precompute_scene
+        from hofmann.rendering.painter import _precompute_scene
 
         # Two Ti atoms, each with its own octahedral O shell.
         species = ["Ti"] + ["O"] * 6 + ["Ti"] + ["O"] * 6
@@ -2067,7 +2069,7 @@ class TestColourBy:
 
     def test_polyhedra_inherit_colour_by(self):
         """Polyhedra inherit the centre atom's resolved colour_by colour."""
-        from hofmann.render_mpl import _precompute_scene
+        from hofmann.rendering.painter import _precompute_scene
 
         scene = _octahedron_scene()
         # Ti is atom 0; give it a numerical value so it gets a cmap colour.
@@ -2087,7 +2089,7 @@ class TestColourBy:
 
     def test_polyhedra_spec_colour_overrides_colour_by(self):
         """PolyhedronSpec.colour still wins over colour_by."""
-        from hofmann.render_mpl import _precompute_scene
+        from hofmann.rendering.painter import _precompute_scene
 
         scene = _octahedron_scene(colour=(0.0, 0.0, 1.0))
         n_atoms = len(scene.species)

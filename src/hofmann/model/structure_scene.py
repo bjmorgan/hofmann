@@ -353,9 +353,9 @@ class StructureScene:
             The matplotlib :class:`~matplotlib.figure.Figure`.
 
         See Also:
-            :func:`hofmann.render_mpl.render_mpl`
+            :func:`hofmann.rendering.static.render_mpl`
         """
-        from hofmann.render_mpl import render_mpl
+        from hofmann.rendering.static import render_mpl
 
         return render_mpl(
             self, output, ax=ax, style=style, frame_index=frame_index,
@@ -416,9 +416,9 @@ class StructureScene:
             and style changes applied during the interactive session.
 
         See Also:
-            :func:`hofmann.render_mpl.render_mpl_interactive`
+            :func:`hofmann.rendering.interactive.render_mpl_interactive`
         """
-        from hofmann.render_mpl import render_mpl_interactive
+        from hofmann.rendering.interactive import render_mpl_interactive
 
         return render_mpl_interactive(
             self, style=style, frame_index=frame_index,
