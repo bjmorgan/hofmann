@@ -47,11 +47,16 @@ def _project_point(
     return xy, s
 
 
-# Fractional coordinates of the 8 cube corners (row-order matches
-# the bit-pattern vertex indexing: 0->(0,0,0), 1->(1,0,0), ..., 7->(1,1,1)).
+# Fractional coordinates of the 8 unit cube corners.
 _FRAC_CORNERS = np.array([
-    [(v >> 0) & 1, (v >> 1) & 1, (v >> 2) & 1]
-    for v in range(8)
+    [0, 0, 0],
+    [1, 0, 0],
+    [0, 1, 0],
+    [1, 1, 0],
+    [0, 0, 1],
+    [1, 0, 1],
+    [0, 1, 1],
+    [1, 1, 1],
 ], dtype=float)
 
 

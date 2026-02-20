@@ -8,21 +8,28 @@ import numpy as np
 
 from hofmann.model import CellEdgeStyle, StructureScene, ViewState, normalise_colour
 
-# The 12 edges of a unit cube, as pairs of vertex indices.
-# Vertices are the 8 corners at fractional coordinates {0,1}^3.
-_CUBE_EDGES: list[tuple[int, int]] = []
-for _i in range(8):
-    for _bit in range(3):
-        _j = _i ^ (1 << _bit)  # flip one bit
-        if _j > _i:
-            _CUBE_EDGES.append((_i, _j))
-
-# Fractional coordinates of the 8 cube corners (row-order matches
-# the bit-pattern vertex indexing: 0->(0,0,0), 1->(1,0,0), ..., 7->(1,1,1)).
+# Fractional coordinates of the 8 unit cube corners.
 _FRAC_CORNERS = np.array([
-    [(v >> 0) & 1, (v >> 1) & 1, (v >> 2) & 1]
-    for v in range(8)
+    [0, 0, 0],
+    [1, 0, 0],
+    [0, 1, 0],
+    [1, 1, 0],
+    [0, 0, 1],
+    [1, 0, 1],
+    [0, 1, 1],
+    [1, 1, 1],
 ], dtype=float)
+
+# The 12 edges of a unit cube, as pairs of indices into _FRAC_CORNERS.
+_CUBE_EDGES: list[tuple[int, int]] = [
+    (0, 1), (0, 2), (0, 4),  # edges from (0,0,0)
+    (1, 3), (1, 5),          # edges from (1,0,0)
+    (2, 3), (2, 6),          # edges from (0,1,0)
+    (3, 7),                  # edge from  (1,1,0)
+    (4, 5), (4, 6),          # edges from (0,0,1)
+    (5, 7),                  # edge from  (1,0,1)
+    (6, 7),                  # edge from  (0,1,1)
+]
 
 
 def _cell_edges_3d(
