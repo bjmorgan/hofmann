@@ -868,6 +868,10 @@ class AtomStyle:
     colour: Colour
     visible: bool = True
 
+    def __post_init__(self) -> None:
+        if self.radius <= 0:
+            raise ValueError(f"radius must be positive, got {self.radius}")
+
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
@@ -971,6 +975,24 @@ class BondSpec:
         self._colour = colour
         self.complete = complete
         self.recursive = recursive
+
+        if self.max_length <= 0:
+            raise ValueError(
+                f"max_length must be positive, got {self.max_length}"
+            )
+        if self.min_length < 0:
+            raise ValueError(
+                f"min_length must be non-negative, got {self.min_length}"
+            )
+        if self.min_length > self.max_length:
+            raise ValueError(
+                f"min_length ({self.min_length}) must not exceed "
+                f"max_length ({self.max_length})"
+            )
+        if self._radius is not None and self._radius < 0:
+            raise ValueError(
+                f"radius must be non-negative, got {self._radius}"
+            )
 
         if self.complete is True:
             raise ValueError(
@@ -1163,6 +1185,20 @@ class PolyhedronSpec:
     hide_vertices: bool = False
     min_vertices: int | None = None
 
+    def __post_init__(self) -> None:
+        if not 0.0 <= self.alpha <= 1.0:
+            raise ValueError(
+                f"alpha must be between 0.0 and 1.0, got {self.alpha}"
+            )
+        if self.edge_width < 0:
+            raise ValueError(
+                f"edge_width must be non-negative, got {self.edge_width}"
+            )
+        if self.min_vertices is not None and self.min_vertices < 3:
+            raise ValueError(
+                f"min_vertices must be >= 3, got {self.min_vertices}"
+            )
+
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
@@ -1287,6 +1323,14 @@ class ViewState:
     slab_near: float | None = None
     slab_far: float | None = None
 
+    def __post_init__(self) -> None:
+        if self.zoom <= 0:
+            raise ValueError(f"zoom must be positive, got {self.zoom}")
+        if self.view_distance <= 0:
+            raise ValueError(
+                f"view_distance must be positive, got {self.view_distance}"
+            )
+
     def project(
         self, coords: np.ndarray, radii: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -1378,7 +1422,7 @@ class ViewState:
         direction: np.ndarray | list[float] | tuple[float, ...],
         *,
         up: np.ndarray | list[float] | tuple[float, ...] = (0.0, 1.0, 0.0),
-    ) -> None:
+    ) -> ViewState:
         """Set the rotation so the camera looks along *direction*.
 
         The view is oriented so that *direction* points into the screen
@@ -1388,11 +1432,18 @@ class ViewState:
         This is equivalent to placing the camera at a point along
         *direction* looking back towards the origin.
 
+        Returns ``self`` so callers can chain, e.g.::
+
+            scene.view = ViewState(centre=centroid).look_along([1, 1, 1])
+
         Args:
             direction: 3D vector giving the viewing direction (from
                 the camera towards the scene).  Need not be normalised.
             up: 3D vector indicating the upward direction in screen
                 space.  Defaults to ``[0, 1, 0]``.
+
+        Returns:
+            ``self``, with the rotation updated in place.
 
         Raises:
             ValueError: If *direction* is zero-length or *up* is
@@ -1427,6 +1478,7 @@ class ViewState:
         # Rotation matrix: rows are the camera basis vectors.
         # R maps world coords to camera coords: rotated = R @ world.
         self.rotation = np.array([right, up_actual, fwd])
+        return self
 
 
 @dataclass
@@ -1467,6 +1519,12 @@ class StructureScene:
                     f"lattice must have shape (3, 3), got {self.lattice.shape}"
                 )
         n_atoms = len(self.species)
+        for i, frame in enumerate(self.frames):
+            if frame.coords.shape[0] != n_atoms:
+                raise ValueError(
+                    f"species has {n_atoms} atoms but frame {i} has "
+                    f"{frame.coords.shape[0]}"
+                )
         for key, arr in self.atom_data.items():
             arr = np.asarray(arr)
             if arr.ndim != 1 or len(arr) != n_atoms:
@@ -1622,6 +1680,18 @@ class StructureScene:
             atom_index: Index of the atom to centre on.
             frame: Frame index to read coordinates from.
         """
+        n_frames = len(self.frames)
+        if not 0 <= frame < n_frames:
+            raise ValueError(
+                f"frame {frame} out of range for scene "
+                f"with {n_frames} frame(s)"
+            )
+        n_atoms = len(self.species)
+        if not 0 <= atom_index < n_atoms:
+            raise ValueError(
+                f"atom_index {atom_index} out of range for scene "
+                f"with {n_atoms} atom(s)"
+            )
         self.view.centre = self.frames[frame].coords[atom_index].copy()
 
     def set_atom_data(

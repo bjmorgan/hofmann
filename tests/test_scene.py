@@ -505,6 +505,28 @@ class TestCentreAtom:
         np.testing.assert_allclose(scene.view.centre, centroid, atol=1e-10)
 
 
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestFromPymatgenEmptySequence:
+    def test_empty_list_raises(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            from_pymatgen([], bond_specs=[])
+
+
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestCentreAtomValidation:
+    def test_invalid_centre_atom_raises(self):
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.0, 0.0, 0.0]])
+        with pytest.raises(ValueError, match="centre_atom"):
+            from_pymatgen(struct, bond_specs=[], centre_atom=10)
+
+    def test_negative_centre_atom_raises(self):
+        lattice = Lattice.cubic(5.0)
+        struct = Structure(lattice, ["Na"], [[0.0, 0.0, 0.0]])
+        with pytest.raises(ValueError, match="centre_atom"):
+            from_pymatgen(struct, bond_specs=[], centre_atom=-1)
+
+
 class TestFromPymatgenImportError:
     def test_import_error_when_missing(self, monkeypatch):
         """Verify a helpful ImportError when pymatgen is absent."""

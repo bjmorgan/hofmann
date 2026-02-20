@@ -1,6 +1,43 @@
 Changelog
 =========
 
+0.7.1
+-----
+
+- Avoid quadratic array growth in ``_merge_expansions`` during
+  periodic boundary expansion.  Accepted image coordinates are now
+  collected in a list with O(1) hash-based deduplication and
+  concatenated once at the end, matching the approach already used by
+  ``_expand_neighbour_shells``.
+
+- :class:`~hofmann.StructureScene` now validates that every frame has
+  the same number of atoms as the ``species`` list at construction
+  time, raising :class:`ValueError` immediately instead of failing
+  with a confusing error during rendering.
+
+- :meth:`~hofmann.ViewState.look_along` now returns ``self``, enabling
+  one-liner construction such as
+  ``ViewState(centre=centroid).look_along([1, 1, 1])``.
+
+- Passing ``None`` for a style keyword argument in
+  :func:`~hofmann.render_mpl` now resets that field to the
+  :class:`~hofmann.RenderStyle` class default instead of being silently
+  ignored.
+
+- :class:`~hofmann.BondSpec`, :class:`~hofmann.AtomStyle`,
+  :class:`~hofmann.PolyhedronSpec`, and :class:`~hofmann.ViewState` now
+  validate their numeric fields at construction time, raising
+  :class:`ValueError` for out-of-range values (e.g. negative radii,
+  ``min_length > max_length``, ``alpha`` outside ``[0, 1]``,
+  non-positive ``zoom`` or ``view_distance``).
+
+- :func:`~hofmann.render_mpl`, :func:`~hofmann.render_mpl_interactive`,
+  :meth:`~hofmann.StructureScene.centre_on`, and
+  :func:`~hofmann.from_pymatgen` now raise descriptive
+  :class:`ValueError` messages for out-of-range index arguments
+  (``frame_index``, ``atom_index``, ``centre_atom``) instead of
+  leaking bare :class:`IndexError` exceptions.
+
 0.7.0
 -----
 

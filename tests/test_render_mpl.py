@@ -37,6 +37,8 @@ from hofmann.render_mpl import (
     _rotation_y,
     _rotation_z,
     _scene_extent,
+    _DEFAULT_RENDER_STYLE,
+    _resolve_style,
     _stick_polygon,
     render_mpl,
 )
@@ -61,6 +63,23 @@ def _minimal_scene(n_atoms=2, with_bonds=True):
         atom_styles=styles,
         bond_specs=specs,
     )
+
+
+class TestFrameIndexValidation:
+    def test_render_mpl_invalid_frame_index_raises(self):
+        scene = _minimal_scene()
+        with pytest.raises(ValueError, match="frame_index"):
+            render_mpl(scene, frame_index=5, show=False)
+
+    def test_render_mpl_negative_frame_index_raises(self):
+        scene = _minimal_scene()
+        with pytest.raises(ValueError, match="frame_index"):
+            render_mpl(scene, frame_index=-1, show=False)
+
+    def test_render_mpl_valid_frame_index_accepted(self):
+        scene = _minimal_scene()
+        fig = render_mpl(scene, frame_index=0, show=False)
+        assert isinstance(fig, Figure)
 
 
 class TestRenderMpl:
@@ -2082,4 +2101,35 @@ class TestColourBy:
         )
         # Explicit spec colour should override the colour_by value.
         assert precomputed.poly_base_colours[0] == (0.0, 0.0, 1.0)
+
+
+class TestResolveStyle:
+    def test_none_kwarg_resets_to_class_default(self):
+        """Passing None for a kwarg should reset to the RenderStyle default,
+        not keep the base style's value."""
+        style = RenderStyle(atom_scale=0.8)
+        resolved = _resolve_style(style, atom_scale=None)
+        assert resolved.atom_scale == RenderStyle().atom_scale
+
+    def test_explicit_kwarg_overrides_style(self):
+        style = RenderStyle(atom_scale=0.5)
+        resolved = _resolve_style(style, atom_scale=0.8)
+        assert resolved.atom_scale == 0.8
+
+    def test_absent_kwarg_keeps_style_value(self):
+        style = RenderStyle(atom_scale=0.8)
+        resolved = _resolve_style(style)
+        assert resolved.atom_scale == 0.8
+
+    def test_default_style_not_mutated_by_override(self):
+        """Overriding with style=None should not mutate the module-level default."""
+        original = RenderStyle()
+        _resolve_style(None, atom_scale=0.8)
+        assert _DEFAULT_RENDER_STYLE == original
+
+    def test_default_style_not_mutated_by_caller(self):
+        """Mutating the returned style should not affect the module-level default."""
+        resolved = _resolve_style(None)
+        resolved.atom_scale = 99.0
+        assert _DEFAULT_RENDER_STYLE.atom_scale == RenderStyle().atom_scale
 

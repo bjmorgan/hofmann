@@ -83,3 +83,10 @@ class TestComputeBonds:
                           radius=0.1, colour=1.0)]
         bonds = compute_bonds(CH4_SPECIES, CH4_COORDS, specs)
         assert len(bonds) == 0
+
+    def test_species_coords_length_mismatch(self):
+        specs = [BondSpec(species=("C", "H"), min_length=0.0, max_length=3.4,
+                          radius=0.1, colour=1.0)]
+        wrong_coords = CH4_COORDS[:3]  # 3 rows but 5 species
+        with pytest.raises(ValueError, match="species.*5.*coords.*3"):
+            compute_bonds(CH4_SPECIES, wrong_coords, specs)

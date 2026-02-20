@@ -1885,6 +1885,7 @@ def _axes_bg_rgb(ax: Axes) -> tuple[float, float, float]:
 
 
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
+_DEFAULT_RENDER_STYLE = RenderStyle()
 
 def _resolve_style(
     style: RenderStyle | None,
@@ -1906,8 +1907,9 @@ def _resolve_style(
             f"Unknown style keyword argument(s): {', '.join(sorted(unknown))}"
         )
 
-    s = style if style is not None else RenderStyle()
-    overrides = {k: v for k, v in kwargs.items() if v is not None}
+    s = style if style is not None else replace(_DEFAULT_RENDER_STYLE)
+    overrides = {k: (v if v is not None else getattr(_DEFAULT_RENDER_STYLE, k))
+                 for k, v in kwargs.items()}
     if overrides:
         s = replace(s, **overrides)
     return s
@@ -2013,6 +2015,13 @@ def render_mpl(
         The matplotlib :class:`~matplotlib.figure.Figure` object.
     """
     resolved = _resolve_style(style, **style_kwargs)
+
+    n_frames = len(scene.frames)
+    if not 0 <= frame_index < n_frames:
+        raise ValueError(
+            f"frame_index {frame_index} out of range for scene "
+            f"with {n_frames} frame(s)"
+        )
 
     if ax is not None:
         fig = ax.get_figure()
@@ -2298,6 +2307,14 @@ def render_mpl_interactive(
         style changes applied during the interactive session.
     """
     resolved = _resolve_style(style, **style_kwargs)
+
+    n_frames = len(scene.frames)
+    if not 0 <= frame_index < n_frames:
+        raise ValueError(
+            f"frame_index {frame_index} out of range for scene "
+            f"with {n_frames} frame(s)"
+        )
+
     bg_rgb = normalise_colour(background)
 
     # Use lower-fidelity polygon counts for interactive responsiveness.
