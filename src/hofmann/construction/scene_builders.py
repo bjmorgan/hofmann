@@ -646,73 +646,18 @@ def from_pymatgen(
     if bond_specs is None:
         bond_specs = default_bond_specs(species)
 
-    # Build frames, optionally expanding with PBC images.
-    poly_specs = polyhedra if polyhedra is not None else []
-    n_uc = len(species)  # unit-cell atom count before expansion
+    # Build frames.  Physical atoms only — periodic expansion is
+    # handled at render time by the periodic bond pipeline
+    # (compute_bonds + build_rendering_set).
     if pbc:
         frames = []
-        first_species: list[str] | None = None
         for i, s in enumerate(structures):
-            # Geometric expansion: add images near cell faces.
-            exp_species, exp_coords = _expand_pbc(s, bond_specs, pbc_padding)
-
-            # Wrapped UC coordinates: _expand_pbc wraps fractional
-            # coordinates to [0, 1) before converting to Cartesian.
-            # All downstream expansion functions must use the same
-            # wrapped basis to avoid coordinate-frame mismatches when
-            # pymatgen stores frac_coords outside [0, 1).
-            uc_coords = exp_coords[:n_uc]
-
-            # Single-pass bond completion: for each bond spec with
-            # complete set, add missing bonded partners across
-            # periodic boundaries (non-recursive).  Each spec is
-            # processed individually so that its centre selector
-            # is applied independently.  Specs that are also
-            # recursive are skipped — recursive already subsumes
-            # the single-pass search.
-            for bond_spec in bond_specs:
-                if not bond_spec.complete or bond_spec.recursive:
-                    continue
-                centres: list[str] | None = (
-                    None if bond_spec.complete == "*"
-                    else [str(bond_spec.complete)]
-                )
-                exp_species, exp_coords = _expand_neighbour_shells(
-                    s, exp_species, exp_coords, n_uc, [bond_spec],
-                    centre_species_only=centres,
-                    _uc_coords=uc_coords,
-                )
-
-            # Recursive bond expansion: iteratively add bonded
-            # atoms across periodic boundaries for bond specs
-            # with recursive=True.
-            exp_species, exp_coords = _expand_recursive_bonds(
-                s, exp_species, exp_coords, n_uc, bond_specs,
-                max_depth=max_recursive_depth,
-                uc_coords=uc_coords,
-            )
-
-            # Neighbour-shell completion for polyhedra centres:
-            # ensure every atom matching a polyhedron centre pattern
-            # has its full coordination shell present, so that
-            # boundary polyhedra are complete.
-            if poly_specs and bond_specs:
-                centre_patterns = [sp.centre for sp in poly_specs]
-                poly_cache = _precompute_bonded_neighbours(
-                    s, bond_specs, uc_coords=uc_coords,
-                )
-                exp_species, exp_coords = _expand_neighbour_shells(
-                    s, exp_species, exp_coords, n_uc, bond_specs,
-                    centre_species_only=centre_patterns,
-                    _neighbour_cache=poly_cache,
-                    _uc_coords=uc_coords,
-                )
-
-            if first_species is None:
-                first_species = exp_species
-            frames.append(Frame(coords=exp_coords, label=f"frame_{i}"))
-        # Use expanded species from the first frame.
-        species = first_species  # type: ignore[assignment]
+            # Wrap fractional coordinates to [0, 1) so atoms sit
+            # inside the unit cell for consistent periodic bond
+            # computation at render time.
+            frac = s.frac_coords % 1.0
+            wrapped_coords = frac @ s.lattice.matrix
+            frames.append(Frame(coords=wrapped_coords, label=f"frame_{i}"))
     else:
         frames = [
             Frame(coords=s.cart_coords, label=f"frame_{i}")
@@ -736,5 +681,6 @@ def from_pymatgen(
         view=view,
         title=title,
         lattice=structures[0].lattice.matrix.copy(),
+        pbc=pbc,
         atom_data=dict(atom_data) if atom_data is not None else {},
     )

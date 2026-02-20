@@ -35,6 +35,10 @@ class StructureScene:
         title: Scene title for display.
         lattice: Unit cell lattice matrix, shape ``(3, 3)`` with rows
             as lattice vectors, or ``None`` for non-periodic structures.
+        pbc: If ``True`` (the default), the renderer uses the lattice
+            for periodic bond computation and image-atom expansion.
+            Set to ``False`` to disable all periodic boundary handling
+            even when a lattice is present.
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
             must be a 1-D array of length ``n_atoms``.  Use
             :meth:`set_atom_data` to populate this and ``colour_by``
@@ -49,6 +53,7 @@ class StructureScene:
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
     lattice: np.ndarray | None = None
+    pbc: bool = True
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:

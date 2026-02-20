@@ -19,6 +19,7 @@ from matplotlib.figure import Figure
 
 from hofmann.construction.bonds import compute_bonds
 from hofmann.construction.polyhedra import compute_polyhedra
+from hofmann.construction.rendering_set import build_rendering_set
 from hofmann.model import (
     AxesStyle,
     Bond,
@@ -87,21 +88,48 @@ def _precompute_scene(
     """
     frame = scene.frames[frame_index]
     coords = frame.coords
-    n_atoms = len(scene.species)
-    radii_3d = np.empty(n_atoms)
 
+    # Run periodic bond pipeline: compute bonds (with MIC when
+    # periodic), then build the expanded rendering set.
+    lattice = scene.lattice if scene.pbc else None
+    periodic_bonds = compute_bonds(
+        scene.species, coords, scene.bond_specs, lattice=lattice,
+    )
+
+    if lattice is not None:
+        rset = build_rendering_set(
+            scene.species, coords, periodic_bonds,
+            scene.bond_specs, lattice,
+        )
+        species = rset.species
+        coords = rset.coords
+        bonds = rset.bonds
+        source_indices = rset.source_indices
+    else:
+        species = scene.species
+        bonds = periodic_bonds
+        source_indices = np.arange(len(scene.species))
+
+    n_atoms = len(species)
+
+    # Map atom_data through source_indices for expanded set.
+    atom_data = {
+        key: arr[source_indices]
+        for key, arr in scene.atom_data.items()
+    }
+
+    radii_3d = np.empty(n_atoms)
     for i in range(n_atoms):
-        sp = scene.species[i]
+        sp = species[i]
         style = scene.atom_styles.get(sp)
         radii_3d[i] = style.radius if style is not None else 0.5
 
     atom_colours = resolve_atom_colours(
-        scene.species, scene.atom_styles, scene.atom_data,
+        species, scene.atom_styles, atom_data,
         colour_by=colour_by, cmap=cmap, colour_range=colour_range,
     )
     bond_half_colours = list(atom_colours)
 
-    bonds = compute_bonds(scene.species, coords, scene.bond_specs)
     adjacency: dict[int, list[tuple[int, Bond]]] = defaultdict(list)
     for bond in bonds:
         adjacency[bond.index_a].append((bond.index_b, bond))
@@ -121,14 +149,14 @@ def _precompute_scene(
 
     # ---- Polyhedra ----
     polyhedra = compute_polyhedra(
-        scene.species, coords, bonds, scene.polyhedra,
+        species, coords, bonds, scene.polyhedra,
     )
 
     # Atoms hidden by AtomStyle.visible=False — always applied,
     # regardless of show_polyhedra.
     style_hidden_atoms: set[int] = set()
     style_hidden_bond_ids: set[int] = set()
-    for i, sp in enumerate(scene.species):
+    for i, sp in enumerate(species):
         style = scene.atom_styles.get(sp)
         if style is not None and not style.visible:
             style_hidden_atoms.add(i)

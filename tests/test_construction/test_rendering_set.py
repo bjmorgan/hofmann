@@ -233,3 +233,122 @@ class TestSelfBondExpansion:
         # Self-bonds at (+1,0,0) and (-1,0,0) should materialise
         # 2 image atoms
         assert len(rset.species) == 3  # 1 physical + 2 images
+
+
+class TestMaxRecursiveDepth:
+    """Recursive expansion respects the max_recursive_depth parameter."""
+
+    def test_depth_limits_expansion(self):
+        """Self-bond chain: depth=1 gives fewer atoms than depth=3."""
+        # Single atom in a narrow cell with self-bonds.  Recursive
+        # expansion creates an infinite chain; max_recursive_depth
+        # controls how far it extends.
+        species = ["X"]
+        lattice = np.diag([2.0, 10.0, 10.0])
+        coords = np.array([[0.5, 5.0, 5.0]])
+        spec = BondSpec(species=("X", "X"), min_length=0.0,
+                        max_length=2.5, radius=0.1, colour=1.0,
+                        recursive=True)
+        bonds = compute_bonds(species, coords, [spec], lattice=lattice)
+        rset_1 = build_rendering_set(
+            species, coords, bonds, [spec], lattice,
+            max_recursive_depth=1,
+        )
+        rset_3 = build_rendering_set(
+            species, coords, bonds, [spec], lattice,
+            max_recursive_depth=3,
+        )
+        # depth=1: 1 physical + 2 images = 3
+        assert len(rset_1.species) == 3
+        # depth=3: 1 physical + 6 images = 7
+        assert len(rset_3.species) == 7
+        assert len(rset_3.species) > len(rset_1.species)
+
+
+class TestCompleteRecursiveInteraction:
+    """Tests for interaction between complete and recursive flags."""
+
+    def test_complete_skipped_when_recursive(self):
+        """Specs with both complete='*' and recursive=True produce the
+        same result as recursive=True alone — complete is redundant."""
+        species = ["Na", "Cl"]
+        lattice = np.diag([5.0, 5.0, 5.0])
+        coords = np.array([
+            [0.5, 2.5, 2.5],   # Na near left face
+            [4.5, 2.5, 2.5],   # Cl near right face
+        ])
+        spec_r = BondSpec(species=("Cl", "Na"), min_length=0.0,
+                          max_length=2.0, radius=0.1, colour=1.0,
+                          recursive=True)
+        spec_cr = BondSpec(species=("Cl", "Na"), min_length=0.0,
+                           max_length=2.0, radius=0.1, colour=1.0,
+                           complete="*", recursive=True)
+        bonds_r = compute_bonds(species, coords, [spec_r], lattice=lattice)
+        rset_r = build_rendering_set(
+            species, coords, bonds_r, [spec_r], lattice)
+        bonds_cr = compute_bonds(species, coords, [spec_cr], lattice=lattice)
+        rset_cr = build_rendering_set(
+            species, coords, bonds_cr, [spec_cr], lattice)
+        assert len(rset_r.species) == len(rset_cr.species)
+
+    def test_complete_vs_recursive(self):
+        """Recursive expansion produces more atoms than single-pass complete."""
+        # Single atom with self-bonds in a narrow cell: complete adds
+        # 2 immediate images, recursive follows the chain further.
+        species = ["X"]
+        lattice = np.diag([2.0, 10.0, 10.0])
+        coords = np.array([[0.5, 5.0, 5.0]])
+        spec_c = BondSpec(species=("X", "X"), min_length=0.0,
+                          max_length=2.5, radius=0.1, colour=1.0,
+                          complete="*")
+        spec_r = BondSpec(species=("X", "X"), min_length=0.0,
+                          max_length=2.5, radius=0.1, colour=1.0,
+                          recursive=True)
+        bonds_c = compute_bonds(species, coords, [spec_c], lattice=lattice)
+        rset_c = build_rendering_set(
+            species, coords, bonds_c, [spec_c], lattice)
+        bonds_r = compute_bonds(species, coords, [spec_r], lattice=lattice)
+        rset_r = build_rendering_set(
+            species, coords, bonds_r, [spec_r], lattice)
+        # complete: 1 + 2 = 3; recursive (depth 5): 1 + 10 = 11
+        assert len(rset_c.species) == 3
+        assert len(rset_r.species) > len(rset_c.species)
+
+
+class TestMixedSpecs:
+    """Tests for multiple specs with different complete settings."""
+
+    def test_directed_complete_multiple_specs(self):
+        """Each spec's complete setting is processed independently."""
+        # Na near origin corner, Cl near far-x face, Br near far-y face.
+        # Na-Cl periodic bond on x-axis; Na-Br periodic bond on y-axis.
+        species = ["Na", "Cl", "Br"]
+        lattice = np.diag([5.0, 5.0, 5.0])
+        coords = np.array([
+            [0.5, 0.5, 2.5],   # Na near origin
+            [4.5, 0.5, 2.5],   # Cl near far-x face
+            [0.5, 4.5, 2.5],   # Br near far-y face
+        ])
+        # Na-Cl: complete="Cl" → only completes Cl's shell (adds Na image)
+        spec_na_cl = BondSpec(species=("Na", "Cl"), min_length=0.0,
+                              max_length=2.0, radius=0.1, colour=1.0,
+                              complete="Cl")
+        # Na-Br: complete="*" → completes both shells
+        spec_na_br = BondSpec(species=("Na", "Br"), min_length=0.0,
+                              max_length=2.0, radius=0.1, colour=1.0,
+                              complete="*")
+        all_specs = [spec_na_cl, spec_na_br]
+        bonds = compute_bonds(species, coords, all_specs, lattice=lattice)
+        rset = build_rendering_set(
+            species, coords, bonds, all_specs, lattice)
+        # Na-Cl with complete="Cl": Na image added near Cl.
+        # Na-Br with complete="*": Na image added near Br AND Br image
+        # added near Na.
+        na_count = sum(1 for s in rset.species if s == "Na")
+        assert na_count >= 3  # 1 physical + 2 images
+        # Cl: no image (complete="Cl" only completes Cl's shell, not Na's)
+        cl_count = sum(1 for s in rset.species if s == "Cl")
+        assert cl_count == 1
+        # Br: 1 image from complete="*"
+        br_count = sum(1 for s in rset.species if s == "Br")
+        assert br_count == 2
