@@ -11,12 +11,18 @@ def compute_bonds(
     species: list[str],
     coords: np.ndarray,
     bond_specs: list[BondSpec],
+    lattice: np.ndarray | None = None,
 ) -> list[Bond]:
     """Compute bonds for a single frame based on bond specification rules.
 
     For each pair of atoms (i < j), checks all bond specs in order to
     find the first matching rule where the interatomic distance falls
     within ``[min_length, max_length]``.
+
+    When *lattice* is provided, the minimum image convention is used to
+    find the shortest distance between each atom pair across periodic
+    images.  Bonds found across a boundary have a non-zero ``image``
+    field recording the lattice translation applied to atom b.
 
     Species matching is pre-computed per spec so that the inner loop
     over atom pairs is a vectorised numpy operation rather than
@@ -26,6 +32,8 @@ def compute_bonds(
         species: List of species labels, length ``n_atoms``.
         coords: Coordinates array of shape ``(n_atoms, 3)``.
         bond_specs: List of BondSpec rules to apply.
+        lattice: 3x3 matrix of lattice vectors (row vectors).
+            ``None`` for non-periodic scenes.
 
     Returns:
         List of Bond objects for all detected bonds.
@@ -46,8 +54,20 @@ def compute_bonds(
             f"{coords.shape[0]} rows"
         )
 
-    # Vectorised pairwise distance matrix.
+    # Vectorised pairwise difference vectors.
     diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+
+    # Apply minimum image convention when a lattice is present.
+    images: np.ndarray | None = None
+    if lattice is not None:
+        lattice = np.asarray(lattice, dtype=float)
+        lat_inv = np.linalg.inv(lattice)
+        diff_frac = diff @ lat_inv
+        shifts = np.round(diff_frac)
+        images = shifts.astype(int)
+        diff_frac -= shifts
+        diff = diff_frac @ lattice
+
     dist_matrix = np.linalg.norm(diff, axis=2)
 
     # Upper-triangle mask: only consider pairs (i < j).
@@ -94,6 +114,70 @@ def compute_bonds(
             claimed[ii, jj] = True
             for idx in range(len(ii)):
                 i, j = int(ii[idx]), int(jj[idx])
-                bonds.append(Bond(i, j, float(dist_matrix[i, j]), spec))
+                image = (
+                    tuple(int(x) for x in images[i, j])
+                    if images is not None
+                    else (0, 0, 0)
+                )
+                bonds.append(
+                    Bond(i, j, float(dist_matrix[i, j]), spec, image=image)
+                )
+
+    # Self-bonds: atoms bonding to their own periodic images.
+    if lattice is not None:
+        bonds.extend(
+            _compute_self_bonds(species, lattice, bond_specs)
+        )
+
+    return bonds
+
+
+def _compute_self_bonds(
+    species: list[str],
+    lattice: np.ndarray,
+    bond_specs: list[BondSpec],
+) -> list[Bond]:
+    """Compute bonds from atoms to their own periodic images.
+
+    For each atom, checks distances to its own images along each
+    nearby lattice translation in {-1, 0, 1}^3 (excluding the origin).
+    Each image direction produces a distinct bond.
+
+    Args:
+        species: List of species labels.
+        lattice: 3x3 matrix of lattice vectors (row vectors).
+        bond_specs: List of BondSpec rules to apply.
+
+    Returns:
+        List of self-bonds.
+    """
+    offsets = [-1, 0, 1]
+    image_vectors = np.array([
+        (n1, n2, n3)
+        for n1 in offsets for n2 in offsets for n3 in offsets
+        if (n1, n2, n3) != (0, 0, 0)
+    ])  # shape (26, 3)
+
+    # Distances for each image vector (independent of atom position).
+    image_cart = image_vectors @ lattice
+    image_distances = np.linalg.norm(image_cart, axis=1)
+
+    bonds: list[Bond] = []
+    claimed: set[tuple[int, tuple[int, int, int]]] = set()
+
+    for spec in bond_specs:
+        for i, s in enumerate(species):
+            if not spec.matches(s, s):
+                continue
+            for img_idx in range(len(image_vectors)):
+                dist = float(image_distances[img_idx])
+                if dist < spec.min_length or dist > spec.max_length:
+                    continue
+                img_tuple = tuple(int(x) for x in image_vectors[img_idx])
+                key = (i, img_tuple)
+                if key in claimed:
+                    continue
+                claimed.add(key)
+                bonds.append(Bond(i, i, dist, spec, image=img_tuple))
 
     return bonds
