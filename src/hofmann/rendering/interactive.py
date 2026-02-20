@@ -431,7 +431,7 @@ def render_mpl_interactive(
         kind = _apply_key_action(
             event.key, view, resolved, state,
             n_frames=len(scene.frames),
-            base_extent=base_extent,
+            base_extent=state["base_extent"],
             initial_view=initial_view,
             has_lattice=scene.lattice is not None,
         )
