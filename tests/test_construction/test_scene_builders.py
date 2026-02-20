@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hofmann.model import AtomStyle, StructureScene, ViewState
-from hofmann.scene import _merge_expansions, from_xbs, from_pymatgen
+from hofmann.construction.scene_builders import _merge_expansions, from_xbs, from_pymatgen
 
 _has_pymatgen = False
 try:
@@ -232,7 +232,7 @@ class TestFromPymatgenPbc:
 
     def test_pbc_bonds_form_across_boundary(self):
         """Image atoms should enable bonds that cross the boundary."""
-        from hofmann.bonds import compute_bonds
+        from hofmann.construction.bonds import compute_bonds
         from hofmann.model import BondSpec
 
         lattice = Lattice.cubic(10.0)

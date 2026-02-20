@@ -36,6 +36,10 @@ def compute_bonds(
     coords = np.asarray(coords, dtype=float)
     n_atoms = len(species)
 
+    if coords.ndim != 2 or coords.shape[1] != 3:
+        raise ValueError(
+            f"coords must have 3 columns, got shape {coords.shape}"
+        )
     if coords.shape[0] != n_atoms:
         raise ValueError(
             f"species has {n_atoms} entries but coords has "
