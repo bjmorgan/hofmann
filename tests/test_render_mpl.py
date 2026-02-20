@@ -2127,3 +2127,9 @@ class TestResolveStyle:
         _resolve_style(None, atom_scale=0.8)
         assert _DEFAULT_RENDER_STYLE == original
 
+    def test_default_style_not_mutated_by_caller(self):
+        """Mutating the returned style should not affect the module-level default."""
+        resolved = _resolve_style(None)
+        resolved.atom_scale = 99.0
+        assert _DEFAULT_RENDER_STYLE.atom_scale == RenderStyle().atom_scale
+

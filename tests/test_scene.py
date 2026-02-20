@@ -506,6 +506,13 @@ class TestCentreAtom:
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestFromPymatgenEmptySequence:
+    def test_empty_list_raises(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            from_pymatgen([], bond_specs=[])
+
+
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
 class TestCentreAtomValidation:
     def test_invalid_centre_atom_raises(self):
         lattice = Lattice.cubic(5.0)

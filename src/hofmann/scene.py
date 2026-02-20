@@ -612,6 +612,9 @@ def from_pymatgen(
     else:
         structures = list(structure)
 
+    if not structures:
+        raise ValueError("structure must not be empty")
+
     # Recentre: shift fractional coordinates so centre_atom is at
     # (0.5, 0.5, 0.5), then wrap all sites back into [0, 1).
     if centre_atom is not None:
