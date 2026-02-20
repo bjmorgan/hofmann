@@ -1,6 +1,30 @@
 Changelog
 =========
 
+0.8.0
+-----
+
+- **Restructured package layout.**  The monolithic ``model.py`` (1888
+  lines) and ``render_mpl.py`` (2517 lines) have been split into three
+  sub-packages organised by architectural layer:
+
+  - ``hofmann.model`` -- data types (colour utilities, atom/bond/polyhedron
+    specs, rendering styles, view state, and the scene container).
+  - ``hofmann.construction`` -- scene building (file parsing, bond and
+    polyhedra computation, element defaults, style I/O, and pymatgen/XBS
+    scene constructors).
+  - ``hofmann.rendering`` -- display (projection, bond geometry, cell edge
+    rendering, the painter's algorithm, static output, and the interactive
+    viewer).
+
+  All public import paths are preserved: ``from hofmann import BondSpec``
+  and ``from hofmann.model import BondSpec`` continue to work.
+
+- :func:`~hofmann.compute_bonds` now validates that ``species`` and
+  ``coords`` have matching lengths, raising :class:`ValueError` with a
+  descriptive message instead of failing with an opaque numpy broadcast
+  error.
+
 0.7.1
 -----
 

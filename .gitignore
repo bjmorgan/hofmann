@@ -35,6 +35,9 @@ htmlcov/
 *.swo
 *~
 
+# Planning docs
+RESTRUCTURE.md
+
 # OS
 .DS_Store
 Thumbs.db
