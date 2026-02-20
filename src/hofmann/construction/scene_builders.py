@@ -63,6 +63,7 @@ def from_pymatgen(
     pbc_padding: float | None = 0.1,
     centre_atom: int | None = None,
     max_recursive_depth: int = 5,
+    deduplicate_molecules: bool = False,
     atom_styles: dict[str, AtomStyle] | None = None,
     title: str = "",
     view: ViewState | None = None,
@@ -83,10 +84,11 @@ def from_pymatgen(
             Set to ``False`` to disable all periodic boundary
             handling.
         pbc_padding: Cartesian margin (angstroms) around the unit
-            cell for periodic boundary handling.  Stored on the
-            scene for use by the renderer.  The default of 0.1
-            angstroms is suitable for most structures.  ``None``
-            falls back to the maximum bond length from *bond_specs*.
+            cell for geometric cell-face expansion.  Atoms within
+            this distance of a cell face are duplicated on the
+            opposite side.  The default of 0.1 angstroms is suitable
+            for most structures.  ``None`` disables geometric
+            expansion.
         centre_atom: Index of the atom to centre the unit cell on.
             When set, all fractional coordinates are shifted so that
             this atom sits at (0.5, 0.5, 0.5), and the view is
@@ -96,6 +98,9 @@ def from_pymatgen(
         max_recursive_depth: Maximum number of iterations for
             recursive bond expansion (must be >= 1).  Only relevant
             when one or more *bond_specs* have ``recursive=True``.
+        deduplicate_molecules: If ``True``, molecules that span cell
+            boundaries are shown only once.  Orphaned fragments are
+            removed in favour of the most-connected cluster.
         atom_styles: Per-species style overrides.  When provided,
             these are merged on top of the auto-generated defaults
             so you only need to specify the species you want to
@@ -201,5 +206,7 @@ def from_pymatgen(
         lattice=structures[0].lattice.matrix.copy(),
         pbc=pbc,
         pbc_padding=pbc_padding,
+        max_recursive_depth=max_recursive_depth,
+        deduplicate_molecules=deduplicate_molecules,
         atom_data=dict(atom_data) if atom_data is not None else {},
     )

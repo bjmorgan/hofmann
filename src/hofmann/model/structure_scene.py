@@ -40,8 +40,15 @@ class StructureScene:
             Set to ``False`` to disable all periodic boundary handling
             even when a lattice is present.
         pbc_padding: Cartesian margin (angstroms) around the unit cell
-            for periodic boundary handling.  ``None`` falls back to
-            the maximum bond length from *bond_specs*.
+            for periodic boundary handling.  ``None`` disables
+            geometric cell-face expansion.
+        max_recursive_depth: Maximum iterations for recursive bond
+            expansion.  Only relevant when one or more *bond_specs*
+            have ``recursive=True``.
+        deduplicate_molecules: If ``True``, molecules that span cell
+            boundaries and appear more than once (as a contiguous
+            cluster and as orphaned fragments) are deduplicated so
+            each molecule is shown once.
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
             must be a 1-D array of length ``n_atoms``.  Use
             :meth:`set_atom_data` to populate this and ``colour_by``
@@ -58,6 +65,8 @@ class StructureScene:
     lattice: np.ndarray | None = None
     pbc: bool = True
     pbc_padding: float | None = 0.1
+    max_recursive_depth: int = 5
+    deduplicate_molecules: bool = False
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -118,6 +127,7 @@ class StructureScene:
         pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
         max_recursive_depth: int = 5,
+        deduplicate_molecules: bool = False,
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
@@ -138,9 +148,9 @@ class StructureScene:
                 expansion.  Set to ``False`` to disable all periodic
                 boundary handling.
             pbc_padding: Cartesian margin (angstroms) around the unit
-                cell for periodic boundary handling.  Stored on the
-                scene for use by the renderer.  ``None`` falls back
-                to the maximum bond length from *bond_specs*.
+                cell for geometric cell-face expansion.  Stored on the
+                scene for use by the renderer.  ``None`` disables
+                geometric expansion.
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
                 at (0.5, 0.5, 0.5).  If *view* is also provided, the
@@ -150,6 +160,8 @@ class StructureScene:
                 recursive bond expansion (must be >= 1).  Only
                 relevant when one or more *bond_specs* have
                 ``recursive=True``.
+            deduplicate_molecules: If ``True``, molecules that span
+                cell boundaries are shown only once.
             atom_styles: Per-species style overrides.  When provided,
                 these are merged on top of the auto-generated defaults
                 so you only need to specify the species you want to
@@ -174,6 +186,7 @@ class StructureScene:
             structure, bond_specs, polyhedra=polyhedra,
             pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
             max_recursive_depth=max_recursive_depth,
+            deduplicate_molecules=deduplicate_molecules,
             atom_styles=atom_styles, title=title, view=view,
             atom_data=atom_data,
         )

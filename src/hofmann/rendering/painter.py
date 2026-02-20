@@ -19,7 +19,10 @@ from matplotlib.figure import Figure
 
 from hofmann.construction.bonds import compute_bonds
 from hofmann.construction.polyhedra import compute_polyhedra
-from hofmann.construction.rendering_set import build_rendering_set
+from hofmann.construction.rendering_set import (
+    build_rendering_set,
+    deduplicate_molecules,
+)
 from hofmann.model import (
     AxesStyle,
     Bond,
@@ -100,7 +103,12 @@ def _precompute_scene(
         rset = build_rendering_set(
             scene.species, coords, periodic_bonds,
             scene.bond_specs, lattice,
+            max_recursive_depth=scene.max_recursive_depth,
+            pbc_padding=scene.pbc_padding,
+            polyhedra_specs=scene.polyhedra,
         )
+        if scene.deduplicate_molecules:
+            rset = deduplicate_molecules(rset, lattice)
         species = rset.species
         coords = rset.coords
         bonds = rset.bonds
