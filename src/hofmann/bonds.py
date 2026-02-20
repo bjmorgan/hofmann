@@ -36,6 +36,12 @@ def compute_bonds(
     coords = np.asarray(coords, dtype=float)
     n_atoms = len(species)
 
+    if coords.shape[0] != n_atoms:
+        raise ValueError(
+            f"species has {n_atoms} entries but coords has "
+            f"{coords.shape[0]} rows"
+        )
+
     # Vectorised pairwise distance matrix.
     diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
     dist_matrix = np.linalg.norm(diff, axis=2)
