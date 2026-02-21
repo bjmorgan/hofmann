@@ -70,7 +70,7 @@ structure = Structure(
 )
 
 bonds = [BondSpec(species=("Si", "Si"), max_length=2.8)]
-scene = StructureScene.from_pymatgen(structure, bonds, pbc=True)
+scene = StructureScene.from_pymatgen(structure, bonds)
 scene.render_mpl("si.pdf")
 ```
 

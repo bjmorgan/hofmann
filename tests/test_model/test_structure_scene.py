@@ -5,6 +5,7 @@ import pytest
 
 from hofmann.model.frame import Frame
 from hofmann.model.structure_scene import StructureScene
+from hofmann.model.view_state import ViewState
 
 
 class TestStructureScene:
@@ -116,6 +117,25 @@ class TestStructureScene:
                 species=["A", "B"],
                 frames=[good, bad],
             )
+
+    def test_view_rejects_non_viewstate(self):
+        coords = np.zeros((1, 3))
+        scene = StructureScene(species=["A"], frames=[Frame(coords=coords)])
+        with pytest.raises(TypeError, match="ViewState"):
+            scene.view = (ViewState(), "not a style")
+
+    def test_view_rejects_tuple_with_hint(self):
+        coords = np.zeros((1, 3))
+        scene = StructureScene(species=["A"], frames=[Frame(coords=coords)])
+        with pytest.raises(TypeError, match="unpack"):
+            scene.view = (ViewState(), "style")
+
+    def test_view_accepts_viewstate(self):
+        coords = np.zeros((1, 3))
+        scene = StructureScene(species=["A"], frames=[Frame(coords=coords)])
+        new_view = ViewState(zoom=2.0)
+        scene.view = new_view
+        assert scene.view.zoom == 2.0
 
     def test_matching_frame_sizes_accepted(self):
         scene = StructureScene(

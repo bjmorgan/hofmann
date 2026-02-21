@@ -5,12 +5,11 @@ from hofmann.rendering.static import _DEFAULT_RENDER_STYLE, _resolve_style
 
 
 class TestResolveStyle:
-    def test_none_kwarg_resets_to_class_default(self):
-        """Passing None for a kwarg should reset to the RenderStyle default,
-        not keep the base style's value."""
+    def test_none_kwarg_preserves_base_style(self):
+        """Passing None for a kwarg preserves the base style's value."""
         style = RenderStyle(atom_scale=0.8)
         resolved = _resolve_style(style, atom_scale=None)
-        assert resolved.atom_scale == RenderStyle().atom_scale
+        assert resolved.atom_scale == 0.8
 
     def test_explicit_kwarg_overrides_style(self):
         style = RenderStyle(atom_scale=0.5)
@@ -27,6 +26,12 @@ class TestResolveStyle:
         original = RenderStyle()
         _resolve_style(None, atom_scale=0.8)
         assert _DEFAULT_RENDER_STYLE == original
+
+    def test_nullable_field_none_override_applies(self):
+        """For nullable fields, None is a meaningful value and should apply."""
+        style = RenderStyle(pbc_padding=0.1)
+        resolved = _resolve_style(style, pbc_padding=None)
+        assert resolved.pbc_padding is None
 
     def test_default_style_not_mutated_by_caller(self):
         """Mutating the returned style should not affect the module-level default."""

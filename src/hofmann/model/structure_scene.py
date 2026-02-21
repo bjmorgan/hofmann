@@ -35,6 +35,9 @@ class StructureScene:
         title: Scene title for display.
         lattice: Unit cell lattice matrix, shape ``(3, 3)`` with rows
             as lattice vectors, or ``None`` for non-periodic structures.
+            When a lattice is present, the renderer can use it for
+            periodic bond computation and image-atom expansion
+            (controlled by :attr:`RenderStyle.pbc`).
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
             must be a 1-D array of length ``n_atoms``.  Use
             :meth:`set_atom_data` to populate this and ``colour_by``
@@ -50,6 +53,21 @@ class StructureScene:
     title: str = ""
     lattice: np.ndarray | None = None
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
+
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "view" and not isinstance(value, ViewState):
+            hint = ""
+            if isinstance(value, tuple):
+                hint = (
+                    " (hint: render_mpl_interactive() returns a"
+                    " (ViewState, RenderStyle) tuple — did you forget"
+                    " to unpack it?)"
+                )
+            raise TypeError(
+                f"view must be a ViewState, got {type(value).__name__}"
+                + hint
+            )
+        super().__setattr__(name, value)
 
     def __post_init__(self) -> None:
         if self.lattice is not None:
@@ -105,16 +123,18 @@ class StructureScene:
         bond_specs: list[BondSpec] | None = None,
         *,
         polyhedra: list[PolyhedronSpec] | None = None,
-        pbc: bool = True,
-        pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
-        max_recursive_depth: int = 5,
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
         atom_data: dict[str, np.ndarray] | None = None,
     ) -> StructureScene:
         """Create a StructureScene from pymatgen ``Structure`` object(s).
+
+        Fractional coordinates are wrapped to ``[0, 1)`` and stored as
+        Cartesian coordinates.  Periodic boundary handling (image-atom
+        expansion, recursive bond depth, molecule deduplication) is
+        controlled at render time via :class:`RenderStyle`.
 
         Args:
             structure: A single pymatgen ``Structure`` or a sequence of
@@ -124,24 +144,11 @@ class StructureScene:
                 pass an empty list to disable bonds.
             polyhedra: Polyhedron rendering rules.  ``None`` disables
                 polyhedra.
-            pbc: If ``True`` (the default), add periodic image atoms
-                at cell boundaries so that bonds crossing periodic
-                boundaries are drawn.  Set to ``False`` to disable
-                all PBC expansion.
-            pbc_padding: Cartesian margin (angstroms) around the unit
-                cell for placing periodic image atoms.  The default of
-                0.1 angstroms captures atoms on cell boundaries.
-                ``None`` falls back to the maximum bond length from
-                *bond_specs* for wider geometric expansion.
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
-                at (0.5, 0.5, 0.5) before PBC expansion.  If *view*
-                is also provided, the explicit view takes precedence
-                and only the fractional-coordinate shift is applied.
-            max_recursive_depth: Maximum number of iterations for
-                recursive bond expansion (must be >= 1).  Only
-                relevant when one or more *bond_specs* have
-                ``recursive=True``.
+                at (0.5, 0.5, 0.5).  If *view* is also provided, the
+                explicit view takes precedence and only the fractional-
+                coordinate shift is applied.
             atom_styles: Per-species style overrides.  When provided,
                 these are merged on top of the auto-generated defaults
                 so you only need to specify the species you want to
@@ -164,8 +171,7 @@ class StructureScene:
 
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
-            pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
-            max_recursive_depth=max_recursive_depth,
+            centre_atom=centre_atom,
             atom_styles=atom_styles, title=title, view=view,
             atom_data=atom_data,
         )

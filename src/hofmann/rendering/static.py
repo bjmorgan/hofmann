@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import types
+import typing
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -22,6 +24,13 @@ from hofmann.rendering.painter import _axes_bg_rgb, _draw_scene
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
 _DEFAULT_RENDER_STYLE = RenderStyle()
 
+# Fields where ``None`` is a meaningful value (not just "unset").
+_NULLABLE_STYLE_FIELDS = frozenset(
+    name for name, tp in typing.get_type_hints(RenderStyle).items()
+    if typing.get_origin(tp) is types.UnionType
+    and type(None) in typing.get_args(tp)
+)
+
 def _resolve_style(
     style: RenderStyle | None,
     **kwargs: Any,
@@ -29,7 +38,12 @@ def _resolve_style(
     """Build a :class:`RenderStyle` from an optional base plus overrides.
 
     Any kwarg whose name matches a ``RenderStyle`` field replaces that
-    field's value.  Unknown kwargs raise :class:`TypeError`.
+    field's value.  For most fields, passing ``None`` is treated as
+    "not provided" and preserves the base value.  For fields that
+    accept ``None`` as a meaningful value (e.g. ``pbc_padding``),
+    ``None`` is passed through as an explicit override.
+
+    Unknown kwargs raise :class:`TypeError`.
 
     Raises:
         TypeError: If a kwarg name does not match any ``RenderStyle`` field.
@@ -43,8 +57,10 @@ def _resolve_style(
         )
 
     s = style if style is not None else replace(_DEFAULT_RENDER_STYLE)
-    overrides = {k: (v if v is not None else getattr(_DEFAULT_RENDER_STYLE, k))
-                 for k, v in kwargs.items()}
+    overrides = {
+        k: v for k, v in kwargs.items()
+        if v is not None or k in _NULLABLE_STYLE_FIELDS
+    }
     if overrides:
         s = replace(s, **overrides)
     return s

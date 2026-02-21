@@ -33,15 +33,6 @@ class BondSpec:
         max_length: Maximum bond length threshold.
         min_length: Minimum bond length threshold.  Defaults to
             ``0.0``.
-        radius: Visual radius of the bond cylinder.  Defaults to
-            ``BondSpec.default_radius`` (``0.1``) when not set
-            explicitly.
-        colour: Bond colour used when ``half_bonds`` is disabled on
-            the render style.  When ``half_bonds`` is ``True`` (the
-            default), each half of the bond is coloured to match the
-            nearest atom and this field is ignored.  Defaults to
-            ``BondSpec.default_colour`` (``0.5``, grey) when not set
-            explicitly.
         complete: Controls single-pass bond completion across periodic
             boundaries.  A species string (e.g. ``"Zr"``) adds
             missing partners around visible atoms of that species.
@@ -51,11 +42,10 @@ class BondSpec:
             searched.
         recursive: If ``True``, atoms bonded via this spec are
             searched recursively across periodic boundaries.  When
-            an atom matching this spec is already visible in the
-            scene, its bonded partners are added even if they fall
-            outside the ``pbc_padding`` margin, and those new atoms
-            are themselves checked on the next iteration.  Useful
-            for molecules that span periodic boundaries.
+            an image atom is materialised, its own bonded partners
+            are checked on the next iteration, extending the
+            expansion outward.  Useful for molecules that span
+            periodic boundaries.
     """
 
     default_radius: ClassVar[float] = 0.1
@@ -249,9 +239,21 @@ class Bond:
         index_b: Index of the second atom.
         length: Interatomic distance.
         spec: The BondSpec rule that produced this bond.
+        image: Lattice translation applied to atom b to form the bond.
+            ``(0, 0, 0)`` means a direct bond within the cell.
+            ``(1, 0, 0)`` means atom b is shifted by +1 along lattice
+            vector **a**.  Always ``(0, 0, 0)`` for non-periodic scenes.
     """
 
     index_a: int
     index_b: int
     length: float
     spec: BondSpec
+    image: tuple[int, int, int] = (0, 0, 0)
+
+    def __hash__(self) -> int:
+        # BondSpec is deliberately unhashable, so the auto-generated
+        # frozen-dataclass hash would fail.  Hash on identity fields
+        # only; the equality contract is satisfied because equal bonds
+        # (all fields match) always produce equal hashes.
+        return hash((self.index_a, self.index_b, self.image))
