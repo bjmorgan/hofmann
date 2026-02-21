@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import types
+import typing
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -23,9 +25,12 @@ _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(Rende
 _DEFAULT_RENDER_STYLE = RenderStyle()
 
 # Fields where ``None`` is a meaningful value (not just "unset").
+# Detected via typing.get_type_hints to handle both ``X | None``
+# and ``Optional[X]`` syntax reliably.
 _NULLABLE_STYLE_FIELDS = frozenset(
-    f.name for f in __import__("dataclasses").fields(RenderStyle)
-    if "None" in str(f.type)
+    name for name, tp in typing.get_type_hints(RenderStyle).items()
+    if typing.get_origin(tp) is types.UnionType
+    and type(None) in typing.get_args(tp)
 )
 
 def _resolve_style(
