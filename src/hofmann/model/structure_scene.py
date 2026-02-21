@@ -54,6 +54,21 @@ class StructureScene:
     lattice: np.ndarray | None = None
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
+    def __setattr__(self, name: str, value: object) -> None:
+        if name == "view" and not isinstance(value, ViewState):
+            hint = ""
+            if isinstance(value, tuple):
+                hint = (
+                    " (hint: render_mpl_interactive() returns a"
+                    " (ViewState, RenderStyle) tuple — did you forget"
+                    " to unpack it?)"
+                )
+            raise TypeError(
+                f"view must be a ViewState, got {type(value).__name__}"
+                + hint
+            )
+        super().__setattr__(name, value)
+
     def __post_init__(self) -> None:
         if self.lattice is not None:
             self.lattice = np.asarray(self.lattice, dtype=float)
