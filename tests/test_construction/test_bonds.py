@@ -3,7 +3,12 @@
 import numpy as np
 import pytest
 
-from hofmann.construction.bonds import compute_bonds
+from hofmann.construction.bonds import (
+    _compute_bonds_mic,
+    _compute_bonds_multi_image,
+    _inscribed_sphere_radius,
+    compute_bonds,
+)
 from hofmann.model import BondSpec
 
 
@@ -279,6 +284,71 @@ class TestSelfBonds:
                               lattice=lattice)
         for b in bonds:
             assert b.spec is spec_a
+
+
+class TestInscribedSphereRadius:
+    """Tests for the inscribed sphere radius calculation."""
+
+    def test_cubic(self):
+        lattice = np.diag([5.0, 5.0, 5.0])
+        assert _inscribed_sphere_radius(lattice) == pytest.approx(2.5)
+
+    def test_orthorhombic(self):
+        lattice = np.diag([3.0, 5.0, 7.0])
+        assert _inscribed_sphere_radius(lattice) == pytest.approx(1.5)
+
+    def test_non_orthogonal(self):
+        """Hexagonal cell: a = b = 3, c = 5, gamma = 120 degrees."""
+        a = 3.0
+        lattice = np.array([
+            [a, 0.0, 0.0],
+            [a * np.cos(np.radians(120)), a * np.sin(np.radians(120)), 0.0],
+            [0.0, 0.0, 5.0],
+        ])
+        r = _inscribed_sphere_radius(lattice)
+        # Perpendicular height along a* is a * sin(60) = a * sqrt(3)/2.
+        h_ab = a * np.sin(np.radians(60))
+        assert r == pytest.approx(h_ab / 2)
+
+
+class TestMicVsMultiImage:
+    """Verify that MIC and multi-image paths agree when only one image
+    per pair is possible (i.e. the MIC condition holds)."""
+
+    def test_both_paths_agree(self):
+        """Call both private functions on the same structure."""
+        species = ["A", "A", "A"]
+        lattice = np.diag([10.0, 10.0, 10.0])
+        coords = np.array([
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [9.5, 0.0, 0.0],  # MIC distance to 0 is 0.5
+        ])
+        specs = [BondSpec(species=("A", "A"), min_length=0.0,
+                          max_length=1.5, radius=0.1, colour=1.0)]
+        unique_species = ["A"]
+        n_atoms = 3
+
+        diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+        lat_inv = np.linalg.inv(lattice)
+        diff_frac = diff @ lat_inv
+
+        bonds_mic = _compute_bonds_mic(
+            species, diff_frac, specs, lattice, unique_species, n_atoms,
+        )
+        bonds_multi = _compute_bonds_multi_image(
+            species, diff_frac, specs, lattice, unique_species, n_atoms,
+        )
+
+        mic_set = {(b.index_a, b.index_b, b.image) for b in bonds_mic}
+        multi_set = {(b.index_a, b.index_b, b.image) for b in bonds_multi}
+        assert mic_set == multi_set
+
+        for bm, bx in zip(
+            sorted(bonds_mic, key=lambda b: (b.index_a, b.index_b)),
+            sorted(bonds_multi, key=lambda b: (b.index_a, b.index_b)),
+        ):
+            assert bm.length == pytest.approx(bx.length)
 
 
 class TestMultiImageBonds:
