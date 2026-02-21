@@ -136,9 +136,7 @@ def _discover_bonds_for_new_atoms(
     periodic_bonds: list[Bond],
     coords: np.ndarray,
     lattice: np.ndarray,
-    n_physical: int,
     image_registry: dict[tuple[int, ImageVector], int],
-    image_coords_list: list[np.ndarray],
     rendering_bonds: list[Bond],
 ) -> None:
     """Find bonds between newly created image atoms and existing atoms.
@@ -153,9 +151,7 @@ def _discover_bonds_for_new_atoms(
         periodic_bonds: Original periodic bonds.
         coords: Physical atom coordinates.
         lattice: Lattice matrix.
-        n_physical: Number of physical atoms.
         image_registry: Maps ``(phys_idx, image)`` to expanded index.
-        image_coords_list: Coordinates of image atoms.
         rendering_bonds: Mutable list to append new bonds to.
     """
     # Build per-atom bond lookup.
@@ -473,7 +469,7 @@ def build_rendering_set(
     if padding_new_atoms:
         _discover_bonds_for_new_atoms(
             padding_new_atoms, periodic_bonds, coords, lattice,
-            n_physical, image_registry, image_coords_list, rendering_bonds,
+            image_registry, rendering_bonds,
         )
 
     # --- Polyhedra vertex completion ---
@@ -486,8 +482,7 @@ def build_rendering_set(
         if vertex_new:
             _discover_bonds_for_new_atoms(
                 vertex_new, periodic_bonds, coords, lattice,
-                n_physical, image_registry, image_coords_list,
-                rendering_bonds,
+                image_registry, rendering_bonds,
             )
 
     # --- Build output ---
@@ -549,8 +544,8 @@ def deduplicate_molecules(
 
     The canonical component is chosen by lexicographic comparison of
     ``(n_atoms, n_physical, -frac_com)``, where *frac_com* is the
-    fractional centre of mass.  This selects the largest fragment,
-    breaking ties by preferring the copy closest to the cell origin
+    unwrapped fractional centre of mass.  This selects the largest
+    fragment, breaking ties by the smallest fractional coordinates
     — a deterministic, view-independent rule.
 
     Args:
@@ -657,9 +652,9 @@ def deduplicate_molecules(
             continue
 
         # Score each component: (n_atoms, n_physical, frac_key).
-        # frac_key is the negative fractional CoM coordinates so that
-        # lexicographic max picks the fragment closest to the origin —
-        # this gives deterministic, view-independent selection.
+        # frac_key is the negated unwrapped fractional CoM so that
+        # lexicographic max picks the fragment with the smallest
+        # fractional coordinates — a deterministic tiebreaker.
         best_root = None
         best_score: tuple = (-1, -1, ())
         for root in group_roots:

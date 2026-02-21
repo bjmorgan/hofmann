@@ -97,8 +97,9 @@ controlled at render time via :class:`~hofmann.RenderStyle` fields:
   around the unit cell.  Atoms within this distance of a cell face get
   an image on the opposite side.  The default of 0.1 angstroms
   captures atoms sitting on cell boundaries without cluttering the
-  scene.  Set to ``None`` to fall back to the maximum bond length from
-  the bond specs, which gives wider geometric expansion.
+  scene.  Set to ``None`` to disable geometric padding entirely
+  (image atoms are still created by ``complete`` and ``recursive``
+  bond specs).
 
 .. code-block:: python
 

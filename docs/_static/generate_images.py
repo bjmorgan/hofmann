@@ -192,6 +192,10 @@ def pbc_bonds_scene(
 ) -> StructureScene:
     """Build the Zr-S-N-H structure for bond completion examples.
 
+    The rendered scene uses the default ``pbc_padding=0.1`` for
+    geometric cell-face expansion.  The *complete* and *recursive*
+    flags control additional bond-driven image-atom expansion.
+
     Args:
         complete: If ``True``, set ``complete="Zr"`` on the S-Zr bond
             spec; if ``False``, leave bond completion disabled.
