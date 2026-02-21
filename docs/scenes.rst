@@ -257,6 +257,29 @@ the canonical image of each molecule, removing the duplicates:
    :align: center
    :alt: Same structure with deduplicate_molecules=True removing duplicate molecules
 
+The deduplication algorithm applies several heuristics to handle mixed
+systems (e.g. a slab with adsorbed solvent):
+
+- **Extended structure detection.**  A connected component that contains
+  both a physical atom and a periodic image of the same atom is
+  classified as an extended structure (slab, framework, or bulk crystal).
+  These components are always preserved and excluded from deduplication.
+
+- **Subset removal.**  Non-wrapped components whose source atoms are all
+  already represented by an extended structure are treated as redundant
+  image copies and removed.  This handles molecules that bond to a
+  surface: one copy is absorbed into the extended structure while
+  standalone image copies are discarded.
+
+- **Canonical selection.**  Among remaining duplicate molecules that
+  share source atoms, the algorithm keeps the copy with the most atoms,
+  breaking ties by the number of physical (non-image) atoms, then by
+  proximity to the cell origin in fractional coordinates.
+
+- **Orphan cleanup.**  After selection, any image atom that has no bonds
+  within the kept set is removed.  This catches isolated padding
+  artefacts at cell edges.
+
 
 Polyhedra
 ---------

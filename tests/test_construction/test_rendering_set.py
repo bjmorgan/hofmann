@@ -730,6 +730,87 @@ class TestDeduplicateMolecules:
         # The main component wraps, so edge fragments should be kept.
         assert len(deduped.species) == n_before
 
+    def test_orphaned_padding_atoms_removed_from_wrapped_group(self):
+        """Unbonded image atoms in a wrapped group are cleaned up.
+
+        When padding creates an image of a slab atom in a direction
+        where no bond partner has a corresponding image, the padding
+        atom is isolated and unbonded.  Since the slab wraps, the
+        group is preserved — but the orphaned image atom should still
+        be removed.
+        """
+        spec = BondSpec(species=("X", "X"), min_length=0.0,
+                        max_length=2.5, radius=0.1, colour=1.0)
+        # Manually construct: 2 physical atoms bonded, one bonded
+        # image (creates wrapping), one unbonded image (orphan).
+        rset = RenderingSet(
+            species=["X", "X", "X", "X"],
+            coords=np.array([
+                [0.5, 5.0, 5.0],   # physical 0
+                [2.5, 5.0, 5.0],   # physical 1
+                [4.5, 5.0, 5.0],   # image of 0 (bonded to 1) → wraps
+                [0.5, 15.0, 5.0],  # image of 0 (unbonded) → orphan
+            ]),
+            bonds=[
+                Bond(0, 1, 2.0, spec),
+                Bond(1, 2, 2.0, spec),
+            ],
+            source_indices=np.array([0, 1, 0, 0]),
+        )
+        lattice = np.diag([5.0, 20.0, 10.0])
+        deduped = deduplicate_molecules(rset, lattice)
+        # Orphan image (index 3) removed; bonded atoms survive.
+        assert len(deduped.species) == 3
+        assert len(deduped.bonds) == 2
+
+    def test_molecule_bonded_to_slab_still_deduplicated(self):
+        """Molecule copies are deduplicated even when bonded to a slab.
+
+        A slab (wrapped component) may have solvent molecules bonded to
+        its surface.  Image copies of those molecules form separate
+        non-wrapped components.  Deduplication should still remove the
+        duplicate molecule copies — the slab's wrapping should not
+        shield them.
+        """
+        spec = BondSpec(species=("X", "X"), min_length=0.0,
+                        max_length=2.5, radius=0.1, colour=1.0)
+        # Slab: physical atoms 0, 1 bonded; image of 0 (atom 2) also
+        # bonded to 1 → wrapped component {0, 1, 2}.
+        # Molecule A-B: physical 3 bonded to slab atom 1, physical 4
+        # bonded to 3 → part of wrapped component {0, 1, 2, 3, 4}.
+        # Copy 1 of A-B: images 5-6 (bonded pair, non-wrapped).
+        # Copy 2 of A-B: images 7-8 (bonded pair, non-wrapped).
+        rset = RenderingSet(
+            species=["X"] * 9,
+            coords=np.array([
+                [0.5, 5.0, 5.0],   # 0: physical slab atom
+                [2.5, 5.0, 5.0],   # 1: physical slab atom
+                [4.5, 5.0, 5.0],   # 2: image of 0 (slab wraps)
+                [2.5, 6.5, 5.0],   # 3: physical mol atom A
+                [2.5, 8.0, 5.0],   # 4: physical mol atom B
+                [6.5, 6.5, 5.0],   # 5: image of 3 (copy 1 A)
+                [6.5, 8.0, 5.0],   # 6: image of 4 (copy 1 B)
+                [10.5, 6.5, 5.0],  # 7: image of 3 (copy 2 A)
+                [10.5, 8.0, 5.0],  # 8: image of 4 (copy 2 B)
+            ]),
+            bonds=[
+                Bond(0, 1, 2.0, spec),   # slab bond
+                Bond(1, 2, 2.0, spec),   # slab wrapping bond
+                Bond(1, 3, 1.5, spec),   # molecule A bonded to slab
+                Bond(3, 4, 1.5, spec),   # molecule A-B bond
+                Bond(5, 6, 1.5, spec),   # copy 1 A-B bond
+                Bond(7, 8, 1.5, spec),   # copy 2 A-B bond
+            ],
+            source_indices=np.array([0, 1, 0, 3, 4, 3, 4, 3, 4]),
+        )
+        lattice = np.diag([5.0, 20.0, 10.0])
+        deduped = deduplicate_molecules(rset, lattice)
+        # Slab {0,1,2} + molecule {3,4} always kept = 5.
+        # Both copies {5,6} and {7,8} have source atoms {3,4} which
+        # are a subset of the wrapped component's sources {0,1,3,4},
+        # so both are treated as redundant and removed.
+        assert len(deduped.species) == 5
+
     def test_bond_indices_valid_after_dedup(self):
         """Bond indices reference valid positions after deduplication."""
         species = ["A", "B", "C"]

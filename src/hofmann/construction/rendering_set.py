@@ -530,10 +530,14 @@ def deduplicate_molecules(
     each group.
 
     Extended structures (slabs, frameworks) that wrap around the
-    periodic cell are detected and left untouched.  A component
-    "wraps" when it contains both a physical atom and an image of
-    that atom (the same source index appears more than once),
-    indicating a structure that is infinite in at least one direction.
+    periodic cell are detected per-component and always preserved.
+    A component "wraps" when it contains both a physical atom and
+    an image of that atom (the same source index appears more than
+    once), indicating a structure that is infinite in at least one
+    direction.  Non-wrapped components whose source atoms are all
+    already represented by a wrapped component are treated as
+    redundant image copies and removed.  Remaining non-wrapped
+    components are deduplicated normally.
 
     The canonical component is chosen by lexicographic comparison of
     ``(n_atoms, n_physical, -frac_com)``, where *frac_com* is the
@@ -578,16 +582,37 @@ def deduplicate_molecules(
         root = find(i)
         components.setdefault(root, []).append(i)
 
-    # --- Group components by shared source indices ---
-    # Build source_set for each component.
-    comp_roots = list(components.keys())
+    # --- Identify wrapped (extended) components ---
+    # A component wraps when it contains both a physical atom and an
+    # image of that atom (the same source index appears more than
+    # once).  These are always kept and excluded from deduplication.
     source_sets: dict[int, set[int]] = {}
     for root, members in components.items():
         source_sets[root] = {int(rset.source_indices[i]) for i in members}
 
-    # Transitive closure: merge groups that share any source atom.
-    # Use union-find on component roots.
-    group_parent = {r: r for r in comp_roots}
+    keep_atoms: set[int] = set()
+    wrapped_sources: set[int] = set()
+    non_wrapped_roots: list[int] = []
+    for root, members in components.items():
+        if len(source_sets[root]) < len(members):
+            keep_atoms.update(members)
+            wrapped_sources.update(source_sets[root])
+        else:
+            non_wrapped_roots.append(root)
+
+    # Remove non-wrapped components whose source atoms are all already
+    # represented by a wrapped component.  These are image copies of
+    # molecules that bonded into the extended structure.
+    non_wrapped_roots = [
+        r for r in non_wrapped_roots
+        if not source_sets[r].issubset(wrapped_sources)
+    ]
+
+    # --- Group non-wrapped components by shared source indices ---
+    # Wrapped components are already kept; only non-wrapped ones need
+    # deduplication.  This avoids molecules bonded to a slab being
+    # shielded from dedup by the slab's wrapping.
+    group_parent = {r: r for r in non_wrapped_roots}
 
     def gfind(x: int) -> int:
         while group_parent[x] != x:
@@ -600,50 +625,27 @@ def deduplicate_molecules(
         if ra != rb:
             group_parent[rb] = ra
 
-    # Check all pairs for shared source atoms.
-    # For efficiency, build source_atom → component roots mapping.
     src_to_roots: dict[int, list[int]] = {}
-    for root, srcs in source_sets.items():
-        for s in srcs:
+    for root in non_wrapped_roots:
+        for s in source_sets[root]:
             src_to_roots.setdefault(s, []).append(root)
 
     for roots_list in src_to_roots.values():
         for i in range(1, len(roots_list)):
             gunion(roots_list[0], roots_list[i])
 
-    # Collect groups of components.
     groups: dict[int, list[int]] = {}
-    for root in comp_roots:
+    for root in non_wrapped_roots:
         g = gfind(root)
         groups.setdefault(g, []).append(root)
 
     # --- Select canonical component per group ---
-    keep_atoms: set[int] = set()
-
     lattice = np.asarray(lattice, dtype=float)
     inv_lattice = np.linalg.inv(lattice)
 
     for group_roots in groups.values():
         if len(group_roots) == 1:
-            # Only one component in this group — keep it.
             keep_atoms.update(components[group_roots[0]])
-            continue
-
-        # Check if any component in this group wraps around the cell.
-        # A component wraps when it contains both a physical atom and
-        # an image of that atom (i.e. the same source index appears
-        # more than once).  This identifies extended structures (slabs,
-        # frameworks) whose edge fragments should not be discarded.
-        group_wraps = False
-        for root in group_roots:
-            members = components[root]
-            if len(source_sets[root]) < len(members):
-                group_wraps = True
-                break
-
-        if group_wraps:
-            for root in group_roots:
-                keep_atoms.update(components[root])
             continue
 
         # Score each component: (n_atoms, n_physical, frac_key).
@@ -667,6 +669,20 @@ def deduplicate_molecules(
                 best_root = root
 
         keep_atoms.update(components[best_root])
+
+    # --- Remove orphaned image atoms ---
+    # Padding can create unbonded image atoms that survive the group
+    # selection (e.g. padding images of slab atoms in a wrapped group).
+    # Strip any image atom that has no bonds in the kept set.
+    bonded_in_kept: set[int] = set()
+    for bond in rset.bonds:
+        if bond.index_a in keep_atoms and bond.index_b in keep_atoms:
+            bonded_in_kept.add(bond.index_a)
+            bonded_in_kept.add(bond.index_b)
+    keep_atoms = {
+        i for i in keep_atoms
+        if rset.source_indices[i] == i or i in bonded_in_kept
+    }
 
     # --- Build output with remapped indices ---
     if len(keep_atoms) == n:
