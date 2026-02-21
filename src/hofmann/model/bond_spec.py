@@ -252,4 +252,8 @@ class Bond:
     image: tuple[int, int, int] = (0, 0, 0)
 
     def __hash__(self) -> int:
+        # BondSpec is deliberately unhashable, so the auto-generated
+        # frozen-dataclass hash would fail.  Hash on identity fields
+        # only; the equality contract is satisfied because equal bonds
+        # (all fields match) always produce equal hashes.
         return hash((self.index_a, self.index_b, self.image))
