@@ -382,3 +382,33 @@ class TestLegendStyle:
     def test_empty_species_raises(self):
         with pytest.raises(ValueError, match="species must be non-empty"):
             LegendStyle(species=())
+
+    # ---- circle_radius variants ----
+
+    def test_circle_radius_range_tuple(self):
+        style = LegendStyle(circle_radius=(3.0, 8.0))
+        assert style.circle_radius == (3.0, 8.0)
+
+    def test_circle_radius_dict(self):
+        style = LegendStyle(circle_radius={"Na": 5.0, "Cl": 8.0})
+        assert style.circle_radius == {"Na": 5.0, "Cl": 8.0}
+
+    def test_circle_radius_range_non_positive_min_raises(self):
+        with pytest.raises(ValueError, match="circle_radius range values must be positive"):
+            LegendStyle(circle_radius=(0.0, 8.0))
+
+    def test_circle_radius_range_non_positive_max_raises(self):
+        with pytest.raises(ValueError, match="circle_radius range values must be positive"):
+            LegendStyle(circle_radius=(-1.0, 8.0))
+
+    def test_circle_radius_range_min_exceeds_max_raises(self):
+        with pytest.raises(ValueError, match="circle_radius min must not exceed max"):
+            LegendStyle(circle_radius=(10.0, 3.0))
+
+    def test_circle_radius_dict_non_positive_raises(self):
+        with pytest.raises(ValueError, match="circle_radius dict values must be positive"):
+            LegendStyle(circle_radius={"Na": 0.0})
+
+    def test_circle_radius_dict_empty_raises(self):
+        with pytest.raises(ValueError, match="circle_radius dict must be non-empty"):
+            LegendStyle(circle_radius={})

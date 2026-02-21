@@ -249,9 +249,18 @@ class LegendStyle:
             half-extent.  Only used when *corner* is a
             :class:`WidgetCorner`.
         font_size: Font size for species labels in points.
-        circle_radius: Radius of coloured circles in points.
-            Currently uniform for all entries; per-entry sizing may
-            be added in future.
+        circle_radius: Controls the size of the coloured circles in
+            points.  Accepts three forms:
+
+            * **float** — uniform radius for all entries (default 5.0).
+            * **tuple (min, max)** — proportional sizing.  Each
+              species' circle radius is linearly interpolated between
+              *min* and *max* based on its ``AtomStyle.radius``
+              relative to the smallest and largest radii in the legend.
+              When all atom radii are equal, *max* is used.
+            * **dict[str, float]** — explicit per-species radii.
+              Species not present in the dict use the class default
+              (5.0 points).
         spacing: Vertical gap between legend entries in points.
         species: Explicit list of species to include, in display
             order.  ``None`` (the default) auto-detects from the
@@ -262,7 +271,7 @@ class LegendStyle:
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_RIGHT
     margin: float = 0.15
     font_size: float = 10.0
-    circle_radius: float = 5.0
+    circle_radius: float | tuple[float, float] | dict[str, float] = 5.0
     spacing: float = 2.5
     species: tuple[str, ...] | None = None
 
@@ -278,10 +287,31 @@ class LegendStyle:
             raise ValueError(
                 f"font_size must be positive, got {self.font_size}"
             )
-        if self.circle_radius <= 0:
-            raise ValueError(
-                f"circle_radius must be positive, got {self.circle_radius}"
-            )
+        if isinstance(self.circle_radius, dict):
+            if len(self.circle_radius) == 0:
+                raise ValueError("circle_radius dict must be non-empty")
+            for v in self.circle_radius.values():
+                if v <= 0:
+                    raise ValueError(
+                        f"circle_radius dict values must be positive, got {v}"
+                    )
+        elif isinstance(self.circle_radius, tuple):
+            lo, hi = self.circle_radius
+            if lo <= 0 or hi <= 0:
+                raise ValueError(
+                    f"circle_radius range values must be positive, "
+                    f"got ({lo}, {hi})"
+                )
+            if lo > hi:
+                raise ValueError(
+                    f"circle_radius min must not exceed max, "
+                    f"got ({lo}, {hi})"
+                )
+        else:
+            if self.circle_radius <= 0:
+                raise ValueError(
+                    f"circle_radius must be positive, got {self.circle_radius}"
+                )
         if self.spacing < 0:
             raise ValueError(
                 f"spacing must be non-negative, got {self.spacing}"
@@ -298,13 +328,20 @@ class LegendStyle:
 
         Fields at their default values are omitted.
         """
-        _SPECIAL = frozenset({"corner", "species"})
+        _SPECIAL = frozenset({"corner", "species", "circle_radius"})
         defaults = _field_defaults(type(self), exclude=_SPECIAL)
         d: dict = {}
         for field_name, default in defaults.items():
             val = getattr(self, field_name)
             if val != default:
                 d[field_name] = val
+        # circle_radius: tuple → list, dict → dict, float → omit if default.
+        if isinstance(self.circle_radius, tuple):
+            d["circle_radius"] = list(self.circle_radius)
+        elif isinstance(self.circle_radius, dict):
+            d["circle_radius"] = dict(self.circle_radius)
+        elif self.circle_radius != 5.0:
+            d["circle_radius"] = self.circle_radius
         if isinstance(self.corner, WidgetCorner):
             if self.corner != type(self).corner:
                 d["corner"] = self.corner.value
@@ -317,12 +354,18 @@ class LegendStyle:
     @classmethod
     def from_dict(cls, d: dict) -> LegendStyle:
         """Deserialise from a dictionary."""
-        _SPECIAL = frozenset({"corner", "species"})
+        _SPECIAL = frozenset({"corner", "species", "circle_radius"})
         defaults = _field_defaults(cls, exclude=_SPECIAL)
         kwargs: dict = {}
         for field_name in defaults:
             if field_name in d:
                 kwargs[field_name] = d[field_name]
+        if "circle_radius" in d:
+            val = d["circle_radius"]
+            if isinstance(val, list):
+                kwargs["circle_radius"] = tuple(val)
+            else:
+                kwargs["circle_radius"] = val  # float or dict
         if "corner" in d:
             val = d["corner"]
             if isinstance(val, list):

@@ -1051,15 +1051,46 @@ def _draw_legend_widget(
     scale = arrow_len_pts / _REFERENCE_ARROW_PTS
 
     font_size = style.font_size * scale
-    circle_radius = style.circle_radius * scale
     spacing = style.spacing * scale
     stroke_width = 3.0 * scale
 
+    # ---- Resolve per-species circle radii (in points, pre-scale) ----
+    if isinstance(style.circle_radius, tuple):
+        # Proportional sizing: interpolate between (min_r, max_r) based
+        # on each species' AtomStyle.radius.
+        r_min_pts, r_max_pts = style.circle_radius
+        atom_radii = {
+            sp: scene.atom_styles[sp].radius
+            if sp in scene.atom_styles else 1.0
+            for sp in species_list
+        }
+        lo = min(atom_radii.values())
+        hi = max(atom_radii.values())
+        if hi == lo:
+            species_radius_pts = {sp: r_max_pts for sp in species_list}
+        else:
+            species_radius_pts = {
+                sp: r_min_pts + (r - lo) / (hi - lo) * (r_max_pts - r_min_pts)
+                for sp, r in atom_radii.items()
+            }
+    elif isinstance(style.circle_radius, dict):
+        _DEFAULT_R = 5.0
+        species_radius_pts = {
+            sp: style.circle_radius.get(sp, _DEFAULT_R)
+            for sp in species_list
+        }
+    else:
+        species_radius_pts = {sp: style.circle_radius for sp in species_list}
+
+    # Scale all radii by the display-space factor.
+    species_radius = {sp: r * scale for sp, r in species_radius_pts.items()}
+    max_circle_radius = max(species_radius.values())
+
     # Convert sizes from points to data coordinates for positioning.
-    circle_r_data = circle_radius / pts_per_data
+    max_circle_r_data = max_circle_radius / pts_per_data
     spacing_data = spacing / pts_per_data
     font_data = font_size / pts_per_data
-    entry_height = max(2 * circle_r_data, font_data)
+    entry_height = max(2 * max_circle_r_data, font_data)
 
     # ---- Anchor position ----
     # The anchor is the circle centre for the first legend entry.
@@ -1069,7 +1100,7 @@ def _draw_legend_widget(
     total_height = (
         (n_entries - 1) * (entry_height + spacing_data) + entry_height
     )
-    label_offset = circle_r_data + font_data * 0.5
+    label_offset = max_circle_r_data + font_data * 0.5
 
     if isinstance(style.corner, tuple):
         fx, fy = style.corner
@@ -1079,9 +1110,9 @@ def _draw_legend_widget(
         inset_x = style.margin * pad_x
         inset_y = style.margin * pad_y
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.TOP_LEFT):
-            anchor_x = (cx - pad_x) + inset_x + circle_r_data
+            anchor_x = (cx - pad_x) + inset_x + max_circle_r_data
         else:
-            anchor_x = (cx + pad_x) - inset_x - circle_r_data
+            anchor_x = (cx + pad_x) - inset_x - max_circle_r_data
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.BOTTOM_RIGHT):
             anchor_y = (cy - pad_y) + inset_y + total_height
         else:
@@ -1104,7 +1135,7 @@ def _draw_legend_widget(
         ax.plot(
             anchor_x, y_i,
             marker="o",
-            markersize=circle_radius * 2,
+            markersize=species_radius[sp] * 2,
             markerfacecolor=rgb,
             markeredgecolor=edge_colour,
             markeredgewidth=edge_width,
@@ -1114,9 +1145,9 @@ def _draw_legend_widget(
 
         # Nudge text down to visually centre with the marker.
         # va="center" includes descender space in the bounding box,
-        # so caps-only labels sit too high; -0.12 * font_data
+        # so caps-only labels sit too high; -0.09 * font_data
         # compensates.
-        text_y = y_i - 0.12 * font_data
+        text_y = y_i - 0.09 * font_data
 
         ax.text(
             anchor_x + label_offset, text_y, sp,

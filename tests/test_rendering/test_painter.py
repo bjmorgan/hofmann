@@ -1184,3 +1184,68 @@ class TestLegendWidget:
         assert "A" in label_texts
         assert "B" in label_texts
         plt.close(fig)
+
+    def test_proportional_circle_radius(self):
+        """Range tuple sizes markers proportionally to atom radii."""
+        scene = StructureScene(
+            species=["Small", "Big"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [3.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "Small": AtomStyle(0.5, (0.5, 0.5, 0.5)),
+                "Big": AtomStyle(2.0, (0.8, 0.2, 0.2)),
+            },
+        )
+        style = LegendStyle(circle_radius=(3.0, 9.0))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = {l.get_markersize() for l in markers}
+        # Two different sizes expected.
+        assert len(sizes) == 2
+        plt.close(fig)
+
+    def test_proportional_equal_radii_uses_max(self):
+        """When all atom radii are equal, markers use max circle_radius."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(1.0, (0.8, 0.2, 0.2)),
+            },
+        )
+        style = LegendStyle(circle_radius=(3.0, 9.0))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = {l.get_markersize() for l in markers}
+        # All markers same size when atom radii are equal.
+        assert len(sizes) == 1
+        plt.close(fig)
+
+    def test_dict_circle_radius(self):
+        """Dict circle_radius sets per-species marker sizes."""
+        scene = _minimal_scene()
+        style = LegendStyle(circle_radius={"A": 4.0, "B": 8.0})
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = {l.get_markersize() for l in markers}
+        # Two different sizes expected.
+        assert len(sizes) == 2
+        plt.close(fig)

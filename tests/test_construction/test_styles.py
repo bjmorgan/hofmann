@@ -233,6 +233,30 @@ class TestLegendStyleDict:
         d = style.to_dict()
         assert "species" not in d
 
+    def test_circle_radius_range_round_trip(self):
+        style = LegendStyle(circle_radius=(3.0, 8.0))
+        d = style.to_dict()
+        assert d["circle_radius"] == [3.0, 8.0]
+        restored = LegendStyle.from_dict(d)
+        assert restored.circle_radius == (3.0, 8.0)
+
+    def test_circle_radius_dict_round_trip(self):
+        style = LegendStyle(circle_radius={"Na": 5.0, "Cl": 8.0})
+        d = style.to_dict()
+        assert d["circle_radius"] == {"Na": 5.0, "Cl": 8.0}
+        restored = LegendStyle.from_dict(d)
+        assert restored.circle_radius == {"Na": 5.0, "Cl": 8.0}
+
+    def test_circle_radius_float_default_omitted(self):
+        style = LegendStyle(circle_radius=5.0)
+        d = style.to_dict()
+        assert "circle_radius" not in d
+
+    def test_circle_radius_float_non_default_included(self):
+        style = LegendStyle(circle_radius=7.0)
+        d = style.to_dict()
+        assert d["circle_radius"] == 7.0
+
 
 # -- RenderStyle --------------------------------------------------------------
 
