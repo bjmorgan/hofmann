@@ -15,18 +15,15 @@ def compute_bonds(
 ) -> list[Bond]:
     """Compute bonds for a single frame based on bond specification rules.
 
-    For each pair of atoms (i < j), checks all bond specs in order to
-    find the first matching rule where the interatomic distance falls
-    within ``[min_length, max_length]``.
+    For each pair of atoms, checks all bond specs in order to find the
+    first matching rule where the interatomic distance falls within
+    ``[min_length, max_length]``.
 
-    When *lattice* is provided, the minimum image convention is used to
-    find the shortest distance between each atom pair across periodic
-    images.  Bonds found across a boundary have a non-zero ``image``
-    field recording the lattice translation applied to atom b.
-
-    Species matching is pre-computed per spec so that the inner loop
-    over atom pairs is a vectorised numpy operation rather than
-    per-pair Python calls.
+    When *lattice* is provided, all images in the ``{-1, 0, 1}^3``
+    neighbourhood are checked so that bonds across periodic boundaries
+    are found correctly — including cases where the same atom pair is
+    bonded through more than one image (e.g. atoms sitting on opposite
+    cell faces at half a lattice parameter apart).
 
     Args:
         species: List of species labels, length ``n_atoms``.
@@ -54,130 +51,141 @@ def compute_bonds(
             f"{coords.shape[0]} rows"
         )
 
-    # Vectorised pairwise difference vectors.
-    diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
-
-    # Apply minimum image convention when a lattice is present.
-    images: np.ndarray | None = None
-    if lattice is not None:
-        lattice = np.asarray(lattice, dtype=float)
-        lat_inv = np.linalg.inv(lattice)
-        diff_frac = diff @ lat_inv
-        shifts = np.round(diff_frac)
-        images = shifts.astype(int)
-        diff_frac -= shifts
-        diff = diff_frac @ lattice
-
-    dist_matrix = np.linalg.norm(diff, axis=2)
-
-    # Upper-triangle mask: only consider pairs (i < j).
-    upper = np.triu(np.ones((n_atoms, n_atoms), dtype=bool), k=1)
-
-    # Track which pairs have been claimed by an earlier spec.
-    claimed = np.zeros((n_atoms, n_atoms), dtype=bool)
-
     # Pre-compute unique species for efficient matching.
     unique_species = list(set(species))
+
+    # Vectorised pairwise difference vectors: diff[i,j] = coords[i] - coords[j].
+    diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
+
+    if lattice is not None:
+        return _compute_bonds_periodic(
+            species, diff, bond_specs, lattice, unique_species, n_atoms,
+        )
+    else:
+        return _compute_bonds_direct(
+            species, diff, bond_specs, unique_species, n_atoms,
+        )
+
+
+def _compute_bonds_direct(
+    species: list[str],
+    diff: np.ndarray,
+    bond_specs: list[BondSpec],
+    unique_species: list[str],
+    n_atoms: int,
+) -> list[Bond]:
+    """Compute bonds for a non-periodic structure."""
+    dist_matrix = np.linalg.norm(diff, axis=2)
+    upper = np.triu(np.ones((n_atoms, n_atoms), dtype=bool), k=1)
+    claimed = np.zeros((n_atoms, n_atoms), dtype=bool)
 
     bonds: list[Bond] = []
 
     for spec in bond_specs:
-        # Determine which unique species match each side of the spec.
-        sp_a, sp_b = spec.species
-        match_a = {s for s in unique_species
-                   if fnmatch(s, sp_a)}
-        match_b = {s for s in unique_species
-                   if fnmatch(s, sp_b)}
-
-        # Boolean masks: which atoms match side a / side b.
-        mask_a = np.array([s in match_a for s in species])
-        mask_b = np.array([s in match_b for s in species])
-
-        # Species pair mask (symmetric matching): (a[i] & b[j]) | (b[i] & a[j]).
-        pair_mask = (
-            (mask_a[:, np.newaxis] & mask_b[np.newaxis, :])
-            | (mask_b[:, np.newaxis] & mask_a[np.newaxis, :])
-        )
-
-        # Distance filter.
+        pair_mask = _species_pair_mask(spec, species, unique_species)
         dist_ok = (
             (dist_matrix >= spec.min_length)
             & (dist_matrix <= spec.max_length)
         )
-
-        # Combine: upper triangle, species match, distance match, not claimed.
         hits = upper & pair_mask & dist_ok & ~claimed
-
-        # Extract matching pairs.
         ii, jj = np.nonzero(hits)
         if len(ii) > 0:
             claimed[ii, jj] = True
             for idx in range(len(ii)):
                 i, j = int(ii[idx]), int(jj[idx])
-                image = (
-                    tuple(int(x) for x in images[i, j])
-                    if images is not None
-                    else (0, 0, 0)
-                )
                 bonds.append(
-                    Bond(i, j, float(dist_matrix[i, j]), spec, image=image)
+                    Bond(i, j, float(dist_matrix[i, j]), spec)
                 )
-
-    # Self-bonds: atoms bonding to their own periodic images.
-    if lattice is not None:
-        bonds.extend(
-            _compute_self_bonds(species, lattice, bond_specs)
-        )
 
     return bonds
 
 
-def _compute_self_bonds(
+def _compute_bonds_periodic(
     species: list[str],
-    lattice: np.ndarray,
+    diff: np.ndarray,
     bond_specs: list[BondSpec],
+    lattice: np.ndarray,
+    unique_species: list[str],
+    n_atoms: int,
 ) -> list[Bond]:
-    """Compute bonds from atoms to their own periodic images.
+    """Compute bonds for a periodic structure.
 
-    For each atom, checks distances to its own images along each
-    nearby lattice translation in {-1, 0, 1}^3 (excluding the origin).
-    Each image direction produces a distinct bond.
-
-    Args:
-        species: List of species labels.
-        lattice: 3x3 matrix of lattice vectors (row vectors).
-        bond_specs: List of BondSpec rules to apply.
-
-    Returns:
-        List of self-bonds.
+    Checks all 27 image offsets in ``{-1, 0, 1}^3`` so that bonds
+    through multiple images of the same atom pair are found correctly.
+    Self-bonds (atom to its own periodic image) are included.
     """
-    offsets = [-1, 0, 1]
-    image_vectors = np.array([
-        (n1, n2, n3)
-        for n1 in offsets for n2 in offsets for n3 in offsets
-        if (n1, n2, n3) != (0, 0, 0)
-    ])  # shape (26, 3)
+    lattice = np.asarray(lattice, dtype=float)
+    lat_inv = np.linalg.inv(lattice)
+    diff_frac = diff @ lat_inv  # (n, n, 3) raw fractional differences
 
-    # Distances for each image vector (independent of atom position).
-    image_cart = image_vectors @ lattice
-    image_distances = np.linalg.norm(image_cart, axis=1)
+    # All 27 image offsets.
+    img_offsets = np.array([
+        (n1, n2, n3)
+        for n1 in (-1, 0, 1) for n2 in (-1, 0, 1) for n3 in (-1, 0, 1)
+    ])  # (27, 3)
+
+    # Distance matrices for each image: (27, n, n).
+    diff_shifted = (
+        diff_frac[np.newaxis, :, :, :]
+        - img_offsets[:, np.newaxis, np.newaxis, :]
+    )  # (27, n, n, 3)
+    diff_cart = diff_shifted @ lattice  # (27, n, n, 3)
+    dist_all = np.linalg.norm(diff_cart, axis=3)  # (27, n, n)
+
+    # Pair constraints:
+    #   offset (0,0,0): i < j only (no self-bonds, no double-counting).
+    #   non-zero offset: i <= j (self-bonds on diagonal, i < j for
+    #     inter-atom image bonds; reverse pair at opposite offset is
+    #     the same physical bond, so i < j avoids double-counting).
+    upper = np.triu(np.ones((n_atoms, n_atoms), dtype=bool), k=1)
+    upper_diag = upper | np.eye(n_atoms, dtype=bool)
+
+    zero_mask = np.all(img_offsets == 0, axis=1)
+    zero_idx = int(np.argmax(zero_mask))
+
+    valid = np.empty((27, n_atoms, n_atoms), dtype=bool)
+    valid[:] = upper_diag
+    valid[zero_idx] = upper
+
+    # Track claimed (image, i, j) triples — each triple matches at
+    # most one spec (first match wins).
+    claimed = np.zeros((27, n_atoms, n_atoms), dtype=bool)
 
     bonds: list[Bond] = []
-    claimed: set[tuple[int, tuple[int, int, int]]] = set()
 
     for spec in bond_specs:
-        for i, s in enumerate(species):
-            if not spec.matches(s, s):
-                continue
-            for img_idx in range(len(image_vectors)):
-                dist = float(image_distances[img_idx])
-                if dist < spec.min_length or dist > spec.max_length:
-                    continue
-                img_tuple = tuple(int(x) for x in image_vectors[img_idx])
-                key = (i, img_tuple)
-                if key in claimed:
-                    continue
-                claimed.add(key)
-                bonds.append(Bond(i, i, dist, spec, image=img_tuple))
+        pair_mask = _species_pair_mask(spec, species, unique_species)
+        dist_ok = (
+            (dist_all >= spec.min_length) & (dist_all <= spec.max_length)
+        )
+        hits = valid & pair_mask[np.newaxis, :, :] & dist_ok & ~claimed
+
+        kk, ii, jj = np.nonzero(hits)
+        if len(kk) > 0:
+            claimed[kk, ii, jj] = True
+            for idx in range(len(kk)):
+                k = int(kk[idx])
+                i, j = int(ii[idx]), int(jj[idx])
+                image = tuple(int(x) for x in img_offsets[k])
+                bonds.append(
+                    Bond(i, j, float(dist_all[k, i, j]), spec, image=image)
+                )
 
     return bonds
+
+
+def _species_pair_mask(
+    spec: BondSpec,
+    species: list[str],
+    unique_species: list[str],
+) -> np.ndarray:
+    """Build a boolean (n, n) mask for species pairs matching *spec*."""
+    sp_a, sp_b = spec.species
+    match_a = {s for s in unique_species if fnmatch(s, sp_a)}
+    match_b = {s for s in unique_species if fnmatch(s, sp_b)}
+    mask_a = np.array([s in match_a for s in species])
+    mask_b = np.array([s in match_b for s in species])
+    return (
+        (mask_a[:, np.newaxis] & mask_b[np.newaxis, :])
+        | (mask_b[:, np.newaxis] & mask_a[np.newaxis, :])
+    )

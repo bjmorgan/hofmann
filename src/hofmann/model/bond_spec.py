@@ -33,15 +33,6 @@ class BondSpec:
         max_length: Maximum bond length threshold.
         min_length: Minimum bond length threshold.  Defaults to
             ``0.0``.
-        radius: Visual radius of the bond cylinder.  Defaults to
-            ``BondSpec.default_radius`` (``0.1``) when not set
-            explicitly.
-        colour: Bond colour used when ``half_bonds`` is disabled on
-            the render style.  When ``half_bonds`` is ``True`` (the
-            default), each half of the bond is coloured to match the
-            nearest atom and this field is ignored.  Defaults to
-            ``BondSpec.default_colour`` (``0.5``, grey) when not set
-            explicitly.
         complete: Controls single-pass bond completion across periodic
             boundaries.  A species string (e.g. ``"Zr"``) adds
             missing partners around visible atoms of that species.

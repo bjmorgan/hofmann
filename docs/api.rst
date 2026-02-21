@@ -57,9 +57,9 @@ Rendering
 .. autoclass:: SlabClipMode
    :members:
 
-.. autofunction:: hofmann.render_mpl.render_mpl
+.. autofunction:: hofmann.rendering.static.render_mpl
 
-.. autofunction:: hofmann.render_mpl.render_mpl_interactive
+.. autofunction:: hofmann.rendering.interactive.render_mpl_interactive
 
 
 Colours and defaults

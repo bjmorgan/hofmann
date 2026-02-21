@@ -87,25 +87,23 @@ The following keyword arguments are accepted by both the
 Periodic boundary conditions
 -----------------------------
 
-When building a scene from a pymatgen ``Structure``,
-:func:`~hofmann.from_pymatgen` can add periodic image atoms so that
-bonds crossing cell boundaries are drawn correctly.  This is controlled
-by two parameters:
+When a scene has a lattice (i.e. it was created from a pymatgen
+``Structure``), the renderer can expand periodic image atoms so that
+bonds crossing cell boundaries are drawn correctly.  PBC behaviour is
+controlled at render time via :class:`~hofmann.RenderStyle` fields:
 
-- ``pbc`` (default ``True``) -- enable or disable PBC expansion
-  entirely.
+- ``pbc`` (default ``True``) -- enable or disable PBC expansion.
 - ``pbc_padding`` (default ``0.1`` angstroms) -- the Cartesian margin
   around the unit cell.  Atoms within this distance of a cell face get
   an image on the opposite side.  The default of 0.1 angstroms
   captures atoms sitting on cell boundaries without cluttering the
   scene.  Set to ``None`` to fall back to the maximum bond length from
-  *bond_specs*, which gives wider geometric expansion.
+  the bond specs, which gives wider geometric expansion.
 
 .. code-block:: python
 
-   scene = StructureScene.from_pymatgen(
-       structure, bonds, pbc=True, pbc_padding=0.1,
-   )
+   scene = StructureScene.from_pymatgen(structure, bonds)
+   scene.render_mpl(pbc=True, pbc_padding=0.1)
 
 .. image:: _static/si.svg
    :width: 320px
@@ -236,9 +234,28 @@ increase this limit for molecules spanning many cell widths:
 
 .. code-block:: python
 
-   scene = StructureScene.from_pymatgen(
-       structure, bonds, pbc=True, max_recursive_depth=10,
-   )
+   scene.render_mpl(max_recursive_depth=10)
+
+Molecule deduplication
+~~~~~~~~~~~~~~~~~~~~~~
+
+When molecules span cell boundaries, recursive expansion can produce
+duplicate fragments -- the same molecule may be reconstructed starting
+from different periodic images.  In the recursive example above, many
+N\ :sub:`2`\ H\ :sub:`6` molecules appear more than once because they
+are reconstructed from multiple image atoms.
+
+Setting ``deduplicate_molecules=True`` on the render call keeps only
+the canonical image of each molecule, removing the duplicates:
+
+.. code-block:: python
+
+   scene.render_mpl(deduplicate_molecules=True)
+
+.. image:: _static/pbc_bonds_deduplicated.svg
+   :width: 400px
+   :align: center
+   :alt: Same structure with deduplicate_molecules=True removing duplicate molecules
 
 
 Polyhedra
@@ -258,7 +275,7 @@ constructed from its bonded neighbours.
        alpha=0.3,
    )
    scene = StructureScene.from_pymatgen(
-       structure, bonds, polyhedra=[spec], pbc=True,
+       structure, bonds, polyhedra=[spec],
    )
 
 .. image:: _static/perovskite.svg

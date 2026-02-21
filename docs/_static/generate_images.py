@@ -118,7 +118,7 @@ def perovskite_scene() -> StructureScene:
     # Centre on Sr (index 0) so PBC expansion surrounds the A-site.
     scene = StructureScene.from_pymatgen(
         structure, bond_specs, polyhedra=polyhedra,
-        pbc=True, pbc_padding=0.1, centre_atom=0,
+        centre_atom=0,
     )
     _style_perovskite(scene)
     return scene
@@ -148,7 +148,7 @@ def si_scene() -> StructureScene:
         BondSpec(species=("Si", "Si"), min_length=0.0, max_length=2.8,
                  radius=0.1, colour=0.5),
     ]
-    scene = StructureScene.from_pymatgen(structure, bond_specs, pbc=True, pbc_padding=0.1)
+    scene = StructureScene.from_pymatgen(structure, bond_specs)
     scene.view.look_along([1, 1, 1])
     return scene
 
@@ -177,7 +177,7 @@ def rutile_scene() -> StructureScene:
                  radius=0.1, colour=(0.4, 0.4, 0.4)),
     ]
     scene = StructureScene.from_pymatgen(
-        structure, bond_specs, pbc=True, pbc_padding=0.1,
+        structure, bond_specs,
     )
     scene.atom_styles["Ti"].colour = "#477B9D"
     scene.atom_styles["Ti"].radius = 1.0
@@ -227,7 +227,7 @@ def pbc_bonds_scene(
         ]
 
     scene = StructureScene.from_pymatgen(
-        structure, bond_specs, polyhedra=poly_specs, pbc=True,
+        structure, bond_specs, polyhedra=poly_specs,
     )
     scene.atom_styles["Zr"].colour = (0.55, 0.71, 0.67)
     scene.atom_styles["N"].colour = (0.35, 0.55, 0.75)
@@ -257,7 +257,7 @@ def llzo_scene() -> StructureScene:
 
     scene = StructureScene.from_pymatgen(
         structure, bond_specs=bond_specs, polyhedra=polyhedra_specs,
-        pbc=True, pbc_padding=0.1, centre_atom=95,
+        centre_atom=95,
     )
 
     # Custom colours for clarity.
@@ -380,6 +380,11 @@ def main() -> None:
     rec = pbc_bonds_scene(complete=True, recursive=True)
     rec.render_mpl(OUT / "pbc_bonds_recursive.svg", **pbc_kw)
     print(f"  wrote {OUT / 'pbc_bonds_recursive.svg'}")
+    # Full structure with recursive + deduplication: duplicate molecules removed.
+    dedup = pbc_bonds_scene(complete=True, recursive=True)
+    dedup.render_mpl(OUT / "pbc_bonds_deduplicated.svg",
+                     deduplicate_molecules=True, **pbc_kw)
+    print(f"  wrote {OUT / 'pbc_bonds_deduplicated.svg'}")
 
     # SrTiO3 perovskite with polyhedra -- hero image
     perov = perovskite_scene()

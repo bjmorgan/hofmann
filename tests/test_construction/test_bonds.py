@@ -279,3 +279,126 @@ class TestSelfBonds:
                               lattice=lattice)
         for b in bonds:
             assert b.spec is spec_a
+
+
+class TestMultiImageBonds:
+    """Tests for structures where the same atom pair bonds through multiple images.
+
+    These are critical for atoms at special positions (cell corners, edges,
+    faces) where the same neighbour appears at the same distance through
+    more than one periodic image.
+    """
+
+    def test_nacl_rock_salt(self):
+        """NaCl rock salt: every atom should have 6 nearest-neighbour bonds.
+
+        In the conventional rock salt unit cell (a = 5.64 A), each Na has
+        6 Cl neighbours at a/2 = 2.82 A and vice versa.  Several of these
+        bonds cross periodic boundaries through different images.
+        """
+        a = 5.64
+        lattice = np.diag([a, a, a])
+        # Conventional NaCl unit cell: 4 Na + 4 Cl.
+        species = ["Na", "Na", "Na", "Na", "Cl", "Cl", "Cl", "Cl"]
+        coords = np.array([
+            [0.0, 0.0, 0.0],      # Na at origin
+            [a/2, a/2, 0.0],      # Na face centre
+            [a/2, 0.0, a/2],      # Na face centre
+            [0.0, a/2, a/2],      # Na face centre
+            [a/2, 0.0, 0.0],      # Cl edge centre
+            [0.0, a/2, 0.0],      # Cl edge centre
+            [0.0, 0.0, a/2],      # Cl edge centre
+            [a/2, a/2, a/2],      # Cl body centre
+        ])
+        specs = [BondSpec(species=("Na", "Cl"), min_length=0.0,
+                          max_length=a/2 + 0.1, radius=0.1, colour=1.0)]
+        bonds = compute_bonds(species, coords, specs, lattice=lattice)
+
+        # Count bonds per atom.
+        bond_count = [0] * 8
+        for b in bonds:
+            bond_count[b.index_a] += 1
+            bond_count[b.index_b] += 1
+        for i, count in enumerate(bond_count):
+            assert count == 6, (
+                f"Atom {i} ({species[i]}) has {count} bonds, expected 6"
+            )
+        # Total: 8 atoms * 6 bonds / 2 = 24 unique bonds.
+        assert len(bonds) == 24
+
+    def test_perovskite_octahedral(self):
+        """Perovskite: B-site atom at cell corner should have 6 octahedral bonds.
+
+        In a cubic perovskite ABO3 (e.g. BaTiO3), the B-site cation (Ti)
+        sits at the cell corner (origin) and bonds to 6 oxygen atoms at
+        a/2 along +/-x, +/-y, +/-z.  The +direction bonds are direct
+        (image 0,0,0) while the -direction bonds go through the negative
+        image, since the O atom is at the opposite face of the cell.
+        """
+        a = 4.0
+        lattice = np.diag([a, a, a])
+        species = ["Ba", "Ti", "O", "O", "O"]
+        coords = np.array([
+            [a/2, a/2, a/2],    # Ba at body centre
+            [0.0, 0.0, 0.0],    # Ti at origin (corner)
+            [a/2, 0.0, 0.0],    # O on face (+x from Ti)
+            [0.0, a/2, 0.0],    # O on face (+y from Ti)
+            [0.0, 0.0, a/2],    # O on face (+z from Ti)
+        ])
+        specs = [BondSpec(species=("Ti", "O"), min_length=0.0,
+                          max_length=a/2 + 0.1, radius=0.1, colour=1.0)]
+        bonds = compute_bonds(species, coords, specs, lattice=lattice)
+
+        # Ti should have exactly 6 bonds (3 direct + 3 via negative images).
+        ti_bonds = [b for b in bonds
+                    if b.index_a == 1 or b.index_b == 1]
+        assert len(ti_bonds) == 6, (
+            f"Ti has {len(ti_bonds)} bonds, expected 6"
+        )
+
+        # Check that we get both direct and image bonds to each O.
+        images_by_o = {}
+        for b in ti_bonds:
+            o_idx = b.index_b if b.index_a == 1 else b.index_a
+            images_by_o.setdefault(o_idx, []).append(b.image)
+        # Each O should appear twice: once direct, once through image.
+        for o_idx, images in images_by_o.items():
+            assert len(images) == 2, (
+                f"O atom {o_idx} has {len(images)} bonds to Ti, expected 2"
+            )
+
+    def test_multi_image_bond_lengths_correct(self):
+        """All multi-image bonds have the correct distance."""
+        a = 4.0
+        lattice = np.diag([a, a, a])
+        species = ["A", "B"]
+        # A at origin, B at (a/2, 0, 0) — bonds at a/2 via (0,0,0) and (-1,0,0).
+        coords = np.array([
+            [0.0, 0.0, 0.0],
+            [a/2, 0.0, 0.0],
+        ])
+        specs = [BondSpec(species=("A", "B"), min_length=0.0,
+                          max_length=a/2 + 0.1, radius=0.1, colour=1.0)]
+        bonds = compute_bonds(species, coords, specs, lattice=lattice)
+        # Should find bonds through multiple images at the same distance.
+        for b in bonds:
+            assert b.length == pytest.approx(a / 2)
+
+    def test_image_vectors_reconstruct_multi_image_bonds(self):
+        """Each image vector correctly reconstructs the bonded position."""
+        a = 4.0
+        lattice = np.diag([a, a, a])
+        species = ["Ti", "O", "O", "O"]
+        coords = np.array([
+            [0.0, 0.0, 0.0],
+            [a/2, 0.0, 0.0],
+            [0.0, a/2, 0.0],
+            [0.0, 0.0, a/2],
+        ])
+        specs = [BondSpec(species=("Ti", "O"), min_length=0.0,
+                          max_length=a/2 + 0.1, radius=0.1, colour=1.0)]
+        bonds = compute_bonds(species, coords, specs, lattice=lattice)
+        for b in bonds:
+            pos_b = coords[b.index_b] + np.array(b.image) @ lattice
+            dist = np.linalg.norm(pos_b - coords[b.index_a])
+            assert dist == pytest.approx(b.length, rel=1e-10)

@@ -526,13 +526,20 @@ def deduplicate_molecules(
     image atoms, the same molecule may appear more than once — once as
     a spatially contiguous cluster and once as orphaned physical atoms.
     This function identifies connected components, groups those that
-    share source atoms, and keeps only the largest (most-connected)
-    representative of each group.
+    share source atoms, and keeps only the canonical representative of
+    each group.
+
+    The canonical component is chosen by lexicographic comparison of
+    ``(n_atoms, n_physical, -frac_com)``, where *frac_com* is the
+    fractional centre of mass.  This selects the largest fragment,
+    breaking ties by preferring the copy closest to the cell origin
+    — a deterministic, view-independent rule.
 
     Args:
         rset: The rendering set to deduplicate.
-        lattice: 3x3 lattice matrix (row vectors), used for the
-            centre-of-mass tiebreaker.
+        lattice: 3x3 lattice matrix (row vectors), used to convert
+            centre-of-mass coordinates to fractional space for the
+            tiebreaker.
 
     Returns:
         A new :class:`RenderingSet` with duplicate fragments removed
@@ -608,7 +615,7 @@ def deduplicate_molecules(
     keep_atoms: set[int] = set()
 
     lattice = np.asarray(lattice, dtype=float)
-    cell_centre = 0.5 * lattice.sum(axis=0)
+    inv_lattice = np.linalg.inv(lattice)
 
     for group_roots in groups.values():
         if len(group_roots) == 1:
@@ -616,17 +623,22 @@ def deduplicate_molecules(
             keep_atoms.update(components[group_roots[0]])
             continue
 
-        # Score each component: (n_atoms, n_physical, -dist_to_centre)
+        # Score each component: (n_atoms, n_physical, frac_key).
+        # frac_key is the negative fractional CoM coordinates so that
+        # lexicographic max picks the fragment closest to the origin —
+        # this gives deterministic, view-independent selection.
         best_root = None
-        best_score = (-1, -1, float("-inf"))
+        best_score: tuple = (-1, -1, ())
         for root in group_roots:
             members = components[root]
             n_members = len(members)
             n_physical = sum(1 for i in members
                              if rset.source_indices[i] == i)
             com = rset.coords[members].mean(axis=0)
-            dist = float(np.linalg.norm(com - cell_centre))
-            score = (n_members, n_physical, -dist)
+            frac_com = com @ inv_lattice
+            # Negate so that smaller fractional coords win via max().
+            frac_key = tuple(-float(f) for f in frac_com)
+            score = (n_members, n_physical, frac_key)
             if score > best_score:
                 best_score = score
                 best_root = root

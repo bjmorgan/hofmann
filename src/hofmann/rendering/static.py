@@ -43,8 +43,7 @@ def _resolve_style(
         )
 
     s = style if style is not None else replace(_DEFAULT_RENDER_STYLE)
-    overrides = {k: (v if v is not None else getattr(_DEFAULT_RENDER_STYLE, k))
-                 for k, v in kwargs.items()}
+    overrides = {k: v for k, v in kwargs.items() if v is not None}
     if overrides:
         s = replace(s, **overrides)
     return s
