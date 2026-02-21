@@ -50,7 +50,7 @@ class TestFromPymatgen:
     def test_single_structure(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=False)
+        scene = from_pymatgen(struct)
         assert len(scene.species) == 2
         assert len(scene.frames) == 1
         assert "Na" in scene.atom_styles
@@ -60,19 +60,19 @@ class TestFromPymatgen:
         lattice = Lattice.cubic(5.0)
         s1 = Structure(lattice, ["Si", "Si"], [[0, 0, 0], [0.25, 0.25, 0.25]])
         s2 = Structure(lattice, ["Si", "Si"], [[0, 0, 0], [0.26, 0.26, 0.26]])
-        scene = from_pymatgen([s1, s2], pbc=False)
+        scene = from_pymatgen([s1, s2])
         assert len(scene.frames) == 2
 
     def test_classmethod(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-        scene = StructureScene.from_pymatgen(struct, pbc=False)
+        scene = StructureScene.from_pymatgen(struct)
         assert isinstance(scene, StructureScene)
 
     def test_view_centred(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=False)
+        scene = from_pymatgen(struct)
         expected = np.mean(scene.frames[0].coords, axis=0)
         np.testing.assert_allclose(scene.view.centre, expected)
 
@@ -80,7 +80,7 @@ class TestFromPymatgen:
         """from_pymatgen stores the lattice matrix."""
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=False)
+        scene = from_pymatgen(struct)
         assert scene.lattice is not None
         np.testing.assert_allclose(scene.lattice, lattice.matrix)
 
@@ -88,17 +88,15 @@ class TestFromPymatgen:
         """Modifying scene.lattice does not affect the original structure."""
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=False)
+        scene = from_pymatgen(struct)
         scene.lattice[0, 0] = 999.0
         np.testing.assert_allclose(struct.lattice.matrix[0, 0], 5.0)
 
-    def test_pbc_on_by_default(self):
-        """PBC is enabled by default for pymatgen structures."""
+    def test_scene_stores_physical_atoms_only(self):
+        """Scene stores physical atoms only; expansion is at render time."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.0, 0.5, 0.5]])
         scene = from_pymatgen(struct, bond_specs=[])
-        assert scene.pbc is True
-        # Scene stores physical atoms only.
         assert len(scene.species) == 1
 
     def test_atom_styles_override(self):
@@ -107,7 +105,7 @@ class TestFromPymatgen:
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
         custom_na = AtomStyle(radius=2.0, colour=(1.0, 0.0, 0.0))
         scene = from_pymatgen(
-            struct, pbc=False, atom_styles={"Na": custom_na},
+            struct, atom_styles={"Na": custom_na},
         )
         assert scene.atom_styles["Na"] is custom_na
         # Cl should still have the auto-generated default.
@@ -118,7 +116,7 @@ class TestFromPymatgen:
         """The title parameter is passed through to the scene."""
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=False, title="test title")
+        scene = from_pymatgen(struct, title="test title")
         assert scene.title == "test title"
 
     def test_view_override(self):
@@ -126,7 +124,7 @@ class TestFromPymatgen:
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
         custom_view = ViewState(centre=np.array([1.0, 2.0, 3.0]))
-        scene = from_pymatgen(struct, pbc=False, view=custom_view)
+        scene = from_pymatgen(struct, view=custom_view)
         assert scene.view is custom_view
 
     def test_atom_data_passthrough(self):
@@ -134,7 +132,7 @@ class TestFromPymatgen:
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
         data = {"charge": np.array([1.0, -1.0])}
-        scene = from_pymatgen(struct, pbc=False, atom_data=data)
+        scene = from_pymatgen(struct, atom_data=data)
         np.testing.assert_array_equal(scene.atom_data["charge"], [1.0, -1.0])
 
     def test_classmethod_forwards_kwargs(self):
@@ -143,7 +141,7 @@ class TestFromPymatgen:
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])
         custom_na = AtomStyle(radius=2.0, colour="red")
         scene = StructureScene.from_pymatgen(
-            struct, pbc=False,
+            struct,
             atom_styles={"Na": custom_na},
             title="via classmethod",
         )
@@ -154,7 +152,7 @@ class TestFromPymatgen:
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
 class TestFromPymatgenPbc:
     def test_scene_stores_physical_atoms_only(self):
-        """PBC scenes store only physical atoms; expansion is at render time."""
+        """Scenes store only physical atoms; expansion is at render time."""
         from hofmann.model import BondSpec
 
         lattice = Lattice.cubic(10.0)
@@ -166,24 +164,8 @@ class TestFromPymatgenPbc:
             species=("Na", "Na"), min_length=0.0,
             max_length=5.0, radius=0.1, colour=0.5, complete="*",
         )
-        scene = from_pymatgen(struct, bond_specs=[bond], pbc=True)
+        scene = from_pymatgen(struct, bond_specs=[bond])
         assert len(scene.species) == 2  # Physical atoms only.
-
-    def test_pbc_flag_stored(self):
-        """from_pymatgen stores the pbc flag on the scene."""
-        lattice = Lattice.cubic(10.0)
-        struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene_on = from_pymatgen(struct, bond_specs=[], pbc=True)
-        scene_off = from_pymatgen(struct, bond_specs=[], pbc=False)
-        assert scene_on.pbc is True
-        assert scene_off.pbc is False
-
-    def test_pbc_false_no_expansion(self):
-        """With pbc=False, no images are added."""
-        lattice = Lattice.cubic(10.0)
-        struct = Structure(lattice, ["Na"], [[0.01, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=False)
-        assert len(scene.species) == 1
 
     def test_wrapping_invariance(self):
         """Wrapped coordinates are the same regardless of input wrapping."""
@@ -191,8 +173,8 @@ class TestFromPymatgenPbc:
         # Atom at frac -0.01 is equivalent to frac 0.99.
         struct_neg = Structure(lattice, ["Na"], [[-.01, 0.5, 0.5]])
         struct_pos = Structure(lattice, ["Na"], [[0.99, 0.5, 0.5]])
-        scene_neg = from_pymatgen(struct_neg, pbc=True)
-        scene_pos = from_pymatgen(struct_pos, pbc=True)
+        scene_neg = from_pymatgen(struct_neg)
+        scene_pos = from_pymatgen(struct_pos)
         assert len(scene_neg.species) == len(scene_pos.species)
         np.testing.assert_allclose(
             np.sort(scene_neg.frames[0].coords, axis=0),
@@ -201,10 +183,10 @@ class TestFromPymatgenPbc:
         )
 
     def test_coords_wrapped_to_unit_cell(self):
-        """PBC wraps fractional coordinates to [0, 1)."""
+        """Fractional coordinates are wrapped to [0, 1)."""
         lattice = Lattice.cubic(10.0)
         struct = Structure(lattice, ["Na"], [[0.02, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=True)
+        scene = from_pymatgen(struct)
         # Physical atom at frac 0.02 → cart 0.2
         np.testing.assert_allclose(
             scene.frames[0].coords[0, 0], 0.2, atol=1e-10,
@@ -219,7 +201,7 @@ class TestPbcSceneConstruction:
         """With no bond specs, scene has physical atoms only."""
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, bond_specs=[], pbc=True)
+        scene = from_pymatgen(struct, bond_specs=[])
         assert len(scene.species) == 1
 
     def test_physical_coords_in_unit_cell(self):
@@ -235,9 +217,7 @@ class TestPbcSceneConstruction:
             species=("Na", "Na"), min_length=0.0,
             max_length=2.0, radius=0.1, colour=0.5,
         )
-        scene = from_pymatgen(
-            struct, bond_specs=[bond_spec], pbc=True,
-        )
+        scene = from_pymatgen(struct, bond_specs=[bond_spec])
         coords = scene.frames[0].coords
         # All coordinates should be inside the unit cell.
         assert np.all(coords >= 0.0 - 1e-10)
@@ -258,7 +238,7 @@ class TestPolyhedraSpecPreservation:
             [[0.5, 0.5, 0.5], [0.0, 0.0, 0.0]],
         )
         poly = PolyhedronSpec(centre="Ti")
-        scene = from_pymatgen(struct, polyhedra=[poly], pbc=True)
+        scene = from_pymatgen(struct, polyhedra=[poly])
         assert scene.polyhedra == [poly]
         assert len(scene.species) == 2  # Physical atoms only.
 
@@ -266,7 +246,7 @@ class TestPolyhedraSpecPreservation:
         """Without polyhedra kwarg, scene has empty polyhedra list."""
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na"], [[0.5, 0.5, 0.5]])
-        scene = from_pymatgen(struct, pbc=True)
+        scene = from_pymatgen(struct)
         assert scene.polyhedra == []
 
 
@@ -307,7 +287,7 @@ class TestCentreAtom:
             lattice, ["Na", "Cl"],
             [[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
         )
-        scene = from_pymatgen(struct, bond_specs=[], pbc=False)
+        scene = from_pymatgen(struct, bond_specs=[])
         centroid = np.mean(scene.frames[0].coords, axis=0)
         np.testing.assert_allclose(scene.view.centre, centroid, atol=1e-10)
 
@@ -360,7 +340,7 @@ class TestMultiFramePbc:
         # the first frame regardless of how many frames there are.
         s1 = Structure(lattice, ["Si"], [[0.02, 0.5, 0.5]])
         s2 = Structure(lattice, ["Si"], [[0.02, 0.5, 0.5]])
-        scene = from_pymatgen([s1, s2], pbc=True)
+        scene = from_pymatgen([s1, s2])
         assert len(scene.species) == len(scene.frames[0].coords)
         assert len(scene.species) == len(scene.frames[1].coords)
 
@@ -383,7 +363,7 @@ class TestRecursiveBondSceneConstruction:
             max_length=3.0, radius=0.1, colour=0.5,
             recursive=True,
         )
-        scene = from_pymatgen(struct, bond_specs=[bond], pbc=True)
+        scene = from_pymatgen(struct, bond_specs=[bond])
         assert scene.bond_specs[0].recursive is True
         assert len(scene.species) == 2  # Physical atoms only.
 
@@ -401,34 +381,9 @@ class TestRecursiveBondSceneConstruction:
             max_length=3.0, radius=0.1, colour=0.5,
             recursive=True,
         )
-        scene = from_pymatgen(struct, bond_specs=[bond], pbc=True)
+        scene = from_pymatgen(struct, bond_specs=[bond])
         assert len(scene.species) == 2
         assert set(scene.species) == {"Na", "Cl"}
-
-    def test_invalid_max_depth_raises(self):
-        """max_recursive_depth < 1 raises ValueError."""
-        from hofmann.model import BondSpec
-
-        lattice = Lattice.cubic(5.0)
-        struct = Structure(
-            lattice, ["Na", "Cl"],
-            [[0.5, 0.5, 0.5], [0.98, 0.5, 0.5]],
-        )
-        bond = BondSpec(
-            species=("Na", "Cl"), min_length=0.0,
-            max_length=3.0, radius=0.1, colour=0.5,
-            recursive=True,
-        )
-        with pytest.raises(ValueError, match="max_recursive_depth"):
-            from_pymatgen(
-                struct, bond_specs=[bond], pbc=True,
-                max_recursive_depth=0,
-            )
-        with pytest.raises(ValueError, match="max_recursive_depth"):
-            from_pymatgen(
-                struct, bond_specs=[bond], pbc=True,
-                max_recursive_depth=-1,
-            )
 
 
 @pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
@@ -449,7 +404,7 @@ class TestCompleteBondSceneConstruction:
             max_length=3.0, radius=0.1, colour=0.5,
             complete="*",
         )
-        scene = from_pymatgen(struct, bond_specs=[bond], pbc=True)
+        scene = from_pymatgen(struct, bond_specs=[bond])
         assert scene.bond_specs[0].complete == "*"
         assert len(scene.species) == 2  # Physical atoms only.
 
@@ -469,8 +424,8 @@ class TestCompleteBondSceneConstruction:
             lattice, ["Na", "Cl"],
             [[0.99, 0.5, 0.5], [0.5, 0.5, 0.5]],
         )
-        scene_neg = from_pymatgen(struct_neg, pbc=True)
-        scene_pos = from_pymatgen(struct_pos, pbc=True)
+        scene_neg = from_pymatgen(struct_neg)
+        scene_pos = from_pymatgen(struct_pos)
         assert len(scene_neg.species) == len(scene_pos.species)
         np.testing.assert_allclose(
             np.sort(scene_neg.frames[0].coords, axis=0),

@@ -59,17 +59,19 @@ def from_pymatgen(
     bond_specs: list[BondSpec] | None = None,
     *,
     polyhedra: list[PolyhedronSpec] | None = None,
-    pbc: bool = True,
-    pbc_padding: float | None = 0.1,
     centre_atom: int | None = None,
-    max_recursive_depth: int = 5,
-    deduplicate_molecules: bool = False,
     atom_styles: dict[str, AtomStyle] | None = None,
     title: str = "",
     view: ViewState | None = None,
     atom_data: dict[str, np.ndarray] | None = None,
 ) -> StructureScene:
     """Create a StructureScene from pymatgen Structure(s).
+
+    Fractional coordinates are wrapped to ``[0, 1)`` and stored as
+    Cartesian coordinates.  Periodic boundary handling (PBC bond
+    computation, image-atom expansion, recursive depth, molecule
+    deduplication) is controlled at render time via
+    :class:`~hofmann.model.RenderStyle`.
 
     Args:
         structure: A single pymatgen ``Structure`` or a list of
@@ -79,28 +81,12 @@ def from_pymatgen(
             cutoffs.  Pass an empty list to disable bonds.
         polyhedra: Optional polyhedron rendering rules.  If ``None``,
             no polyhedra are drawn.
-        pbc: If ``True`` (the default), the renderer uses the lattice
-            for periodic bond computation and image-atom expansion.
-            Set to ``False`` to disable all periodic boundary
-            handling.
-        pbc_padding: Cartesian margin (angstroms) around the unit
-            cell for geometric cell-face expansion.  Atoms within
-            this distance of a cell face are duplicated on the
-            opposite side.  The default of 0.1 angstroms is suitable
-            for most structures.  ``None`` disables geometric
-            expansion.
         centre_atom: Index of the atom to centre the unit cell on.
             When set, all fractional coordinates are shifted so that
             this atom sits at (0.5, 0.5, 0.5), and the view is
             centred on this atom.  If *view* is also provided, the
             explicit view takes precedence and only the fractional-
             coordinate shift is applied.
-        max_recursive_depth: Maximum number of iterations for
-            recursive bond expansion (must be >= 1).  Only relevant
-            when one or more *bond_specs* have ``recursive=True``.
-        deduplicate_molecules: If ``True``, molecules that span cell
-            boundaries are shown only once.  Orphaned fragments are
-            removed in favour of the most-connected cluster.
         atom_styles: Per-species style overrides.  When provided,
             these are merged on top of the auto-generated defaults
             so you only need to specify the species you want to
@@ -122,12 +108,6 @@ def from_pymatgen(
         raise ImportError(
             "pymatgen is required for from_pymatgen(). "
             "Install it with: pip install pymatgen"
-        )
-
-    if max_recursive_depth < 1:
-        raise ValueError(
-            f"max_recursive_depth must be >= 1, "
-            f"got {max_recursive_depth}"
         )
 
     if isinstance(structure, Structure):
@@ -169,23 +149,16 @@ def from_pymatgen(
     if bond_specs is None:
         bond_specs = default_bond_specs(species)
 
-    # Build frames.  Physical atoms only — periodic expansion is
-    # handled at render time by the periodic bond pipeline
-    # (compute_bonds + build_rendering_set).
-    if pbc:
-        frames = []
-        for i, s in enumerate(structures):
-            # Wrap fractional coordinates to [0, 1) so atoms sit
-            # inside the unit cell for consistent periodic bond
-            # computation at render time.
-            frac = s.frac_coords % 1.0
-            wrapped_coords = frac @ s.lattice.matrix
-            frames.append(Frame(coords=wrapped_coords, label=f"frame_{i}"))
-    else:
-        frames = [
-            Frame(coords=s.cart_coords, label=f"frame_{i}")
-            for i, s in enumerate(structures)
-        ]
+    # Build frames.  Wrap fractional coordinates to [0, 1) so atoms
+    # sit inside the unit cell for consistent periodic bond
+    # computation at render time.  Physical atoms only — periodic
+    # expansion is handled at render time by the periodic bond
+    # pipeline (compute_bonds + build_rendering_set).
+    frames = []
+    for i, s in enumerate(structures):
+        frac = s.frac_coords % 1.0
+        wrapped_coords = frac @ s.lattice.matrix
+        frames.append(Frame(coords=wrapped_coords, label=f"frame_{i}"))
 
     # Centre on first frame (unless the caller supplied a view).
     if view is None:
@@ -204,9 +177,5 @@ def from_pymatgen(
         view=view,
         title=title,
         lattice=structures[0].lattice.matrix.copy(),
-        pbc=pbc,
-        pbc_padding=pbc_padding,
-        max_recursive_depth=max_recursive_depth,
-        deduplicate_molecules=deduplicate_molecules,
         atom_data=dict(atom_data) if atom_data is not None else {},
     )

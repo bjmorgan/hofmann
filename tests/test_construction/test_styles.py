@@ -240,6 +240,33 @@ class TestRenderStyleDict:
         assert "atom_scale" not in d
         assert "cell_style" not in d
         assert "axes_style" not in d
+        assert "pbc" not in d
+        assert "pbc_padding" not in d
+        assert "max_recursive_depth" not in d
+        assert "deduplicate_molecules" not in d
+
+    def test_pbc_fields_round_trip(self):
+        style = RenderStyle(
+            pbc=False, pbc_padding=0.5,
+            max_recursive_depth=2, deduplicate_molecules=True,
+        )
+        d = style.to_dict()
+        assert d["pbc"] is False
+        assert d["pbc_padding"] == 0.5
+        assert d["max_recursive_depth"] == 2
+        assert d["deduplicate_molecules"] is True
+        restored = RenderStyle.from_dict(d)
+        assert restored.pbc is False
+        assert restored.pbc_padding == 0.5
+        assert restored.max_recursive_depth == 2
+        assert restored.deduplicate_molecules is True
+
+    def test_pbc_padding_none_round_trip(self):
+        style = RenderStyle(pbc_padding=None)
+        d = style.to_dict()
+        assert d["pbc_padding"] is None
+        restored = RenderStyle.from_dict(d)
+        assert restored.pbc_padding is None
 
 
 # -- save_styles / load_styles ------------------------------------------------

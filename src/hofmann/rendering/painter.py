@@ -89,12 +89,13 @@ def _precompute_scene(
     Returns a :class:`_PrecomputedScene` of radii, colours, bonds, and
     adjacency that stay constant across rotation / zoom changes.
     """
+    rs = render_style or RenderStyle()
     frame = scene.frames[frame_index]
     coords = frame.coords
 
     # Run periodic bond pipeline: compute bonds (with MIC when
     # periodic), then build the expanded rendering set.
-    lattice = scene.lattice if scene.pbc else None
+    lattice = scene.lattice if rs.pbc else None
     periodic_bonds = compute_bonds(
         scene.species, coords, scene.bond_specs, lattice=lattice,
     )
@@ -103,11 +104,11 @@ def _precompute_scene(
         rset = build_rendering_set(
             scene.species, coords, periodic_bonds,
             scene.bond_specs, lattice,
-            max_recursive_depth=scene.max_recursive_depth,
-            pbc_padding=scene.pbc_padding,
+            max_recursive_depth=rs.max_recursive_depth,
+            pbc_padding=rs.pbc_padding,
             polyhedra_specs=scene.polyhedra,
         )
-        if scene.deduplicate_molecules:
+        if rs.deduplicate_molecules:
             rset = deduplicate_molecules(rset, lattice)
         species = rset.species
         coords = rset.coords

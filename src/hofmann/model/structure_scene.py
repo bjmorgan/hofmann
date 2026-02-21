@@ -35,20 +35,9 @@ class StructureScene:
         title: Scene title for display.
         lattice: Unit cell lattice matrix, shape ``(3, 3)`` with rows
             as lattice vectors, or ``None`` for non-periodic structures.
-        pbc: If ``True`` (the default), the renderer uses the lattice
-            for periodic bond computation and image-atom expansion.
-            Set to ``False`` to disable all periodic boundary handling
-            even when a lattice is present.
-        pbc_padding: Cartesian margin (angstroms) around the unit cell
-            for periodic boundary handling.  ``None`` disables
-            geometric cell-face expansion.
-        max_recursive_depth: Maximum iterations for recursive bond
-            expansion.  Only relevant when one or more *bond_specs*
-            have ``recursive=True``.
-        deduplicate_molecules: If ``True``, molecules that span cell
-            boundaries and appear more than once (as a contiguous
-            cluster and as orphaned fragments) are deduplicated so
-            each molecule is shown once.
+            When a lattice is present, the renderer can use it for
+            periodic bond computation and image-atom expansion
+            (controlled by :attr:`RenderStyle.pbc`).
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
             must be a 1-D array of length ``n_atoms``.  Use
             :meth:`set_atom_data` to populate this and ``colour_by``
@@ -63,10 +52,6 @@ class StructureScene:
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
     lattice: np.ndarray | None = None
-    pbc: bool = True
-    pbc_padding: float | None = 0.1
-    max_recursive_depth: int = 5
-    deduplicate_molecules: bool = False
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
@@ -123,17 +108,18 @@ class StructureScene:
         bond_specs: list[BondSpec] | None = None,
         *,
         polyhedra: list[PolyhedronSpec] | None = None,
-        pbc: bool = True,
-        pbc_padding: float | None = 0.1,
         centre_atom: int | None = None,
-        max_recursive_depth: int = 5,
-        deduplicate_molecules: bool = False,
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
         atom_data: dict[str, np.ndarray] | None = None,
     ) -> StructureScene:
         """Create a StructureScene from pymatgen ``Structure`` object(s).
+
+        Fractional coordinates are wrapped to ``[0, 1)`` and stored as
+        Cartesian coordinates.  Periodic boundary handling (image-atom
+        expansion, recursive bond depth, molecule deduplication) is
+        controlled at render time via :class:`RenderStyle`.
 
         Args:
             structure: A single pymatgen ``Structure`` or a sequence of
@@ -143,25 +129,11 @@ class StructureScene:
                 pass an empty list to disable bonds.
             polyhedra: Polyhedron rendering rules.  ``None`` disables
                 polyhedra.
-            pbc: If ``True`` (the default), the renderer uses the
-                lattice for periodic bond computation and image-atom
-                expansion.  Set to ``False`` to disable all periodic
-                boundary handling.
-            pbc_padding: Cartesian margin (angstroms) around the unit
-                cell for geometric cell-face expansion.  Stored on the
-                scene for use by the renderer.  ``None`` disables
-                geometric expansion.
             centre_atom: Index of the atom to centre the unit cell on.
                 Fractional coordinates are shifted so this atom sits
                 at (0.5, 0.5, 0.5).  If *view* is also provided, the
                 explicit view takes precedence and only the fractional-
                 coordinate shift is applied.
-            max_recursive_depth: Maximum number of iterations for
-                recursive bond expansion (must be >= 1).  Only
-                relevant when one or more *bond_specs* have
-                ``recursive=True``.
-            deduplicate_molecules: If ``True``, molecules that span
-                cell boundaries are shown only once.
             atom_styles: Per-species style overrides.  When provided,
                 these are merged on top of the auto-generated defaults
                 so you only need to specify the species you want to
@@ -184,9 +156,7 @@ class StructureScene:
 
         return from_pymatgen(
             structure, bond_specs, polyhedra=polyhedra,
-            pbc=pbc, pbc_padding=pbc_padding, centre_atom=centre_atom,
-            max_recursive_depth=max_recursive_depth,
-            deduplicate_molecules=deduplicate_molecules,
+            centre_atom=centre_atom,
             atom_styles=atom_styles, title=title, view=view,
             atom_data=atom_data,
         )

@@ -125,6 +125,41 @@ class TestRenderStyle:
         assert style.axes_style.corner is WidgetCorner.TOP_RIGHT
         assert style.axes_style.font_size == 14.0
 
+    # ---- PBC rendering fields ----
+
+    def test_pbc_defaults(self):
+        style = RenderStyle()
+        assert style.pbc is True
+        assert style.pbc_padding == 0.1
+        assert style.max_recursive_depth == 5
+        assert style.deduplicate_molecules is False
+
+    def test_pbc_overrides(self):
+        style = RenderStyle(
+            pbc=False, pbc_padding=0.5,
+            max_recursive_depth=2, deduplicate_molecules=True,
+        )
+        assert style.pbc is False
+        assert style.pbc_padding == 0.5
+        assert style.max_recursive_depth == 2
+        assert style.deduplicate_molecules is True
+
+    def test_pbc_padding_none_disables(self):
+        style = RenderStyle(pbc_padding=None)
+        assert style.pbc_padding is None
+
+    def test_max_recursive_depth_minimum(self):
+        with pytest.raises(ValueError, match="max_recursive_depth must be >= 1"):
+            RenderStyle(max_recursive_depth=0)
+
+    def test_negative_max_recursive_depth_raises(self):
+        with pytest.raises(ValueError, match="max_recursive_depth must be >= 1"):
+            RenderStyle(max_recursive_depth=-1)
+
+    def test_negative_pbc_padding_raises(self):
+        with pytest.raises(ValueError, match="pbc_padding must be non-negative"):
+            RenderStyle(pbc_padding=-0.1)
+
 
 class TestSlabClipMode:
     def test_values(self):

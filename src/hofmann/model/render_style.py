@@ -309,9 +309,29 @@ class RenderStyle:
             suppresses drawing.
         axes_style: Visual style for the axes widget.  See
             :class:`AxesStyle`.
+        pbc: Whether to use the lattice for periodic bond
+            computation and image-atom expansion.  Only meaningful
+            when the scene has a lattice.  Set to ``False`` to
+            disable all periodic boundary handling and render only
+            the physical atoms with Euclidean bond detection.
+        pbc_padding: Cartesian margin (angstroms) for geometric
+            cell-face expansion.  Atoms within this distance of a
+            unit cell face are duplicated on the opposite side,
+            producing an expanded view of the structure.  ``None``
+            disables geometric expansion.  The default of ``0.1``
+            angstroms gives a thin shell that catches atoms sitting
+            exactly on cell edges.
+        max_recursive_depth: Maximum iterations for recursive bond
+            expansion.  Only relevant when one or more *bond_specs*
+            have ``recursive=True``.  Must be >= 1.
+        deduplicate_molecules: Whether to remove duplicate molecular
+            fragments that span cell boundaries.  When ``True``,
+            each molecule appears only once, keeping the largest
+            connected cluster.
 
     Raises:
         ValueError: If *atom_scale* or *bond_scale* are not positive,
+            *max_recursive_depth* is less than 1,
             *atom_outline_width* or *bond_outline_width* are negative,
             *circle_segments* or *interactive_circle_segments* < 3,
             *arc_segments* or *interactive_arc_segments* < 2,
@@ -340,6 +360,10 @@ class RenderStyle:
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
     show_axes: bool | None = None
     axes_style: AxesStyle = field(default_factory=AxesStyle)
+    pbc: bool = True
+    pbc_padding: float | None = 0.1
+    max_recursive_depth: int = 5
+    deduplicate_molecules: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.slab_clip_mode, str):
@@ -383,6 +407,16 @@ class RenderStyle:
             raise ValueError(
                 f"polyhedra_outline_width must be non-negative, "
                 f"got {self.polyhedra_outline_width}"
+            )
+        if self.max_recursive_depth < 1:
+            raise ValueError(
+                f"max_recursive_depth must be >= 1, "
+                f"got {self.max_recursive_depth}"
+            )
+        if self.pbc_padding is not None and self.pbc_padding < 0:
+            raise ValueError(
+                f"pbc_padding must be non-negative, "
+                f"got {self.pbc_padding}"
             )
 
     def to_dict(self) -> dict:
