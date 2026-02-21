@@ -1,6 +1,61 @@
 Changelog
 =========
 
+0.9.0
+-----
+
+- **Render-time periodic boundary pipeline.**  Periodic boundary
+  handling has moved from scene construction to render time.
+  :func:`~hofmann.from_pymatgen` no longer expands image atoms
+  at construction; instead, :class:`~hofmann.model.Bond` carries an
+  ``image`` field recording which lattice translation the bond
+  crosses, and a new ``RenderingSet`` pipeline materialises image
+  atoms on demand during rendering.  This means the same scene can be
+  rendered with different PBC settings without reconstruction.
+
+  The pipeline applies five stages in order:
+
+  1. Single-pass completion (``complete`` on :class:`~hofmann.BondSpec`)
+  2. Recursive expansion (``recursive`` on :class:`~hofmann.BondSpec`)
+  3. Geometric padding (``pbc_padding`` on :class:`~hofmann.RenderStyle`)
+  4. Polyhedra vertex completion
+  5. Molecule deduplication (``deduplicate_molecules`` on
+     :class:`~hofmann.RenderStyle`)
+
+  See :doc:`scenes` for details.
+
+- **PBC options move to RenderStyle.**  ``pbc``, ``pbc_padding``,
+  ``max_recursive_depth``, and ``deduplicate_molecules`` are now
+  fields on :class:`~hofmann.RenderStyle` rather than
+  :class:`~hofmann.StructureScene`, so rendering style is fully
+  separated from structure data.
+
+- **Two-tier periodic bond computation.**  Bond detection for periodic
+  structures dispatches based on the inscribed sphere radius of the
+  unit cell.  When all bond lengths are shorter than the inscribed
+  sphere radius (the common case), the minimum image convention (MIC)
+  gives an efficient single-pass computation.  When bond lengths are
+  comparable to cell dimensions, all 27 image offsets are checked
+  iteratively.  Both paths use O(n^2) peak memory.
+
+- **Molecule deduplication heuristics.**  Recursive expansion can
+  produce duplicate molecular fragments.  The deduplication stage
+  detects extended structures (slabs, frameworks) that wrap the unit
+  cell and protects them from removal, removes non-wrapped components
+  whose source atoms are a subset of a wrapped component, and selects
+  a canonical copy among remaining duplicates using an unwrapped
+  fractional centre-of-mass tie-breaker.
+
+- :class:`~hofmann.StructureScene` now validates that ``view`` is a
+  :class:`~hofmann.ViewState` on assignment, with a helpful hint when
+  a tuple from :func:`~hofmann.render_mpl_interactive` is
+  accidentally assigned without unpacking.
+
+- Passing ``None`` for a nullable style keyword argument (e.g.
+  ``pbc_padding=None``) in :func:`~hofmann.render_mpl` now correctly
+  passes through as an explicit override rather than being silently
+  dropped.
+
 0.8.0
 -----
 
