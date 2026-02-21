@@ -11,6 +11,7 @@ from hofmann.model import (
     AxesStyle,
     BondSpec,
     Frame,
+    LegendStyle,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
@@ -1058,3 +1059,128 @@ class TestColourBy:
         )
         # Explicit spec colour should override the colour_by value.
         assert precomputed.poly_base_colours[0] == (0.0, 0.0, 1.0)
+
+
+class TestLegendWidget:
+    """Tests for the species legend widget."""
+
+    def test_show_legend_draws_entries(self):
+        """Legend draws species labels and coloured markers."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, show=False, show_legend=True)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" in label_texts
+        # One Line2D per species for the circle marker.
+        legend_lines = [
+            l for l in ax.lines
+            if l.get_marker() == "o"
+        ]
+        assert len(legend_lines) == 2
+        plt.close(fig)
+
+    def test_show_legend_false_no_entries(self):
+        """Default show_legend=False produces no legend text."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, show=False)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" not in label_texts
+        assert "B" not in label_texts
+        plt.close(fig)
+
+    def test_auto_detect_species_order(self):
+        """Auto-detect gives unique species in first-seen order."""
+        scene = StructureScene(
+            species=["B", "A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [4.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2)),
+            },
+        )
+        fig = render_mpl(scene, show=False, show_legend=True)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        # B appears first in scene.species, then A.
+        assert label_texts == ["B", "A"]
+        plt.close(fig)
+
+    def test_explicit_species(self):
+        """Explicit species list controls inclusion and order."""
+        scene = _minimal_scene()
+        style = LegendStyle(species=("B",))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert label_texts == ["B"]
+        plt.close(fig)
+
+    def test_invisible_species_filtered(self):
+        """Auto-detect excludes species with visible=False."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2), visible=False),
+            },
+        )
+        fig = render_mpl(scene, show=False, show_legend=True)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" not in label_texts
+        plt.close(fig)
+
+    def test_explicit_species_includes_invisible(self):
+        """Explicit species list includes even invisible species."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2), visible=False),
+            },
+        )
+        style = LegendStyle(species=("A", "B"))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" in label_texts
+        plt.close(fig)
+
+    @pytest.mark.parametrize("corner", [
+        "bottom_left", "bottom_right", "top_left", "top_right",
+    ])
+    def test_all_corners(self, corner):
+        """Legend renders without error in each corner position."""
+        style = LegendStyle(corner=corner)
+        scene = _minimal_scene()
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" in label_texts
+        plt.close(fig)

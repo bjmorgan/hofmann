@@ -27,6 +27,7 @@ from hofmann.model import (
     AxesStyle,
     Bond,
     CmapSpec,
+    LegendStyle,
     RenderStyle,
     SlabClipMode,
     StructureScene,
@@ -822,6 +823,14 @@ def _draw_scene(
             pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
         )
 
+    if style.show_legend:
+        _draw_legend_widget(
+            ax, scene, style.legend_style,
+            pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
+            outline_colour=outline_rgb if show_outlines else None,
+            outline_width=atom_outline_width,
+        )
+
 
 def _draw_axes_widget(
     ax: "Axes",
@@ -966,6 +975,154 @@ def _draw_axes_widget(
             fontstyle=fontstyle,
             color=colour_rgb,
             ha="center",
+            va="center",
+            zorder=11,
+            path_effects=[
+                path_effects.withStroke(
+                    linewidth=stroke_width, foreground="white",
+                ),
+            ],
+        )
+
+
+_GREY_FALLBACK = (0.5, 0.5, 0.5)
+
+
+def _draw_legend_widget(
+    ax: Axes,
+    scene: StructureScene,
+    style: LegendStyle,
+    pad_x: float,
+    pad_y: float,
+    cx: float = 0.0,
+    cy: float = 0.0,
+    outline_colour: tuple[float, float, float] | None = None,
+    outline_width: float = 1.0,
+) -> None:
+    """Draw a species legend widget on *ax*.
+
+    A vertical column of coloured circles with species labels beside
+    them.  Each entry corresponds to one atomic species.
+
+    This function adds ``Line2D`` artists (circle markers) and text
+    labels.  These are cleaned up on the next call to
+    :func:`_draw_scene` via the ``ax.lines[:]`` and ``ax.texts[:]``
+    removal.
+
+    Args:
+        ax: A matplotlib ``Axes`` to draw into.
+        scene: The structure scene (provides species and atom styles).
+        style: Visual style for the widget.
+        pad_x: Viewport half-extent in the x direction (data coords).
+        pad_y: Viewport half-extent in the y direction (data coords).
+        cx: Viewport centre x coordinate.
+        cy: Viewport centre y coordinate.
+        outline_colour: Outline colour for legend circles, or ``None``
+            to disable outlines.
+        outline_width: Line width for circle outlines in points.
+    """
+    # ---- Determine species list ----
+    if style.species is not None:
+        species_list = list(style.species)
+    else:
+        # Auto-detect: unique species in first-seen order, visible only.
+        seen: dict[str, None] = {}
+        for sp in scene.species:
+            if sp not in seen:
+                atom_style = scene.atom_styles.get(sp)
+                if atom_style is None or atom_style.visible:
+                    seen[sp] = None
+        species_list = list(seen)
+
+    if not species_list:
+        return
+
+    # ---- Display-space scaling ----
+    pad = max(pad_x, pad_y)
+    fig = ax.get_figure()
+    if not isinstance(fig, Figure):
+        raise ValueError("ax is not attached to a Figure")
+    ax_width_in = fig.get_figwidth() * ax.get_position().width
+    pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
+
+    # Same reference as the axes widget: single subplot in a 4-inch figure.
+    _REFERENCE_ARROW_PTS = 0.12 * 72.0 / 2.0 * 3.1
+    arrow_len_pts = 0.12 * pad * pts_per_data
+    scale = arrow_len_pts / _REFERENCE_ARROW_PTS
+
+    font_size = style.font_size * scale
+    circle_radius = style.circle_radius * scale
+    spacing = style.spacing * scale
+    stroke_width = 3.0 * scale
+
+    # Convert sizes from points to data coordinates for positioning.
+    circle_r_data = circle_radius / pts_per_data
+    spacing_data = spacing / pts_per_data
+    font_data = font_size / pts_per_data
+    entry_height = max(2 * circle_r_data, font_data)
+
+    # ---- Anchor position ----
+    # The anchor is the circle centre for the first legend entry.
+    # Label is always to the right of the circle (circle-left,
+    # label-right) for natural left-to-right reading order.
+    n_entries = len(species_list)
+    total_height = (
+        (n_entries - 1) * (entry_height + spacing_data) + entry_height
+    )
+    label_offset = circle_r_data + font_data * 0.5
+
+    if isinstance(style.corner, tuple):
+        fx, fy = style.corner
+        anchor_x = (cx - pad_x) + 2 * pad_x * fx
+        anchor_y = (cy - pad_y) + 2 * pad_y * fy
+    else:
+        inset_x = style.margin * pad_x
+        inset_y = style.margin * pad_y
+        if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.TOP_LEFT):
+            anchor_x = (cx - pad_x) + inset_x + circle_r_data
+        else:
+            anchor_x = (cx + pad_x) - inset_x - circle_r_data
+        if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.BOTTOM_RIGHT):
+            anchor_y = (cy - pad_y) + inset_y + total_height
+        else:
+            anchor_y = (cy + pad_y) - inset_y
+
+    # ---- Draw entries ----
+    # Always stack downward from the anchor (top of legend).
+    for i, sp in enumerate(species_list):
+        y_i = anchor_y - i * (entry_height + spacing_data)
+
+        atom_style = scene.atom_styles.get(sp)
+        if atom_style is not None:
+            rgb = normalise_colour(atom_style.colour)
+        else:
+            rgb = _GREY_FALLBACK
+
+        edge_colour = outline_colour if outline_colour is not None else rgb
+        edge_width = outline_width * scale if outline_colour is not None else 0.0
+
+        ax.plot(
+            anchor_x, y_i,
+            marker="o",
+            markersize=circle_radius * 2,
+            markerfacecolor=rgb,
+            markeredgecolor=edge_colour,
+            markeredgewidth=edge_width,
+            linestyle="None",
+            zorder=10,
+        )
+
+        # Nudge text down to visually centre with the marker.
+        # va="center" includes descender space in the bounding box,
+        # so caps-only labels sit too high; -0.12 * font_data
+        # compensates.
+        text_y = y_i - 0.12 * font_data
+
+        ax.text(
+            anchor_x + label_offset, text_y, sp,
+            fontsize=font_size,
+            color=(0.0, 0.0, 0.0),
+            ha="left",
             va="center",
             zorder=11,
             path_effects=[

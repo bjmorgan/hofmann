@@ -1,10 +1,11 @@
-"""Tests for RenderStyle, SlabClipMode, CellEdgeStyle, WidgetCorner, and AxesStyle."""
+"""Tests for RenderStyle, SlabClipMode, CellEdgeStyle, WidgetCorner, AxesStyle, and LegendStyle."""
 
 import pytest
 
 from hofmann.model.render_style import (
     AxesStyle,
     CellEdgeStyle,
+    LegendStyle,
     RenderStyle,
     SlabClipMode,
     WidgetCorner,
@@ -124,6 +125,21 @@ class TestRenderStyle:
         style = RenderStyle(axes_style=ws)
         assert style.axes_style.corner is WidgetCorner.TOP_RIGHT
         assert style.axes_style.font_size == 14.0
+
+    def test_show_legend_default_false(self):
+        style = RenderStyle()
+        assert style.show_legend is False
+
+    def test_legend_style_default(self):
+        style = RenderStyle()
+        assert isinstance(style.legend_style, LegendStyle)
+        assert style.legend_style.corner is WidgetCorner.BOTTOM_RIGHT
+
+    def test_legend_style_override(self):
+        ls = LegendStyle(corner="top_left", font_size=14.0)
+        style = RenderStyle(legend_style=ls)
+        assert style.legend_style.corner is WidgetCorner.TOP_LEFT
+        assert style.legend_style.font_size == 14.0
 
     # ---- PBC rendering fields ----
 
@@ -290,3 +306,79 @@ class TestAxesStyle:
     def test_corner_tuple_wrong_length_raises(self):
         with pytest.raises(ValueError, match="corner tuple must have 2 elements"):
             AxesStyle(corner=(0.1, 0.2, 0.3))
+
+
+class TestLegendStyle:
+    def test_defaults(self):
+        style = LegendStyle()
+        assert style.corner is WidgetCorner.BOTTOM_RIGHT
+        assert style.margin == 0.15
+        assert style.font_size == 10.0
+        assert style.circle_radius == 5.0
+        assert style.spacing == 2.5
+        assert style.species is None
+
+    def test_custom_values(self):
+        style = LegendStyle(
+            corner="top_left",
+            margin=0.2,
+            font_size=12.0,
+            circle_radius=8.0,
+            spacing=4.0,
+            species=("Na", "Cl"),
+        )
+        assert style.corner is WidgetCorner.TOP_LEFT
+        assert style.margin == 0.2
+        assert style.font_size == 12.0
+        assert style.circle_radius == 8.0
+        assert style.spacing == 4.0
+        assert style.species == ("Na", "Cl")
+
+    def test_is_frozen(self):
+        style = LegendStyle()
+        with pytest.raises(AttributeError):
+            style.font_size = 14.0
+
+    def test_corner_string_coercion(self):
+        style = LegendStyle(corner="top_left")
+        assert style.corner is WidgetCorner.TOP_LEFT
+
+    def test_negative_font_size_raises(self):
+        with pytest.raises(ValueError, match="font_size must be positive"):
+            LegendStyle(font_size=-1.0)
+
+    def test_zero_font_size_raises(self):
+        with pytest.raises(ValueError, match="font_size must be positive"):
+            LegendStyle(font_size=0)
+
+    def test_negative_circle_radius_raises(self):
+        with pytest.raises(ValueError, match="circle_radius must be positive"):
+            LegendStyle(circle_radius=-1.0)
+
+    def test_zero_circle_radius_raises(self):
+        with pytest.raises(ValueError, match="circle_radius must be positive"):
+            LegendStyle(circle_radius=0)
+
+    def test_negative_spacing_raises(self):
+        with pytest.raises(ValueError, match="spacing must be non-negative"):
+            LegendStyle(spacing=-0.1)
+
+    def test_negative_margin_raises(self):
+        with pytest.raises(ValueError, match="margin must be non-negative"):
+            LegendStyle(margin=-0.1)
+
+    def test_corner_tuple(self):
+        style = LegendStyle(corner=(0.1, 0.9))
+        assert style.corner == (0.1, 0.9)
+
+    def test_corner_tuple_wrong_length_raises(self):
+        with pytest.raises(ValueError, match="corner tuple must have 2 elements"):
+            LegendStyle(corner=(0.1, 0.2, 0.3))
+
+    def test_species_tuple(self):
+        style = LegendStyle(species=("Na", "Cl"))
+        assert style.species == ("Na", "Cl")
+
+    def test_empty_species_raises(self):
+        with pytest.raises(ValueError, match="species must be non-empty"):
+            LegendStyle(species=())

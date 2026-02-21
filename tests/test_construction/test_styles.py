@@ -11,6 +11,7 @@ from hofmann.model import (
     BondSpec,
     CellEdgeStyle,
     Frame,
+    LegendStyle,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
@@ -192,6 +193,47 @@ class TestAxesStyleDict:
         assert restored.corner == (0.1, 0.9)
 
 
+# -- LegendStyle --------------------------------------------------------------
+
+class TestLegendStyleDict:
+    def test_default_is_empty(self):
+        style = LegendStyle()
+        assert style.to_dict() == {}
+
+    def test_round_trip(self):
+        style = LegendStyle(
+            corner=WidgetCorner.TOP_LEFT,
+            font_size=12.0,
+            circle_radius=8.0,
+            spacing=4.0,
+        )
+        d = style.to_dict()
+        restored = LegendStyle.from_dict(d)
+        assert restored.corner is WidgetCorner.TOP_LEFT
+        assert restored.font_size == 12.0
+        assert restored.circle_radius == 8.0
+        assert restored.spacing == 4.0
+
+    def test_species_round_trip(self):
+        style = LegendStyle(species=("Na", "Cl"))
+        d = style.to_dict()
+        assert d["species"] == ["Na", "Cl"]
+        restored = LegendStyle.from_dict(d)
+        assert restored.species == ("Na", "Cl")
+
+    def test_explicit_corner_tuple(self):
+        style = LegendStyle(corner=(0.1, 0.9))
+        d = style.to_dict()
+        assert d["corner"] == [0.1, 0.9]
+        restored = LegendStyle.from_dict(d)
+        assert restored.corner == (0.1, 0.9)
+
+    def test_species_none_omitted(self):
+        style = LegendStyle()
+        d = style.to_dict()
+        assert "species" not in d
+
+
 # -- RenderStyle --------------------------------------------------------------
 
 class TestRenderStyleDict:
@@ -234,12 +276,30 @@ class TestRenderStyleDict:
         restored = RenderStyle.from_dict(d)
         assert restored.axes_style.font_size == 14.0
 
+    def test_nested_legend_style(self):
+        style = RenderStyle(
+            legend_style=LegendStyle(font_size=14.0),
+        )
+        d = style.to_dict()
+        assert "legend_style" in d
+        restored = RenderStyle.from_dict(d)
+        assert restored.legend_style.font_size == 14.0
+
+    def test_show_legend_round_trip(self):
+        style = RenderStyle(show_legend=True)
+        d = style.to_dict()
+        assert d["show_legend"] is True
+        restored = RenderStyle.from_dict(d)
+        assert restored.show_legend is True
+
     def test_defaults_omitted(self):
         style = RenderStyle()
         d = style.to_dict()
         assert "atom_scale" not in d
         assert "cell_style" not in d
         assert "axes_style" not in d
+        assert "legend_style" not in d
+        assert "show_legend" not in d
         assert "pbc" not in d
         assert "pbc_padding" not in d
         assert "max_recursive_depth" not in d
