@@ -8,12 +8,26 @@ indices into coordinate arrays.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from fnmatch import fnmatch
 
 import numpy as np
 
 from hofmann.model import Bond, BondSpec
+
+# 3-element lattice-shift vector, e.g. (0, 1, -1).
+ImageVector = tuple[int, int, int]
+
+
+def _neg_image(img: ImageVector) -> ImageVector:
+    """Negate a 3-element image vector."""
+    return (-img[0], -img[1], -img[2])
+
+
+def _add_images(a: ImageVector, b: ImageVector) -> ImageVector:
+    """Element-wise addition of two image vectors."""
+    return (a[0] + b[0], a[1] + b[1], a[2] + b[2])
 
 
 @dataclass
@@ -59,8 +73,8 @@ def _expand_padding(
     lattice: np.ndarray,
     n_physical: int,
     pbc_padding: float,
-    materialise: object,
-) -> list[tuple[int, tuple[int, int, int], int]]:
+    materialise: Callable[[int, ImageVector], int],
+) -> list[tuple[int, ImageVector, int]]:
     """Materialise image atoms for physical atoms near cell faces.
 
     For each physical atom within *pbc_padding* angstroms of a unit
@@ -92,7 +106,7 @@ def _expand_padding(
     # For each axis, determine threshold in fractional coordinates.
     frac_thresholds = pbc_padding / heights
 
-    new_atoms: list[tuple[int, tuple[int, int, int], int]] = []
+    new_atoms: list[tuple[int, ImageVector, int]] = []
     for i in range(n_physical):
         frac = frac_coords[i]
         # Per-axis shifts needed.
@@ -118,12 +132,12 @@ def _expand_padding(
 
 
 def _discover_bonds_for_new_atoms(
-    new_atoms: list[tuple[int, tuple[int, int, int], int]],
+    new_atoms: list[tuple[int, ImageVector, int]],
     periodic_bonds: list[Bond],
     coords: np.ndarray,
     lattice: np.ndarray,
     n_physical: int,
-    image_registry: dict[tuple[int, tuple[int, int, int]], int],
+    image_registry: dict[tuple[int, ImageVector], int],
     image_coords_list: list[np.ndarray],
     rendering_bonds: list[Bond],
 ) -> None:
@@ -145,21 +159,19 @@ def _discover_bonds_for_new_atoms(
         rendering_bonds: Mutable list to append new bonds to.
     """
     # Build per-atom bond lookup.
-    atom_bonds: dict[int, list[tuple[int, tuple[int, int, int], BondSpec]]] = {}
+    atom_bonds: dict[int, list[tuple[int, ImageVector, BondSpec]]] = {}
     for bond in periodic_bonds:
         a, b = bond.index_a, bond.index_b
         img = bond.image
         atom_bonds.setdefault(a, []).append((b, img, bond.spec))
-        neg_img = tuple(-x for x in img)
+        neg_img = _neg_image(img)
         atom_bonds.setdefault(b, []).append((a, neg_img, bond.spec))
 
     for phys_idx, shift, exp_idx in new_atoms:
         if phys_idx not in atom_bonds:
             continue
         for other_phys, bond_img, spec in atom_bonds[phys_idx]:
-            target_shift = tuple(
-                s + i for s, i in zip(shift, bond_img)
-            )
+            target_shift = _add_images(shift, bond_img)
             # Find the target in the expanded set.
             if target_shift == (0, 0, 0):
                 target_idx = other_phys
@@ -189,9 +201,9 @@ def _complete_polyhedra_vertices(
     n_physical: int,
     periodic_bonds: list[Bond],
     polyhedra_specs: list,
-    image_registry: dict[tuple[int, tuple[int, int, int]], int],
-    materialise: object,
-) -> list[tuple[int, tuple[int, int, int], int]]:
+    image_registry: dict[tuple[int, ImageVector], int],
+    materialise: Callable[[int, ImageVector], int],
+) -> list[tuple[int, ImageVector, int]]:
     """Ensure polyhedron centres have complete coordination shells.
 
     For each atom (physical or image) matching a
@@ -225,19 +237,19 @@ def _complete_polyhedra_vertices(
         return any(fnmatch(sp, pat) for pat in centre_patterns)
 
     # Build per-atom bond lookup from periodic bonds.
-    atom_bonds: dict[int, list[tuple[int, tuple[int, int, int], BondSpec]]] = {}
+    atom_bonds: dict[int, list[tuple[int, ImageVector, BondSpec]]] = {}
     for bond in periodic_bonds:
         a, b = bond.index_a, bond.index_b
         img = bond.image
         atom_bonds.setdefault(a, []).append((b, img, bond.spec))
-        neg_img = tuple(-x for x in img)
+        neg_img = _neg_image(img)
         atom_bonds.setdefault(b, []).append((a, neg_img, bond.spec))
 
-    new_atoms: list[tuple[int, tuple[int, int, int], int]] = []
+    new_atoms: list[tuple[int, ImageVector, int]] = []
 
     # Snapshot of all atoms to check (physical + current images).
     # We freeze this before adding vertices so the step is single-pass.
-    atoms_to_check: list[tuple[int, tuple[int, int, int]]] = [
+    atoms_to_check: list[tuple[int, ImageVector]] = [
         (i, (0, 0, 0)) for i in range(n_physical)
     ] + list(image_registry.keys())
 
@@ -248,9 +260,7 @@ def _complete_polyhedra_vertices(
             continue
 
         for other_phys, bond_img, spec in atom_bonds[phys_idx]:
-            target_shift = tuple(
-                s + i for s, i in zip(shift, bond_img)
-            )
+            target_shift = _add_images(shift, bond_img)
             if target_shift == (0, 0, 0):
                 continue  # Physical atom, already exists.
             target_key = (other_phys, target_shift)
@@ -316,12 +326,12 @@ def build_rendering_set(
             periodic.append(bond)
 
     # Image atom registry: (physical_index, image_tuple) → expanded index.
-    image_registry: dict[tuple[int, tuple[int, int, int]], int] = {}
+    image_registry: dict[tuple[int, ImageVector], int] = {}
     image_species: list[str] = []
     image_coords_list: list[np.ndarray] = []
     image_source: list[int] = []
 
-    def _materialise(phys_idx: int, image: tuple[int, int, int]) -> int:
+    def _materialise(phys_idx: int, image: ImageVector) -> int:
         """Ensure an image atom exists and return its expanded index."""
         key = (phys_idx, image)
         if key in image_registry:
@@ -355,7 +365,7 @@ def build_rendering_set(
             )
 
         # complete matches species[b] → materialise image of a
-        neg_img = tuple(-x for x in img)
+        neg_img = _neg_image(img)
         if _complete_matches(spec.complete, species[b]):
             a_img_idx = _materialise(a, neg_img)
             rendering_bonds.append(
@@ -369,7 +379,7 @@ def build_rendering_set(
         # via recursive specs.
         # atom_periodic_bonds[phys_idx] = [(other_phys_idx, image, spec), ...]
         atom_periodic_bonds: dict[
-            int, list[tuple[int, tuple[int, int, int], BondSpec]]
+            int, list[tuple[int, ImageVector, BondSpec]]
         ] = {}
         for bond in periodic_bonds:
             if not bond.spec.recursive:
@@ -378,14 +388,14 @@ def build_rendering_set(
             img = bond.image
             atom_periodic_bonds.setdefault(a, []).append((b, img, bond.spec))
             # Reverse direction: b sees a at -image
-            neg_img = tuple(-x for x in img)
+            neg_img = _neg_image(img)
             atom_periodic_bonds.setdefault(b, []).append(
                 (a, neg_img, bond.spec)
             )
 
         # Seed: physical atoms are at shift (0, 0, 0).
         # atom_shifts maps (phys_idx, shift) → expanded index.
-        atom_shifts: dict[tuple[int, tuple[int, int, int]], int] = {}
+        atom_shifts: dict[tuple[int, ImageVector], int] = {}
         for i in range(n_physical):
             atom_shifts[(i, (0, 0, 0))] = i
 
@@ -394,20 +404,18 @@ def build_rendering_set(
         # since recursive specs skip the complete path above.
 
         # Queue of atoms to process: (physical_index, shift, expanded_index)
-        queue: list[tuple[int, tuple[int, int, int], int]] = [
+        queue: list[tuple[int, ImageVector, int]] = [
             (i, (0, 0, 0), i) for i in range(n_physical)
         ]
 
         for _ in range(max_recursive_depth):
-            next_queue: list[tuple[int, tuple[int, int, int], int]] = []
+            next_queue: list[tuple[int, ImageVector, int]] = []
             for phys_idx, shift, exp_idx in queue:
                 if phys_idx not in atom_periodic_bonds:
                     continue
                 for other_phys, bond_img, spec in atom_periodic_bonds[phys_idx]:
                     # Target shift = current shift + bond image
-                    target_shift = tuple(
-                        s + i for s, i in zip(shift, bond_img)
-                    )
+                    target_shift = _add_images(shift, bond_img)
                     target_key = (other_phys, target_shift)
 
                     if target_key in atom_shifts:
@@ -454,7 +462,7 @@ def build_rendering_set(
 
     # --- Geometric padding (pbc_padding) ---
     # Materialise image atoms for physical atoms near cell faces.
-    padding_new_atoms: list[tuple[int, tuple[int, int, int], int]] = []
+    padding_new_atoms: list[tuple[int, ImageVector, int]] = []
     if pbc_padding is not None and pbc_padding > 0:
         padding_new_atoms = _expand_padding(
             coords, lattice, n_physical, pbc_padding, _materialise,
@@ -668,6 +676,7 @@ def deduplicate_molecules(
                 best_score = score
                 best_root = root
 
+        assert best_root is not None  # group_roots has >= 2 elements
         keep_atoms.update(components[best_root])
 
     # --- Remove orphaned image atoms ---

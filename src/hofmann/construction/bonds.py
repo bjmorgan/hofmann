@@ -166,7 +166,11 @@ def _compute_bonds_periodic(
             for idx in range(len(kk)):
                 k = int(kk[idx])
                 i, j = int(ii[idx]), int(jj[idx])
-                image = tuple(int(x) for x in img_offsets[k])
+                image = (
+                    int(img_offsets[k][0]),
+                    int(img_offsets[k][1]),
+                    int(img_offsets[k][2]),
+                )
                 bonds.append(
                     Bond(i, j, float(dist_all[k, i, j]), spec, image=image)
                 )
