@@ -697,6 +697,39 @@ class TestDeduplicateMolecules:
             src = deduped.source_indices[i]
             assert species[src] == sp
 
+    def test_wrapped_component_preserves_edge_fragments(self):
+        """Extended structure with edge fragments is not deduplicated.
+
+        Simulates a slab-like structure: a chain of X atoms bonded
+        along x in a small cell (so the chain wraps around the cell).
+        With padding, image atoms at the boundary form small fragments
+        that share source atoms with the main wrapped component.
+        These fragments should be kept, not discarded.
+        """
+        # Chain of 3 atoms bonded along x in a 6 A cell.
+        # Atom 0 near left face, atom 2 near right face.
+        species = ["X", "X", "X"]
+        lattice = np.diag([6.0, 10.0, 10.0])
+        coords = np.array([
+            [0.5, 5.0, 5.0],
+            [2.5, 5.0, 5.0],
+            [4.5, 5.0, 5.0],
+        ])
+        # X-X bonds with max 2.5 A: bonds 0-1 (2.0), 1-2 (2.0),
+        # and 2-0 across boundary (2.0 via image).
+        # The chain wraps: 0-1-2-0'-1'-2' ...
+        spec = BondSpec(species=("X", "X"), min_length=0.0,
+                        max_length=2.5, radius=0.1, colour=1.0)
+        bonds = compute_bonds(species, coords, [spec], lattice=lattice)
+        rset = build_rendering_set(
+            species, coords, bonds, [spec], lattice,
+            pbc_padding=1.0,
+        )
+        n_before = len(rset.species)
+        deduped = deduplicate_molecules(rset, lattice)
+        # The main component wraps, so edge fragments should be kept.
+        assert len(deduped.species) == n_before
+
     def test_bond_indices_valid_after_dedup(self):
         """Bond indices reference valid positions after deduplication."""
         species = ["A", "B", "C"]

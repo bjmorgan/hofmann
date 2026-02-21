@@ -529,6 +529,12 @@ def deduplicate_molecules(
     share source atoms, and keeps only the canonical representative of
     each group.
 
+    Extended structures (slabs, frameworks) that wrap around the
+    periodic cell are detected and left untouched.  A component
+    "wraps" when it contains both a physical atom and an image of
+    that atom (the same source index appears more than once),
+    indicating a structure that is infinite in at least one direction.
+
     The canonical component is chosen by lexicographic comparison of
     ``(n_atoms, n_physical, -frac_com)``, where *frac_com* is the
     fractional centre of mass.  This selects the largest fragment,
@@ -621,6 +627,23 @@ def deduplicate_molecules(
         if len(group_roots) == 1:
             # Only one component in this group — keep it.
             keep_atoms.update(components[group_roots[0]])
+            continue
+
+        # Check if any component in this group wraps around the cell.
+        # A component wraps when it contains both a physical atom and
+        # an image of that atom (i.e. the same source index appears
+        # more than once).  This identifies extended structures (slabs,
+        # frameworks) whose edge fragments should not be discarded.
+        group_wraps = False
+        for root in group_roots:
+            members = components[root]
+            if len(source_sets[root]) < len(members):
+                group_wraps = True
+                break
+
+        if group_wraps:
+            for root in group_roots:
+                keep_atoms.update(components[root])
             continue
 
         # Score each component: (n_atoms, n_physical, frac_key).
