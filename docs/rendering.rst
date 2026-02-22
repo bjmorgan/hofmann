@@ -325,6 +325,14 @@ species appear and in what order, pass an explicit ``species`` tuple:
 
    LegendStyle(species=("O", "Ti", "Sr"))
 
+The ``spacing`` and ``label_gap`` parameters control the vertical gap
+between entries and the horizontal gap between each circle and its
+label, respectively (both in points):
+
+.. code-block:: python
+
+   LegendStyle(spacing=5.0, label_gap=8.0)
+
 Circle sizing
 ~~~~~~~~~~~~~
 

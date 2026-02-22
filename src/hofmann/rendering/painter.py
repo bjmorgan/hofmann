@@ -1100,7 +1100,8 @@ def _draw_legend_widget(
     total_height = (
         (n_entries - 1) * (entry_height + spacing_data) + entry_height
     )
-    label_offset = max_circle_r_data + font_data * 0.5
+    label_gap_data = style.label_gap * scale / pts_per_data
+    label_offset = max_circle_r_data + label_gap_data
 
     if isinstance(style.corner, tuple):
         fx, fy = style.corner

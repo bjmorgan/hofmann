@@ -257,6 +257,18 @@ class TestLegendStyleDict:
         d = style.to_dict()
         assert d["circle_radius"] == 7.0
 
+    def test_label_gap_round_trip(self):
+        style = LegendStyle(label_gap=8.0)
+        d = style.to_dict()
+        assert d["label_gap"] == 8.0
+        restored = LegendStyle.from_dict(d)
+        assert restored.label_gap == 8.0
+
+    def test_label_gap_default_omitted(self):
+        style = LegendStyle()
+        d = style.to_dict()
+        assert "label_gap" not in d
+
 
 # -- RenderStyle --------------------------------------------------------------
 

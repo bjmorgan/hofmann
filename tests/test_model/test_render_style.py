@@ -412,3 +412,12 @@ class TestLegendStyle:
     def test_circle_radius_dict_empty_raises(self):
         with pytest.raises(ValueError, match="circle_radius dict must be non-empty"):
             LegendStyle(circle_radius={})
+
+    # ---- label_gap ----
+
+    def test_label_gap_default(self):
+        assert LegendStyle().label_gap == 5.0
+
+    def test_label_gap_negative_raises(self):
+        with pytest.raises(ValueError, match="label_gap must be non-negative"):
+            LegendStyle(label_gap=-1.0)

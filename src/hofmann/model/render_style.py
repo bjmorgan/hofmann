@@ -262,6 +262,8 @@ class LegendStyle:
               Species not present in the dict use the class default
               (5.0 points).
         spacing: Vertical gap between legend entries in points.
+        label_gap: Horizontal gap between the circle edge and the
+            species label in points.
         species: Explicit list of species to include, in display
             order.  ``None`` (the default) auto-detects from the
             scene: unique species in first-seen order, filtered to
@@ -273,6 +275,7 @@ class LegendStyle:
     font_size: float = 10.0
     circle_radius: float | tuple[float, float] | dict[str, float] = 5.0
     spacing: float = 2.5
+    label_gap: float = 5.0
     species: tuple[str, ...] | None = None
 
     def __post_init__(self) -> None:
@@ -315,6 +318,10 @@ class LegendStyle:
         if self.spacing < 0:
             raise ValueError(
                 f"spacing must be non-negative, got {self.spacing}"
+            )
+        if self.label_gap < 0:
+            raise ValueError(
+                f"label_gap must be non-negative, got {self.label_gap}"
             )
         if self.margin < 0:
             raise ValueError(

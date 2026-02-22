@@ -1251,6 +1251,25 @@ class TestLegendWidget:
         plt.close(fig)
 
 
+    def test_label_gap_affects_text_position(self):
+        scene = _minimal_scene()
+        fig_narrow = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=LegendStyle(label_gap=0.0),
+        )
+        fig_wide = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=LegendStyle(label_gap=20.0),
+        )
+        ax_narrow = fig_narrow.axes[0]
+        ax_wide = fig_wide.axes[0]
+        x_narrow = ax_narrow.texts[0].get_position()[0]
+        x_wide = ax_wide.texts[0].get_position()[0]
+        assert x_wide > x_narrow
+        plt.close(fig_narrow)
+        plt.close(fig_wide)
+
+
 class TestRenderLegend:
     """Tests for the standalone render_legend function."""
 
