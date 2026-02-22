@@ -311,13 +311,14 @@ def render_legend(
     # requested figsize (centring the content).
     from matplotlib.transforms import Bbox
 
-    renderer = fig.canvas.get_renderer()
+    renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
     bboxes = [
         t.get_window_extent(renderer) for t in ax.texts
     ] + [
         line.get_window_extent(renderer) for line in ax.lines
         if line.get_marker() == "o"
     ]
+    bbox_inches: Bbox | str
     if bboxes:
         legend_bb = Bbox.union(bboxes)
         pad_px = 15
