@@ -230,6 +230,10 @@ class AxesStyle:
         return cls(**kwargs)
 
 
+_DEFAULT_CIRCLE_RADIUS: float = 5.0
+"""Default legend circle radius in points."""
+
+
 @dataclass(frozen=True)
 class LegendStyle:
     """Visual style for the species legend widget.
@@ -273,7 +277,7 @@ class LegendStyle:
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_RIGHT
     margin: float = 0.15
     font_size: float = 10.0
-    circle_radius: float | tuple[float, float] | dict[str, float] = 5.0
+    circle_radius: float | tuple[float, float] | dict[str, float] = _DEFAULT_CIRCLE_RADIUS
     spacing: float = 2.5
     label_gap: float = 5.0
     species: tuple[str, ...] | None = None
@@ -347,7 +351,7 @@ class LegendStyle:
             d["circle_radius"] = list(self.circle_radius)
         elif isinstance(self.circle_radius, dict):
             d["circle_radius"] = dict(self.circle_radius)
-        elif self.circle_radius != 5.0:
+        elif self.circle_radius != _DEFAULT_CIRCLE_RADIUS:
             d["circle_radius"] = self.circle_radius
         if isinstance(self.corner, WidgetCorner):
             if self.corner != type(self).corner:

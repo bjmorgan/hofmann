@@ -33,6 +33,7 @@ from hofmann.model import (
     StructureScene,
     ViewState,
     WidgetCorner,
+    _DEFAULT_CIRCLE_RADIUS,
     normalise_colour,
     resolve_atom_colours,
 )
@@ -46,6 +47,10 @@ from hofmann.rendering.projection import _make_unit_circle
 
 # Font size (points) for scene titles rendered inside the viewport.
 _TITLE_FONT_SIZE = 12.0
+
+# Reference size in points for widget scaling.  Corresponds to a
+# single subplot in a 4-inch figure: 0.12 * 72 / 2 * 3.1 ≈ 13.3 pts.
+_REFERENCE_WIDGET_PTS = 0.12 * 72.0 / 2.0 * 3.1
 
 
 @dataclass
@@ -898,9 +903,7 @@ def _draw_axes_widget(
     ax_width_in = fig.get_figwidth() * ax.get_position().width
     pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
     arrow_len_pts = arrow_len * pts_per_data
-    # Reference: 0.12 * 72 / 2 * 3.1 = ~13.3 pts (single subplot in 4-inch fig)
-    _REFERENCE_ARROW_PTS = 0.12 * 72.0 / 2.0 * 3.1
-    scale = arrow_len_pts / _REFERENCE_ARROW_PTS
+    scale = arrow_len_pts / _REFERENCE_WIDGET_PTS
     font_size = style.font_size * scale
     line_width = style.line_width * scale
     stroke_width = 3.0 * scale
@@ -1045,10 +1048,8 @@ def _draw_legend_widget(
     ax_width_in = fig.get_figwidth() * ax.get_position().width
     pts_per_data = ax_width_in * 72.0 / (2.0 * pad_x)
 
-    # Same reference as the axes widget: single subplot in a 4-inch figure.
-    _REFERENCE_ARROW_PTS = 0.12 * 72.0 / 2.0 * 3.1
     arrow_len_pts = 0.12 * pad * pts_per_data
-    scale = arrow_len_pts / _REFERENCE_ARROW_PTS
+    scale = arrow_len_pts / _REFERENCE_WIDGET_PTS
 
     font_size = style.font_size * scale
     spacing = style.spacing * scale
@@ -1074,9 +1075,8 @@ def _draw_legend_widget(
                 for sp, r in atom_radii.items()
             }
     elif isinstance(style.circle_radius, dict):
-        _DEFAULT_R = 5.0
         species_radius_pts = {
-            sp: style.circle_radius.get(sp, _DEFAULT_R)
+            sp: style.circle_radius.get(sp, _DEFAULT_CIRCLE_RADIUS)
             for sp in species_list
         }
     else:

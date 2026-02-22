@@ -259,14 +259,17 @@ def render_legend(
             Useful for embedding in documents or web pages with
             non-white backgrounds.
         figsize: Figure size in inches ``(width, height)``.  When
-            provided the figure is saved at this exact size; when
-            ``None`` (the default) the figure is tight-cropped to
-            the legend artists.
+            provided the saved image is this exact size with the
+            legend centred inside; when ``None`` (the default) the
+            saved image is tight-cropped to the legend artists.
+            Only affects the saved file — the returned figure always
+            uses a fixed internal canvas.
 
     Returns:
         The matplotlib :class:`~matplotlib.figure.Figure`.  When
         *output* is given the figure is saved and then closed;
-        otherwise it remains open for further manipulation.
+        otherwise it remains open for further manipulation (note
+        that the figure canvas is larger than the cropped output).
 
     Example::
 
@@ -306,6 +309,10 @@ def render_legend(
         outline_colour=ol_rgb,
         outline_width=outline_width,
     )
+
+    # Materialise artist positions so get_window_extent returns
+    # accurate bounding boxes (required by some backends).
+    fig.canvas.draw()  # type: ignore[union-attr]
 
     # Crop to the legend artists, then optionally expand to the
     # requested figsize (centring the content).

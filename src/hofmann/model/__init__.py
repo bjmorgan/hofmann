@@ -22,6 +22,7 @@ from hofmann.model.render_style import (
     RenderStyle,
     SlabClipMode,
     WidgetCorner,
+    _DEFAULT_CIRCLE_RADIUS,
 )
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
