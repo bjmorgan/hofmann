@@ -86,6 +86,7 @@ class BondSpec:
     @staticmethod
     def _validate_colour(value: Colour | None) -> None:
         if value is not None:
+            # normalise_colour raises ValueError for invalid input.
             normalise_colour(value)
 
     @staticmethod
