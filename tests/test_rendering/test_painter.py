@@ -1040,8 +1040,8 @@ class TestColourBy:
         )
         # The polyhedron should inherit (1.0, 0.0, 0.0) from the cmap,
         # not the Ti species colour.
-        assert len(precomputed.poly_base_colours) == 1
-        assert precomputed.poly_base_colours[0] == (1.0, 0.0, 0.0)
+        assert len(precomputed.poly_render_data) == 1
+        assert precomputed.poly_render_data[0].base_colour == (1.0, 0.0, 0.0)
 
     def test_polyhedra_spec_colour_overrides_colour_by(self):
         """PolyhedronSpec.colour still wins over colour_by."""
@@ -1058,7 +1058,25 @@ class TestColourBy:
             scene, 0, colour_by="val", cmap=red,
         )
         # Explicit spec colour should override the colour_by value.
-        assert precomputed.poly_base_colours[0] == (0.0, 0.0, 1.0)
+        assert precomputed.poly_render_data[0].base_colour == (0.0, 0.0, 1.0)
+
+    def test_poly_render_data_groups_all_fields(self):
+        """_PolyhedronRenderData bundles colour, alpha, edge style."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _octahedron_scene(
+            colour=(0.1, 0.2, 0.3),
+            alpha=0.7,
+            edge_colour=(0.4, 0.5, 0.6),
+            edge_width=2.5,
+        )
+        precomputed = _precompute_scene(scene, 0)
+        assert len(precomputed.poly_render_data) == 1
+        prd = precomputed.poly_render_data[0]
+        assert prd.base_colour == pytest.approx((0.1, 0.2, 0.3))
+        assert prd.alpha == 0.7
+        assert prd.edge_colour == pytest.approx((0.4, 0.5, 0.6))
+        assert prd.edge_width == 2.5
 
 
 class TestLegendWidget:

@@ -61,6 +61,27 @@ _REFERENCE_WIDGET_PTS = 0.12 * 72.0 / 2.0 * 3.1
 _MATHTEXT_SPACING_FACTOR = 1.3
 
 
+@dataclass(frozen=True)
+class _PolyhedronRenderData:
+    """Resolved rendering style for a single polyhedron.
+
+    Groups the per-polyhedron visual properties computed once by
+    :func:`_precompute_scene` and consumed by
+    :func:`_collect_polyhedra_faces`.
+
+    Attributes:
+        base_colour: Face base colour before shading.
+        alpha: Face transparency (0 = transparent, 1 = opaque).
+        edge_colour: Wireframe edge colour.
+        edge_width: Wireframe edge line width (points).
+    """
+
+    base_colour: tuple[float, float, float]
+    alpha: float
+    edge_colour: tuple[float, float, float]
+    edge_width: float
+
+
 @dataclass
 class _PrecomputedScene:
     """Frame-independent data cached between redraws.
@@ -83,10 +104,7 @@ class _PrecomputedScene:
     style_hidden_bond_ids: set[int]
     hidden_atoms: set[int]
     hidden_bond_ids: set[int]
-    poly_base_colours: list[tuple[float, float, float]]
-    poly_alphas: list[float]
-    poly_edge_colours: list[tuple[float, float, float]]
-    poly_edge_widths: list[float]
+    poly_render_data: list[_PolyhedronRenderData]
 
 
 def _precompute_scene(
@@ -227,15 +245,12 @@ def _precompute_scene(
                 break
     hidden_atoms |= vertex_hide_candidates - vertex_keep
 
-    # Resolve face base colours per polyhedron.
-    poly_base_colours: list[tuple[float, float, float]] = []
-    poly_alphas: list[float] = []
-    poly_edge_colours: list[tuple[float, float, float]] = []
-    poly_edge_widths: list[float] = []
+    # Resolve rendering style per polyhedron.
     edge_width_override = (
         render_style.polyhedra_outline_width if render_style is not None
         else None
     )
+    poly_render_data: list[_PolyhedronRenderData] = []
     for poly in polyhedra:
         if poly.spec.colour is not None:
             base_rgb = normalise_colour(poly.spec.colour)
@@ -243,13 +258,15 @@ def _precompute_scene(
             # Inherit from centre atom's resolved colour, which
             # accounts for colour_by / cmap when active.
             base_rgb = atom_colours[poly.centre_index]
-        poly_base_colours.append(base_rgb)
-        poly_alphas.append(poly.spec.alpha)
-        poly_edge_colours.append(normalise_colour(poly.spec.edge_colour))
-        poly_edge_widths.append(
-            edge_width_override if edge_width_override is not None
-            else poly.spec.edge_width
-        )
+        poly_render_data.append(_PolyhedronRenderData(
+            base_colour=base_rgb,
+            alpha=poly.spec.alpha,
+            edge_colour=normalise_colour(poly.spec.edge_colour),
+            edge_width=(
+                edge_width_override if edge_width_override is not None
+                else poly.spec.edge_width
+            ),
+        ))
 
     return _PrecomputedScene(
         coords=coords,
@@ -266,10 +283,7 @@ def _precompute_scene(
         style_hidden_bond_ids=style_hidden_bond_ids,
         hidden_atoms=hidden_atoms,
         hidden_bond_ids=hidden_bond_ids,
-        poly_base_colours=poly_base_colours,
-        poly_alphas=poly_alphas,
-        poly_edge_colours=poly_edge_colours,
-        poly_edge_widths=poly_edge_widths,
+        poly_render_data=poly_render_data,
     )
 
 
@@ -348,19 +362,15 @@ def _collect_polyhedra_faces(
     if not show_polyhedra or not polyhedra_list:
         return face_by_depth_slot, vertex_max_face_slot
 
-    poly_base_colours = precomputed.poly_base_colours
-    poly_alphas = precomputed.poly_alphas
-    poly_edge_colours = precomputed.poly_edge_colours
-    poly_edge_widths = precomputed.poly_edge_widths
-
     atom_depths_sorted = depth[order]
     for pi, poly in enumerate(polyhedra_list):
         if pi in poly_skip:
             continue
-        base_rgb = poly_base_colours[pi]
-        alpha = poly_alphas[pi]
-        edge_rgb = poly_edge_colours[pi]
-        edge_w = poly_edge_widths[pi]
+        prd = precomputed.poly_render_data[pi]
+        base_rgb = prd.base_colour
+        alpha = prd.alpha
+        edge_rgb = prd.edge_colour
+        edge_w = prd.edge_width
         for face_row in poly.faces:
             global_idx = [poly.neighbour_indices[j] for j in face_row]
 

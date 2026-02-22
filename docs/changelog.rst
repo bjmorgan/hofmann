@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.10.2
+------
+
+- Internal: replaced four parallel per-polyhedron lists in
+  ``_PrecomputedScene`` (``poly_base_colours``, ``poly_alphas``,
+  ``poly_edge_colours``, ``poly_edge_widths``) with a single list of
+  frozen ``_PolyhedronRenderData`` dataclass instances, making the
+  coupling between colour, alpha, and edge style explicit.
+
 0.10.1
 ------
 
