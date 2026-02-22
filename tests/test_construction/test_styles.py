@@ -269,6 +269,19 @@ class TestLegendStyleDict:
         d = style.to_dict()
         assert "label_gap" not in d
 
+    def test_labels_round_trip(self):
+        labels = {"Ti": "$\\mathrm{Ti^{4+}}$", "O": "oxygen"}
+        style = LegendStyle(labels=labels)
+        d = style.to_dict()
+        assert d["labels"] == labels
+        restored = LegendStyle.from_dict(d)
+        assert restored.labels == labels
+
+    def test_labels_none_omitted(self):
+        style = LegendStyle()
+        d = style.to_dict()
+        assert "labels" not in d
+
 
 # -- RenderStyle --------------------------------------------------------------
 

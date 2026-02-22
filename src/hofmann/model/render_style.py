@@ -272,6 +272,13 @@ class LegendStyle:
             order.  ``None`` (the default) auto-detects from the
             scene: unique species in first-seen order, filtered to
             those with ``visible=True`` in their atom style.
+        labels: Custom display labels for legend entries, mapping
+            species name to label string.  Common chemical notation
+            is auto-formatted: trailing charges become superscripts
+            (``"Sr2+"``), embedded digits become subscripts
+            (``"TiO6"``).  Labels containing ``$`` are passed
+            through as explicit matplotlib mathtext.  ``None`` (the
+            default) uses species names for all entries.
     """
 
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_RIGHT
@@ -281,6 +288,7 @@ class LegendStyle:
     spacing: float = 2.5
     label_gap: float = 5.0
     species: tuple[str, ...] | None = None
+    labels: dict[str, str] | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.corner, tuple):
@@ -339,7 +347,7 @@ class LegendStyle:
 
         Fields at their default values are omitted.
         """
-        _SPECIAL = frozenset({"corner", "species", "circle_radius"})
+        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
         defaults = _field_defaults(type(self), exclude=_SPECIAL)
         d: dict = {}
         for field_name, default in defaults.items():
@@ -360,12 +368,14 @@ class LegendStyle:
             d["corner"] = list(self.corner)
         if self.species is not None:
             d["species"] = list(self.species)
+        if self.labels is not None:
+            d["labels"] = dict(self.labels)
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> LegendStyle:
         """Deserialise from a dictionary."""
-        _SPECIAL = frozenset({"corner", "species", "circle_radius"})
+        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
         defaults = _field_defaults(cls, exclude=_SPECIAL)
         kwargs: dict = {}
         for field_name in defaults:
@@ -385,6 +395,8 @@ class LegendStyle:
                 kwargs["corner"] = val  # str -> WidgetCorner in __post_init__
         if "species" in d:
             kwargs["species"] = tuple(d["species"])
+        if "labels" in d:
+            kwargs["labels"] = d["labels"]
         return cls(**kwargs)
 
 

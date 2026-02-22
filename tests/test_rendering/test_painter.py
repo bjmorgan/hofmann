@@ -1269,6 +1269,45 @@ class TestLegendWidget:
         plt.close(fig_narrow)
         plt.close(fig_wide)
 
+    def test_custom_labels_rendered(self):
+        scene = _minimal_scene()
+        custom = "$\\mathrm{A^+}$"
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True,
+            legend_style=LegendStyle(labels={"A": custom}),
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts if t.get_text()]
+        assert custom in label_texts
+        # Species "B" has no override — should keep its name.
+        assert "B" in label_texts
+        plt.close(fig)
+
+
+class TestFormatLegendLabel:
+    """Tests for automatic chemical notation formatting."""
+
+    def test_plain_text_unchanged(self):
+        from hofmann.rendering.painter import _format_legend_label
+        assert _format_legend_label("Sr") == "Sr"
+
+    def test_charge_superscript(self):
+        from hofmann.rendering.painter import _format_legend_label
+        assert _format_legend_label("Sr2+") == r"Sr$^{2\!+}$"
+        assert _format_legend_label("O2-") == r"O$^{2\!-}$"
+        assert _format_legend_label("Fe3+") == r"Fe$^{3\!+}$"
+
+    def test_subscript(self):
+        from hofmann.rendering.painter import _format_legend_label
+        assert _format_legend_label("TiO6") == "TiO$_{6}$"
+        assert _format_legend_label("H2O") == "H$_{2}$O"
+
+    def test_explicit_mathtext_unchanged(self):
+        from hofmann.rendering.painter import _format_legend_label
+        raw = r"Sr$^{2\!+}$"
+        assert _format_legend_label(raw) == raw
+
 
 class TestRenderLegend:
     """Tests for the standalone render_legend function."""

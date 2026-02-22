@@ -333,6 +333,28 @@ label, respectively (both in points):
 
    LegendStyle(spacing=5.0, label_gap=8.0)
 
+Custom labels
+~~~~~~~~~~~~~
+
+Pass a ``labels`` dict to override the display text for any species.
+Common chemical notation is auto-formatted: trailing charges become
+superscripts (``Sr2+`` → Sr²⁺) and embedded digits become subscripts
+(``TiO6`` → TiO₆).  Labels containing ``$`` are passed through as
+explicit matplotlib mathtext.
+
+.. code-block:: python
+
+   LegendStyle(labels={
+       "Sr": "Sr2+",       # auto superscript
+       "Ti": "TiO6",       # auto subscript
+       "O":  r"$\mathrm{O^{2\!-}}$",  # explicit mathtext
+   })
+
+Species not in the dict use their name as-is.
+
+.. figure:: _static/legend_labels.svg
+   :align: center
+
 Circle sizing
 ~~~~~~~~~~~~~
 

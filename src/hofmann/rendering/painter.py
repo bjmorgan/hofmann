@@ -988,6 +988,39 @@ def _draw_axes_widget(
         )
 
 
+import re
+
+_CHARGE_RE = re.compile(r"(\d+)([+-])$")
+_SUBSCRIPT_RE = re.compile(r"(\d+)")
+
+
+def _format_legend_label(text: str) -> str:
+    """Auto-format chemical notation in a legend label.
+
+    Converts common shorthand into matplotlib mathtext:
+
+    * Trailing charge (``Sr2+``, ``O2-``) → superscript with tight
+      kerning (``Sr$^{2\\!+}$``).
+    * Embedded digits (``TiO6``, ``H2O``) → subscripts
+      (``TiO$_6$``, ``H$_2$O``).
+
+    Labels already containing ``$`` are returned unchanged, allowing
+    users to provide explicit mathtext when needed.
+    """
+    if "$" in text:
+        return text
+    # Trailing charge: e.g. "Sr2+" → "Sr$^{2\!+}$"
+    m = _CHARGE_RE.search(text)
+    if m:
+        prefix = text[: m.start()]
+        digit, sign = m.group(1), m.group(2)
+        return f"{prefix}$^{{{digit}\\!{sign}}}$"
+    # Embedded digits: e.g. "TiO6" → "TiO$_6$", "H2O" → "H$_2$O"
+    if _SUBSCRIPT_RE.search(text):
+        return _SUBSCRIPT_RE.sub(r"$_{\1}$", text)
+    return text
+
+
 _GREY_FALLBACK = (0.5, 0.5, 0.5)
 
 
@@ -1051,8 +1084,20 @@ def _draw_legend_widget(
     arrow_len_pts = 0.12 * pad * pts_per_data
     scale = arrow_len_pts / _REFERENCE_WIDGET_PTS
 
+    # ---- Pre-format labels ----
+    # Resolve and format all labels before layout so that we can
+    # detect mathtext (super/subscripts) and adjust spacing.
+    formatted_labels: dict[str, str] = {}
+    for sp in species_list:
+        raw = sp if style.labels is None else style.labels.get(sp, sp)
+        formatted_labels[sp] = _format_legend_label(raw)
+
     font_size = style.font_size * scale
     spacing = style.spacing * scale
+    # Labels with super/subscripts are taller than plain text;
+    # widen the gap between entries so they don't look cramped.
+    if any("$" in lbl for lbl in formatted_labels.values()):
+        spacing *= 1.3
     stroke_width = 3.0 * scale
 
     # ---- Resolve per-species circle radii (in points, pre-scale) ----
@@ -1151,7 +1196,7 @@ def _draw_legend_widget(
         text_y = y_i - 0.09 * font_data
 
         ax.text(
-            anchor_x + label_offset, text_y, sp,
+            anchor_x + label_offset, text_y, formatted_labels[sp],
             fontsize=font_size,
             color=(0.0, 0.0, 0.0),
             ha="left",

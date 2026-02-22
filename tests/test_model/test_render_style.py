@@ -421,3 +421,13 @@ class TestLegendStyle:
     def test_label_gap_negative_raises(self):
         with pytest.raises(ValueError, match="label_gap must be non-negative"):
             LegendStyle(label_gap=-1.0)
+
+    # ---- labels ----
+
+    def test_labels_default_none(self):
+        assert LegendStyle().labels is None
+
+    def test_labels_dict(self):
+        labels = {"Ti": "$\\mathrm{Ti^{4+}}$", "O": "$\\mathrm{O^{2-}}$"}
+        style = LegendStyle(labels=labels)
+        assert style.labels == labels

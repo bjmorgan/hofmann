@@ -927,6 +927,20 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'legend_dict.svg'}")
 
+    # Custom labels with mathtext.
+    render_legend(
+        _legend_scene, OUT / "legend_labels.svg",
+        legend_style=LegendStyle(
+            species=_legend_species,
+            labels={
+                "Sr": "Sr2+",
+                "Ti": "TiO6",
+                "O":  r"$\mathrm{O^{2\!-}}$",
+            },
+        ),
+    )
+    print(f"  wrote {OUT / 'legend_labels.svg'}")
+
 
 if __name__ == "__main__":
     main()
