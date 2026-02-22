@@ -160,6 +160,11 @@ class TestBondSpecDefaults:
         spec.colour = "blue"
         assert spec.colour == "blue"
 
+    def test_colour_setter_rejects_invalid(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        with pytest.raises(ValueError, match="colour"):
+            spec.colour = "not_a_colour"
+
 
 class TestBondSpecRepr:
     def test_default_radius_shown(self):

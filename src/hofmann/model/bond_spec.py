@@ -54,6 +54,63 @@ class BondSpec:
     default_colour: ClassVar[Colour] = 0.5
     """Class-level default for *colour* when not set explicitly."""
 
+    @staticmethod
+    def _validate_max_length(value: float) -> None:
+        if value <= 0:
+            raise ValueError(
+                f"max_length must be positive, got {value}"
+            )
+
+    @staticmethod
+    def _validate_min_length(value: float) -> None:
+        if value < 0:
+            raise ValueError(
+                f"min_length must be non-negative, got {value}"
+            )
+
+    @staticmethod
+    def _validate_length_bounds(min_length: float, max_length: float) -> None:
+        if min_length > max_length:
+            raise ValueError(
+                f"min_length ({min_length}) must not exceed "
+                f"max_length ({max_length})"
+            )
+
+    @staticmethod
+    def _validate_radius(value: float | None) -> None:
+        if value is not None and value < 0:
+            raise ValueError(
+                f"radius must be non-negative, got {value}"
+            )
+
+    @staticmethod
+    def _validate_colour(value: Colour | None) -> None:
+        if value is not None:
+            normalise_colour(value)
+
+    @staticmethod
+    def _validate_complete(
+        value: bool | str, species: tuple[str, str],
+    ) -> None:
+        if value is True:
+            raise ValueError(
+                "complete=True is not supported; use a species name "
+                "(e.g. complete='Zr') or complete='*' for both directions"
+            )
+        if value is not False and not isinstance(value, str):
+            raise ValueError(
+                "complete must be False, a species name string "
+                "(e.g. 'Zr'), or '*' for both directions"
+            )
+        if isinstance(value, str) and value != "*":
+            if value == "":
+                raise ValueError("complete must not be an empty string")
+            if not any(fnmatch(sp, value) for sp in species):
+                raise ValueError(
+                    f"complete={value!r} does not match either "
+                    f"species in the pair {species}"
+                )
+
     def __init__(
         self,
         species: tuple[str, str],
@@ -73,44 +130,15 @@ class BondSpec:
         self.complete = complete
         self.recursive = recursive
 
-        if self.max_length <= 0:
-            raise ValueError(
-                f"max_length must be positive, got {self.max_length}"
-            )
-        if self.min_length < 0:
-            raise ValueError(
-                f"min_length must be non-negative, got {self.min_length}"
-            )
-        if self.min_length > self.max_length:
-            raise ValueError(
-                f"min_length ({self.min_length}) must not exceed "
-                f"max_length ({self.max_length})"
-            )
-        if self._radius is not None and self._radius < 0:
-            raise ValueError(
-                f"radius must be non-negative, got {self._radius}"
-            )
+        self._validate()
 
-        if self.complete is True:
-            raise ValueError(
-                "complete=True is not supported; use a species name "
-                "(e.g. complete='Zr') or complete='*' for both directions"
-            )
-        if self.complete is not False and not isinstance(self.complete, str):
-            raise ValueError(
-                "complete must be False, a species name string "
-                "(e.g. 'Zr'), or '*' for both directions"
-            )
-        if isinstance(self.complete, str) and self.complete != "*":
-            if self.complete == "":
-                raise ValueError("complete must not be an empty string")
-            if not any(
-                fnmatch(sp, self.complete) for sp in self.species
-            ):
-                raise ValueError(
-                    f"complete={self.complete!r} does not match either "
-                    f"species in the pair {self.species}"
-                )
+    def _validate(self) -> None:
+        self._validate_max_length(self.max_length)
+        self._validate_min_length(self.min_length)
+        self._validate_length_bounds(self.min_length, self.max_length)
+        self._validate_radius(self._radius)
+        self._validate_colour(self._colour)
+        self._validate_complete(self.complete, self.species)
 
     @property
     def radius(self) -> float:
@@ -119,8 +147,7 @@ class BondSpec:
 
     @radius.setter
     def radius(self, value: float | None) -> None:
-        if value is not None and value < 0:
-            raise ValueError(f"radius must be non-negative, got {value}")
+        self._validate_radius(value)
         self._radius = value
 
     @property
@@ -130,6 +157,7 @@ class BondSpec:
 
     @colour.setter
     def colour(self, value: Colour | None) -> None:
+        self._validate_colour(value)
         self._colour = value
 
     def __repr__(self) -> str:
