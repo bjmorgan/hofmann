@@ -23,6 +23,17 @@ Changelog
 - New ``LegendStyle.label_gap`` parameter controls the horizontal gap
   between legend circles and species labels (default 5.0 points).
 
+- **Custom legend labels.**  ``LegendStyle.labels`` accepts a dict
+  mapping species names to display strings.  Common chemical notation
+  is auto-formatted: trailing charges become superscripts with tight
+  kerning (``"Sr2+"`` renders as Sr^2+), embedded digits become
+  subscripts (``"TiO6"`` renders as TiO_6), and strings containing
+  ``$`` are passed through as explicit matplotlib mathtext.
+
+- Legend entry spacing is automatically widened when labels contain
+  super/subscripts, unless the user has explicitly set a custom
+  ``spacing`` value.
+
 0.9.0
 -----
 
