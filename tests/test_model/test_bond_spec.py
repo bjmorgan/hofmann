@@ -243,6 +243,10 @@ class TestBondSpecValidation:
         with pytest.raises(ValueError, match="radius"):
             BondSpec(species=("C", "H"), max_length=3.0, radius=-0.1)
 
+    def test_invalid_colour_raises(self):
+        with pytest.raises(ValueError, match="colour"):
+            BondSpec(species=("C", "H"), max_length=3.0, colour="not_a_colour")
+
     def test_valid_spec_accepted(self):
         spec = BondSpec(species=("C", "H"), max_length=3.0, min_length=0.5, radius=0.1)
         assert spec.max_length == 3.0
