@@ -160,6 +160,11 @@ class TestBondSpecDefaults:
         spec.colour = "blue"
         assert spec.colour == "blue"
 
+    def test_colour_setter_rejects_invalid(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        with pytest.raises(ValueError, match="colour"):
+            spec.colour = "not_a_colour"
+
 
 class TestBondSpecRepr:
     def test_default_radius_shown(self):
@@ -237,6 +242,10 @@ class TestBondSpecValidation:
     def test_negative_radius_raises(self):
         with pytest.raises(ValueError, match="radius"):
             BondSpec(species=("C", "H"), max_length=3.0, radius=-0.1)
+
+    def test_invalid_colour_raises(self):
+        with pytest.raises(ValueError, match="colour"):
+            BondSpec(species=("C", "H"), max_length=3.0, colour="not_a_colour")
 
     def test_valid_spec_accepted(self):
         spec = BondSpec(species=("C", "H"), max_length=3.0, min_length=0.5, radius=0.1)
