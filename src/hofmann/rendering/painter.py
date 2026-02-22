@@ -7,6 +7,7 @@ PolyCollection.
 
 from __future__ import annotations
 
+import re
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any
@@ -34,6 +35,7 @@ from hofmann.model import (
     ViewState,
     WidgetCorner,
     _DEFAULT_CIRCLE_RADIUS,
+    _DEFAULT_SPACING,
     normalise_colour,
     resolve_atom_colours,
 )
@@ -51,6 +53,12 @@ _TITLE_FONT_SIZE = 12.0
 # Reference size in points for widget scaling.  Corresponds to a
 # single subplot in a 4-inch figure: 0.12 * 72 / 2 * 3.1 ≈ 13.3 pts.
 _REFERENCE_WIDGET_PTS = 0.12 * 72.0 / 2.0 * 3.1
+
+# Multiplier applied to the default entry spacing when any legend label
+# contains mathtext (super/subscripts).  The taller glyphs need a wider
+# gap to avoid looking cramped.  Only applied when the user has not
+# explicitly overridden the spacing value.
+_MATHTEXT_SPACING_FACTOR = 1.3
 
 
 @dataclass
@@ -988,8 +996,6 @@ def _draw_axes_widget(
         )
 
 
-import re
-
 _CHARGE_RE = re.compile(r"(\d+)([+-])$")
 _SUBSCRIPT_RE = re.compile(r"(\d+)")
 
@@ -1094,10 +1100,13 @@ def _draw_legend_widget(
 
     font_size = style.font_size * scale
     spacing = style.spacing * scale
-    # Labels with super/subscripts are taller than plain text;
-    # widen the gap between entries so they don't look cramped.
-    if any("$" in lbl for lbl in formatted_labels.values()):
-        spacing *= 1.3
+    # When the user hasn't explicitly set spacing, widen the gap for
+    # labels that contain mathtext (super/subscripts are taller).
+    if (
+        style.spacing == _DEFAULT_SPACING
+        and any("$" in lbl for lbl in formatted_labels.values())
+    ):
+        spacing *= _MATHTEXT_SPACING_FACTOR
     stroke_width = 3.0 * scale
 
     # ---- Resolve per-species circle radii (in points, pre-scale) ----

@@ -231,6 +231,7 @@ class AxesStyle:
 
 
 _DEFAULT_CIRCLE_RADIUS: float = 5.0
+_DEFAULT_SPACING: float = 2.5
 """Default legend circle radius in points."""
 
 
@@ -285,7 +286,7 @@ class LegendStyle:
     margin: float = 0.15
     font_size: float = 10.0
     circle_radius: float | tuple[float, float] | dict[str, float] = _DEFAULT_CIRCLE_RADIUS
-    spacing: float = 2.5
+    spacing: float = _DEFAULT_SPACING
     label_gap: float = 5.0
     species: tuple[str, ...] | None = None
     labels: dict[str, str] | None = None
