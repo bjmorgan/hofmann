@@ -231,6 +231,7 @@ def render_legend(
     dpi: int = 150,
     background: Colour = "white",
     transparent: bool = False,
+    figsize: tuple[float, float] | None = None,
 ) -> Figure:
     """Render a standalone species legend as a tight matplotlib figure.
 
@@ -257,6 +258,10 @@ def render_legend(
         transparent: If ``True``, save with a transparent background.
             Useful for embedding in documents or web pages with
             non-white backgrounds.
+        figsize: Figure size in inches ``(width, height)``.  When
+            provided the figure is saved at this exact size; when
+            ``None`` (the default) the figure is tight-cropped to
+            the legend artists.
 
     Returns:
         The matplotlib :class:`~matplotlib.figure.Figure`.  When
@@ -280,8 +285,9 @@ def render_legend(
     bg_rgb = normalise_colour(background)
 
     # Create a figure with a hidden axes for the legend widget to
-    # draw into.  The coordinate system is arbitrary — the widget
-    # uses display-space scaling internally.
+    # draw into.  Always use a generous canvas so display-space
+    # scaling produces legible circles and labels; the final output
+    # is tight-cropped (or sized to *figsize*) afterwards.
     fig, ax = plt.subplots(figsize=(4, 4), dpi=dpi)
     fig.set_facecolor(bg_rgb)
     ax.set_facecolor(bg_rgb)
@@ -301,7 +307,8 @@ def render_legend(
         outline_width=outline_width,
     )
 
-    # Crop to the legend artists.
+    # Crop to the legend artists, then optionally expand to the
+    # requested figsize (centring the content).
     from matplotlib.transforms import Bbox
 
     renderer = fig.canvas.get_renderer()
@@ -319,10 +326,22 @@ def render_legend(
             [legend_bb.x1 + pad_px, legend_bb.y1 + pad_px],
         ])
         crop_dpi = fig.dpi
-        bbox_inches = Bbox([
+        content_inches = Bbox([
             [padded.x0 / crop_dpi, padded.y0 / crop_dpi],
             [padded.x1 / crop_dpi, padded.y1 / crop_dpi],
         ])
+
+        if figsize is not None:
+            # Centre the content within the requested dimensions.
+            cx = (content_inches.x0 + content_inches.x1) / 2
+            cy = (content_inches.y0 + content_inches.y1) / 2
+            hw, hh = figsize[0] / 2, figsize[1] / 2
+            bbox_inches = Bbox([
+                [cx - hw, cy - hh],
+                [cx + hw, cy + hh],
+            ])
+        else:
+            bbox_inches = content_inches
     else:
         bbox_inches = "tight"
 

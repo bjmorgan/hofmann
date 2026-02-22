@@ -901,17 +901,19 @@ def main() -> None:
     _legend_scene = perovskite_plain_scene()
     _legend_species = ("Sr", "Ti", "O")
 
+    _legend_figsize = (0.55, 0.8)
+
     render_legend(
         _legend_scene, OUT / "legend_uniform.svg",
         legend_style=LegendStyle(circle_radius=5.0, species=_legend_species),
-        transparent=True,
+        figsize=_legend_figsize,
     )
     print(f"  wrote {OUT / 'legend_uniform.svg'}")
 
     render_legend(
         _legend_scene, OUT / "legend_proportional.svg",
         legend_style=LegendStyle(circle_radius=(3.0, 7.0), species=_legend_species),
-        transparent=True,
+        figsize=_legend_figsize,
     )
     print(f"  wrote {OUT / 'legend_proportional.svg'}")
 
@@ -921,7 +923,7 @@ def main() -> None:
             circle_radius={"Sr": 4.0, "Ti": 7.0, "O": 5.0},
             species=_legend_species,
         ),
-        transparent=True,
+        figsize=_legend_figsize,
     )
     print(f"  wrote {OUT / 'legend_dict.svg'}")
 
