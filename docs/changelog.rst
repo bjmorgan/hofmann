@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.10.1
+------
+
+- :class:`~hofmann.BondSpec` validation is now extracted into
+  per-field private methods, removing duplication between
+  ``__init__`` and property setters.  The ``colour`` setter now
+  validates its input via :func:`~hofmann.model.colour.normalise_colour`,
+  closing a gap where invalid colours were silently accepted
+  post-construction.
+
 0.10.0
 ------
 
