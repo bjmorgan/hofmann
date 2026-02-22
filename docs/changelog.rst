@@ -4,31 +4,29 @@ Changelog
 0.10.0
 ------
 
-- **Species legend widget.**  New ``show_legend`` option on
-  :class:`~hofmann.RenderStyle` draws a vertical column of coloured
-  circles with species labels.  Customise placement, font size, circle
-  sizing, spacing, and label gap via :class:`~hofmann.LegendStyle`.
+- New ``show_legend`` option on :class:`~hofmann.RenderStyle` draws a
+  vertical column of coloured circles with species labels.  Customise
+  placement, font size, circle sizing, spacing, and label gap via
+  :class:`~hofmann.LegendStyle`.
 
-- **Flexible legend circle sizing.**  ``LegendStyle.circle_radius``
-  accepts three forms: a uniform float, a ``(min, max)`` tuple for
-  proportional sizing based on ``AtomStyle.radius``, or a per-species
-  dict for explicit control.
+- ``LegendStyle.circle_radius`` accepts three forms: a uniform float,
+  a ``(min, max)`` tuple for proportional sizing based on
+  ``AtomStyle.radius``, or a per-species dict for explicit control.
 
-- **Standalone legend rendering.**
-  :func:`~hofmann.rendering.static.render_legend` produces a
+- :func:`~hofmann.rendering.static.render_legend` produces a
   tightly-cropped legend image without any structure, useful for
   composing figures in external tools.  Supports ``figsize`` for
   fixed output dimensions and ``transparent`` backgrounds.
 
-- New ``LegendStyle.label_gap`` parameter controls the horizontal gap
-  between legend circles and species labels (default 5.0 points).
+- ``LegendStyle.label_gap`` controls the horizontal gap between legend
+  circles and species labels (default 5.0 points).
 
-- **Custom legend labels.**  ``LegendStyle.labels`` accepts a dict
-  mapping species names to display strings.  Common chemical notation
-  is auto-formatted: trailing charges become superscripts with tight
-  kerning (``"Sr2+"`` renders as Sr^2+), embedded digits become
-  subscripts (``"TiO6"`` renders as TiO_6), and strings containing
-  ``$`` are passed through as explicit matplotlib mathtext.
+- ``LegendStyle.labels`` accepts a dict mapping species names to
+  display strings.  Common chemical notation is auto-formatted:
+  trailing charges become superscripts with tight kerning (``"Sr2+"``
+  renders as Sr^2+), embedded digits become subscripts (``"TiO6"``
+  renders as TiO_6), and strings containing ``$`` are passed through
+  as explicit matplotlib mathtext.
 
 - Legend entry spacing is automatically widened when labels contain
   super/subscripts, unless the user has explicitly set a custom
@@ -37,11 +35,10 @@ Changelog
 0.9.0
 -----
 
-- **Render-time periodic boundary pipeline.**  Periodic boundary
-  handling has moved from scene construction to render time.
-  :func:`~hofmann.from_pymatgen` no longer expands image atoms
-  at construction; instead, :class:`~hofmann.model.Bond` carries an
-  ``image`` field recording which lattice translation the bond
+- Periodic boundary handling has moved from scene construction to
+  render time.  :func:`~hofmann.from_pymatgen` no longer expands image
+  atoms at construction; instead, :class:`~hofmann.model.Bond` carries
+  an ``image`` field recording which lattice translation the bond
   crosses, and a new ``RenderingSet`` pipeline materialises image
   atoms on demand during rendering.  This means the same scene can be
   rendered with different PBC settings without reconstruction.
@@ -57,27 +54,26 @@ Changelog
 
   See :doc:`scenes` for details.
 
-- **PBC options move to RenderStyle.**  ``pbc``, ``pbc_padding``,
-  ``max_recursive_depth``, and ``deduplicate_molecules`` are now
-  fields on :class:`~hofmann.RenderStyle` rather than
+- ``pbc``, ``pbc_padding``, ``max_recursive_depth``, and
+  ``deduplicate_molecules`` are now fields on
+  :class:`~hofmann.RenderStyle` rather than
   :class:`~hofmann.StructureScene`, so rendering style is fully
   separated from structure data.
 
-- **Two-tier periodic bond computation.**  Bond detection for periodic
-  structures dispatches based on the inscribed sphere radius of the
-  unit cell.  When all bond lengths are shorter than the inscribed
-  sphere radius (the common case), the minimum image convention (MIC)
-  gives an efficient single-pass computation.  When bond lengths are
-  comparable to cell dimensions, all 27 image offsets are checked
-  iteratively.  Both paths use O(n^2) peak memory.
+- Bond detection for periodic structures dispatches based on the
+  inscribed sphere radius of the unit cell.  When all bond lengths are
+  shorter than the inscribed sphere radius (the common case), the
+  minimum image convention (MIC) gives an efficient single-pass
+  computation.  When bond lengths are comparable to cell dimensions,
+  all 27 image offsets are checked iteratively.  Both paths use
+  O(n^2) peak memory.
 
-- **Molecule deduplication heuristics.**  Recursive expansion can
-  produce duplicate molecular fragments.  The deduplication stage
-  detects extended structures (slabs, frameworks) that wrap the unit
-  cell and protects them from removal, removes non-wrapped components
-  whose source atoms are a subset of a wrapped component, and selects
-  a canonical copy among remaining duplicates using an unwrapped
-  fractional centre-of-mass tie-breaker.
+- Recursive expansion can produce duplicate molecular fragments.  The
+  deduplication stage detects extended structures (slabs, frameworks)
+  that wrap the unit cell and protects them from removal, removes
+  non-wrapped components whose source atoms are a subset of a wrapped
+  component, and selects a canonical copy among remaining duplicates
+  using an unwrapped fractional centre-of-mass tie-breaker.
 
 - :class:`~hofmann.StructureScene` now validates that ``view`` is a
   :class:`~hofmann.ViewState` on assignment, with a helpful hint when
@@ -92,9 +88,9 @@ Changelog
 0.8.0
 -----
 
-- **Restructured package layout.**  The monolithic ``model.py`` (1888
-  lines) and ``render_mpl.py`` (2517 lines) have been split into three
-  sub-packages organised by architectural layer:
+- The monolithic ``model.py`` (1888 lines) and ``render_mpl.py``
+  (2517 lines) have been split into three sub-packages organised by
+  architectural layer:
 
   - ``hofmann.model`` -- data types (colour utilities, atom/bond/polyhedron
     specs, rendering styles, view state, and the scene container).
