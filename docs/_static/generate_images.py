@@ -904,12 +904,14 @@ def main() -> None:
     render_legend(
         _legend_scene, OUT / "legend_uniform.svg",
         legend_style=LegendStyle(circle_radius=5.0, species=_legend_species),
+        transparent=True,
     )
     print(f"  wrote {OUT / 'legend_uniform.svg'}")
 
     render_legend(
         _legend_scene, OUT / "legend_proportional.svg",
         legend_style=LegendStyle(circle_radius=(3.0, 7.0), species=_legend_species),
+        transparent=True,
     )
     print(f"  wrote {OUT / 'legend_proportional.svg'}")
 
@@ -919,6 +921,7 @@ def main() -> None:
             circle_radius={"Sr": 4.0, "Ti": 7.0, "O": 5.0},
             species=_legend_species,
         ),
+        transparent=True,
     )
     print(f"  wrote {OUT / 'legend_dict.svg'}")
 

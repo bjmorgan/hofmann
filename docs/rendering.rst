@@ -298,6 +298,7 @@ with ``show_legend=True``:
    scene.render_mpl("output.svg", show_legend=True)
 
 .. figure:: _static/legend_perovskite.svg
+   :align: center
 
    SrTiO\ :sub:`3` perovskite with ``show_legend=True``.
 
@@ -351,14 +352,17 @@ circles and accepts three forms:
    :widths: 33 33 33
 
    * - .. figure:: _static/legend_uniform.svg
+          :align: center
 
           Uniform (``5.0``)
 
      - .. figure:: _static/legend_proportional.svg
+          :align: center
 
           Proportional (``(3.0, 7.0)``)
 
      - .. figure:: _static/legend_dict.svg
+          :align: center
 
           Dict (per-species)
 

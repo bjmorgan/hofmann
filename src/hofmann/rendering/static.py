@@ -230,6 +230,7 @@ def render_legend(
     outline_width: float = 1.0,
     dpi: int = 150,
     background: Colour = "white",
+    transparent: bool = False,
 ) -> Figure:
     """Render a standalone species legend as a tight matplotlib figure.
 
@@ -253,6 +254,9 @@ def render_legend(
         outline_width: Line width for circle outlines in points.
         dpi: Resolution for raster output formats.
         background: Figure background colour.
+        transparent: If ``True``, save with a transparent background.
+            Useful for embedding in documents or web pages with
+            non-white backgrounds.
 
     Returns:
         The matplotlib :class:`~matplotlib.figure.Figure`.  When
@@ -323,7 +327,10 @@ def render_legend(
         bbox_inches = "tight"
 
     if output is not None:
-        fig.savefig(str(output), dpi=dpi, bbox_inches=bbox_inches)
+        fig.savefig(
+            str(output), dpi=dpi, bbox_inches=bbox_inches,
+            transparent=transparent,
+        )
         plt.close(fig)
 
     return fig
