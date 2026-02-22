@@ -6,8 +6,8 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from hofmann import (
-    AtomStyle, AxesStyle, BondSpec, Frame, PolyhedronSpec,
-    RenderStyle, StructureScene, ViewState,
+    AtomStyle, AxesStyle, BondSpec, Frame, LegendStyle,
+    PolyhedronSpec, RenderStyle, StructureScene, ViewState,
 )
 
 OUT = Path(__file__).resolve().parent
@@ -885,6 +885,42 @@ def main() -> None:
     fig.savefig(OUT / "multi_panel_projections.svg", bbox_inches="tight")
     plt.close(fig)
     print(f"  wrote {OUT / 'multi_panel_projections.svg'}")
+
+    # 13. Species legend: hero image and circle sizing comparison.
+    from hofmann.rendering.static import render_legend
+
+    # Hero: full perovskite scene with legend.
+    perov_legend = perovskite_plain_scene()
+    perov_legend.render_mpl(
+        OUT / "legend_perovskite.svg",
+        figsize=(4, 4), dpi=150, show_legend=True,
+    )
+    print(f"  wrote {OUT / 'legend_perovskite.svg'}")
+
+    # Legend-only images via render_legend.
+    _legend_scene = perovskite_plain_scene()
+    _legend_species = ("Sr", "Ti", "O")
+
+    render_legend(
+        _legend_scene, OUT / "legend_uniform.svg",
+        legend_style=LegendStyle(circle_radius=5.0, species=_legend_species),
+    )
+    print(f"  wrote {OUT / 'legend_uniform.svg'}")
+
+    render_legend(
+        _legend_scene, OUT / "legend_proportional.svg",
+        legend_style=LegendStyle(circle_radius=(3.0, 7.0), species=_legend_species),
+    )
+    print(f"  wrote {OUT / 'legend_proportional.svg'}")
+
+    render_legend(
+        _legend_scene, OUT / "legend_dict.svg",
+        legend_style=LegendStyle(
+            circle_radius={"Sr": 4.0, "Ti": 7.0, "O": 5.0},
+            species=_legend_species,
+        ),
+    )
+    print(f"  wrote {OUT / 'legend_dict.svg'}")
 
 
 if __name__ == "__main__":

@@ -1249,3 +1249,56 @@ class TestLegendWidget:
         # Two different sizes expected.
         assert len(sizes) == 2
         plt.close(fig)
+
+
+class TestRenderLegend:
+    """Tests for the standalone render_legend function."""
+
+    def test_returns_figure(self):
+        """render_legend returns a matplotlib Figure."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        fig = render_legend(scene)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_contains_species_labels(self):
+        """Rendered legend contains species text labels."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        fig = render_legend(scene)
+        ax = fig.axes[0]
+        labels = [t.get_text() for t in ax.texts]
+        assert "A" in labels
+        assert "B" in labels
+        plt.close(fig)
+
+    def test_contains_circle_markers(self):
+        """Rendered legend contains circle markers for each species."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        fig = render_legend(scene)
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        assert len(markers) == 2
+        plt.close(fig)
+
+    def test_explicit_species(self):
+        """Explicit species controls which entries appear."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        style = LegendStyle(species=("B",))
+        fig = render_legend(scene, legend_style=style)
+        ax = fig.axes[0]
+        labels = [t.get_text() for t in ax.texts]
+        assert labels == ["B"]
+        plt.close(fig)
+
+    def test_saves_to_file(self, tmp_path):
+        """render_legend saves to a file when output is given."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        path = tmp_path / "legend.svg"
+        fig = render_legend(scene, output=path)
+        assert path.exists()
+        plt.close(fig)

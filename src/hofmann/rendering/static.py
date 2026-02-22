@@ -15,11 +15,12 @@ from matplotlib.figure import Figure
 from hofmann.model import (
     CmapSpec,
     Colour,
+    LegendStyle,
     RenderStyle,
     StructureScene,
     normalise_colour,
 )
-from hofmann.rendering.painter import _axes_bg_rgb, _draw_scene
+from hofmann.rendering.painter import _axes_bg_rgb, _draw_legend_widget, _draw_scene
 
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
 _DEFAULT_RENDER_STYLE = RenderStyle()
@@ -214,6 +215,115 @@ def render_mpl(
     if show:
         plt.show()
     else:
+        plt.close(fig)
+
+    return fig
+
+
+def render_legend(
+    scene: StructureScene,
+    output: str | Path | None = None,
+    *,
+    legend_style: LegendStyle | None = None,
+    show_outlines: bool = True,
+    outline_colour: Colour = (0.15, 0.15, 0.15),
+    outline_width: float = 1.0,
+    dpi: int = 150,
+    background: Colour = "white",
+) -> Figure:
+    """Render a standalone species legend as a tight matplotlib figure.
+
+    Produces a figure containing only the legend — no structure, bonds,
+    cell edges, or axes widget.  Useful for composing figures manually
+    in external tools (Inkscape, Illustrator, LaTeX).
+
+    The legend entries, colours, and circle sizes are determined by the
+    scene's atom styles and the *legend_style* settings, using the same
+    rendering code as the in-scene legend drawn by ``show_legend=True``.
+
+    Args:
+        scene: The structure scene (provides species and atom styles).
+        output: Optional file path to save the figure.  The format is
+            inferred from the extension (e.g. ``".svg"``, ``".png"``).
+        legend_style: Visual style for the legend.  ``None`` uses
+            defaults.  See :class:`~hofmann.LegendStyle`.
+        show_outlines: Whether to draw outlines around legend circles.
+        outline_colour: Colour for circle outlines when
+            *show_outlines* is ``True``.
+        outline_width: Line width for circle outlines in points.
+        dpi: Resolution for raster output formats.
+        background: Figure background colour.
+
+    Returns:
+        The matplotlib :class:`~matplotlib.figure.Figure`.  When
+        *output* is given the figure is saved and then closed;
+        otherwise it remains open for further manipulation.
+
+    Example::
+
+        from hofmann import LegendStyle
+        from hofmann.rendering.static import render_legend
+
+        fig = render_legend(scene, "legend.svg")
+
+        # Proportional circle sizes:
+        style = LegendStyle(circle_radius=(3.0, 8.0))
+        fig = render_legend(scene, "legend.svg", legend_style=style)
+    """
+    if legend_style is None:
+        legend_style = LegendStyle()
+
+    bg_rgb = normalise_colour(background)
+
+    # Create a figure with a hidden axes for the legend widget to
+    # draw into.  The coordinate system is arbitrary — the widget
+    # uses display-space scaling internally.
+    fig, ax = plt.subplots(figsize=(4, 4), dpi=dpi)
+    fig.set_facecolor(bg_rgb)
+    ax.set_facecolor(bg_rgb)
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_aspect("equal")
+    ax.axis("off")
+
+    ol_rgb: tuple[float, float, float] | None = None
+    if show_outlines:
+        ol_rgb = normalise_colour(outline_colour)
+
+    _draw_legend_widget(
+        ax, scene, legend_style,
+        pad_x=1.0, pad_y=1.0,
+        outline_colour=ol_rgb,
+        outline_width=outline_width,
+    )
+
+    # Crop to the legend artists.
+    from matplotlib.transforms import Bbox
+
+    renderer = fig.canvas.get_renderer()
+    bboxes = [
+        t.get_window_extent(renderer) for t in ax.texts
+    ] + [
+        line.get_window_extent(renderer) for line in ax.lines
+        if line.get_marker() == "o"
+    ]
+    if bboxes:
+        legend_bb = Bbox.union(bboxes)
+        pad_px = 15
+        padded = Bbox([
+            [legend_bb.x0 - pad_px, legend_bb.y0 - pad_px],
+            [legend_bb.x1 + pad_px, legend_bb.y1 + pad_px],
+        ])
+        crop_dpi = fig.dpi
+        bbox_inches = Bbox([
+            [padded.x0 / crop_dpi, padded.y0 / crop_dpi],
+            [padded.x1 / crop_dpi, padded.y1 / crop_dpi],
+        ])
+    else:
+        bbox_inches = "tight"
+
+    if output is not None:
+        fig.savefig(str(output), dpi=dpi, bbox_inches=bbox_inches)
         plt.close(fig)
 
     return fig
