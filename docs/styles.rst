@@ -133,9 +133,11 @@ The following classes support ``to_dict()`` / ``from_dict()``:
 - :class:`~hofmann.BondSpec`
 - :class:`~hofmann.PolyhedronSpec`
 - :class:`~hofmann.RenderStyle` (including nested
-  :class:`~hofmann.CellEdgeStyle` and :class:`~hofmann.AxesStyle`)
+  :class:`~hofmann.CellEdgeStyle`, :class:`~hofmann.AxesStyle`, and
+  :class:`~hofmann.LegendStyle`)
 - :class:`~hofmann.CellEdgeStyle`
 - :class:`~hofmann.AxesStyle`
+- :class:`~hofmann.LegendStyle`
 
 
 .. _style-json-format:
@@ -217,7 +219,7 @@ Section reference
 
 ``render_style``
    An object with any :class:`~hofmann.RenderStyle` field as a key.
-   Nested ``cell_style`` and ``axes_style`` are sub-objects with their
-   respective fields.  Enum values are serialised as strings (e.g.
-   ``"per_face"``).  See the :class:`~hofmann.RenderStyle` API docs
-   for the full list of fields.
+   Nested ``cell_style``, ``axes_style``, and ``legend_style`` are
+   sub-objects with their respective fields.  Enum values are
+   serialised as strings (e.g. ``"per_face"``).  See the
+   :class:`~hofmann.RenderStyle` API docs for the full list of fields.

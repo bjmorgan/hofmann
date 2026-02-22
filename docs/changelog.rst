@@ -1,6 +1,28 @@
 Changelog
 =========
 
+0.10.0
+------
+
+- **Species legend widget.**  New ``show_legend`` option on
+  :class:`~hofmann.RenderStyle` draws a vertical column of coloured
+  circles with species labels.  Customise placement, font size, circle
+  sizing, spacing, and label gap via :class:`~hofmann.LegendStyle`.
+
+- **Flexible legend circle sizing.**  ``LegendStyle.circle_radius``
+  accepts three forms: a uniform float, a ``(min, max)`` tuple for
+  proportional sizing based on ``AtomStyle.radius``, or a per-species
+  dict for explicit control.
+
+- **Standalone legend rendering.**
+  :func:`~hofmann.rendering.static.render_legend` produces a
+  tightly-cropped legend image without any structure, useful for
+  composing figures in external tools.  Supports ``figsize`` for
+  fixed output dimensions and ``transparent`` backgrounds.
+
+- New ``LegendStyle.label_gap`` parameter controls the horizontal gap
+  between legend circles and species labels (default 5.0 points).
+
 0.9.0
 -----
 

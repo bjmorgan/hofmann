@@ -125,6 +125,10 @@ Key style options:
   default; see :ref:`axes-widget` below)
 - ``axes_style`` -- :class:`~hofmann.AxesStyle` for widget
   colour, labels, corner, and sizing
+- ``show_legend`` -- toggle species legend (off by default; see
+  :ref:`legend-widget` below)
+- ``legend_style`` -- :class:`~hofmann.LegendStyle` for legend
+  corner, sizing, and species selection
 - ``slab_clip_mode`` -- how slab clipping interacts with polyhedra
   (see :ref:`slab-clipping` below)
 - ``circle_segments`` / ``arc_segments`` -- polygon resolution for
@@ -278,6 +282,141 @@ Disable or customise the widget via :class:`~hofmann.RenderStyle`:
        ),
    )
    scene.render_mpl("output.svg", style=style)
+
+
+.. _legend-widget:
+
+Species legend
+--------------
+
+A species legend maps each atom species to its coloured circle.  Unlike
+cell edges and the axes widget, the legend is off by default — enable it
+with ``show_legend=True``:
+
+.. code-block:: python
+
+   scene.render_mpl("output.svg", show_legend=True)
+
+.. figure:: _static/legend_perovskite.svg
+   :align: center
+
+   SrTiO\ :sub:`3` perovskite with ``show_legend=True``.
+
+Customise the legend via :class:`~hofmann.LegendStyle`:
+
+.. code-block:: python
+
+   from hofmann import LegendStyle, RenderStyle
+
+   style = RenderStyle(
+       show_legend=True,
+       legend_style=LegendStyle(
+           corner="top_right",
+           font_size=12.0,
+       ),
+   )
+   scene.render_mpl("output.svg", style=style)
+
+By default the legend auto-detects species from the scene in first-seen
+order, filtering to those with ``visible=True``.  To control which
+species appear and in what order, pass an explicit ``species`` tuple:
+
+.. code-block:: python
+
+   LegendStyle(species=("O", "Ti", "Sr"))
+
+The ``spacing`` and ``label_gap`` parameters control the vertical gap
+between entries and the horizontal gap between each circle and its
+label, respectively (both in points):
+
+.. code-block:: python
+
+   LegendStyle(spacing=5.0, label_gap=8.0)
+
+Custom labels
+~~~~~~~~~~~~~
+
+Pass a ``labels`` dict to override the display text for any species.
+Common chemical notation is auto-formatted: trailing charges become
+superscripts (``Sr2+`` → Sr²⁺) and embedded digits become subscripts
+(``TiO6`` → TiO₆).  Labels containing ``$`` are passed through as
+explicit matplotlib mathtext.
+
+.. code-block:: python
+
+   LegendStyle(labels={
+       "Sr": "Sr2+",       # auto superscript
+       "Ti": "TiO6",       # auto subscript
+       "O":  r"$\mathrm{O^{2\!-}}$",  # explicit mathtext
+   })
+
+Species not in the dict use their name as-is.
+
+.. figure:: _static/legend_labels.svg
+   :align: center
+
+Circle sizing
+~~~~~~~~~~~~~
+
+The ``circle_radius`` parameter controls the size of the legend
+circles and accepts three forms:
+
+- **float** — uniform radius for all entries (the default, ``5.0``
+  points).
+- **tuple (min, max)** — proportional sizing.  Each species' circle
+  is scaled linearly between *min* and *max* based on its
+  ``AtomStyle.radius`` relative to the smallest and largest radii in
+  the legend.  When all atom radii are equal, *max* is used.
+- **dict** — explicit per-species radii in points.  Species not
+  present in the dict fall back to the default (5.0 points).
+
+.. code-block:: python
+
+   # Proportional: smaller atoms get smaller circles.
+   LegendStyle(circle_radius=(3.0, 8.0))
+
+   # Explicit per-species:
+   LegendStyle(circle_radius={"O": 4.0, "Ti": 6.0, "Sr": 8.0})
+
+.. list-table::
+   :widths: 33 33 33
+
+   * - .. figure:: _static/legend_uniform.svg
+          :align: center
+
+          Uniform (``5.0``)
+
+     - .. figure:: _static/legend_proportional.svg
+          :align: center
+
+          Proportional (``(3.0, 7.0)``)
+
+     - .. figure:: _static/legend_dict.svg
+          :align: center
+
+          Dict (per-species)
+
+Standalone legend
+~~~~~~~~~~~~~~~~~
+
+Use :func:`~hofmann.rendering.static.render_legend` to produce a
+legend-only image — useful for composing figures manually in Inkscape,
+Illustrator, or LaTeX:
+
+.. code-block:: python
+
+   from hofmann.rendering.static import render_legend
+
+   render_legend(scene, "legend.svg")
+
+   # With proportional sizing:
+   from hofmann import LegendStyle
+   render_legend(scene, "legend.svg",
+                 legend_style=LegendStyle(circle_radius=(3.0, 8.0)))
+
+The figure is cropped tightly to the legend entries and has no axes or
+structure.  See :func:`~hofmann.rendering.static.render_legend` for the
+full parameter list.
 
 
 Rendering into existing axes

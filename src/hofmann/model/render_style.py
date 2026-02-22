@@ -230,6 +230,177 @@ class AxesStyle:
         return cls(**kwargs)
 
 
+_DEFAULT_CIRCLE_RADIUS: float = 5.0
+_DEFAULT_SPACING: float = 2.5
+"""Default legend circle radius in points."""
+
+
+@dataclass(frozen=True)
+class LegendStyle:
+    """Visual style for the species legend widget.
+
+    The widget draws a vertical column of coloured circles with species
+    labels beside them.  Each entry corresponds to one atomic species
+    in the scene.
+
+    Attributes:
+        corner: Widget position.  Pass a :class:`WidgetCorner` (or its
+            string value) for automatic placement in one of the four
+            viewport corners, offset by *margin*.  Pass an ``(x, y)``
+            tuple of fractional viewport coordinates
+            (0.0 = left/bottom, 1.0 = right/top) for an explicit
+            position; *margin* is ignored in this case.
+        margin: Offset from the corner as a fraction of the viewport
+            half-extent.  Only used when *corner* is a
+            :class:`WidgetCorner`.
+        font_size: Font size for species labels in points.
+        circle_radius: Controls the size of the coloured circles in
+            points.  Accepts three forms:
+
+            * **float** — uniform radius for all entries (default 5.0).
+            * **tuple (min, max)** — proportional sizing.  Each
+              species' circle radius is linearly interpolated between
+              *min* and *max* based on its ``AtomStyle.radius``
+              relative to the smallest and largest radii in the legend.
+              When all atom radii are equal, *max* is used.
+            * **dict[str, float]** — explicit per-species radii.
+              Species not present in the dict use the class default
+              (5.0 points).
+        spacing: Vertical gap between legend entries in points.
+        label_gap: Horizontal gap between the circle edge and the
+            species label in points.
+        species: Explicit list of species to include, in display
+            order.  ``None`` (the default) auto-detects from the
+            scene: unique species in first-seen order, filtered to
+            those with ``visible=True`` in their atom style.
+        labels: Custom display labels for legend entries, mapping
+            species name to label string.  Common chemical notation
+            is auto-formatted: trailing charges become superscripts
+            (``"Sr2+"``), embedded digits become subscripts
+            (``"TiO6"``).  Labels containing ``$`` are passed
+            through as explicit matplotlib mathtext.  ``None`` (the
+            default) uses species names for all entries.
+    """
+
+    corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_RIGHT
+    margin: float = 0.15
+    font_size: float = 10.0
+    circle_radius: float | tuple[float, float] | dict[str, float] = _DEFAULT_CIRCLE_RADIUS
+    spacing: float = _DEFAULT_SPACING
+    label_gap: float = 5.0
+    species: tuple[str, ...] | None = None
+    labels: dict[str, str] | None = None
+
+    def __post_init__(self) -> None:
+        if isinstance(self.corner, tuple):
+            if len(self.corner) != 2:
+                raise ValueError(
+                    f"corner tuple must have 2 elements, got {len(self.corner)}"
+                )
+        elif isinstance(self.corner, str):
+            object.__setattr__(self, "corner", WidgetCorner(self.corner))
+        if self.font_size <= 0:
+            raise ValueError(
+                f"font_size must be positive, got {self.font_size}"
+            )
+        if isinstance(self.circle_radius, dict):
+            if len(self.circle_radius) == 0:
+                raise ValueError("circle_radius dict must be non-empty")
+            for v in self.circle_radius.values():
+                if v <= 0:
+                    raise ValueError(
+                        f"circle_radius dict values must be positive, got {v}"
+                    )
+        elif isinstance(self.circle_radius, tuple):
+            lo, hi = self.circle_radius
+            if lo <= 0 or hi <= 0:
+                raise ValueError(
+                    f"circle_radius range values must be positive, "
+                    f"got ({lo}, {hi})"
+                )
+            if lo > hi:
+                raise ValueError(
+                    f"circle_radius min must not exceed max, "
+                    f"got ({lo}, {hi})"
+                )
+        else:
+            if self.circle_radius <= 0:
+                raise ValueError(
+                    f"circle_radius must be positive, got {self.circle_radius}"
+                )
+        if self.spacing < 0:
+            raise ValueError(
+                f"spacing must be non-negative, got {self.spacing}"
+            )
+        if self.label_gap < 0:
+            raise ValueError(
+                f"label_gap must be non-negative, got {self.label_gap}"
+            )
+        if self.margin < 0:
+            raise ValueError(
+                f"margin must be non-negative, got {self.margin}"
+            )
+        if self.species is not None and len(self.species) == 0:
+            raise ValueError("species must be non-empty when provided")
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary.
+
+        Fields at their default values are omitted.
+        """
+        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
+        defaults = _field_defaults(type(self), exclude=_SPECIAL)
+        d: dict = {}
+        for field_name, default in defaults.items():
+            val = getattr(self, field_name)
+            if val != default:
+                d[field_name] = val
+        # circle_radius: tuple → list, dict → dict, float → omit if default.
+        if isinstance(self.circle_radius, tuple):
+            d["circle_radius"] = list(self.circle_radius)
+        elif isinstance(self.circle_radius, dict):
+            d["circle_radius"] = dict(self.circle_radius)
+        elif self.circle_radius != _DEFAULT_CIRCLE_RADIUS:
+            d["circle_radius"] = self.circle_radius
+        if isinstance(self.corner, WidgetCorner):
+            if self.corner != type(self).corner:
+                d["corner"] = self.corner.value
+        else:
+            d["corner"] = list(self.corner)
+        if self.species is not None:
+            d["species"] = list(self.species)
+        if self.labels is not None:
+            d["labels"] = dict(self.labels)
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> LegendStyle:
+        """Deserialise from a dictionary."""
+        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
+        defaults = _field_defaults(cls, exclude=_SPECIAL)
+        kwargs: dict = {}
+        for field_name in defaults:
+            if field_name in d:
+                kwargs[field_name] = d[field_name]
+        if "circle_radius" in d:
+            val = d["circle_radius"]
+            if isinstance(val, list):
+                kwargs["circle_radius"] = tuple(val)
+            else:
+                kwargs["circle_radius"] = val  # float or dict
+        if "corner" in d:
+            val = d["corner"]
+            if isinstance(val, list):
+                kwargs["corner"] = tuple(val)
+            else:
+                kwargs["corner"] = val  # str -> WidgetCorner in __post_init__
+        if "species" in d:
+            kwargs["species"] = tuple(d["species"])
+        if "labels" in d:
+            kwargs["labels"] = d["labels"]
+        return cls(**kwargs)
+
+
 @dataclass
 class RenderStyle:
     """Visual style settings for rendering.
@@ -309,6 +480,11 @@ class RenderStyle:
             suppresses drawing.
         axes_style: Visual style for the axes widget.  See
             :class:`AxesStyle`.
+        show_legend: Whether to draw the species legend.  ``False``
+            (the default) suppresses drawing.  ``True`` draws a
+            legend showing each visible species with its colour.
+        legend_style: Visual style for the legend widget.  See
+            :class:`LegendStyle`.
         pbc: Whether to use the lattice for periodic bond
             computation and image-atom expansion.  Only meaningful
             when the scene has a lattice.  Set to ``False`` to
@@ -360,6 +536,8 @@ class RenderStyle:
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
     show_axes: bool | None = None
     axes_style: AxesStyle = field(default_factory=AxesStyle)
+    show_legend: bool = False
+    legend_style: LegendStyle = field(default_factory=LegendStyle)
     pbc: bool = True
     pbc_padding: float | None = 0.1
     max_recursive_depth: int = 5
@@ -423,8 +601,9 @@ class RenderStyle:
         """Serialise to a JSON-compatible dictionary.
 
         Fields at their default values are omitted.  Nested
-        ``cell_style`` and ``axes_style`` are serialised as sub-dicts
-        (omitted entirely when they equal their own defaults).
+        ``cell_style``, ``axes_style``, and ``legend_style`` are
+        serialised as sub-dicts (omitted entirely when they equal
+        their own defaults).
         """
         defaults = _field_defaults(type(self))
         d: dict = {}
@@ -449,6 +628,9 @@ class RenderStyle:
         axes_d = self.axes_style.to_dict()
         if axes_d:
             d["axes_style"] = axes_d
+        legend_d = self.legend_style.to_dict()
+        if legend_d:
+            d["legend_style"] = legend_d
         return d
 
     @classmethod
@@ -475,4 +657,6 @@ class RenderStyle:
             kwargs["cell_style"] = CellEdgeStyle.from_dict(d["cell_style"])
         if "axes_style" in d:
             kwargs["axes_style"] = AxesStyle.from_dict(d["axes_style"])
+        if "legend_style" in d:
+            kwargs["legend_style"] = LegendStyle.from_dict(d["legend_style"])
         return cls(**kwargs)

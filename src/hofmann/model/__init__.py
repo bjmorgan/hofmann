@@ -18,9 +18,12 @@ from hofmann.model.polyhedron_spec import Polyhedron, PolyhedronSpec
 from hofmann.model.render_style import (
     AxesStyle,
     CellEdgeStyle,
+    LegendStyle,
     RenderStyle,
     SlabClipMode,
     WidgetCorner,
+    _DEFAULT_CIRCLE_RADIUS,
+    _DEFAULT_SPACING,
 )
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
@@ -32,6 +35,7 @@ __all__ = [
     "BondSpec",
     "CellEdgeStyle",
     "CmapSpec",
+    "LegendStyle",
     "Colour",
     "Frame",
     "Polyhedron",

@@ -51,6 +51,9 @@ Rendering
 .. autoclass:: AxesStyle
    :members:
 
+.. autoclass:: LegendStyle
+   :members:
+
 .. autoclass:: WidgetCorner
    :members:
 
@@ -58,6 +61,8 @@ Rendering
    :members:
 
 .. autofunction:: hofmann.rendering.static.render_mpl
+
+.. autofunction:: hofmann.rendering.static.render_legend
 
 .. autofunction:: hofmann.rendering.interactive.render_mpl_interactive
 

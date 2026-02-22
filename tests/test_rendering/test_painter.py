@@ -11,6 +11,7 @@ from hofmann.model import (
     AxesStyle,
     BondSpec,
     Frame,
+    LegendStyle,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
@@ -1058,3 +1059,304 @@ class TestColourBy:
         )
         # Explicit spec colour should override the colour_by value.
         assert precomputed.poly_base_colours[0] == (0.0, 0.0, 1.0)
+
+
+class TestLegendWidget:
+    """Tests for the species legend widget."""
+
+    def test_show_legend_draws_entries(self):
+        """Legend draws species labels and coloured markers."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, show=False, show_legend=True)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" in label_texts
+        # One Line2D per species for the circle marker.
+        legend_lines = [
+            l for l in ax.lines
+            if l.get_marker() == "o"
+        ]
+        assert len(legend_lines) == 2
+        plt.close(fig)
+
+    def test_show_legend_false_no_entries(self):
+        """Default show_legend=False produces no legend text."""
+        scene = _minimal_scene()
+        fig = render_mpl(scene, show=False)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" not in label_texts
+        assert "B" not in label_texts
+        plt.close(fig)
+
+    def test_auto_detect_species_order(self):
+        """Auto-detect gives unique species in first-seen order."""
+        scene = StructureScene(
+            species=["B", "A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [4.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2)),
+            },
+        )
+        fig = render_mpl(scene, show=False, show_legend=True)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        # B appears first in scene.species, then A.
+        assert label_texts == ["B", "A"]
+        plt.close(fig)
+
+    def test_explicit_species(self):
+        """Explicit species list controls inclusion and order."""
+        scene = _minimal_scene()
+        style = LegendStyle(species=("B",))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert label_texts == ["B"]
+        plt.close(fig)
+
+    def test_invisible_species_filtered(self):
+        """Auto-detect excludes species with visible=False."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2), visible=False),
+            },
+        )
+        fig = render_mpl(scene, show=False, show_legend=True)
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" not in label_texts
+        plt.close(fig)
+
+    def test_explicit_species_includes_invisible(self):
+        """Explicit species list includes even invisible species."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2), visible=False),
+            },
+        )
+        style = LegendStyle(species=("A", "B"))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" in label_texts
+        plt.close(fig)
+
+    @pytest.mark.parametrize("corner", [
+        "bottom_left", "bottom_right", "top_left", "top_right",
+    ])
+    def test_all_corners(self, corner):
+        """Legend renders without error in each corner position."""
+        style = LegendStyle(corner=corner)
+        scene = _minimal_scene()
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "A" in label_texts
+        assert "B" in label_texts
+        plt.close(fig)
+
+    def test_proportional_circle_radius(self):
+        """Range tuple sizes markers proportionally to atom radii."""
+        scene = StructureScene(
+            species=["Small", "Big"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [3.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "Small": AtomStyle(0.5, (0.5, 0.5, 0.5)),
+                "Big": AtomStyle(2.0, (0.8, 0.2, 0.2)),
+            },
+        )
+        style = LegendStyle(circle_radius=(3.0, 9.0))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = {l.get_markersize() for l in markers}
+        # Two different sizes expected.
+        assert len(sizes) == 2
+        plt.close(fig)
+
+    def test_proportional_equal_radii_uses_max(self):
+        """When all atom radii are equal, markers use max circle_radius."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(1.0, (0.8, 0.2, 0.2)),
+            },
+        )
+        style = LegendStyle(circle_radius=(3.0, 9.0))
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = {l.get_markersize() for l in markers}
+        # All markers same size when atom radii are equal.
+        assert len(sizes) == 1
+        plt.close(fig)
+
+    def test_dict_circle_radius(self):
+        """Dict circle_radius sets per-species marker sizes."""
+        scene = _minimal_scene()
+        style = LegendStyle(circle_radius={"A": 4.0, "B": 8.0})
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = {l.get_markersize() for l in markers}
+        # Two different sizes expected.
+        assert len(sizes) == 2
+        plt.close(fig)
+
+
+    def test_label_gap_affects_text_position(self):
+        scene = _minimal_scene()
+        fig_narrow = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=LegendStyle(label_gap=0.0),
+        )
+        fig_wide = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=LegendStyle(label_gap=20.0),
+        )
+        ax_narrow = fig_narrow.axes[0]
+        ax_wide = fig_wide.axes[0]
+        x_narrow = ax_narrow.texts[0].get_position()[0]
+        x_wide = ax_wide.texts[0].get_position()[0]
+        assert x_wide > x_narrow
+        plt.close(fig_narrow)
+        plt.close(fig_wide)
+
+    def test_custom_labels_rendered(self):
+        scene = _minimal_scene()
+        custom = "$\\mathrm{A^+}$"
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True,
+            legend_style=LegendStyle(labels={"A": custom}),
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts if t.get_text()]
+        assert custom in label_texts
+        # Species "B" has no override — should keep its name.
+        assert "B" in label_texts
+        plt.close(fig)
+
+
+class TestFormatLegendLabel:
+    """Tests for automatic chemical notation formatting."""
+
+    def test_plain_text_unchanged(self):
+        from hofmann.rendering.painter import _format_legend_label
+        assert _format_legend_label("Sr") == "Sr"
+
+    def test_charge_superscript(self):
+        from hofmann.rendering.painter import _format_legend_label
+        assert _format_legend_label("Sr2+") == r"Sr$^{2\!+}$"
+        assert _format_legend_label("O2-") == r"O$^{2\!-}$"
+        assert _format_legend_label("Fe3+") == r"Fe$^{3\!+}$"
+
+    def test_subscript(self):
+        from hofmann.rendering.painter import _format_legend_label
+        assert _format_legend_label("TiO6") == "TiO$_{6}$"
+        assert _format_legend_label("H2O") == "H$_{2}$O"
+
+    def test_explicit_mathtext_unchanged(self):
+        from hofmann.rendering.painter import _format_legend_label
+        raw = r"Sr$^{2\!+}$"
+        assert _format_legend_label(raw) == raw
+
+
+class TestRenderLegend:
+    """Tests for the standalone render_legend function."""
+
+    def test_returns_figure(self):
+        """render_legend returns a matplotlib Figure."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        fig = render_legend(scene)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
+    def test_contains_species_labels(self):
+        """Rendered legend contains species text labels."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        fig = render_legend(scene)
+        ax = fig.axes[0]
+        labels = [t.get_text() for t in ax.texts]
+        assert "A" in labels
+        assert "B" in labels
+        plt.close(fig)
+
+    def test_contains_circle_markers(self):
+        """Rendered legend contains circle markers for each species."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        fig = render_legend(scene)
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        assert len(markers) == 2
+        plt.close(fig)
+
+    def test_explicit_species(self):
+        """Explicit species controls which entries appear."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        style = LegendStyle(species=("B",))
+        fig = render_legend(scene, legend_style=style)
+        ax = fig.axes[0]
+        labels = [t.get_text() for t in ax.texts]
+        assert labels == ["B"]
+        plt.close(fig)
+
+    def test_saves_to_file(self, tmp_path):
+        """render_legend saves to a file when output is given."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        path = tmp_path / "legend.svg"
+        fig = render_legend(scene, output=path)
+        assert path.exists()
+        plt.close(fig)
