@@ -1394,6 +1394,26 @@ class TestLegendWidget:
         assert any("$" in lbl for lbl in label_texts)
         plt.close(fig)
 
+    def test_custom_items_polygon_marker(self):
+        """Items with sides produce polygon markers instead of circles."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="oct", colour="blue", sides=6),
+            LegendItem(key="tet", colour="red", sides=4, rotation=45.0),
+            LegendItem(key="round", colour="green"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l.get_marker() for l in ax.lines if l.get_linestyle() == "None"]
+        assert (6, 0, 0.0) in markers
+        assert (4, 0, 45.0) in markers
+        assert "o" in markers
+        plt.close(fig)
+
 
 class TestFormatLegendLabel:
     """Tests for automatic chemical notation formatting."""

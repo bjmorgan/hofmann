@@ -252,7 +252,7 @@ class LegendItem:
     Attributes:
         key: Identifier for this legend entry.  Also used as the
             default display label when *label* is ``None``.
-        colour: Fill colour for the legend circle.  Accepts any
+        colour: Fill colour for the legend marker.  Accepts any
             format understood by :func:`normalise_colour`; the value
             is normalised to an ``(R, G, B)`` tuple on assignment.
         label: Display label text.  ``None`` falls back to *key*.
@@ -260,11 +260,15 @@ class LegendItem:
             time: trailing charges become superscripts, embedded
             digits become subscripts.  Labels containing ``$`` are
             passed through as explicit matplotlib mathtext.
-        radius: Circle radius in points (before display-space
+        radius: Marker radius in points (before display-space
             scaling).  ``None`` falls back to
             ``LegendStyle.circle_radius`` when that is a plain float,
             or to 5.0 points otherwise (the proportional and
             per-species dict modes do not apply to individual items).
+        sides: Number of sides for a regular-polygon marker, or
+            ``None`` for a circle (the default).  Must be at least 3.
+        rotation: Rotation of the polygon marker in degrees
+            (default 0.0).  Ignored when *sides* is ``None``.
     """
 
     @staticmethod
@@ -274,12 +278,21 @@ class LegendItem:
                 f"radius must be positive, got {value}"
             )
 
+    @staticmethod
+    def _validate_sides(value: int | None) -> None:
+        if value is not None and value < 3:
+            raise ValueError(
+                f"sides must be >= 3, got {value}"
+            )
+
     def __init__(
         self,
         key: str,
         colour: Colour,
         label: str | None = None,
         radius: float | None = None,
+        sides: int | None = None,
+        rotation: float = 0.0,
     ) -> None:
         if not key:
             raise ValueError("key must be non-empty")
@@ -287,10 +300,13 @@ class LegendItem:
         self._colour = normalise_colour(colour)
         self.label = label
         self._radius = radius
+        self._sides = sides
+        self._rotation = float(rotation)
         self._validate()
 
     def _validate(self) -> None:
         self._validate_radius(self._radius)
+        self._validate_sides(self._sides)
 
     @property
     def colour(self) -> tuple[float, float, float]:
@@ -312,6 +328,36 @@ class LegendItem:
         self._radius = value
 
     @property
+    def sides(self) -> int | None:
+        """Number of polygon sides, or ``None`` for a circle."""
+        return self._sides
+
+    @sides.setter
+    def sides(self, value: int | None) -> None:
+        self._validate_sides(value)
+        self._sides = value
+
+    @property
+    def rotation(self) -> float:
+        """Rotation of the polygon marker in degrees."""
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, value: float) -> None:
+        self._rotation = float(value)
+
+    @property
+    def marker(self) -> str | tuple[int, int, float]:
+        """Matplotlib marker specification derived from *sides* and *rotation*.
+
+        Returns ``"o"`` for circles, or ``(sides, 0, rotation)`` for
+        regular polygons.
+        """
+        if self._sides is None:
+            return "o"
+        return (self._sides, 0, self._rotation)
+
+    @property
     def display_label(self) -> str:
         """The label to display, falling back to *key*."""
         return self.key if self.label is None else self.label
@@ -325,6 +371,10 @@ class LegendItem:
             parts.append(f"label={self.label!r}")
         if self._radius is not None:
             parts.append(f"radius={self._radius!r}")
+        if self._sides is not None:
+            parts.append(f"sides={self._sides!r}")
+        if self._rotation != 0.0:
+            parts.append(f"rotation={self._rotation!r}")
         return f"LegendItem({', '.join(parts)})"
 
     def __eq__(self, other: object) -> bool:
@@ -335,6 +385,8 @@ class LegendItem:
             and self._colour == other._colour
             and self.label == other.label
             and self._radius == other._radius
+            and self._sides == other._sides
+            and self._rotation == other._rotation
         )
 
     __hash__ = None  # type: ignore[assignment]
@@ -349,6 +401,10 @@ class LegendItem:
             d["label"] = self.label
         if self._radius is not None:
             d["radius"] = self._radius
+        if self._sides is not None:
+            d["sides"] = self._sides
+        if self._rotation != 0.0:
+            d["rotation"] = self._rotation
         return d
 
     @classmethod
@@ -362,6 +418,10 @@ class LegendItem:
             kwargs["label"] = d["label"]
         if "radius" in d:
             kwargs["radius"] = d["radius"]
+        if "sides" in d:
+            kwargs["sides"] = d["sides"]
+        if "rotation" in d:
+            kwargs["rotation"] = d["rotation"]
         return cls(**kwargs)
 
 

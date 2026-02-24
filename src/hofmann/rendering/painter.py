@@ -1265,7 +1265,7 @@ def _draw_legend_widget(
 
         ax.plot(
             anchor_x, y_i,
-            marker="o",
+            marker=item.marker,
             markersize=item_radius[i] * 2,
             markerfacecolor=rgb,
             markeredgecolor=edge_colour,

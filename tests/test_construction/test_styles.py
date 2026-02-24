@@ -228,6 +228,32 @@ class TestLegendItemDict:
         d = item.to_dict()
         assert d["colour"] == list(normalise_colour("blue"))
 
+    def test_sides_round_trip(self):
+        item = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
+        d = item.to_dict()
+        assert d["sides"] == 6
+        assert d["rotation"] == 30.0
+        restored = LegendItem.from_dict(d)
+        assert restored.sides == 6
+        assert restored.rotation == 30.0
+
+    def test_sides_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "sides" not in d
+
+    def test_rotation_zero_omitted(self):
+        item = LegendItem(key="Na", colour="blue", sides=4)
+        d = item.to_dict()
+        assert "rotation" not in d
+
+    def test_sides_without_rotation_round_trip(self):
+        item = LegendItem(key="Tet", colour="green", sides=4)
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert restored.sides == 4
+        assert restored.rotation == 0.0
+
 
 # -- LegendStyle --------------------------------------------------------------
 

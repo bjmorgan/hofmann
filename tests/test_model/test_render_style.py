@@ -422,6 +422,88 @@ class TestLegendItem:
         with pytest.raises(TypeError):
             hash(item)
 
+    # ---- sides / rotation ----
+
+    def test_sides_defaults_to_none(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.sides is None
+
+    def test_rotation_defaults_to_zero(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.rotation == 0.0
+
+    def test_sides_construction(self):
+        item = LegendItem(key="Oct", colour="red", sides=8)
+        assert item.sides == 8
+
+    def test_rotation_construction(self):
+        item = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
+        assert item.rotation == 30.0
+
+    def test_sides_setter_valid(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.sides = 4
+        assert item.sides == 4
+
+    def test_sides_setter_none(self):
+        item = LegendItem(key="Na", colour="blue", sides=6)
+        item.sides = None
+        assert item.sides is None
+
+    def test_sides_setter_too_small_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="sides must be >= 3"):
+            item.sides = 2
+
+    def test_sides_construction_too_small_raises(self):
+        with pytest.raises(ValueError, match="sides must be >= 3"):
+            LegendItem(key="Na", colour="blue", sides=1)
+
+    def test_rotation_setter(self):
+        item = LegendItem(key="Na", colour="blue", sides=6)
+        item.rotation = 45.0
+        assert item.rotation == 45.0
+
+    def test_rotation_coerced_to_float(self):
+        item = LegendItem(key="Na", colour="blue", sides=4, rotation=30)
+        assert item.rotation == 30.0
+        assert isinstance(item.rotation, float)
+
+    def test_marker_circle(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.marker == "o"
+
+    def test_marker_polygon(self):
+        item = LegendItem(key="Oct", colour="red", sides=6, rotation=15.0)
+        assert item.marker == (6, 0, 15.0)
+
+    def test_repr_with_sides(self):
+        item = LegendItem(key="Oct", colour="red", sides=6)
+        r = repr(item)
+        assert "sides=6" in r
+        assert "rotation" not in r
+
+    def test_repr_with_sides_and_rotation(self):
+        item = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
+        r = repr(item)
+        assert "sides=6" in r
+        assert "rotation=30.0" in r
+
+    def test_equality_with_sides(self):
+        a = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
+        b = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
+        assert a == b
+
+    def test_inequality_different_sides(self):
+        a = LegendItem(key="Oct", colour="red", sides=6)
+        b = LegendItem(key="Oct", colour="red", sides=4)
+        assert a != b
+
+    def test_inequality_different_rotation(self):
+        a = LegendItem(key="Oct", colour="red", sides=6, rotation=0.0)
+        b = LegendItem(key="Oct", colour="red", sides=6, rotation=45.0)
+        assert a != b
+
 
 class TestLegendStyle:
     def test_defaults(self):
