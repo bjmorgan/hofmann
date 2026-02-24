@@ -373,10 +373,10 @@ circles and accepts three forms:
 .. code-block:: python
 
    # Proportional: smaller atoms get smaller circles.
-   LegendStyle(circle_radius=(3.0, 8.0))
+   LegendStyle(circle_radius=(3.0, 7.0))
 
    # Explicit per-species:
-   LegendStyle(circle_radius={"O": 4.0, "Ti": 6.0, "Sr": 8.0})
+   LegendStyle(circle_radius={"Sr": 4.0, "Ti": 7.0, "O": 5.0})
 
 .. list-table::
    :widths: 33 33 33
@@ -395,6 +395,103 @@ circles and accepts three forms:
           :align: center
 
           Dict (per-species)
+
+Custom legend items
+~~~~~~~~~~~~~~~~~~~
+
+When colouring atoms by custom data (via ``colour_by``), the default
+species-based legend may not reflect the active colouring.  Pass a
+tuple of :class:`~hofmann.LegendItem` instances to display a fully
+custom legend:
+
+.. code-block:: python
+
+   from hofmann import LegendItem, LegendStyle
+
+   style = LegendStyle(items=(
+       LegendItem(key="octahedral", colour="blue", label="Octahedral"),
+       LegendItem(key="tetrahedral", colour="red", label="Tetrahedral"),
+   ))
+   scene.render_mpl("output.svg", show_legend=True, legend_style=style)
+
+When ``items`` is provided, the ``species`` and ``labels`` parameters
+are ignored — each item carries its own key, colour, and optional
+label.  Items with ``radius=None`` fall back to ``circle_radius``
+when that is a plain float, or to its default value otherwise (the
+proportional and per-species dict modes do not apply to individual
+items).
+
+:class:`~hofmann.LegendItem` is mutable, so items can be tweaked
+after creation:
+
+.. code-block:: python
+
+   item = LegendItem(key="oct", colour="blue")
+   item.label = "Octahedral"
+   item.radius = 8.0
+
+Polygon markers
+^^^^^^^^^^^^^^^
+
+By default, legend entries are drawn as circles.  Set ``sides`` to
+draw a regular polygon instead — useful for indicating polyhedra
+types.  ``rotation`` controls the orientation in degrees:
+
+.. code-block:: python
+
+   items = (
+       LegendItem(key="oct", colour="blue", label="Octahedral", sides=6),
+       LegendItem(key="tet", colour="red", label="Tetrahedral", sides=4, rotation=45.0),
+       LegendItem(key="round", colour="green", label="Spherical"),
+   )
+   style = LegendStyle(items=items)
+   scene.render_mpl("output.svg", show_legend=True, legend_style=style)
+
+.. figure:: _static/legend_polygon_markers.svg
+   :align: center
+
+   Hexagon, rotated square, and circle markers.
+
+.. note::
+
+   Spacing between entries is based on the bounding circle of
+   each marker.  Use ``gap_after`` to fine-tune spacing when
+   needed.
+
+Non-uniform spacing
+^^^^^^^^^^^^^^^^^^^
+
+Each item can control the vertical gap below it via ``gap_after``
+(in points).  Items without ``gap_after`` fall back to
+``LegendStyle.spacing``.  This is useful for visually grouping
+related entries:
+
+.. code-block:: python
+
+   items = (
+       LegendItem(key="Sr", colour="green"),
+       LegendItem(key="Ti", colour="silver"),
+       LegendItem(key="O", colour="red", gap_after=8.0),
+       LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
+       LegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
+   )
+   style = LegendStyle(items=items)
+
+.. figure:: _static/legend_spacing.svg
+   :align: center
+
+   Larger gap separates the species group from the polyhedra group.
+
+Marker opacity
+^^^^^^^^^^^^^^
+
+Set ``alpha`` (0.0--1.0) to make a marker face semi-transparent.
+Marker outlines remain fully opaque, matching the visual style of
+polyhedra with translucent faces and solid edges:
+
+.. code-block:: python
+
+   LegendItem(key="oct", colour="blue", label="TiO6", sides=6, alpha=0.5)
 
 Standalone legend
 ~~~~~~~~~~~~~~~~~

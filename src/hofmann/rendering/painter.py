@@ -28,6 +28,7 @@ from hofmann.model import (
     AxesStyle,
     Bond,
     CmapSpec,
+    LegendItem,
     LegendStyle,
     RenderStyle,
     SlabClipMode,
@@ -1040,38 +1041,22 @@ def _format_legend_label(text: str) -> str:
 _GREY_FALLBACK = (0.5, 0.5, 0.5)
 
 
-def _draw_legend_widget(
-    ax: Axes,
+def _build_legend_items(
     scene: StructureScene,
     style: LegendStyle,
-    pad_x: float,
-    pad_y: float,
-    cx: float = 0.0,
-    cy: float = 0.0,
-    outline_colour: tuple[float, float, float] | None = None,
-    outline_width: float = 1.0,
-) -> None:
-    """Draw a species legend widget on *ax*.
+) -> list[LegendItem]:
+    """Build legend items from scene species and atom styles.
 
-    A vertical column of coloured circles with species labels beside
-    them.  Each entry corresponds to one atomic species.
-
-    This function adds ``Line2D`` artists (circle markers) and text
-    labels.  These are cleaned up on the next call to
-    :func:`_draw_scene` via the ``ax.lines[:]`` and ``ax.texts[:]``
-    removal.
+    Resolves the species list (auto-detect or explicit), looks up
+    each species' colour from the scene's atom styles, and optionally
+    attaches per-species labels and radii from the style.
 
     Args:
-        ax: A matplotlib ``Axes`` to draw into.
         scene: The structure scene (provides species and atom styles).
-        style: Visual style for the widget.
-        pad_x: Viewport half-extent in the x direction (data coords).
-        pad_y: Viewport half-extent in the y direction (data coords).
-        cx: Viewport centre x coordinate.
-        cy: Viewport centre y coordinate.
-        outline_colour: Outline colour for legend circles, or ``None``
-            to disable outlines.
-        outline_width: Line width for circle outlines in points.
+        style: Visual style for the legend.
+
+    Returns:
+        Ordered list of legend items, one per species.
     """
     # ---- Determine species list ----
     if style.species is not None:
@@ -1087,6 +1072,119 @@ def _draw_legend_widget(
         species_list = list(seen)
 
     if not species_list:
+        return []
+
+    # ---- Resolve per-species colours ----
+    colours: dict[str, tuple[float, float, float]] = {}
+    for sp in species_list:
+        atom_style = scene.atom_styles.get(sp)
+        if atom_style is not None:
+            colours[sp] = normalise_colour(atom_style.colour)
+        else:
+            colours[sp] = _GREY_FALLBACK
+
+    # ---- Resolve per-species radii ----
+    # Proportional and dict modes set explicit radii; uniform mode
+    # leaves radius as None so the draw loop uses the style default.
+    radii: dict[str, float | None] = {}
+    if isinstance(style.circle_radius, tuple):
+        r_min_pts, r_max_pts = style.circle_radius
+        atom_radii = {
+            sp: scene.atom_styles[sp].radius
+            if sp in scene.atom_styles else 1.0
+            for sp in species_list
+        }
+        lo = min(atom_radii.values())
+        hi = max(atom_radii.values())
+        if hi == lo:
+            radii = {sp: r_max_pts for sp in species_list}
+        else:
+            radii = {
+                sp: r_min_pts + (r - lo) / (hi - lo) * (r_max_pts - r_min_pts)
+                for sp, r in atom_radii.items()
+            }
+    elif isinstance(style.circle_radius, dict):
+        radii = {
+            sp: style.circle_radius.get(sp, _DEFAULT_CIRCLE_RADIUS)
+            for sp in species_list
+        }
+    else:
+        radii = {sp: None for sp in species_list}
+
+    # ---- Resolve per-species labels ----
+    labels: dict[str, str | None] = {}
+    if style.labels is not None:
+        for sp in species_list:
+            labels[sp] = style.labels.get(sp)
+    else:
+        labels = {sp: None for sp in species_list}
+
+    return [
+        LegendItem(
+            key=sp,
+            colour=colours[sp],
+            label=labels[sp],
+            radius=radii[sp],
+        )
+        for sp in species_list
+    ]
+
+
+def _resolve_item_radius(item: LegendItem, style: LegendStyle) -> float:
+    """Resolve the display radius for a legend item in points (pre-scale).
+
+    Returns the item's explicit radius if set, otherwise falls back
+    to the style's uniform ``circle_radius`` (when it is a plain
+    float) or ``_DEFAULT_CIRCLE_RADIUS``.
+    """
+    if item.radius is not None:
+        return item.radius
+    if isinstance(style.circle_radius, (int, float)):
+        return float(style.circle_radius)
+    return _DEFAULT_CIRCLE_RADIUS
+
+
+def _draw_legend_widget(
+    ax: Axes,
+    scene: StructureScene,
+    style: LegendStyle,
+    pad_x: float,
+    pad_y: float,
+    cx: float = 0.0,
+    cy: float = 0.0,
+    outline_colour: tuple[float, float, float] | None = None,
+    outline_width: float = 1.0,
+) -> None:
+    """Draw a legend widget on *ax*.
+
+    A vertical column of coloured markers with labels beside them.
+    Each entry corresponds to one :class:`LegendItem`.  Markers may
+    be circles or regular polygons depending on the item's *sides*
+    field.
+
+    This function adds ``Line2D`` artists (markers) and text labels.
+    These are cleaned up on the next call to :func:`_draw_scene` via
+    the ``ax.lines[:]`` and ``ax.texts[:]`` removal.
+
+    Args:
+        ax: A matplotlib ``Axes`` to draw into.
+        scene: The structure scene (provides species and atom styles
+            for auto-generated items).  Unused when ``style.items``
+            is provided.
+        style: Visual style for the widget.
+        pad_x: Viewport half-extent in the x direction (data coords).
+        pad_y: Viewport half-extent in the y direction (data coords).
+        cx: Viewport centre x coordinate.
+        cy: Viewport centre y coordinate.
+        outline_colour: Outline colour for legend markers, or ``None``
+            to disable outlines.
+        outline_width: Line width for marker outlines in points.
+    """
+    if style.items is not None:
+        items = list(style.items)
+    else:
+        items = _build_legend_items(scene, style)
+    if not items:
         return
 
     # ---- Display-space scaling ----
@@ -1103,66 +1201,49 @@ def _draw_legend_widget(
     # ---- Pre-format labels ----
     # Resolve and format all labels before layout so that we can
     # detect mathtext (super/subscripts) and adjust spacing.
-    formatted_labels: dict[str, str] = {}
-    for sp in species_list:
-        raw = sp if style.labels is None else style.labels.get(sp, sp)
-        formatted_labels[sp] = _format_legend_label(raw)
+    formatted_labels: list[str] = [
+        _format_legend_label(item.display_label) for item in items
+    ]
 
     font_size = style.font_size * scale
-    spacing = style.spacing * scale
+    default_spacing = style.spacing * scale
     # When the user hasn't explicitly set spacing, widen the gap for
     # labels that contain mathtext (super/subscripts are taller).
     if (
         style.spacing == _DEFAULT_SPACING
-        and any("$" in lbl for lbl in formatted_labels.values())
+        and any("$" in lbl for lbl in formatted_labels)
     ):
-        spacing *= _MATHTEXT_SPACING_FACTOR
+        default_spacing *= _MATHTEXT_SPACING_FACTOR
     stroke_width = 3.0 * scale
 
-    # ---- Resolve per-species circle radii (in points, pre-scale) ----
-    if isinstance(style.circle_radius, tuple):
-        # Proportional sizing: interpolate between (min_r, max_r) based
-        # on each species' AtomStyle.radius.
-        r_min_pts, r_max_pts = style.circle_radius
-        atom_radii = {
-            sp: scene.atom_styles[sp].radius
-            if sp in scene.atom_styles else 1.0
-            for sp in species_list
-        }
-        lo = min(atom_radii.values())
-        hi = max(atom_radii.values())
-        if hi == lo:
-            species_radius_pts = {sp: r_max_pts for sp in species_list}
-        else:
-            species_radius_pts = {
-                sp: r_min_pts + (r - lo) / (hi - lo) * (r_max_pts - r_min_pts)
-                for sp, r in atom_radii.items()
-            }
-    elif isinstance(style.circle_radius, dict):
-        species_radius_pts = {
-            sp: style.circle_radius.get(sp, _DEFAULT_CIRCLE_RADIUS)
-            for sp in species_list
-        }
-    else:
-        species_radius_pts = {sp: style.circle_radius for sp in species_list}
+    # ---- Resolve per-item circle radii (in points, pre-scale) ----
+    item_radius_pts = [_resolve_item_radius(item, style) for item in items]
 
     # Scale all radii by the display-space factor.
-    species_radius = {sp: r * scale for sp, r in species_radius_pts.items()}
-    max_circle_radius = max(species_radius.values())
+    item_radius = [r * scale for r in item_radius_pts]
+    max_circle_radius = max(item_radius)
 
     # Convert sizes from points to data coordinates for positioning.
     max_circle_r_data = max_circle_radius / pts_per_data
-    spacing_data = spacing / pts_per_data
     font_data = font_size / pts_per_data
     entry_height = max(2 * max_circle_r_data, font_data)
+
+    # ---- Resolve per-gap spacing ----
+    # Each item's gap_after overrides the style-level default when set.
+    gap_spacing: list[float] = []
+    for item in items[:-1]:
+        if item.gap_after is not None:
+            gap_spacing.append(item.gap_after * scale / pts_per_data)
+        else:
+            gap_spacing.append(default_spacing / pts_per_data)
 
     # ---- Anchor position ----
     # The anchor is the circle centre for the first legend entry.
     # Label is always to the right of the circle (circle-left,
     # label-right) for natural left-to-right reading order.
-    n_entries = len(species_list)
+    n_entries = len(items)
     total_height = (
-        (n_entries - 1) * (entry_height + spacing_data) + entry_height
+        n_entries * entry_height + sum(gap_spacing)
     )
     label_gap_data = style.label_gap * scale / pts_per_data
     label_offset = max_circle_r_data + label_gap_data
@@ -1185,23 +1266,22 @@ def _draw_legend_widget(
 
     # ---- Draw entries ----
     # Always stack downward from the anchor (top of legend).
-    for i, sp in enumerate(species_list):
-        y_i = anchor_y - i * (entry_height + spacing_data)
+    y_i = anchor_y
+    for i, item in enumerate(items):
 
-        atom_style = scene.atom_styles.get(sp)
-        if atom_style is not None:
-            rgb = normalise_colour(atom_style.colour)
-        else:
-            rgb = _GREY_FALLBACK
+        rgb = normalise_colour(item.colour)
+        face_colour: tuple[float, ...] = rgb
+        if item.alpha < 1.0:
+            face_colour = (*rgb, item.alpha)
 
         edge_colour = outline_colour if outline_colour is not None else rgb
         edge_width = outline_width * scale if outline_colour is not None else 0.0
 
         ax.plot(
             anchor_x, y_i,
-            marker="o",
-            markersize=species_radius[sp] * 2,
-            markerfacecolor=rgb,
+            marker=item.marker,
+            markersize=item_radius[i] * 2,
+            markerfacecolor=face_colour,
             markeredgecolor=edge_colour,
             markeredgewidth=edge_width,
             linestyle="None",
@@ -1215,7 +1295,7 @@ def _draw_legend_widget(
         text_y = y_i - 0.09 * font_data
 
         ax.text(
-            anchor_x + label_offset, text_y, formatted_labels[sp],
+            anchor_x + label_offset, text_y, formatted_labels[i],
             fontsize=font_size,
             color=(0.0, 0.0, 0.0),
             ha="left",
@@ -1227,6 +1307,10 @@ def _draw_legend_widget(
                 ),
             ],
         )
+
+        # Advance downward for the next entry.
+        if i < len(gap_spacing):
+            y_i -= entry_height + gap_spacing[i]
 
 
 def _axes_bg_rgb(ax: Axes) -> tuple[float, float, float]:

@@ -1,6 +1,37 @@
 Changelog
 =========
 
+0.11.0
+------
+
+- Internal: legend drawing now runs through :class:`~hofmann.LegendItem`
+  objects.  A new ``_build_legend_items`` helper assembles items from the
+  scene's species and atom styles, and ``_draw_legend_widget`` consumes
+  the resulting list.
+
+- New :class:`~hofmann.LegendItem` class bundles per-entry legend data
+  (key, colour, optional label, optional radius) with validated property
+  setters following the :class:`~hofmann.BondSpec` pattern.
+
+- :class:`~hofmann.LegendStyle` gains an ``items`` parameter.  Pass a
+  tuple of :class:`~hofmann.LegendItem` instances to display a fully
+  custom legend (e.g. for ``colour_by`` data) instead of the default
+  species-based entries.
+
+- :class:`~hofmann.LegendItem` supports regular-polygon markers via
+  ``sides`` and ``rotation`` fields.  Set ``sides`` (>= 3) to draw
+  a polygon instead of a circle, and ``rotation`` to rotate it in
+  degrees.  Useful for indicating polyhedra types in the legend.
+
+- :class:`~hofmann.LegendItem` gains a ``gap_after`` field for
+  non-uniform vertical spacing.  Each item can override the
+  style-level ``spacing`` for the gap below it; ``None`` falls back
+  to ``LegendStyle.spacing``.
+
+- :class:`~hofmann.LegendItem` gains an ``alpha`` field (0.0--1.0,
+  default 1.0) for semi-transparent marker faces.  Marker outlines
+  remain fully opaque, matching the visual style of polyhedra.
+
 0.10.2
 ------
 

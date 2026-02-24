@@ -11,6 +11,7 @@ from hofmann.model import (
     BondSpec,
     CellEdgeStyle,
     Frame,
+    LegendItem,
     LegendStyle,
     PolyhedronSpec,
     RenderStyle,
@@ -193,6 +194,91 @@ class TestAxesStyleDict:
         assert restored.corner == (0.1, 0.9)
 
 
+# -- LegendItem ---------------------------------------------------------------
+
+class TestLegendItemDict:
+    def test_minimal_round_trip(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert restored.key == "Na"
+        assert restored.colour == normalise_colour("blue")
+
+    def test_full_round_trip(self):
+        item = LegendItem(key="Na", colour=(0.2, 0.4, 0.8), label="Sodium", radius=6.0)
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert restored.key == "Na"
+        assert restored.colour == (0.2, 0.4, 0.8)
+        assert restored.label == "Sodium"
+        assert restored.radius == 6.0
+
+    def test_label_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "label" not in d
+
+    def test_radius_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "radius" not in d
+
+    def test_colour_normalised_in_dict(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert d["colour"] == list(normalise_colour("blue"))
+
+    def test_sides_round_trip(self):
+        item = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
+        d = item.to_dict()
+        assert d["sides"] == 6
+        assert d["rotation"] == 30.0
+        restored = LegendItem.from_dict(d)
+        assert restored.sides == 6
+        assert restored.rotation == 30.0
+
+    def test_sides_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "sides" not in d
+
+    def test_rotation_zero_omitted(self):
+        item = LegendItem(key="Na", colour="blue", sides=4)
+        d = item.to_dict()
+        assert "rotation" not in d
+
+    def test_sides_without_rotation_round_trip(self):
+        item = LegendItem(key="Tet", colour="green", sides=4)
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert restored.sides == 4
+        assert restored.rotation == 0.0
+
+    def test_gap_after_round_trip(self):
+        item = LegendItem(key="Na", colour="blue", gap_after=8.0)
+        d = item.to_dict()
+        assert d["gap_after"] == 8.0
+        restored = LegendItem.from_dict(d)
+        assert restored.gap_after == 8.0
+
+    def test_gap_after_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "gap_after" not in d
+
+    def test_alpha_round_trip(self):
+        item = LegendItem(key="Oct", colour="red", alpha=0.4)
+        d = item.to_dict()
+        assert d["alpha"] == 0.4
+        restored = LegendItem.from_dict(d)
+        assert restored.alpha == 0.4
+
+    def test_alpha_default_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "alpha" not in d
+
+
 # -- LegendStyle --------------------------------------------------------------
 
 class TestLegendStyleDict:
@@ -281,6 +367,26 @@ class TestLegendStyleDict:
         style = LegendStyle()
         d = style.to_dict()
         assert "labels" not in d
+
+    def test_items_round_trip(self):
+        items = (
+            LegendItem(key="oct", colour="blue", label="Octahedral"),
+            LegendItem(key="tet", colour="red", radius=3.0),
+        )
+        style = LegendStyle(items=items)
+        d = style.to_dict()
+        assert len(d["items"]) == 2
+        restored = LegendStyle.from_dict(d)
+        assert len(restored.items) == 2
+        assert restored.items[0].key == "oct"
+        assert restored.items[0].label == "Octahedral"
+        assert restored.items[1].key == "tet"
+        assert restored.items[1].radius == 3.0
+
+    def test_items_none_omitted(self):
+        style = LegendStyle()
+        d = style.to_dict()
+        assert "items" not in d
 
 
 # -- RenderStyle --------------------------------------------------------------

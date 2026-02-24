@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from hofmann import (
-    AtomStyle, AxesStyle, BondSpec, Frame, LegendStyle,
+    AtomStyle, AxesStyle, BondSpec, Frame, LegendItem, LegendStyle,
     PolyhedronSpec, RenderStyle, StructureScene, ViewState,
 )
 
@@ -940,6 +940,42 @@ def main() -> None:
         ),
     )
     print(f"  wrote {OUT / 'legend_labels.svg'}")
+
+    # Polygon markers: hexagon, rotated square, and circle.
+    render_legend(
+        _legend_scene, OUT / "legend_polygon_markers.svg",
+        legend_style=LegendStyle(
+            items=(
+                LegendItem(key="oct", colour="blue",
+                           label="Octahedral", sides=6),
+                LegendItem(key="tet", colour="red",
+                           label="Tetrahedral", sides=4, rotation=45.0),
+                LegendItem(key="round", colour="green",
+                           label="Spherical"),
+            ),
+        ),
+        figsize=(0.9, 0.8),
+    )
+    print(f"  wrote {OUT / 'legend_polygon_markers.svg'}")
+
+    # Non-uniform spacing with gap_after.
+    render_legend(
+        _legend_scene, OUT / "legend_spacing.svg",
+        legend_style=LegendStyle(
+            items=(
+                LegendItem(key="Sr", colour="#51b04d", label="Sr2+"),
+                LegendItem(key="Ti", colour="#477B9D"),
+                LegendItem(key="O", colour="#F03F37",
+                           gap_after=8.0),
+                LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
+                           label="TiO6", sides=6),
+                LegendItem(key="tet", colour=(0.85, 0.65, 0.85),
+                           label="SrO12", sides=4, rotation=45.0),
+            ),
+        ),
+        figsize=(0.75, 1.35),
+    )
+    print(f"  wrote {OUT / 'legend_spacing.svg'}")
 
 
 if __name__ == "__main__":

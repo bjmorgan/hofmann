@@ -231,17 +231,278 @@ class AxesStyle:
 
 
 _DEFAULT_CIRCLE_RADIUS: float = 5.0
-_DEFAULT_SPACING: float = 2.5
 """Default legend circle radius in points."""
+
+_DEFAULT_SPACING: float = 2.5
+"""Default vertical spacing between legend entries in points."""
+
+
+class LegendItem:
+    """A single entry in the species legend.
+
+    Each item carries a *key* (used as an identifier and fallback
+    display label), a *colour* for the legend circle, an optional
+    *label* override, and an optional *radius* in points.
+
+    The class follows the same validated-property pattern as
+    :class:`~hofmann.model.BondSpec`: ``colour`` and ``radius`` are
+    backed by private fields with setters that validate on every
+    assignment.
+
+    Args:
+        key: Identifier for this legend entry.  Also used as the
+            default display label when *label* is ``None``.
+        colour: Fill colour for the legend marker.  Accepts any
+            format understood by :func:`normalise_colour`; the value
+            is normalised to an ``(R, G, B)`` tuple on assignment.
+        label: Display label text.  ``None`` falls back to *key*.
+            Common chemical notation is auto-formatted at render
+            time: trailing charges become superscripts, embedded
+            digits become subscripts.  Labels containing ``$`` are
+            passed through as explicit matplotlib mathtext.
+        radius: Marker radius in points (before display-space
+            scaling).  ``None`` falls back to
+            ``LegendStyle.circle_radius`` when that is a plain float,
+            or to its default value otherwise (the proportional and
+            per-species dict modes do not apply to individual items).
+        sides: Number of sides for a regular-polygon marker, or
+            ``None`` for a circle (the default).  Must be at least 3.
+        rotation: Rotation of the polygon marker in degrees
+            (default 0.0).  Ignored when *sides* is ``None``.
+        gap_after: Vertical gap in points between this entry and the
+            next one.  ``None`` falls back to
+            ``LegendStyle.spacing``.  Must be non-negative.  Ignored
+            for the final entry in the list.
+        alpha: Opacity of the marker face, from 0.0 (fully transparent)
+            to 1.0 (fully opaque, the default).  Marker outlines are
+            unaffected and remain fully opaque.
+    """
+
+    @staticmethod
+    def _validate_radius(value: float | None) -> None:
+        if value is not None and value <= 0:
+            raise ValueError(
+                f"radius must be positive, got {value}"
+            )
+
+    @staticmethod
+    def _validate_sides(value: int | None) -> None:
+        if value is None:
+            return
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(
+                f"sides must be an int >= 3, got {value!r} "
+                f"(type {type(value).__name__})"
+            )
+        if value < 3:
+            raise ValueError(
+                f"sides must be >= 3, got {value}"
+            )
+
+    @staticmethod
+    def _validate_alpha(value: float) -> None:
+        if not (0.0 <= value <= 1.0):
+            raise ValueError(
+                f"alpha must be between 0.0 and 1.0, got {value}"
+            )
+
+    @staticmethod
+    def _validate_gap_after(value: float | None) -> None:
+        if value is not None and value < 0:
+            raise ValueError(
+                f"gap_after must be non-negative, got {value}"
+            )
+
+    def __init__(
+        self,
+        key: str,
+        colour: Colour,
+        label: str | None = None,
+        radius: float | None = None,
+        sides: int | None = None,
+        rotation: float = 0.0,
+        gap_after: float | None = None,
+        alpha: float = 1.0,
+    ) -> None:
+        if not key:
+            raise ValueError("key must be non-empty")
+        self.key = key
+        self._colour = normalise_colour(colour)
+        self.label = label
+        self._radius = radius
+        self._sides = sides
+        self._rotation = float(rotation)
+        self._gap_after = gap_after
+        self._alpha = float(alpha)
+        self._validate()
+
+    def _validate(self) -> None:
+        self._validate_radius(self._radius)
+        self._validate_sides(self._sides)
+        self._validate_gap_after(self._gap_after)
+        self._validate_alpha(self._alpha)
+
+    @property
+    def colour(self) -> tuple[float, float, float]:
+        """Fill colour for the legend circle (normalised RGB)."""
+        return self._colour
+
+    @colour.setter
+    def colour(self, value: Colour) -> None:
+        self._colour = normalise_colour(value)
+
+    @property
+    def radius(self) -> float | None:
+        """Circle radius in points, or ``None`` for the style default."""
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: float | None) -> None:
+        self._validate_radius(value)
+        self._radius = value
+
+    @property
+    def sides(self) -> int | None:
+        """Number of polygon sides, or ``None`` for a circle."""
+        return self._sides
+
+    @sides.setter
+    def sides(self, value: int | None) -> None:
+        self._validate_sides(value)
+        self._sides = value
+
+    @property
+    def rotation(self) -> float:
+        """Rotation of the polygon marker in degrees."""
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, value: float) -> None:
+        self._rotation = float(value)
+
+    @property
+    def gap_after(self) -> float | None:
+        """Gap in points after this entry, or ``None`` for the style default."""
+        return self._gap_after
+
+    @gap_after.setter
+    def gap_after(self, value: float | None) -> None:
+        self._validate_gap_after(value)
+        self._gap_after = value
+
+    @property
+    def alpha(self) -> float:
+        """Opacity of the marker face (0.0 = transparent, 1.0 = opaque)."""
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value: float) -> None:
+        self._validate_alpha(value)
+        self._alpha = float(value)
+
+    @property
+    def marker(self) -> str | tuple[int, int, float]:
+        """Matplotlib marker specification derived from *sides* and *rotation*.
+
+        Returns ``"o"`` for circles, or ``(sides, 0, rotation)`` for
+        regular polygons.
+        """
+        if self._sides is None:
+            return "o"
+        return (self._sides, 0, self._rotation)
+
+    @property
+    def display_label(self) -> str:
+        """The label to display, falling back to *key*."""
+        return self.key if self.label is None else self.label
+
+    def __repr__(self) -> str:
+        parts = [
+            f"key={self.key!r}",
+            f"colour={self._colour!r}",
+        ]
+        if self.label is not None:
+            parts.append(f"label={self.label!r}")
+        if self._radius is not None:
+            parts.append(f"radius={self._radius!r}")
+        if self._sides is not None:
+            parts.append(f"sides={self._sides!r}")
+        if self._rotation != 0.0:
+            parts.append(f"rotation={self._rotation!r}")
+        if self._gap_after is not None:
+            parts.append(f"gap_after={self._gap_after!r}")
+        if self._alpha != 1.0:
+            parts.append(f"alpha={self._alpha!r}")
+        return f"LegendItem({', '.join(parts)})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LegendItem):
+            return NotImplemented
+        return (
+            self.key == other.key
+            and self._colour == other._colour
+            and self.label == other.label
+            and self._radius == other._radius
+            and self._sides == other._sides
+            and self._rotation == other._rotation
+            and self._gap_after == other._gap_after
+            and self._alpha == other._alpha
+        )
+
+    __hash__ = None  # type: ignore[assignment]
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary."""
+        d: dict = {
+            "key": self.key,
+            "colour": list(self._colour),
+        }
+        if self.label is not None:
+            d["label"] = self.label
+        if self._radius is not None:
+            d["radius"] = self._radius
+        if self._sides is not None:
+            d["sides"] = self._sides
+        if self._rotation != 0.0:
+            d["rotation"] = self._rotation
+        if self._gap_after is not None:
+            d["gap_after"] = self._gap_after
+        if self._alpha != 1.0:
+            d["alpha"] = self._alpha
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> LegendItem:
+        """Deserialise from a dictionary."""
+        colour = d["colour"]
+        if isinstance(colour, list):
+            colour = tuple(colour)
+        kwargs: dict = {"key": d["key"], "colour": colour}
+        if "label" in d:
+            kwargs["label"] = d["label"]
+        if "radius" in d:
+            kwargs["radius"] = d["radius"]
+        if "sides" in d:
+            kwargs["sides"] = d["sides"]
+        if "rotation" in d:
+            kwargs["rotation"] = d["rotation"]
+        if "gap_after" in d:
+            kwargs["gap_after"] = d["gap_after"]
+        if "alpha" in d:
+            kwargs["alpha"] = d["alpha"]
+        return cls(**kwargs)
 
 
 @dataclass(frozen=True)
 class LegendStyle:
     """Visual style for the species legend widget.
 
-    The widget draws a vertical column of coloured circles with species
-    labels beside them.  Each entry corresponds to one atomic species
-    in the scene.
+    The widget draws a vertical column of coloured circles with labels
+    beside them.  By default, entries are auto-generated from the
+    scene's species and atom styles.  To display a fully custom legend
+    (e.g. for ``colour_by`` data), pass a tuple of
+    :class:`LegendItem` instances via the *items* parameter — this
+    bypasses species auto-generation entirely.
 
     Attributes:
         corner: Widget position.  Pass a :class:`WidgetCorner` (or its
@@ -273,13 +534,21 @@ class LegendStyle:
             order.  ``None`` (the default) auto-detects from the
             scene: unique species in first-seen order, filtered to
             those with ``visible=True`` in their atom style.
+            Ignored when *items* is provided.
         labels: Custom display labels for legend entries, mapping
             species name to label string.  Common chemical notation
             is auto-formatted: trailing charges become superscripts
             (``"Sr2+"``), embedded digits become subscripts
             (``"TiO6"``).  Labels containing ``$`` are passed
             through as explicit matplotlib mathtext.  ``None`` (the
-            default) uses species names for all entries.
+            default) uses species names for all entries.  Ignored
+            when *items* is provided.
+        items: Explicit legend entries.  When provided, the legend
+            displays these items instead of auto-generating from
+            species.  *species*, *labels*, and the tuple/dict forms
+            of *circle_radius* are all ignored.  Items with
+            ``radius=None`` fall back to *circle_radius* when that
+            is a plain float, or to 5.0 points otherwise.
     """
 
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_RIGHT
@@ -290,6 +559,7 @@ class LegendStyle:
     label_gap: float = 5.0
     species: tuple[str, ...] | None = None
     labels: dict[str, str] | None = None
+    items: tuple[LegendItem, ...] | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.corner, tuple):
@@ -342,13 +612,24 @@ class LegendStyle:
             )
         if self.species is not None and len(self.species) == 0:
             raise ValueError("species must be non-empty when provided")
+        if self.items is not None:
+            if len(self.items) == 0:
+                raise ValueError("items must be non-empty when provided")
+            for i, entry in enumerate(self.items):
+                if not isinstance(entry, LegendItem):
+                    raise TypeError(
+                        f"items[{i}] must be a LegendItem, got "
+                        f"{type(entry).__name__}"
+                    )
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
         Fields at their default values are omitted.
         """
-        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
+        _SPECIAL = frozenset({
+            "corner", "species", "circle_radius", "labels", "items",
+        })
         defaults = _field_defaults(type(self), exclude=_SPECIAL)
         d: dict = {}
         for field_name, default in defaults.items():
@@ -371,12 +652,16 @@ class LegendStyle:
             d["species"] = list(self.species)
         if self.labels is not None:
             d["labels"] = dict(self.labels)
+        if self.items is not None:
+            d["items"] = [item.to_dict() for item in self.items]
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> LegendStyle:
         """Deserialise from a dictionary."""
-        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
+        _SPECIAL = frozenset({
+            "corner", "species", "circle_radius", "labels", "items",
+        })
         defaults = _field_defaults(cls, exclude=_SPECIAL)
         kwargs: dict = {}
         for field_name in defaults:
@@ -398,6 +683,10 @@ class LegendStyle:
             kwargs["species"] = tuple(d["species"])
         if "labels" in d:
             kwargs["labels"] = d["labels"]
+        if "items" in d:
+            kwargs["items"] = tuple(
+                LegendItem.from_dict(item) for item in d["items"]
+            )
         return cls(**kwargs)
 
 

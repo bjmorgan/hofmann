@@ -11,12 +11,14 @@ from hofmann.model import (
     AxesStyle,
     BondSpec,
     Frame,
+    LegendItem,
     LegendStyle,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
     StructureScene,
     ViewState,
+    normalise_colour,
 )
 from hofmann.rendering.static import render_mpl
 from hofmann.construction.scene_builders import from_xbs
@@ -1302,6 +1304,170 @@ class TestLegendWidget:
         assert "B" in label_texts
         plt.close(fig)
 
+    # ---- custom items ----
+
+    def test_custom_items_rendered(self):
+        """Explicit LegendItem entries are drawn with correct labels."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="oct", colour="blue", label="Octahedral"),
+            LegendItem(key="tet", colour="red", label="Tetrahedral"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "Octahedral" in label_texts
+        assert "Tetrahedral" in label_texts
+        # Species labels should not appear.
+        assert "A" not in label_texts
+        assert "B" not in label_texts
+        plt.close(fig)
+
+    def test_custom_items_colours(self):
+        """Custom item colours are used for marker face colours."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="x", colour=(1.0, 0.0, 0.0)),
+            LegendItem(key="y", colour=(0.0, 1.0, 0.0)),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        assert len(markers) == 2
+        face_colours = [m.get_markerfacecolor()[:3] for m in markers]
+        assert (1.0, 0.0, 0.0) in face_colours
+        assert (0.0, 1.0, 0.0) in face_colours
+        plt.close(fig)
+
+    def test_custom_items_with_radius(self):
+        """Items with explicit radii produce different marker sizes."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="small", colour="blue", radius=3.0),
+            LegendItem(key="big", colour="red", radius=9.0),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = sorted(m.get_markersize() for m in markers)
+        assert sizes[0] < sizes[1]
+        plt.close(fig)
+
+    def test_custom_items_bypass_species(self):
+        """Items with keys not matching any scene species still render."""
+        scene = _minimal_scene()
+        items = (LegendItem(key="custom_cat", colour="purple"),)
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "custom_cat" in label_texts
+        plt.close(fig)
+
+    def test_custom_items_label_formatting(self):
+        """Chemical notation auto-formatting applies to item labels."""
+        scene = _minimal_scene()
+        items = (LegendItem(key="Sr2+", colour="green"),)
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        # "Sr2+" should be auto-formatted with superscript.
+        assert any("$" in lbl for lbl in label_texts)
+        plt.close(fig)
+
+    def test_custom_items_polygon_marker(self):
+        """Items with sides produce polygon markers instead of circles."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="oct", colour="blue", sides=6),
+            LegendItem(key="tet", colour="red", sides=4, rotation=45.0),
+            LegendItem(key="round", colour="green"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l.get_marker() for l in ax.lines if l.get_linestyle() == "None"]
+        assert (6, 0, 0.0) in markers
+        assert (4, 0, 45.0) in markers
+        assert "o" in markers
+        plt.close(fig)
+
+    def test_custom_items_gap_after(self):
+        """Items with gap_after produce non-uniform vertical spacing."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="A", colour="red", gap_after=20.0),
+            LegendItem(key="B", colour="green", gap_after=0.0),
+            LegendItem(key="C", colour="blue"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        marker_lines = [
+            l for l in ax.lines if l.get_linestyle() == "None"
+        ]
+        ys = [l.get_ydata()[0] for l in marker_lines]
+        # Three markers stacked downward.
+        assert len(ys) == 3
+        gap_01 = ys[0] - ys[1]
+        gap_12 = ys[1] - ys[2]
+        # First gap (20 pt) should be larger than second (0 pt).
+        assert gap_01 > gap_12
+        plt.close(fig)
+
+    def test_custom_items_alpha(self):
+        """Items with alpha < 1 produce RGBA face colours."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="A", colour="red", alpha=0.4),
+            LegendItem(key="B", colour="green"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        marker_lines = [
+            l for l in ax.lines if l.get_linestyle() == "None"
+        ]
+        # First marker has alpha in face colour.
+        fc0 = marker_lines[0].get_markerfacecolor()
+        assert len(fc0) == 4
+        assert fc0[3] == pytest.approx(0.4)
+        # Second marker is fully opaque (RGB only).
+        fc1 = marker_lines[1].get_markerfacecolor()
+        # Edge colour always stays RGB (opaque outline).
+        ec0 = marker_lines[0].get_markeredgecolor()
+        assert len(ec0) == 3 or (len(ec0) == 4 and ec0[3] == pytest.approx(1.0))
+        plt.close(fig)
+
+
 
 class TestFormatLegendLabel:
     """Tests for automatic chemical notation formatting."""
@@ -1378,3 +1544,135 @@ class TestRenderLegend:
         fig = render_legend(scene, output=path)
         assert path.exists()
         plt.close(fig)
+
+    def test_polygon_markers_included_in_crop(self):
+        """Polygon-only legends include markers in the bounding box."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="Oct", colour="red", label="Oct", sides=6),
+            LegendItem(key="Tet", colour="blue", label="Tet", sides=4),
+        )
+        style = LegendStyle(items=items)
+        fig = render_legend(scene, legend_style=style)
+        ax = fig.axes[0]
+        assert len(ax.lines) == 2
+        assert len(ax.texts) == 2
+        plt.close(fig)
+
+
+class TestBuildLegendItems:
+    """Tests for the _build_legend_items helper."""
+
+    def _build(self, scene, style=None):
+        from hofmann.rendering.painter import _build_legend_items
+        return _build_legend_items(scene, style or LegendStyle())
+
+    def test_auto_detect_species(self):
+        """Items follow unique species in first-seen order."""
+        scene = StructureScene(
+            species=["B", "A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [4.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2)),
+            },
+        )
+        items = self._build(scene)
+        assert [item.key for item in items] == ["B", "A"]
+        assert normalise_colour(items[0].colour) == normalise_colour((0.8, 0.2, 0.2))
+        assert normalise_colour(items[1].colour) == normalise_colour((0.5, 0.5, 0.5))
+
+    def test_explicit_species(self):
+        """Explicit species list controls inclusion and order."""
+        scene = _minimal_scene()
+        items = self._build(scene, LegendStyle(species=("B",)))
+        assert [item.key for item in items] == ["B"]
+
+    def test_invisible_species_filtered(self):
+        """Auto-detect excludes species with visible=False."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2), visible=False),
+            },
+        )
+        items = self._build(scene)
+        assert [item.key for item in items] == ["A"]
+
+    def test_custom_labels(self):
+        """Labels from style are attached to items."""
+        scene = _minimal_scene()
+        items = self._build(scene, LegendStyle(labels={"A": "Alpha"}))
+        a_item = next(item for item in items if item.key == "A")
+        b_item = next(item for item in items if item.key == "B")
+        assert a_item.label == "Alpha"
+        assert a_item.display_label == "Alpha"
+        assert b_item.label is None
+        assert b_item.display_label == "B"
+
+    def test_proportional_radius(self):
+        """Proportional circle_radius sets different radii on items."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(2.0, (0.8, 0.2, 0.2)),
+            },
+        )
+        items = self._build(scene, LegendStyle(circle_radius=(3.0, 9.0)))
+        a_item = next(item for item in items if item.key == "A")
+        b_item = next(item for item in items if item.key == "B")
+        assert a_item.radius == 3.0
+        assert b_item.radius == 9.0
+
+    def test_uniform_radius_is_none(self):
+        """Uniform circle_radius leaves item radii as None."""
+        scene = _minimal_scene()
+        items = self._build(scene, LegendStyle(circle_radius=7.0))
+        assert all(item.radius is None for item in items)
+
+    def test_dict_radius(self):
+        """Dict circle_radius sets per-species radii on items."""
+        scene = _minimal_scene()
+        items = self._build(
+            scene, LegendStyle(circle_radius={"A": 4.0, "B": 8.0}),
+        )
+        a_item = next(item for item in items if item.key == "A")
+        b_item = next(item for item in items if item.key == "B")
+        assert a_item.radius == 4.0
+        assert b_item.radius == 8.0
+
+    def test_unknown_species_gets_grey(self):
+        """Species not in atom_styles get grey fallback colour."""
+        scene = StructureScene(
+            species=["X"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={},
+        )
+        items = self._build(scene)
+        assert len(items) == 1
+        assert normalise_colour(items[0].colour) == (0.5, 0.5, 0.5)
+
+    def test_empty_scene_returns_empty(self):
+        """Scene with no species returns an empty list."""
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.zeros((0, 3)))],
+            atom_styles={},
+        )
+        items = self._build(scene)
+        assert items == []
