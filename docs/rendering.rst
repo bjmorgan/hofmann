@@ -417,8 +417,9 @@ custom legend:
 When ``items`` is provided, the ``species`` and ``labels`` parameters
 are ignored — each item carries its own key, colour, and optional
 label.  Items with ``radius=None`` fall back to ``circle_radius``
-when that is a plain float, or to 5.0 points otherwise (the
-proportional and per-species dict modes do not apply).
+when that is a plain float, or to its default value otherwise (the
+proportional and per-species dict modes do not apply to individual
+items).
 
 :class:`~hofmann.LegendItem` is mutable, so items can be tweaked
 after creation:
@@ -446,6 +447,11 @@ types.  ``rotation`` controls the orientation in degrees:
    style = LegendStyle(items=items)
    scene.render_mpl("output.svg", show_legend=True, legend_style=style)
 
+.. figure:: _static/legend_polygon_markers.svg
+   :align: center
+
+   Hexagon, rotated square, and circle markers.
+
 Non-uniform spacing
 ^^^^^^^^^^^^^^^^^^^
 
@@ -464,14 +470,11 @@ related entries:
    )
    style = LegendStyle(items=items)
 
-The following example combines polygon markers and ``gap_after`` to
-separate species entries from a polyhedra indicator:
-
-.. figure:: _static/legend_polygon.svg
+.. figure:: _static/legend_spacing.svg
    :align: center
 
-   Custom legend with a hexagonal polyhedra marker and non-uniform
-   spacing.
+   Larger gap between species and the polyhedra indicator; tight
+   grouping between O and TiO6.
 
 Standalone legend
 ~~~~~~~~~~~~~~~~~

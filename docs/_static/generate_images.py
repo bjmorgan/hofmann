@@ -941,22 +941,41 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'legend_labels.svg'}")
 
-    # Custom legend with polygon markers (polyhedra indicators).
+    # Polygon markers: hexagon, rotated square, and circle.
     render_legend(
-        _legend_scene, OUT / "legend_polygon.svg",
+        _legend_scene, OUT / "legend_polygon_markers.svg",
         legend_style=LegendStyle(
             items=(
-                LegendItem(key="Sr", colour="#51b04d", label="Sr2+"),
-                LegendItem(key="Ti", colour="#477B9D"),
+                LegendItem(key="oct", colour="blue",
+                           label="Octahedral", sides=6),
+                LegendItem(key="tet", colour="red",
+                           label="Tetrahedral", sides=4, rotation=45.0),
+                LegendItem(key="round", colour="green",
+                           label="Spherical"),
+            ),
+        ),
+        figsize=_legend_figsize,
+    )
+    print(f"  wrote {OUT / 'legend_polygon_markers.svg'}")
+
+    # Non-uniform spacing with gap_after.
+    render_legend(
+        _legend_scene, OUT / "legend_spacing.svg",
+        legend_style=LegendStyle(
+            items=(
+                LegendItem(key="Sr", colour="#51b04d", label="Sr2+",
+                           gap_after=10.0),
+                LegendItem(key="Ti", colour="#477B9D",
+                           gap_after=10.0),
                 LegendItem(key="O", colour="#F03F37",
-                           gap_after=8.0),
+                           gap_after=0.5),
                 LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
                            label="TiO6", sides=6),
             ),
         ),
         figsize=_legend_figsize,
     )
-    print(f"  wrote {OUT / 'legend_polygon.svg'}")
+    print(f"  wrote {OUT / 'legend_spacing.svg'}")
 
 
 if __name__ == "__main__":

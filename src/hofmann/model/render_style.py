@@ -263,7 +263,7 @@ class LegendItem:
         radius: Marker radius in points (before display-space
             scaling).  ``None`` falls back to
             ``LegendStyle.circle_radius`` when that is a plain float,
-            or to 5.0 points otherwise (the proportional and
+            or to its default value otherwise (the proportional and
             per-species dict modes do not apply to individual items).
         sides: Number of sides for a regular-polygon marker, or
             ``None`` for a circle (the default).  Must be at least 3.
