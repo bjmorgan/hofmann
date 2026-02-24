@@ -9,10 +9,17 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.extlinks",
     "sphinx.ext.viewcode",
     "matplotlib.sphinxext.plot_directive",
     "sphinx_autodoc_typehints",
 ]
+
+# -- External links (for :issue:`N` shorthand) -------------------------------
+
+extlinks = {
+    "issue": ("https://github.com/bjmorgan/hofmann/issues/%s", "issue #%s"),
+}
 
 # -- General configuration ---------------------------------------------------
 
