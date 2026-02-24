@@ -1167,7 +1167,9 @@ def _draw_legend_widget(
 
     Args:
         ax: A matplotlib ``Axes`` to draw into.
-        scene: The structure scene (provides species and atom styles).
+        scene: The structure scene (provides species and atom styles
+            for auto-generated items).  Unused when ``style.items``
+            is provided.
         style: Visual style for the widget.
         pad_x: Viewport half-extent in the x direction (data coords).
         pad_y: Viewport half-extent in the y direction (data coords).

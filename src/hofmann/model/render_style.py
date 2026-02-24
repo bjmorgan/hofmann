@@ -271,7 +271,8 @@ class LegendItem:
             (default 0.0).  Ignored when *sides* is ``None``.
         gap_after: Vertical gap in points between this entry and the
             next one.  ``None`` falls back to
-            ``LegendStyle.spacing``.  Must be non-negative.
+            ``LegendStyle.spacing``.  Must be non-negative.  Ignored
+            for the final entry in the list.
     """
 
     @staticmethod
