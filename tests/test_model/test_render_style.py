@@ -546,3 +546,20 @@ class TestLegendStyle:
         labels = {"Ti": "$\\mathrm{Ti^{4+}}$", "O": "$\\mathrm{O^{2-}}$"}
         style = LegendStyle(labels=labels)
         assert style.labels == labels
+
+    # ---- items ----
+
+    def test_items_default_none(self):
+        assert LegendStyle().items is None
+
+    def test_items_tuple(self):
+        items = (
+            LegendItem(key="oct", colour="blue"),
+            LegendItem(key="tet", colour="red"),
+        )
+        style = LegendStyle(items=items)
+        assert style.items == items
+
+    def test_empty_items_raises(self):
+        with pytest.raises(ValueError, match="items must be non-empty"):
+            LegendStyle(items=())

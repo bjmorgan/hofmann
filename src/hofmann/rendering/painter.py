@@ -1177,7 +1177,10 @@ def _draw_legend_widget(
             to disable outlines.
         outline_width: Line width for circle outlines in points.
     """
-    items = _build_legend_items(scene, style)
+    if style.items is not None:
+        items = list(style.items)
+    else:
+        items = _build_legend_items(scene, style)
     if not items:
         return
 

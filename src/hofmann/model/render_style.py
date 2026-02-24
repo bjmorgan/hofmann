@@ -369,9 +369,12 @@ class LegendItem:
 class LegendStyle:
     """Visual style for the species legend widget.
 
-    The widget draws a vertical column of coloured circles with species
-    labels beside them.  Each entry corresponds to one atomic species
-    in the scene.
+    The widget draws a vertical column of coloured circles with labels
+    beside them.  By default, entries are auto-generated from the
+    scene's species and atom styles.  To display a fully custom legend
+    (e.g. for ``colour_by`` data), pass a tuple of
+    :class:`LegendItem` instances via the *items* parameter — this
+    bypasses species auto-generation entirely.
 
     Attributes:
         corner: Widget position.  Pass a :class:`WidgetCorner` (or its
@@ -403,13 +406,21 @@ class LegendStyle:
             order.  ``None`` (the default) auto-detects from the
             scene: unique species in first-seen order, filtered to
             those with ``visible=True`` in their atom style.
+            Ignored when *items* is provided.
         labels: Custom display labels for legend entries, mapping
             species name to label string.  Common chemical notation
             is auto-formatted: trailing charges become superscripts
             (``"Sr2+"``), embedded digits become subscripts
             (``"TiO6"``).  Labels containing ``$`` are passed
             through as explicit matplotlib mathtext.  ``None`` (the
-            default) uses species names for all entries.
+            default) uses species names for all entries.  Ignored
+            when *items* is provided.
+        items: Explicit legend entries.  When provided, the legend
+            displays these items instead of auto-generating from
+            species.  *species*, *labels*, and the tuple/dict forms
+            of *circle_radius* are all ignored.  Items with
+            ``radius=None`` fall back to *circle_radius* when that
+            is a plain float, or to 5.0 points otherwise.
     """
 
     corner: WidgetCorner | tuple[float, float] = WidgetCorner.BOTTOM_RIGHT
@@ -420,6 +431,7 @@ class LegendStyle:
     label_gap: float = 5.0
     species: tuple[str, ...] | None = None
     labels: dict[str, str] | None = None
+    items: tuple[LegendItem, ...] | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.corner, tuple):
@@ -472,13 +484,17 @@ class LegendStyle:
             )
         if self.species is not None and len(self.species) == 0:
             raise ValueError("species must be non-empty when provided")
+        if self.items is not None and len(self.items) == 0:
+            raise ValueError("items must be non-empty when provided")
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
         Fields at their default values are omitted.
         """
-        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
+        _SPECIAL = frozenset({
+            "corner", "species", "circle_radius", "labels", "items",
+        })
         defaults = _field_defaults(type(self), exclude=_SPECIAL)
         d: dict = {}
         for field_name, default in defaults.items():
@@ -501,12 +517,16 @@ class LegendStyle:
             d["species"] = list(self.species)
         if self.labels is not None:
             d["labels"] = dict(self.labels)
+        if self.items is not None:
+            d["items"] = [item.to_dict() for item in self.items]
         return d
 
     @classmethod
     def from_dict(cls, d: dict) -> LegendStyle:
         """Deserialise from a dictionary."""
-        _SPECIAL = frozenset({"corner", "species", "circle_radius", "labels"})
+        _SPECIAL = frozenset({
+            "corner", "species", "circle_radius", "labels", "items",
+        })
         defaults = _field_defaults(cls, exclude=_SPECIAL)
         kwargs: dict = {}
         for field_name in defaults:
@@ -528,6 +548,10 @@ class LegendStyle:
             kwargs["species"] = tuple(d["species"])
         if "labels" in d:
             kwargs["labels"] = d["labels"]
+        if "items" in d:
+            kwargs["items"] = tuple(
+                LegendItem.from_dict(item) for item in d["items"]
+            )
         return cls(**kwargs)
 
 

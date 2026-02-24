@@ -14,6 +14,11 @@ Changelog
   (key, colour, optional label, optional radius) with validated property
   setters following the :class:`~hofmann.BondSpec` pattern.
 
+- :class:`~hofmann.LegendStyle` gains an ``items`` parameter.  Pass a
+  tuple of :class:`~hofmann.LegendItem` instances to display a fully
+  custom legend (e.g. for ``colour_by`` data) instead of the default
+  species-based entries.  See :issue:`27`.
+
 0.10.2
 ------
 

@@ -1304,6 +1304,96 @@ class TestLegendWidget:
         assert "B" in label_texts
         plt.close(fig)
 
+    # ---- custom items ----
+
+    def test_custom_items_rendered(self):
+        """Explicit LegendItem entries are drawn with correct labels."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="oct", colour="blue", label="Octahedral"),
+            LegendItem(key="tet", colour="red", label="Tetrahedral"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "Octahedral" in label_texts
+        assert "Tetrahedral" in label_texts
+        # Species labels should not appear.
+        assert "A" not in label_texts
+        assert "B" not in label_texts
+        plt.close(fig)
+
+    def test_custom_items_colours(self):
+        """Custom item colours are used for marker face colours."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="x", colour=(1.0, 0.0, 0.0)),
+            LegendItem(key="y", colour=(0.0, 1.0, 0.0)),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        assert len(markers) == 2
+        face_colours = [m.get_markerfacecolor()[:3] for m in markers]
+        assert (1.0, 0.0, 0.0) in face_colours
+        assert (0.0, 1.0, 0.0) in face_colours
+        plt.close(fig)
+
+    def test_custom_items_with_radius(self):
+        """Items with explicit radii produce different marker sizes."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="small", colour="blue", radius=3.0),
+            LegendItem(key="big", colour="red", radius=9.0),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        markers = [l for l in ax.lines if l.get_marker() == "o"]
+        sizes = sorted(m.get_markersize() for m in markers)
+        assert sizes[0] < sizes[1]
+        plt.close(fig)
+
+    def test_custom_items_bypass_species(self):
+        """Items with keys not matching any scene species still render."""
+        scene = _minimal_scene()
+        items = (LegendItem(key="custom_cat", colour="purple"),)
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "custom_cat" in label_texts
+        plt.close(fig)
+
+    def test_custom_items_label_formatting(self):
+        """Chemical notation auto-formatting applies to item labels."""
+        scene = _minimal_scene()
+        items = (LegendItem(key="Sr2+", colour="green"),)
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        # "Sr2+" should be auto-formatted with superscript.
+        assert any("$" in lbl for lbl in label_texts)
+        plt.close(fig)
+
 
 class TestFormatLegendLabel:
     """Tests for automatic chemical notation formatting."""

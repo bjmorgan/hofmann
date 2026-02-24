@@ -318,6 +318,26 @@ class TestLegendStyleDict:
         d = style.to_dict()
         assert "labels" not in d
 
+    def test_items_round_trip(self):
+        items = (
+            LegendItem(key="oct", colour="blue", label="Octahedral"),
+            LegendItem(key="tet", colour="red", radius=3.0),
+        )
+        style = LegendStyle(items=items)
+        d = style.to_dict()
+        assert len(d["items"]) == 2
+        restored = LegendStyle.from_dict(d)
+        assert len(restored.items) == 2
+        assert restored.items[0].key == "oct"
+        assert restored.items[0].label == "Octahedral"
+        assert restored.items[1].key == "tet"
+        assert restored.items[1].radius == 3.0
+
+    def test_items_none_omitted(self):
+        style = LegendStyle()
+        d = style.to_dict()
+        assert "items" not in d
+
 
 # -- RenderStyle --------------------------------------------------------------
 
