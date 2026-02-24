@@ -466,7 +466,7 @@ related entries:
        LegendItem(key="Sr", colour="green"),
        LegendItem(key="Ti", colour="silver"),
        LegendItem(key="O", colour="red", gap_after=8.0),
-       LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
+       LegendItem(key="oct", colour="blue", label="TiO6", sides=6, gap_after=1.0),
        LegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
    )
    style = LegendStyle(items=items)
