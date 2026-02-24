@@ -373,10 +373,10 @@ circles and accepts three forms:
 .. code-block:: python
 
    # Proportional: smaller atoms get smaller circles.
-   LegendStyle(circle_radius=(3.0, 8.0))
+   LegendStyle(circle_radius=(3.0, 7.0))
 
    # Explicit per-species:
-   LegendStyle(circle_radius={"O": 4.0, "Ti": 6.0, "Sr": 8.0})
+   LegendStyle(circle_radius={"Sr": 4.0, "Ti": 7.0, "O": 5.0})
 
 .. list-table::
    :widths: 33 33 33
