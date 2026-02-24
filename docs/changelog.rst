@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.10.3
+0.11.0
 ------
 
 - Internal: legend drawing now runs through :class:`~hofmann.LegendItem`
