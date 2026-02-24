@@ -429,6 +429,41 @@ after creation:
    item.label = "Octahedral"
    item.radius = 8.0
 
+Polygon markers
+^^^^^^^^^^^^^^^
+
+By default, legend entries are drawn as circles.  Set ``sides`` to
+draw a regular polygon instead — useful for indicating polyhedra
+types.  ``rotation`` controls the orientation in degrees:
+
+.. code-block:: python
+
+   items = (
+       LegendItem(key="oct", colour="blue", label="Octahedral", sides=6),
+       LegendItem(key="tet", colour="red", label="Tetrahedral", sides=4, rotation=45.0),
+       LegendItem(key="round", colour="green", label="Spherical"),
+   )
+   style = LegendStyle(items=items)
+   scene.render_mpl("output.svg", show_legend=True, legend_style=style)
+
+Non-uniform spacing
+^^^^^^^^^^^^^^^^^^^
+
+Each item can control the vertical gap below it via ``gap_after``
+(in points).  Items without ``gap_after`` fall back to
+``LegendStyle.spacing``.  This is useful for visually grouping
+related entries:
+
+.. code-block:: python
+
+   items = (
+       LegendItem(key="Sr", colour="green", gap_after=10.0),
+       LegendItem(key="Ti", colour="silver", gap_after=10.0),
+       LegendItem(key="O", colour="red", gap_after=0.5),  # tight group
+       LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
+   )
+   style = LegendStyle(items=items)
+
 Standalone legend
 ~~~~~~~~~~~~~~~~~
 

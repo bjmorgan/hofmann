@@ -19,6 +19,16 @@ Changelog
   custom legend (e.g. for ``colour_by`` data) instead of the default
   species-based entries.  See :issue:`27`.
 
+- :class:`~hofmann.LegendItem` supports regular-polygon markers via
+  ``sides`` and ``rotation`` fields.  Set ``sides`` (>= 3) to draw
+  a polygon instead of a circle, and ``rotation`` to rotate it in
+  degrees.  Useful for indicating polyhedra types in the legend.
+
+- :class:`~hofmann.LegendItem` gains a ``gap_after`` field for
+  non-uniform vertical spacing.  Each item can override the
+  style-level ``spacing`` for the gap below it; ``None`` falls back
+  to ``LegendStyle.spacing``.
+
 0.10.2
 ------
 
