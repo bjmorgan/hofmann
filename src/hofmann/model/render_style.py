@@ -287,7 +287,14 @@ class LegendItem:
 
     @staticmethod
     def _validate_sides(value: int | None) -> None:
-        if value is not None and value < 3:
+        if value is None:
+            return
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(
+                f"sides must be an int >= 3, got {value!r} "
+                f"(type {type(value).__name__})"
+            )
+        if value < 3:
             raise ValueError(
                 f"sides must be >= 3, got {value}"
             )
@@ -420,8 +427,8 @@ class LegendItem:
             parts.append(f"radius={self._radius!r}")
         if self._sides is not None:
             parts.append(f"sides={self._sides!r}")
-        if self._rotation != 0.0:
-            parts.append(f"rotation={self._rotation!r}")
+            if self._rotation != 0.0:
+                parts.append(f"rotation={self._rotation!r}")
         if self._gap_after is not None:
             parts.append(f"gap_after={self._gap_after!r}")
         if self._alpha != 1.0:
@@ -456,8 +463,8 @@ class LegendItem:
             d["radius"] = self._radius
         if self._sides is not None:
             d["sides"] = self._sides
-        if self._rotation != 0.0:
-            d["rotation"] = self._rotation
+            if self._rotation != 0.0:
+                d["rotation"] = self._rotation
         if self._gap_after is not None:
             d["gap_after"] = self._gap_after
         if self._alpha != 1.0:
@@ -605,8 +612,15 @@ class LegendStyle:
             )
         if self.species is not None and len(self.species) == 0:
             raise ValueError("species must be non-empty when provided")
-        if self.items is not None and len(self.items) == 0:
-            raise ValueError("items must be non-empty when provided")
+        if self.items is not None:
+            if len(self.items) == 0:
+                raise ValueError("items must be non-empty when provided")
+            for i, entry in enumerate(self.items):
+                if not isinstance(entry, LegendItem):
+                    raise TypeError(
+                        f"items[{i}] must be a LegendItem, got "
+                        f"{type(entry).__name__}"
+                    )
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.

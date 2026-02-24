@@ -459,6 +459,24 @@ class TestLegendItem:
         with pytest.raises(ValueError, match="sides must be >= 3"):
             LegendItem(key="Na", colour="blue", sides=1)
 
+    def test_sides_bool_raises(self):
+        with pytest.raises(TypeError, match="sides must be an int"):
+            LegendItem(key="Na", colour="blue", sides=True)
+
+    def test_sides_float_raises(self):
+        with pytest.raises(TypeError, match="sides must be an int"):
+            LegendItem(key="Na", colour="blue", sides=6.0)
+
+    def test_sides_setter_bool_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(TypeError, match="sides must be an int"):
+            item.sides = True
+
+    def test_sides_setter_float_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(TypeError, match="sides must be an int"):
+            item.sides = 4.0
+
     def test_rotation_setter(self):
         item = LegendItem(key="Na", colour="blue", sides=6)
         item.rotation = 45.0
@@ -488,6 +506,16 @@ class TestLegendItem:
         r = repr(item)
         assert "sides=6" in r
         assert "rotation=30.0" in r
+
+    def test_repr_rotation_suppressed_without_sides(self):
+        item = LegendItem(key="Na", colour="blue", rotation=45.0)
+        r = repr(item)
+        assert "rotation" not in r
+
+    def test_to_dict_rotation_suppressed_without_sides(self):
+        item = LegendItem(key="Na", colour="blue", rotation=45.0)
+        d = item.to_dict()
+        assert "rotation" not in d
 
     def test_equality_with_sides(self):
         a = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
@@ -752,3 +780,7 @@ class TestLegendStyle:
     def test_empty_items_raises(self):
         with pytest.raises(ValueError, match="items must be non-empty"):
             LegendStyle(items=())
+
+    def test_items_non_legend_item_raises(self):
+        with pytest.raises(TypeError, match=r"items\[0\] must be a LegendItem"):
+            LegendStyle(items=({"key": "Na", "colour": "blue"},))
