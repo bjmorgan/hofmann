@@ -1440,6 +1440,34 @@ class TestLegendWidget:
         assert gap_01 > gap_12
         plt.close(fig)
 
+    def test_custom_items_alpha(self):
+        """Items with alpha < 1 produce RGBA face colours."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="A", colour="red", alpha=0.4),
+            LegendItem(key="B", colour="green"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        marker_lines = [
+            l for l in ax.lines if l.get_linestyle() == "None"
+        ]
+        # First marker has alpha in face colour.
+        fc0 = marker_lines[0].get_markerfacecolor()
+        assert len(fc0) == 4
+        assert fc0[3] == pytest.approx(0.4)
+        # Second marker is fully opaque (RGB only).
+        fc1 = marker_lines[1].get_markerfacecolor()
+        # Edge colour always stays RGB (opaque outline).
+        ec0 = marker_lines[0].get_markeredgecolor()
+        assert len(ec0) == 3 or (len(ec0) == 4 and ec0[3] == pytest.approx(1.0))
+        plt.close(fig)
+
+
 
 class TestFormatLegendLabel:
     """Tests for automatic chemical notation formatting."""

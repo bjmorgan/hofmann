@@ -968,7 +968,7 @@ def main() -> None:
                 LegendItem(key="O", colour="#F03F37",
                            gap_after=8.0),
                 LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
-                           label="TiO6", sides=6, gap_after=1.0),
+                           label="TiO6", sides=6),
                 LegendItem(key="tet", colour=(0.85, 0.65, 0.85),
                            label="SrO12", sides=4, rotation=45.0),
             ),

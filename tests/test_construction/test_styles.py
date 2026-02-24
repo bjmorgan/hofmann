@@ -266,6 +266,18 @@ class TestLegendItemDict:
         d = item.to_dict()
         assert "gap_after" not in d
 
+    def test_alpha_round_trip(self):
+        item = LegendItem(key="Oct", colour="red", alpha=0.4)
+        d = item.to_dict()
+        assert d["alpha"] == 0.4
+        restored = LegendItem.from_dict(d)
+        assert restored.alpha == 0.4
+
+    def test_alpha_default_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "alpha" not in d
+
 
 # -- LegendStyle --------------------------------------------------------------
 

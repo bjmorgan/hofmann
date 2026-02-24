@@ -452,6 +452,12 @@ types.  ``rotation`` controls the orientation in degrees:
 
    Hexagon, rotated square, and circle markers.
 
+.. note::
+
+   Spacing between entries is based on the bounding circle of
+   each marker.  Use ``gap_after`` to fine-tune spacing when
+   needed.
+
 Non-uniform spacing
 ^^^^^^^^^^^^^^^^^^^
 
@@ -466,7 +472,7 @@ related entries:
        LegendItem(key="Sr", colour="green"),
        LegendItem(key="Ti", colour="silver"),
        LegendItem(key="O", colour="red", gap_after=8.0),
-       LegendItem(key="oct", colour="blue", label="TiO6", sides=6, gap_after=1.0),
+       LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
        LegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
    )
    style = LegendStyle(items=items)
@@ -475,6 +481,17 @@ related entries:
    :align: center
 
    Larger gap separates the species group from the polyhedra group.
+
+Marker opacity
+^^^^^^^^^^^^^^
+
+Set ``alpha`` (0.0--1.0) to make a marker face semi-transparent.
+Marker outlines remain fully opaque, matching the visual style of
+polyhedra with translucent faces and solid edges:
+
+.. code-block:: python
+
+   LegendItem(key="oct", colour="blue", label="TiO6", sides=6, alpha=0.5)
 
 Standalone legend
 ~~~~~~~~~~~~~~~~~

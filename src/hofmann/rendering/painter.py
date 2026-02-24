@@ -1270,6 +1270,9 @@ def _draw_legend_widget(
     for i, item in enumerate(items):
 
         rgb = normalise_colour(item.colour)
+        face_colour: tuple[float, ...] = rgb
+        if item.alpha < 1.0:
+            face_colour = (*rgb, item.alpha)
 
         edge_colour = outline_colour if outline_colour is not None else rgb
         edge_width = outline_width * scale if outline_colour is not None else 0.0
@@ -1278,7 +1281,7 @@ def _draw_legend_widget(
             anchor_x, y_i,
             marker=item.marker,
             markersize=item_radius[i] * 2,
-            markerfacecolor=rgb,
+            markerfacecolor=face_colour,
             markeredgecolor=edge_colour,
             markeredgewidth=edge_width,
             linestyle="None",

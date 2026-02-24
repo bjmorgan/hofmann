@@ -555,6 +555,62 @@ class TestLegendItem:
         b = LegendItem(key="Na", colour="blue", gap_after=10.0)
         assert a != b
 
+    # ---- alpha ----
+
+    def test_alpha_defaults_to_one(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.alpha == 1.0
+
+    def test_alpha_construction(self):
+        item = LegendItem(key="Na", colour="blue", alpha=0.5)
+        assert item.alpha == 0.5
+
+    def test_alpha_setter_valid(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.alpha = 0.3
+        assert item.alpha == 0.3
+
+    def test_alpha_zero(self):
+        item = LegendItem(key="Na", colour="blue", alpha=0.0)
+        assert item.alpha == 0.0
+
+    def test_alpha_coerced_to_float(self):
+        item = LegendItem(key="Na", colour="blue", alpha=1)
+        assert item.alpha == 1.0
+        assert isinstance(item.alpha, float)
+
+    def test_alpha_below_zero_raises(self):
+        with pytest.raises(ValueError, match="alpha must be between"):
+            LegendItem(key="Na", colour="blue", alpha=-0.1)
+
+    def test_alpha_above_one_raises(self):
+        with pytest.raises(ValueError, match="alpha must be between"):
+            LegendItem(key="Na", colour="blue", alpha=1.1)
+
+    def test_alpha_setter_invalid_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="alpha must be between"):
+            item.alpha = -0.5
+
+    def test_repr_with_alpha(self):
+        item = LegendItem(key="Na", colour="blue", alpha=0.5)
+        r = repr(item)
+        assert "alpha=0.5" in r
+
+    def test_repr_without_alpha(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert "alpha" not in repr(item)
+
+    def test_equality_with_alpha(self):
+        a = LegendItem(key="Na", colour="blue", alpha=0.5)
+        b = LegendItem(key="Na", colour="blue", alpha=0.5)
+        assert a == b
+
+    def test_inequality_different_alpha(self):
+        a = LegendItem(key="Na", colour="blue", alpha=0.5)
+        b = LegendItem(key="Na", colour="blue", alpha=0.8)
+        assert a != b
+
 
 class TestLegendStyle:
     def test_defaults(self):

@@ -249,7 +249,7 @@ class LegendItem:
     backed by private fields with setters that validate on every
     assignment.
 
-    Attributes:
+    Args:
         key: Identifier for this legend entry.  Also used as the
             default display label when *label* is ``None``.
         colour: Fill colour for the legend marker.  Accepts any
@@ -273,6 +273,9 @@ class LegendItem:
             next one.  ``None`` falls back to
             ``LegendStyle.spacing``.  Must be non-negative.  Ignored
             for the final entry in the list.
+        alpha: Opacity of the marker face, from 0.0 (fully transparent)
+            to 1.0 (fully opaque, the default).  Marker outlines are
+            unaffected and remain fully opaque.
     """
 
     @staticmethod
@@ -287,6 +290,13 @@ class LegendItem:
         if value is not None and value < 3:
             raise ValueError(
                 f"sides must be >= 3, got {value}"
+            )
+
+    @staticmethod
+    def _validate_alpha(value: float) -> None:
+        if not (0.0 <= value <= 1.0):
+            raise ValueError(
+                f"alpha must be between 0.0 and 1.0, got {value}"
             )
 
     @staticmethod
@@ -305,6 +315,7 @@ class LegendItem:
         sides: int | None = None,
         rotation: float = 0.0,
         gap_after: float | None = None,
+        alpha: float = 1.0,
     ) -> None:
         if not key:
             raise ValueError("key must be non-empty")
@@ -315,12 +326,14 @@ class LegendItem:
         self._sides = sides
         self._rotation = float(rotation)
         self._gap_after = gap_after
+        self._alpha = float(alpha)
         self._validate()
 
     def _validate(self) -> None:
         self._validate_radius(self._radius)
         self._validate_sides(self._sides)
         self._validate_gap_after(self._gap_after)
+        self._validate_alpha(self._alpha)
 
     @property
     def colour(self) -> tuple[float, float, float]:
@@ -371,6 +384,16 @@ class LegendItem:
         self._gap_after = value
 
     @property
+    def alpha(self) -> float:
+        """Opacity of the marker face (0.0 = transparent, 1.0 = opaque)."""
+        return self._alpha
+
+    @alpha.setter
+    def alpha(self, value: float) -> None:
+        self._validate_alpha(value)
+        self._alpha = float(value)
+
+    @property
     def marker(self) -> str | tuple[int, int, float]:
         """Matplotlib marker specification derived from *sides* and *rotation*.
 
@@ -401,6 +424,8 @@ class LegendItem:
             parts.append(f"rotation={self._rotation!r}")
         if self._gap_after is not None:
             parts.append(f"gap_after={self._gap_after!r}")
+        if self._alpha != 1.0:
+            parts.append(f"alpha={self._alpha!r}")
         return f"LegendItem({', '.join(parts)})"
 
     def __eq__(self, other: object) -> bool:
@@ -414,6 +439,7 @@ class LegendItem:
             and self._sides == other._sides
             and self._rotation == other._rotation
             and self._gap_after == other._gap_after
+            and self._alpha == other._alpha
         )
 
     __hash__ = None  # type: ignore[assignment]
@@ -434,6 +460,8 @@ class LegendItem:
             d["rotation"] = self._rotation
         if self._gap_after is not None:
             d["gap_after"] = self._gap_after
+        if self._alpha != 1.0:
+            d["alpha"] = self._alpha
         return d
 
     @classmethod
@@ -453,6 +481,8 @@ class LegendItem:
             kwargs["rotation"] = d["rotation"]
         if "gap_after" in d:
             kwargs["gap_after"] = d["gap_after"]
+        if "alpha" in d:
+            kwargs["alpha"] = d["alpha"]
         return cls(**kwargs)
 
 

@@ -28,6 +28,10 @@ Changelog
   style-level ``spacing`` for the gap below it; ``None`` falls back
   to ``LegendStyle.spacing``.
 
+- :class:`~hofmann.LegendItem` gains an ``alpha`` field (0.0--1.0,
+  default 1.0) for semi-transparent marker faces.  Marker outlines
+  remain fully opaque, matching the visual style of polyhedra.
+
 0.10.2
 ------
 
