@@ -1545,6 +1545,21 @@ class TestRenderLegend:
         assert path.exists()
         plt.close(fig)
 
+    def test_polygon_markers_included_in_crop(self):
+        """Polygon-only legends include markers in the bounding box."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="Oct", colour="red", label="Oct", sides=6),
+            LegendItem(key="Tet", colour="blue", label="Tet", sides=4),
+        )
+        style = LegendStyle(items=items)
+        fig = render_legend(scene, legend_style=style)
+        ax = fig.axes[0]
+        assert len(ax.lines) == 2
+        assert len(ax.texts) == 2
+        plt.close(fig)
+
 
 class TestBuildLegendItems:
     """Tests for the _build_legend_items helper."""

@@ -323,7 +323,6 @@ def render_legend(
         t.get_window_extent(renderer) for t in ax.texts
     ] + [
         line.get_window_extent(renderer) for line in ax.lines
-        if line.get_marker() == "o"
     ]
     bbox_inches: Bbox | str
     if bboxes:

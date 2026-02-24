@@ -427,8 +427,8 @@ class LegendItem:
             parts.append(f"radius={self._radius!r}")
         if self._sides is not None:
             parts.append(f"sides={self._sides!r}")
-            if self._rotation != 0.0:
-                parts.append(f"rotation={self._rotation!r}")
+        if self._rotation != 0.0:
+            parts.append(f"rotation={self._rotation!r}")
         if self._gap_after is not None:
             parts.append(f"gap_after={self._gap_after!r}")
         if self._alpha != 1.0:
@@ -463,8 +463,8 @@ class LegendItem:
             d["radius"] = self._radius
         if self._sides is not None:
             d["sides"] = self._sides
-            if self._rotation != 0.0:
-                d["rotation"] = self._rotation
+        if self._rotation != 0.0:
+            d["rotation"] = self._rotation
         if self._gap_after is not None:
             d["gap_after"] = self._gap_after
         if self._alpha != 1.0:

@@ -507,16 +507,6 @@ class TestLegendItem:
         assert "sides=6" in r
         assert "rotation=30.0" in r
 
-    def test_repr_rotation_suppressed_without_sides(self):
-        item = LegendItem(key="Na", colour="blue", rotation=45.0)
-        r = repr(item)
-        assert "rotation" not in r
-
-    def test_to_dict_rotation_suppressed_without_sides(self):
-        item = LegendItem(key="Na", colour="blue", rotation=45.0)
-        d = item.to_dict()
-        assert "rotation" not in d
-
     def test_equality_with_sides(self):
         a = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
         b = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
