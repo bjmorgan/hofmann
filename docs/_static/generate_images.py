@@ -954,7 +954,7 @@ def main() -> None:
                            label="Spherical"),
             ),
         ),
-        figsize=_legend_figsize,
+        figsize=(0.9, 0.8),
     )
     print(f"  wrote {OUT / 'legend_polygon_markers.svg'}")
 
@@ -963,17 +963,15 @@ def main() -> None:
         _legend_scene, OUT / "legend_spacing.svg",
         legend_style=LegendStyle(
             items=(
-                LegendItem(key="Sr", colour="#51b04d", label="Sr2+",
-                           gap_after=10.0),
-                LegendItem(key="Ti", colour="#477B9D",
-                           gap_after=10.0),
+                LegendItem(key="Sr", colour="#51b04d", label="Sr2+"),
+                LegendItem(key="Ti", colour="#477B9D"),
                 LegendItem(key="O", colour="#F03F37",
-                           gap_after=0.5),
+                           gap_after=8.0),
                 LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
                            label="TiO6", sides=6),
             ),
         ),
-        figsize=_legend_figsize,
+        figsize=(0.55, 1.1),
     )
     print(f"  wrote {OUT / 'legend_spacing.svg'}")
 

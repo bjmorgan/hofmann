@@ -463,9 +463,9 @@ related entries:
 .. code-block:: python
 
    items = (
-       LegendItem(key="Sr", colour="green", gap_after=10.0),
-       LegendItem(key="Ti", colour="silver", gap_after=10.0),
-       LegendItem(key="O", colour="red", gap_after=0.5),  # tight group
+       LegendItem(key="Sr", colour="green"),
+       LegendItem(key="Ti", colour="silver"),
+       LegendItem(key="O", colour="red", gap_after=8.0),
        LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
    )
    style = LegendStyle(items=items)
@@ -473,8 +473,8 @@ related entries:
 .. figure:: _static/legend_spacing.svg
    :align: center
 
-   Larger gap between species and the polyhedra indicator; tight
-   grouping between O and TiO6.
+   Larger gap separates the species entries from the polyhedra
+   indicator.
 
 Standalone legend
 ~~~~~~~~~~~~~~~~~
