@@ -313,7 +313,7 @@ class TestLegendItem:
     def test_required_fields(self):
         item = LegendItem(key="Na", colour="blue")
         assert item.key == "Na"
-        assert item.colour == "blue"
+        assert item.colour == (0.0, 0.0, 1.0)
         assert item.label is None
         assert item.radius is None
 
@@ -327,7 +327,7 @@ class TestLegendItem:
     def test_colour_setter_valid(self):
         item = LegendItem(key="Na", colour="blue")
         item.colour = "red"
-        assert item.colour == "red"
+        assert item.colour == (1.0, 0.0, 0.0)
 
     def test_colour_setter_invalid_raises(self):
         item = LegendItem(key="Na", colour="blue")
@@ -388,7 +388,7 @@ class TestLegendItem:
         item = LegendItem(key="Na", colour="blue")
         r = repr(item)
         assert "key='Na'" in r
-        assert "colour='blue'" in r
+        assert "colour=(0.0, 0.0, 1.0)" in r
         assert "label" not in r
         assert "radius" not in r
 
@@ -401,6 +401,11 @@ class TestLegendItem:
     def test_equality(self):
         a = LegendItem(key="Na", colour="blue", label="Sodium", radius=6.0)
         b = LegendItem(key="Na", colour="blue", label="Sodium", radius=6.0)
+        assert a == b
+
+    def test_equality_normalised_colours(self):
+        a = LegendItem(key="Na", colour="blue")
+        b = LegendItem(key="Na", colour=(0.0, 0.0, 1.0))
         assert a == b
 
     def test_inequality_different_colour(self):

@@ -251,20 +251,19 @@ class LegendItem:
         key: Identifier for this legend entry.  Also used as the
             default display label when *label* is ``None``.
         colour: Fill colour for the legend circle.  Accepts any
-            format understood by :func:`normalise_colour`.
+            format understood by :func:`normalise_colour`; the value
+            is normalised to an ``(R, G, B)`` tuple on assignment.
         label: Display label text.  ``None`` falls back to *key*.
             Common chemical notation is auto-formatted at render
             time: trailing charges become superscripts, embedded
             digits become subscripts.  Labels containing ``$`` are
             passed through as explicit matplotlib mathtext.
         radius: Circle radius in points (before display-space
-            scaling).  ``None`` falls back to the uniform
-            ``LegendStyle.circle_radius`` default.
+            scaling).  ``None`` falls back to
+            ``LegendStyle.circle_radius`` when that is a plain float,
+            or to 5.0 points otherwise (the proportional and
+            per-species dict modes do not apply to individual items).
     """
-
-    @staticmethod
-    def _validate_colour(value: Colour) -> None:
-        normalise_colour(value)
 
     @staticmethod
     def _validate_radius(value: float | None) -> None:
@@ -283,24 +282,22 @@ class LegendItem:
         if not key:
             raise ValueError("key must be non-empty")
         self.key = key
-        self._colour = colour
+        self._colour = normalise_colour(colour)
         self.label = label
         self._radius = radius
         self._validate()
 
     def _validate(self) -> None:
-        self._validate_colour(self._colour)
         self._validate_radius(self._radius)
 
     @property
-    def colour(self) -> Colour:
-        """Fill colour for the legend circle."""
+    def colour(self) -> tuple[float, float, float]:
+        """Fill colour for the legend circle (normalised RGB)."""
         return self._colour
 
     @colour.setter
     def colour(self, value: Colour) -> None:
-        self._validate_colour(value)
-        self._colour = value
+        self._colour = normalise_colour(value)
 
     @property
     def radius(self) -> float | None:
@@ -342,7 +339,7 @@ class LegendItem:
         """Serialise to a JSON-compatible dictionary."""
         d: dict = {
             "key": self.key,
-            "colour": list(normalise_colour(self._colour)),
+            "colour": list(self._colour),
         }
         if self.label is not None:
             d["label"] = self.label
