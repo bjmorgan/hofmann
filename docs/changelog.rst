@@ -1,6 +1,19 @@
 Changelog
 =========
 
+0.10.3
+------
+
+- Internal: legend drawing now runs through :class:`~hofmann.LegendItem`
+  objects.  A new ``_build_legend_items`` helper assembles items from the
+  scene's species and atom styles, and ``_draw_legend_widget`` consumes
+  the resulting list.  This prepares for user-provided custom legend
+  entries in a future release (see :issue:`27`).
+
+- New :class:`~hofmann.LegendItem` class bundles per-entry legend data
+  (key, colour, optional label, optional radius) with validated property
+  setters following the :class:`~hofmann.BondSpec` pattern.
+
 0.10.2
 ------
 
