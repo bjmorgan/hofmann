@@ -231,8 +231,10 @@ class AxesStyle:
 
 
 _DEFAULT_CIRCLE_RADIUS: float = 5.0
-_DEFAULT_SPACING: float = 2.5
 """Default legend circle radius in points."""
+
+_DEFAULT_SPACING: float = 2.5
+"""Default vertical spacing between legend entries in points."""
 
 
 class LegendItem:
@@ -334,6 +336,8 @@ class LegendItem:
             and self.label == other.label
             and self._radius == other._radius
         )
+
+    __hash__ = None  # type: ignore[assignment]
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary."""

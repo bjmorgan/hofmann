@@ -417,6 +417,11 @@ class TestLegendItem:
         item = LegendItem(key="Na", colour="blue")
         assert item != "not an item"
 
+    def test_not_hashable(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(TypeError):
+            hash(item)
+
 
 class TestLegendStyle:
     def test_defaults(self):
