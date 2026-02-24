@@ -973,7 +973,7 @@ def main() -> None:
                            label="SrO12", sides=4, rotation=45.0),
             ),
         ),
-        figsize=(0.55, 1.35),
+        figsize=(0.75, 1.35),
     )
     print(f"  wrote {OUT / 'legend_spacing.svg'}")
 
