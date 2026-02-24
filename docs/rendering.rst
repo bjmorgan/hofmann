@@ -396,6 +396,39 @@ circles and accepts three forms:
 
           Dict (per-species)
 
+Custom legend items
+~~~~~~~~~~~~~~~~~~~
+
+When colouring atoms by custom data (via ``colour_by``), the default
+species-based legend may not reflect the active colouring.  Pass a
+tuple of :class:`~hofmann.LegendItem` instances to display a fully
+custom legend:
+
+.. code-block:: python
+
+   from hofmann import LegendItem, LegendStyle
+
+   style = LegendStyle(items=(
+       LegendItem(key="octahedral", colour="blue", label="Octahedral"),
+       LegendItem(key="tetrahedral", colour="red", label="Tetrahedral"),
+   ))
+   scene.render_mpl("output.svg", show_legend=True, legend_style=style)
+
+When ``items`` is provided, the ``species`` and ``labels`` parameters
+are ignored — each item carries its own key, colour, and optional
+label.  Items with ``radius=None`` fall back to ``circle_radius``
+when that is a plain float, or to 5.0 points otherwise (the
+proportional and per-species dict modes do not apply).
+
+:class:`~hofmann.LegendItem` is mutable, so items can be tweaked
+after creation:
+
+.. code-block:: python
+
+   item = LegendItem(key="oct", colour="blue")
+   item.label = "Octahedral"
+   item.radius = 8.0
+
 Standalone legend
 ~~~~~~~~~~~~~~~~~
 

@@ -51,6 +51,9 @@ Rendering
 .. autoclass:: AxesStyle
    :members:
 
+.. autoclass:: LegendItem
+   :members:
+
 .. autoclass:: LegendStyle
    :members:
 
