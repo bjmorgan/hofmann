@@ -7,8 +7,7 @@ Changelog
 - Internal: legend drawing now runs through :class:`~hofmann.LegendItem`
   objects.  A new ``_build_legend_items`` helper assembles items from the
   scene's species and atom styles, and ``_draw_legend_widget`` consumes
-  the resulting list.  This prepares for user-provided custom legend
-  entries in a future release (see :issue:`27`).
+  the resulting list.
 
 - New :class:`~hofmann.LegendItem` class bundles per-entry legend data
   (key, colour, optional label, optional radius) with validated property
@@ -17,7 +16,7 @@ Changelog
 - :class:`~hofmann.LegendStyle` gains an ``items`` parameter.  Pass a
   tuple of :class:`~hofmann.LegendItem` instances to display a fully
   custom legend (e.g. for ``colour_by`` data) instead of the default
-  species-based entries.  See :issue:`27`.
+  species-based entries.
 
 - :class:`~hofmann.LegendItem` supports regular-polygon markers via
   ``sides`` and ``rotation`` fields.  Set ``sides`` (>= 3) to draw
