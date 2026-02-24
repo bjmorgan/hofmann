@@ -504,6 +504,57 @@ class TestLegendItem:
         b = LegendItem(key="Oct", colour="red", sides=6, rotation=45.0)
         assert a != b
 
+    # ---- gap_after ----
+
+    def test_gap_after_defaults_to_none(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.gap_after is None
+
+    def test_gap_after_construction(self):
+        item = LegendItem(key="Na", colour="blue", gap_after=10.0)
+        assert item.gap_after == 10.0
+
+    def test_gap_after_zero(self):
+        item = LegendItem(key="Na", colour="blue", gap_after=0.0)
+        assert item.gap_after == 0.0
+
+    def test_gap_after_setter_valid(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.gap_after = 5.0
+        assert item.gap_after == 5.0
+
+    def test_gap_after_setter_none(self):
+        item = LegendItem(key="Na", colour="blue", gap_after=5.0)
+        item.gap_after = None
+        assert item.gap_after is None
+
+    def test_gap_after_negative_raises(self):
+        with pytest.raises(ValueError, match="gap_after must be non-negative"):
+            LegendItem(key="Na", colour="blue", gap_after=-1.0)
+
+    def test_gap_after_setter_negative_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="gap_after must be non-negative"):
+            item.gap_after = -0.5
+
+    def test_repr_with_gap_after(self):
+        item = LegendItem(key="Na", colour="blue", gap_after=10.0)
+        assert "gap_after=10.0" in repr(item)
+
+    def test_repr_without_gap_after(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert "gap_after" not in repr(item)
+
+    def test_equality_with_gap_after(self):
+        a = LegendItem(key="Na", colour="blue", gap_after=5.0)
+        b = LegendItem(key="Na", colour="blue", gap_after=5.0)
+        assert a == b
+
+    def test_inequality_different_gap_after(self):
+        a = LegendItem(key="Na", colour="blue", gap_after=5.0)
+        b = LegendItem(key="Na", colour="blue", gap_after=10.0)
+        assert a != b
+
 
 class TestLegendStyle:
     def test_defaults(self):

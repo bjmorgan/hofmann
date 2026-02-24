@@ -1203,14 +1203,14 @@ def _draw_legend_widget(
     ]
 
     font_size = style.font_size * scale
-    spacing = style.spacing * scale
+    default_spacing = style.spacing * scale
     # When the user hasn't explicitly set spacing, widen the gap for
     # labels that contain mathtext (super/subscripts are taller).
     if (
         style.spacing == _DEFAULT_SPACING
         and any("$" in lbl for lbl in formatted_labels)
     ):
-        spacing *= _MATHTEXT_SPACING_FACTOR
+        default_spacing *= _MATHTEXT_SPACING_FACTOR
     stroke_width = 3.0 * scale
 
     # ---- Resolve per-item circle radii (in points, pre-scale) ----
@@ -1222,9 +1222,17 @@ def _draw_legend_widget(
 
     # Convert sizes from points to data coordinates for positioning.
     max_circle_r_data = max_circle_radius / pts_per_data
-    spacing_data = spacing / pts_per_data
     font_data = font_size / pts_per_data
     entry_height = max(2 * max_circle_r_data, font_data)
+
+    # ---- Resolve per-gap spacing ----
+    # Each item's gap_after overrides the style-level default when set.
+    gap_spacing: list[float] = []
+    for item in items[:-1]:
+        if item.gap_after is not None:
+            gap_spacing.append(item.gap_after * scale / pts_per_data)
+        else:
+            gap_spacing.append(default_spacing / pts_per_data)
 
     # ---- Anchor position ----
     # The anchor is the circle centre for the first legend entry.
@@ -1232,7 +1240,7 @@ def _draw_legend_widget(
     # label-right) for natural left-to-right reading order.
     n_entries = len(items)
     total_height = (
-        (n_entries - 1) * (entry_height + spacing_data) + entry_height
+        n_entries * entry_height + sum(gap_spacing)
     )
     label_gap_data = style.label_gap * scale / pts_per_data
     label_offset = max_circle_r_data + label_gap_data
@@ -1255,8 +1263,8 @@ def _draw_legend_widget(
 
     # ---- Draw entries ----
     # Always stack downward from the anchor (top of legend).
+    y_i = anchor_y
     for i, item in enumerate(items):
-        y_i = anchor_y - i * (entry_height + spacing_data)
 
         rgb = normalise_colour(item.colour)
 
@@ -1293,6 +1301,10 @@ def _draw_legend_widget(
                 ),
             ],
         )
+
+        # Advance downward for the next entry.
+        if i < len(gap_spacing):
+            y_i -= entry_height + gap_spacing[i]
 
 
 def _axes_bg_rgb(ax: Axes) -> tuple[float, float, float]:

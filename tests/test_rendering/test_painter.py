@@ -1414,6 +1414,32 @@ class TestLegendWidget:
         assert "o" in markers
         plt.close(fig)
 
+    def test_custom_items_gap_after(self):
+        """Items with gap_after produce non-uniform vertical spacing."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="A", colour="red", gap_after=20.0),
+            LegendItem(key="B", colour="green", gap_after=0.0),
+            LegendItem(key="C", colour="blue"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        marker_lines = [
+            l for l in ax.lines if l.get_linestyle() == "None"
+        ]
+        ys = [l.get_ydata()[0] for l in marker_lines]
+        # Three markers stacked downward.
+        assert len(ys) == 3
+        gap_01 = ys[0] - ys[1]
+        gap_12 = ys[1] - ys[2]
+        # First gap (20 pt) should be larger than second (0 pt).
+        assert gap_01 > gap_12
+        plt.close(fig)
+
 
 class TestFormatLegendLabel:
     """Tests for automatic chemical notation formatting."""

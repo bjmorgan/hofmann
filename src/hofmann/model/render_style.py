@@ -269,6 +269,9 @@ class LegendItem:
             ``None`` for a circle (the default).  Must be at least 3.
         rotation: Rotation of the polygon marker in degrees
             (default 0.0).  Ignored when *sides* is ``None``.
+        gap_after: Vertical gap in points between this entry and the
+            next one.  ``None`` falls back to
+            ``LegendStyle.spacing``.  Must be non-negative.
     """
 
     @staticmethod
@@ -285,6 +288,13 @@ class LegendItem:
                 f"sides must be >= 3, got {value}"
             )
 
+    @staticmethod
+    def _validate_gap_after(value: float | None) -> None:
+        if value is not None and value < 0:
+            raise ValueError(
+                f"gap_after must be non-negative, got {value}"
+            )
+
     def __init__(
         self,
         key: str,
@@ -293,6 +303,7 @@ class LegendItem:
         radius: float | None = None,
         sides: int | None = None,
         rotation: float = 0.0,
+        gap_after: float | None = None,
     ) -> None:
         if not key:
             raise ValueError("key must be non-empty")
@@ -302,11 +313,13 @@ class LegendItem:
         self._radius = radius
         self._sides = sides
         self._rotation = float(rotation)
+        self._gap_after = gap_after
         self._validate()
 
     def _validate(self) -> None:
         self._validate_radius(self._radius)
         self._validate_sides(self._sides)
+        self._validate_gap_after(self._gap_after)
 
     @property
     def colour(self) -> tuple[float, float, float]:
@@ -347,6 +360,16 @@ class LegendItem:
         self._rotation = float(value)
 
     @property
+    def gap_after(self) -> float | None:
+        """Gap in points after this entry, or ``None`` for the style default."""
+        return self._gap_after
+
+    @gap_after.setter
+    def gap_after(self, value: float | None) -> None:
+        self._validate_gap_after(value)
+        self._gap_after = value
+
+    @property
     def marker(self) -> str | tuple[int, int, float]:
         """Matplotlib marker specification derived from *sides* and *rotation*.
 
@@ -375,6 +398,8 @@ class LegendItem:
             parts.append(f"sides={self._sides!r}")
         if self._rotation != 0.0:
             parts.append(f"rotation={self._rotation!r}")
+        if self._gap_after is not None:
+            parts.append(f"gap_after={self._gap_after!r}")
         return f"LegendItem({', '.join(parts)})"
 
     def __eq__(self, other: object) -> bool:
@@ -387,6 +412,7 @@ class LegendItem:
             and self._radius == other._radius
             and self._sides == other._sides
             and self._rotation == other._rotation
+            and self._gap_after == other._gap_after
         )
 
     __hash__ = None  # type: ignore[assignment]
@@ -405,6 +431,8 @@ class LegendItem:
             d["sides"] = self._sides
         if self._rotation != 0.0:
             d["rotation"] = self._rotation
+        if self._gap_after is not None:
+            d["gap_after"] = self._gap_after
         return d
 
     @classmethod
@@ -422,6 +450,8 @@ class LegendItem:
             kwargs["sides"] = d["sides"]
         if "rotation" in d:
             kwargs["rotation"] = d["rotation"]
+        if "gap_after" in d:
+            kwargs["gap_after"] = d["gap_after"]
         return cls(**kwargs)
 
 

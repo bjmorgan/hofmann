@@ -254,6 +254,18 @@ class TestLegendItemDict:
         assert restored.sides == 4
         assert restored.rotation == 0.0
 
+    def test_gap_after_round_trip(self):
+        item = LegendItem(key="Na", colour="blue", gap_after=8.0)
+        d = item.to_dict()
+        assert d["gap_after"] == 8.0
+        restored = LegendItem.from_dict(d)
+        assert restored.gap_after == 8.0
+
+    def test_gap_after_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "gap_after" not in d
+
 
 # -- LegendStyle --------------------------------------------------------------
 
