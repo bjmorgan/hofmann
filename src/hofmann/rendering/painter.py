@@ -1155,15 +1155,16 @@ def _draw_legend_widget(
     outline_colour: tuple[float, float, float] | None = None,
     outline_width: float = 1.0,
 ) -> None:
-    """Draw a species legend widget on *ax*.
+    """Draw a legend widget on *ax*.
 
-    A vertical column of coloured circles with labels beside them.
-    Each entry corresponds to one :class:`LegendItem`.
+    A vertical column of coloured markers with labels beside them.
+    Each entry corresponds to one :class:`LegendItem`.  Markers may
+    be circles or regular polygons depending on the item's *sides*
+    field.
 
-    This function adds ``Line2D`` artists (circle markers) and text
-    labels.  These are cleaned up on the next call to
-    :func:`_draw_scene` via the ``ax.lines[:]`` and ``ax.texts[:]``
-    removal.
+    This function adds ``Line2D`` artists (markers) and text labels.
+    These are cleaned up on the next call to :func:`_draw_scene` via
+    the ``ax.lines[:]`` and ``ax.texts[:]`` removal.
 
     Args:
         ax: A matplotlib ``Axes`` to draw into.
@@ -1175,9 +1176,9 @@ def _draw_legend_widget(
         pad_y: Viewport half-extent in the y direction (data coords).
         cx: Viewport centre x coordinate.
         cy: Viewport centre y coordinate.
-        outline_colour: Outline colour for legend circles, or ``None``
+        outline_colour: Outline colour for legend markers, or ``None``
             to disable outlines.
-        outline_width: Line width for circle outlines in points.
+        outline_width: Line width for marker outlines in points.
     """
     if style.items is not None:
         items = list(style.items)
