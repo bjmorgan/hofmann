@@ -969,9 +969,11 @@ def main() -> None:
                            gap_after=8.0),
                 LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
                            label="TiO6", sides=6),
+                LegendItem(key="tet", colour=(0.85, 0.65, 0.85),
+                           label="SrO12", sides=4, rotation=45.0),
             ),
         ),
-        figsize=(0.55, 1.1),
+        figsize=(0.55, 1.35),
     )
     print(f"  wrote {OUT / 'legend_spacing.svg'}")
 

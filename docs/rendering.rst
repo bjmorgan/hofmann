@@ -467,14 +467,14 @@ related entries:
        LegendItem(key="Ti", colour="silver"),
        LegendItem(key="O", colour="red", gap_after=8.0),
        LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
+       LegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
    )
    style = LegendStyle(items=items)
 
 .. figure:: _static/legend_spacing.svg
    :align: center
 
-   Larger gap separates the species entries from the polyhedra
-   indicator.
+   Larger gap separates the species group from the polyhedra group.
 
 Standalone legend
 ~~~~~~~~~~~~~~~~~
