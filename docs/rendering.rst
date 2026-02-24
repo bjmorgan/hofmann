@@ -464,6 +464,15 @@ related entries:
    )
    style = LegendStyle(items=items)
 
+The following example combines polygon markers and ``gap_after`` to
+separate species entries from a polyhedra indicator:
+
+.. figure:: _static/legend_polygon.svg
+   :align: center
+
+   Custom legend with a hexagonal polyhedra marker and non-uniform
+   spacing.
+
 Standalone legend
 ~~~~~~~~~~~~~~~~~
 

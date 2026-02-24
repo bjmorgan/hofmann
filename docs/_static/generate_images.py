@@ -6,7 +6,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from hofmann import (
-    AtomStyle, AxesStyle, BondSpec, Frame, LegendStyle,
+    AtomStyle, AxesStyle, BondSpec, Frame, LegendItem, LegendStyle,
     PolyhedronSpec, RenderStyle, StructureScene, ViewState,
 )
 
@@ -940,6 +940,23 @@ def main() -> None:
         ),
     )
     print(f"  wrote {OUT / 'legend_labels.svg'}")
+
+    # Custom legend with polygon markers (polyhedra indicators).
+    render_legend(
+        _legend_scene, OUT / "legend_polygon.svg",
+        legend_style=LegendStyle(
+            items=(
+                LegendItem(key="Sr", colour="#51b04d", label="Sr2+"),
+                LegendItem(key="Ti", colour="#477B9D"),
+                LegendItem(key="O", colour="#F03F37",
+                           gap_after=8.0),
+                LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
+                           label="TiO6", sides=6),
+            ),
+        ),
+        figsize=_legend_figsize,
+    )
+    print(f"  wrote {OUT / 'legend_polygon.svg'}")
 
 
 if __name__ == "__main__":
