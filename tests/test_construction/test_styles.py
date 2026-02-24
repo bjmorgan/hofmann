@@ -11,6 +11,7 @@ from hofmann.model import (
     BondSpec,
     CellEdgeStyle,
     Frame,
+    LegendItem,
     LegendStyle,
     PolyhedronSpec,
     RenderStyle,
@@ -191,6 +192,41 @@ class TestAxesStyleDict:
         assert d["corner"] == [0.1, 0.9]
         restored = AxesStyle.from_dict(d)
         assert restored.corner == (0.1, 0.9)
+
+
+# -- LegendItem ---------------------------------------------------------------
+
+class TestLegendItemDict:
+    def test_minimal_round_trip(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert restored.key == "Na"
+        assert restored.colour == normalise_colour("blue")
+
+    def test_full_round_trip(self):
+        item = LegendItem(key="Na", colour=(0.2, 0.4, 0.8), label="Sodium", radius=6.0)
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert restored.key == "Na"
+        assert restored.colour == (0.2, 0.4, 0.8)
+        assert restored.label == "Sodium"
+        assert restored.radius == 6.0
+
+    def test_label_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "label" not in d
+
+    def test_radius_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "radius" not in d
+
+    def test_colour_normalised_in_dict(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert d["colour"] == list(normalise_colour("blue"))
 
 
 # -- LegendStyle --------------------------------------------------------------

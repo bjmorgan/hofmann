@@ -18,6 +18,7 @@ from hofmann.model.polyhedron_spec import Polyhedron, PolyhedronSpec
 from hofmann.model.render_style import (
     AxesStyle,
     CellEdgeStyle,
+    LegendItem,
     LegendStyle,
     RenderStyle,
     SlabClipMode,
@@ -35,6 +36,7 @@ __all__ = [
     "BondSpec",
     "CellEdgeStyle",
     "CmapSpec",
+    "LegendItem",
     "LegendStyle",
     "Colour",
     "Frame",

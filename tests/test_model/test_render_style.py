@@ -1,10 +1,11 @@
-"""Tests for RenderStyle, SlabClipMode, CellEdgeStyle, WidgetCorner, AxesStyle, and LegendStyle."""
+"""Tests for RenderStyle, SlabClipMode, CellEdgeStyle, WidgetCorner, AxesStyle, LegendItem, and LegendStyle."""
 
 import pytest
 
 from hofmann.model.render_style import (
     AxesStyle,
     CellEdgeStyle,
+    LegendItem,
     LegendStyle,
     RenderStyle,
     SlabClipMode,
@@ -306,6 +307,110 @@ class TestAxesStyle:
     def test_corner_tuple_wrong_length_raises(self):
         with pytest.raises(ValueError, match="corner tuple must have 2 elements"):
             AxesStyle(corner=(0.1, 0.2, 0.3))
+
+
+class TestLegendItem:
+    def test_required_fields(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.key == "Na"
+        assert item.colour == "blue"
+        assert item.label is None
+        assert item.radius is None
+
+    def test_all_fields(self):
+        item = LegendItem(key="Na", colour=(0.2, 0.4, 0.8), label="Sodium", radius=6.0)
+        assert item.key == "Na"
+        assert item.colour == (0.2, 0.4, 0.8)
+        assert item.label == "Sodium"
+        assert item.radius == 6.0
+
+    def test_colour_setter_valid(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.colour = "red"
+        assert item.colour == "red"
+
+    def test_colour_setter_invalid_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError):
+            item.colour = "not_a_colour"
+
+    def test_radius_setter_valid(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.radius = 3.0
+        assert item.radius == 3.0
+
+    def test_radius_setter_none(self):
+        item = LegendItem(key="Na", colour="blue", radius=5.0)
+        item.radius = None
+        assert item.radius is None
+
+    def test_radius_setter_negative_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="radius must be positive"):
+            item.radius = -1.0
+
+    def test_radius_setter_zero_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="radius must be positive"):
+            item.radius = 0.0
+
+    def test_empty_key_raises(self):
+        with pytest.raises(ValueError, match="key must be non-empty"):
+            LegendItem(key="", colour="blue")
+
+    def test_invalid_colour_raises(self):
+        with pytest.raises(ValueError):
+            LegendItem(key="Na", colour="not_a_colour")
+
+    def test_negative_radius_raises(self):
+        with pytest.raises(ValueError, match="radius must be positive"):
+            LegendItem(key="Na", colour="blue", radius=-1.0)
+
+    def test_zero_radius_raises(self):
+        with pytest.raises(ValueError, match="radius must be positive"):
+            LegendItem(key="Na", colour="blue", radius=0.0)
+
+    def test_display_label_falls_back_to_key(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.display_label == "Na"
+
+    def test_display_label_returns_label(self):
+        item = LegendItem(key="Na", colour="blue", label="Sodium")
+        assert item.display_label == "Sodium"
+
+    def test_label_is_mutable(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.label = "Sodium"
+        assert item.label == "Sodium"
+        assert item.display_label == "Sodium"
+
+    def test_repr_minimal(self):
+        item = LegendItem(key="Na", colour="blue")
+        r = repr(item)
+        assert "key='Na'" in r
+        assert "colour='blue'" in r
+        assert "label" not in r
+        assert "radius" not in r
+
+    def test_repr_full(self):
+        item = LegendItem(key="Na", colour="blue", label="Sodium", radius=6.0)
+        r = repr(item)
+        assert "label='Sodium'" in r
+        assert "radius=6.0" in r
+
+    def test_equality(self):
+        a = LegendItem(key="Na", colour="blue", label="Sodium", radius=6.0)
+        b = LegendItem(key="Na", colour="blue", label="Sodium", radius=6.0)
+        assert a == b
+
+    def test_inequality_different_colour(self):
+        a = LegendItem(key="Na", colour="blue")
+        b = LegendItem(key="Na", colour="red")
+        assert a != b
+
+    def test_inequality_not_legend_item(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item != "not an item"
 
 
 class TestLegendStyle:

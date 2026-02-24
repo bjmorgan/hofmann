@@ -11,12 +11,14 @@ from hofmann.model import (
     AxesStyle,
     BondSpec,
     Frame,
+    LegendItem,
     LegendStyle,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
     StructureScene,
     ViewState,
+    normalise_colour,
 )
 from hofmann.rendering.static import render_mpl
 from hofmann.construction.scene_builders import from_xbs
@@ -1378,3 +1380,120 @@ class TestRenderLegend:
         fig = render_legend(scene, output=path)
         assert path.exists()
         plt.close(fig)
+
+
+class TestBuildLegendItems:
+    """Tests for the _build_legend_items helper."""
+
+    def _build(self, scene, style=None):
+        from hofmann.rendering.painter import _build_legend_items
+        return _build_legend_items(scene, style or LegendStyle())
+
+    def test_auto_detect_species(self):
+        """Items follow unique species in first-seen order."""
+        scene = StructureScene(
+            species=["B", "A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+                [4.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2)),
+            },
+        )
+        items = self._build(scene)
+        assert [item.key for item in items] == ["B", "A"]
+        assert normalise_colour(items[0].colour) == normalise_colour((0.8, 0.2, 0.2))
+        assert normalise_colour(items[1].colour) == normalise_colour((0.5, 0.5, 0.5))
+
+    def test_explicit_species(self):
+        """Explicit species list controls inclusion and order."""
+        scene = _minimal_scene()
+        items = self._build(scene, LegendStyle(species=("B",)))
+        assert [item.key for item in items] == ["B"]
+
+    def test_invisible_species_filtered(self):
+        """Auto-detect excludes species with visible=False."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.8, (0.8, 0.2, 0.2), visible=False),
+            },
+        )
+        items = self._build(scene)
+        assert [item.key for item in items] == ["A"]
+
+    def test_custom_labels(self):
+        """Labels from style are attached to items."""
+        scene = _minimal_scene()
+        items = self._build(scene, LegendStyle(labels={"A": "Alpha"}))
+        a_item = next(item for item in items if item.key == "A")
+        b_item = next(item for item in items if item.key == "B")
+        assert a_item.label == "Alpha"
+        assert a_item.display_label == "Alpha"
+        assert b_item.label is None
+        assert b_item.display_label == "B"
+
+    def test_proportional_radius(self):
+        """Proportional circle_radius sets different radii on items."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(2.0, (0.8, 0.2, 0.2)),
+            },
+        )
+        items = self._build(scene, LegendStyle(circle_radius=(3.0, 9.0)))
+        a_item = next(item for item in items if item.key == "A")
+        b_item = next(item for item in items if item.key == "B")
+        assert a_item.radius == 3.0
+        assert b_item.radius == 9.0
+
+    def test_uniform_radius_is_none(self):
+        """Uniform circle_radius leaves item radii as None."""
+        scene = _minimal_scene()
+        items = self._build(scene, LegendStyle(circle_radius=7.0))
+        assert all(item.radius is None for item in items)
+
+    def test_dict_radius(self):
+        """Dict circle_radius sets per-species radii on items."""
+        scene = _minimal_scene()
+        items = self._build(
+            scene, LegendStyle(circle_radius={"A": 4.0, "B": 8.0}),
+        )
+        a_item = next(item for item in items if item.key == "A")
+        b_item = next(item for item in items if item.key == "B")
+        assert a_item.radius == 4.0
+        assert b_item.radius == 8.0
+
+    def test_unknown_species_gets_grey(self):
+        """Species not in atom_styles get grey fallback colour."""
+        scene = StructureScene(
+            species=["X"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={},
+        )
+        items = self._build(scene)
+        assert len(items) == 1
+        assert normalise_colour(items[0].colour) == (0.5, 0.5, 0.5)
+
+    def test_empty_scene_returns_empty(self):
+        """Scene with no species returns an empty list."""
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.zeros((0, 3)))],
+            atom_styles={},
+        )
+        items = self._build(scene)
+        assert items == []

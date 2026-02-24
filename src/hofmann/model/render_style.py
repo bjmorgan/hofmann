@@ -235,6 +235,135 @@ _DEFAULT_SPACING: float = 2.5
 """Default legend circle radius in points."""
 
 
+class LegendItem:
+    """A single entry in the species legend.
+
+    Each item carries a *key* (used as an identifier and fallback
+    display label), a *colour* for the legend circle, an optional
+    *label* override, and an optional *radius* in points.
+
+    The class follows the same validated-property pattern as
+    :class:`~hofmann.model.BondSpec`: ``colour`` and ``radius`` are
+    backed by private fields with setters that validate on every
+    assignment.
+
+    Attributes:
+        key: Identifier for this legend entry.  Also used as the
+            default display label when *label* is ``None``.
+        colour: Fill colour for the legend circle.  Accepts any
+            format understood by :func:`normalise_colour`.
+        label: Display label text.  ``None`` falls back to *key*.
+            Common chemical notation is auto-formatted at render
+            time: trailing charges become superscripts, embedded
+            digits become subscripts.  Labels containing ``$`` are
+            passed through as explicit matplotlib mathtext.
+        radius: Circle radius in points (before display-space
+            scaling).  ``None`` falls back to the uniform
+            ``LegendStyle.circle_radius`` default.
+    """
+
+    @staticmethod
+    def _validate_colour(value: Colour) -> None:
+        normalise_colour(value)
+
+    @staticmethod
+    def _validate_radius(value: float | None) -> None:
+        if value is not None and value <= 0:
+            raise ValueError(
+                f"radius must be positive, got {value}"
+            )
+
+    def __init__(
+        self,
+        key: str,
+        colour: Colour,
+        label: str | None = None,
+        radius: float | None = None,
+    ) -> None:
+        if not key:
+            raise ValueError("key must be non-empty")
+        self.key = key
+        self._colour = colour
+        self.label = label
+        self._radius = radius
+        self._validate()
+
+    def _validate(self) -> None:
+        self._validate_colour(self._colour)
+        self._validate_radius(self._radius)
+
+    @property
+    def colour(self) -> Colour:
+        """Fill colour for the legend circle."""
+        return self._colour
+
+    @colour.setter
+    def colour(self, value: Colour) -> None:
+        self._validate_colour(value)
+        self._colour = value
+
+    @property
+    def radius(self) -> float | None:
+        """Circle radius in points, or ``None`` for the style default."""
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: float | None) -> None:
+        self._validate_radius(value)
+        self._radius = value
+
+    @property
+    def display_label(self) -> str:
+        """The label to display, falling back to *key*."""
+        return self.key if self.label is None else self.label
+
+    def __repr__(self) -> str:
+        parts = [
+            f"key={self.key!r}",
+            f"colour={self._colour!r}",
+        ]
+        if self.label is not None:
+            parts.append(f"label={self.label!r}")
+        if self._radius is not None:
+            parts.append(f"radius={self._radius!r}")
+        return f"LegendItem({', '.join(parts)})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LegendItem):
+            return NotImplemented
+        return (
+            self.key == other.key
+            and self._colour == other._colour
+            and self.label == other.label
+            and self._radius == other._radius
+        )
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary."""
+        d: dict = {
+            "key": self.key,
+            "colour": list(normalise_colour(self._colour)),
+        }
+        if self.label is not None:
+            d["label"] = self.label
+        if self._radius is not None:
+            d["radius"] = self._radius
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> LegendItem:
+        """Deserialise from a dictionary."""
+        colour = d["colour"]
+        if isinstance(colour, list):
+            colour = tuple(colour)
+        kwargs: dict = {"key": d["key"], "colour": colour}
+        if "label" in d:
+            kwargs["label"] = d["label"]
+        if "radius" in d:
+            kwargs["radius"] = d["radius"]
+        return cls(**kwargs)
+
+
 @dataclass(frozen=True)
 class LegendStyle:
     """Visual style for the species legend widget.
