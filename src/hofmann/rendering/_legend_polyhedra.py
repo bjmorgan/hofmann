@@ -11,6 +11,8 @@ from functools import lru_cache
 
 import numpy as np
 
+from hofmann._constants import VALID_POLYHEDRA
+
 
 # ---------------------------------------------------------------------------
 # Canonical vertex sets (origin-centred, unit circumradius)
@@ -35,13 +37,10 @@ CANONICAL_VERTICES: dict[str, np.ndarray] = {
     ], dtype=float) / np.sqrt(2),
 }
 
-SUPPORTED_POLYHEDRA: frozenset[str] = frozenset(CANONICAL_VERTICES)
-"""Recognised polyhedron shape names for legend icons.
-
-Derived from :data:`CANONICAL_VERTICES` so the two cannot drift
-out of sync.  Must match ``_VALID_POLYHEDRA`` in
-:mod:`hofmann.model.render_style`.
-"""
+assert frozenset(CANONICAL_VERTICES) == VALID_POLYHEDRA, (
+    f"CANONICAL_VERTICES keys {sorted(CANONICAL_VERTICES)} do not match "
+    f"VALID_POLYHEDRA {sorted(VALID_POLYHEDRA)}"
+)
 
 # ---------------------------------------------------------------------------
 # Fixed legend rotation: Ry(-15 deg) @ Rx(10 deg)

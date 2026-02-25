@@ -11,6 +11,7 @@ from hofmann.model import (
     _DEFAULT_CIRCLE_RADIUS,
     normalise_colour,
 )
+from hofmann._constants import POLYHEDRON_RADIUS_SCALE
 
 
 def _minimal_scene():
@@ -190,12 +191,12 @@ class TestResolveItemRadius:
         item = LegendItem(key="a", colour="red")
         assert self._resolve(item, LegendStyle(circle_radius=8.0)) == 8.0
 
-    def test_polyhedron_defaults_to_twice_circle_radius(self):
-        """Polyhedra default to 2x the flat-marker radius."""
+    def test_polyhedron_defaults_to_scaled_circle_radius(self):
+        """Polyhedra default to POLYHEDRON_RADIUS_SCALE x the flat-marker radius."""
         item = LegendItem(key="a", colour="red", polyhedron="octahedron")
-        assert self._resolve(item, LegendStyle()) == 2.0 * _DEFAULT_CIRCLE_RADIUS
+        assert self._resolve(item, LegendStyle()) == POLYHEDRON_RADIUS_SCALE * _DEFAULT_CIRCLE_RADIUS
 
     def test_polyhedron_scales_with_circle_radius(self):
-        """Polyhedra scale to 2x when circle_radius is set."""
+        """Polyhedra scale by POLYHEDRON_RADIUS_SCALE when circle_radius is set."""
         item = LegendItem(key="a", colour="red", polyhedron="tetrahedron")
-        assert self._resolve(item, LegendStyle(circle_radius=3.0)) == 6.0
+        assert self._resolve(item, LegendStyle(circle_radius=3.0)) == POLYHEDRON_RADIUS_SCALE * 3.0

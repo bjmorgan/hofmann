@@ -31,6 +31,7 @@ from hofmann.rendering._legend_polyhedra import (
     shade_face,
 )
 from hofmann.rendering._widget_scale import _REFERENCE_WIDGET_PTS
+from hofmann._constants import POLYHEDRON_RADIUS_SCALE
 
 # Multiplier applied to the default entry spacing when any legend label
 # contains mathtext (super/subscripts).  The taller glyphs need a wider
@@ -177,7 +178,7 @@ def _resolve_item_radius(item: LegendItem, style: LegendStyle) -> float:
         else _DEFAULT_CIRCLE_RADIUS
     )
     if item.polyhedron is not None:
-        return 2.0 * base
+        return POLYHEDRON_RADIUS_SCALE * base
     return base
 
 

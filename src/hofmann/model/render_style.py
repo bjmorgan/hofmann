@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+from hofmann._constants import VALID_POLYHEDRA
 from hofmann.model._util import _field_defaults
 from hofmann.model.colour import Colour, normalise_colour
 
@@ -234,8 +235,6 @@ class AxesStyle:
         return cls(**kwargs)
 
 
-_VALID_POLYHEDRA = frozenset({"octahedron", "tetrahedron", "cuboctahedron"})
-"""Recognised polyhedron shape names for :class:`LegendItem`."""
 
 _DEFAULT_CIRCLE_RADIUS: float = 5.0
 """Default legend circle radius in points."""
@@ -347,9 +346,9 @@ class LegendItem:
             raise TypeError(
                 f"polyhedron must be a string, got {type(value).__name__}"
             )
-        if value not in _VALID_POLYHEDRA:
+        if value not in VALID_POLYHEDRA:
             raise ValueError(
-                f"polyhedron must be one of {sorted(_VALID_POLYHEDRA)}, "
+                f"polyhedron must be one of {sorted(VALID_POLYHEDRA)}, "
                 f"got {value!r}"
             )
 

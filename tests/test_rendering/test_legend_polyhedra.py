@@ -3,10 +3,10 @@
 import numpy as np
 import pytest
 
+from hofmann._constants import VALID_POLYHEDRA
 from hofmann.rendering._legend_polyhedra import (
     CANONICAL_VERTICES,
     LEGEND_ROTATION,
-    SUPPORTED_POLYHEDRA,
     _get_faces,
     shade_face,
 )
@@ -54,15 +54,9 @@ class TestCanonicalVertices:
         verts = CANONICAL_VERTICES["cuboctahedron"]
         np.testing.assert_allclose(verts.mean(axis=0), 0.0, atol=1e-12)
 
-    def test_supported_polyhedra_matches_vertices(self):
-        """SUPPORTED_POLYHEDRA must list exactly the CANONICAL_VERTICES keys."""
-        assert SUPPORTED_POLYHEDRA == frozenset(CANONICAL_VERTICES)
-
-    def test_valid_polyhedra_matches_supported(self):
-        """_VALID_POLYHEDRA in the model layer must match SUPPORTED_POLYHEDRA."""
-        from hofmann.model.render_style import _VALID_POLYHEDRA
-
-        assert _VALID_POLYHEDRA == SUPPORTED_POLYHEDRA
+    def test_canonical_vertices_matches_valid_polyhedra(self):
+        """CANONICAL_VERTICES keys must match the shared VALID_POLYHEDRA constant."""
+        assert frozenset(CANONICAL_VERTICES) == VALID_POLYHEDRA
 
 
 class TestGetFaces:
