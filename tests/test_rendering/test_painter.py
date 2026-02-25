@@ -1467,6 +1467,96 @@ class TestLegendWidget:
         assert len(ec0) == 3 or (len(ec0) == 4 and ec0[3] == pytest.approx(1.0))
         plt.close(fig)
 
+    # ---- polyhedron items ----
+
+    def test_polyhedron_item_renders_poly_collection(self):
+        """A polyhedron item adds a PolyCollection (not a Line2D marker)."""
+        from matplotlib.collections import PolyCollection
+        scene = _minimal_scene()
+        # Baseline render without legend to count scene PolyCollections.
+        fig_base = render_mpl(scene, show=False, show_legend=False)
+        base_count = sum(
+            1 for c in fig_base.axes[0].collections
+            if isinstance(c, PolyCollection)
+        )
+        plt.close(fig_base)
+        # Render with polyhedron legend item.
+        items = (
+            LegendItem(key="oct", colour="blue", polyhedron="octahedron"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        legend_count = sum(
+            1 for c in ax.collections if isinstance(c, PolyCollection)
+        )
+        assert legend_count > base_count
+        # No Line2D markers (the polyhedron replaces the flat marker).
+        legend_lines = [
+            line for line in ax.lines if line.get_linestyle() == "None"
+        ]
+        assert len(legend_lines) == 0
+        # Text label is present.
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "oct" in label_texts
+        plt.close(fig)
+
+    def test_mixed_polyhedron_and_flat_items(self):
+        """Mixed polyhedron + flat items render both correctly."""
+        from matplotlib.collections import PolyCollection
+        scene = _minimal_scene()
+        # Baseline render without legend.
+        fig_base = render_mpl(scene, show=False, show_legend=False)
+        base_count = sum(
+            1 for c in fig_base.axes[0].collections
+            if isinstance(c, PolyCollection)
+        )
+        plt.close(fig_base)
+        # Render with mixed legend items.
+        items = (
+            LegendItem(key="oct", colour="blue", polyhedron="octahedron"),
+            LegendItem(key="circle", colour="red"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        legend_count = sum(
+            1 for c in ax.collections if isinstance(c, PolyCollection)
+        )
+        assert legend_count > base_count
+        # One Line2D for the circle marker.
+        legend_lines = [
+            line for line in ax.lines if line.get_marker() == "o"
+        ]
+        assert len(legend_lines) == 1
+        # Both labels present.
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "oct" in label_texts
+        assert "circle" in label_texts
+        plt.close(fig)
+
+    def test_tetrahedron_item(self):
+        """Tetrahedron items also render without error."""
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="tet", colour="green", polyhedron="tetrahedron"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_mpl(
+            scene, show=False,
+            show_legend=True, legend_style=style,
+        )
+        ax = fig.axes[0]
+        label_texts = [t.get_text() for t in ax.texts]
+        assert "tet" in label_texts
+        plt.close(fig)
+
 
 class TestRenderLegend:
     """Tests for the standalone render_legend function."""
@@ -1533,4 +1623,34 @@ class TestRenderLegend:
         ax = fig.axes[0]
         assert len(ax.lines) == 2
         assert len(ax.texts) == 2
+        plt.close(fig)
+
+    def test_polyhedron_items_render(self):
+        """render_legend with polyhedron items produces PolyCollections."""
+        from matplotlib.collections import PolyCollection
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="Oct", colour="red", polyhedron="octahedron"),
+            LegendItem(key="Tet", colour="blue", polyhedron="tetrahedron"),
+        )
+        style = LegendStyle(items=items)
+        fig = render_legend(scene, legend_style=style)
+        ax = fig.axes[0]
+        assert len(ax.texts) == 2
+        polys = [c for c in ax.collections if isinstance(c, PolyCollection)]
+        assert len(polys) >= 1
+        plt.close(fig)
+
+    def test_polyhedron_items_saved_to_file(self, tmp_path):
+        """render_legend with polyhedron items saves to file."""
+        from hofmann.rendering.static import render_legend
+        scene = _minimal_scene()
+        items = (
+            LegendItem(key="Oct", colour="red", polyhedron="octahedron"),
+        )
+        style = LegendStyle(items=items)
+        path = tmp_path / "poly_legend.svg"
+        fig = render_legend(scene, output=path, legend_style=style)
+        assert path.exists()
         plt.close(fig)

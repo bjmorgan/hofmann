@@ -229,6 +229,7 @@ def render_legend(
     show_outlines: bool = True,
     outline_colour: Colour = (0.15, 0.15, 0.15),
     outline_width: float = 1.0,
+    polyhedra_shading: float = 1.0,
     dpi: int = 150,
     background: Colour = "white",
     transparent: bool = False,
@@ -254,6 +255,8 @@ def render_legend(
         outline_colour: Colour for circle outlines when
             *show_outlines* is ``True``.
         outline_width: Line width for circle outlines in points.
+        polyhedra_shading: Shading strength for 3D polyhedron legend
+            icons (0 = flat, 1 = full).
         dpi: Resolution for raster output formats.
         background: Figure background colour.
         transparent: If ``True``, save with a transparent background.
@@ -286,6 +289,12 @@ def render_legend(
     if legend_style is None:
         legend_style = LegendStyle()
 
+    if not (0.0 <= polyhedra_shading <= 1.0):
+        raise ValueError(
+            f"polyhedra_shading must be between 0.0 and 1.0, "
+            f"got {polyhedra_shading}"
+        )
+
     bg_rgb = normalise_colour(background)
 
     # Create a figure with a hidden axes for the legend widget to
@@ -309,6 +318,7 @@ def render_legend(
         pad_x=1.0, pad_y=1.0,
         outline_colour=ol_rgb,
         outline_width=outline_width,
+        polyhedra_shading=polyhedra_shading,
     )
 
     # Materialise artist positions so get_window_extent returns
@@ -320,11 +330,41 @@ def render_legend(
     from matplotlib.transforms import Bbox
 
     renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
-    bboxes = [
-        t.get_window_extent(renderer) for t in ax.texts
-    ] + [
-        line.get_window_extent(renderer) for line in ax.lines
-    ]
+
+    # Collect bounding boxes from all artist types.
+    # PolyCollection.get_window_extent() often returns degenerate
+    # (infinite) extents, so we fall back to computing the bbox from
+    # the actual vertex data transformed to display coordinates.
+    bboxes: list[Bbox] = []
+    for t in ax.texts:
+        bboxes.append(t.get_window_extent(renderer))
+    for line in ax.lines:
+        bboxes.append(line.get_window_extent(renderer))
+    for coll in ax.collections:
+        # Half the maximum linewidth in pixels — edges extend this
+        # far beyond the vertex positions.
+        lw_px = float(np.max(np.atleast_1d(coll.get_linewidth()))) / 2.0
+
+        bb = coll.get_window_extent(renderer)
+        if np.all(np.isfinite([bb.x0, bb.y0, bb.x1, bb.y1])):
+            if lw_px:
+                bb = Bbox([
+                    [bb.x0 - lw_px, bb.y0 - lw_px],
+                    [bb.x1 + lw_px, bb.y1 + lw_px],
+                ])
+            bboxes.append(bb)
+        else:
+            # Derive extent from vertex paths in display coordinates.
+            paths = coll.get_paths()
+            if paths:
+                all_verts = np.vstack([p.vertices for p in paths])
+                display_verts = ax.transData.transform(all_verts)
+                bboxes.append(Bbox([
+                    [display_verts[:, 0].min() - lw_px,
+                     display_verts[:, 1].min() - lw_px],
+                    [display_verts[:, 0].max() + lw_px,
+                     display_verts[:, 1].max() + lw_px],
+                ]))
     bbox_inches: Bbox | str
     if bboxes:
         legend_bb = Bbox.union(bboxes)

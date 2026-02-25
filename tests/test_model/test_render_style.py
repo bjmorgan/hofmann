@@ -629,6 +629,242 @@ class TestLegendItem:
         b = LegendItem(key="Na", colour="blue", alpha=0.8)
         assert a != b
 
+    # ---- polyhedron ----
+
+    def test_polyhedron_defaults_to_none(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.polyhedron is None
+
+    def test_polyhedron_construction(self):
+        item = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
+        assert item.polyhedron == "octahedron"
+
+    def test_polyhedron_tetrahedron(self):
+        item = LegendItem(key="Tet", colour="green", polyhedron="tetrahedron")
+        assert item.polyhedron == "tetrahedron"
+
+    def test_polyhedron_setter_valid(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.polyhedron = "octahedron"
+        assert item.polyhedron == "octahedron"
+
+    def test_polyhedron_setter_none(self):
+        item = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
+        item.polyhedron = None
+        assert item.polyhedron is None
+
+    def test_polyhedron_unknown_raises(self):
+        with pytest.raises(ValueError, match="polyhedron must be one of"):
+            LegendItem(key="Na", colour="blue", polyhedron="cube")
+
+    def test_polyhedron_setter_unknown_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="polyhedron must be one of"):
+            item.polyhedron = "dodecahedron"
+
+    def test_polyhedron_non_string_raises(self):
+        with pytest.raises(TypeError, match="polyhedron must be a string"):
+            LegendItem(key="Na", colour="blue", polyhedron=6)
+
+    def test_polyhedron_setter_non_string_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(TypeError, match="polyhedron must be a string"):
+            item.polyhedron = 4
+
+    def test_repr_with_polyhedron(self):
+        item = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
+        assert "polyhedron='octahedron'" in repr(item)
+
+    def test_repr_without_polyhedron(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert "polyhedron" not in repr(item)
+
+    def test_equality_with_polyhedron(self):
+        a = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
+        b = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
+        assert a == b
+
+    def test_inequality_different_polyhedron(self):
+        a = LegendItem(key="X", colour="red", polyhedron="octahedron")
+        b = LegendItem(key="X", colour="red", polyhedron="tetrahedron")
+        assert a != b
+
+    def test_inequality_none_vs_set_polyhedron(self):
+        a = LegendItem(key="X", colour="red")
+        b = LegendItem(key="X", colour="red", polyhedron="octahedron")
+        assert a != b
+
+    # ---- edge_colour / edge_width ----
+
+    def test_edge_colour_default_none(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.edge_colour is None
+
+    def test_edge_colour_construction(self):
+        item = LegendItem(key="Na", colour="blue", edge_colour="red")
+        assert item.edge_colour == (1.0, 0.0, 0.0)
+
+    def test_edge_colour_setter(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.edge_colour = (0.1, 0.2, 0.3)
+        assert item.edge_colour == (0.1, 0.2, 0.3)
+
+    def test_edge_colour_setter_none(self):
+        item = LegendItem(key="Na", colour="blue", edge_colour="red")
+        item.edge_colour = None
+        assert item.edge_colour is None
+
+    def test_edge_width_default_none(self):
+        item = LegendItem(key="Na", colour="blue")
+        assert item.edge_width is None
+
+    def test_edge_width_construction(self):
+        item = LegendItem(key="Na", colour="blue", edge_width=2.0)
+        assert item.edge_width == 2.0
+
+    def test_edge_width_setter(self):
+        item = LegendItem(key="Na", colour="blue")
+        item.edge_width = 1.5
+        assert item.edge_width == 1.5
+
+    def test_edge_width_negative_raises(self):
+        with pytest.raises(ValueError, match="edge_width must be non-negative"):
+            LegendItem(key="Na", colour="blue", edge_width=-1.0)
+
+    def test_edge_width_setter_negative_raises(self):
+        item = LegendItem(key="Na", colour="blue")
+        with pytest.raises(ValueError, match="edge_width must be non-negative"):
+            item.edge_width = -0.5
+
+    def test_repr_with_edge_fields(self):
+        item = LegendItem(
+            key="Na", colour="blue",
+            edge_colour="red", edge_width=2.0,
+        )
+        r = repr(item)
+        assert "edge_colour=" in r
+        assert "edge_width=" in r
+
+    def test_repr_without_edge_fields(self):
+        item = LegendItem(key="Na", colour="blue")
+        r = repr(item)
+        assert "edge_colour" not in r
+        assert "edge_width" not in r
+
+    def test_equality_with_edge_fields(self):
+        a = LegendItem(key="Na", colour="blue", edge_colour="red", edge_width=1.0)
+        b = LegendItem(key="Na", colour="blue", edge_colour="red", edge_width=1.0)
+        assert a == b
+
+    def test_inequality_different_edge_colour(self):
+        a = LegendItem(key="Na", colour="blue", edge_colour="red")
+        b = LegendItem(key="Na", colour="blue", edge_colour="green")
+        assert a != b
+
+    def test_inequality_different_edge_width(self):
+        a = LegendItem(key="Na", colour="blue", edge_width=1.0)
+        b = LegendItem(key="Na", colour="blue", edge_width=2.0)
+        assert a != b
+
+
+class TestLegendItemFromPolyhedronSpec:
+    """Tests for the from_polyhedron_spec() factory classmethod."""
+
+    def test_basic(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti", colour=(0.5, 0.5, 0.8))
+        item = LegendItem.from_polyhedron_spec(spec, "octahedron")
+        assert item.key == "Ti"
+        assert item.colour == (0.5, 0.5, 0.8)
+        assert item.alpha == 0.4  # spec default
+        assert item.polyhedron == "octahedron"
+        assert item.label is None
+
+    def test_colour_override(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti", colour=(0.5, 0.5, 0.8))
+        item = LegendItem.from_polyhedron_spec(
+            spec, "octahedron", colour="red",
+        )
+        assert item.colour == (1.0, 0.0, 0.0)
+
+    def test_none_colour_raises(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti")  # colour=None (inherits)
+        with pytest.raises(ValueError, match="colour must be provided"):
+            LegendItem.from_polyhedron_spec(spec, "octahedron")
+
+    def test_none_spec_colour_with_explicit_colour(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti")
+        item = LegendItem.from_polyhedron_spec(
+            spec, "tetrahedron", colour="green",
+        )
+        assert item.colour == (0.0, 0.5019607843137255, 0.0)
+        assert item.polyhedron == "tetrahedron"
+
+    def test_custom_key_and_label(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti", colour="blue")
+        item = LegendItem.from_polyhedron_spec(
+            spec, "octahedron", key="TiO6", label="Octahedral",
+        )
+        assert item.key == "TiO6"
+        assert item.label == "Octahedral"
+
+    def test_alpha_override(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti", colour="blue", alpha=0.4)
+        item = LegendItem.from_polyhedron_spec(
+            spec, "octahedron", alpha=0.8,
+        )
+        assert item.alpha == 0.8
+
+    def test_radius_and_gap_after(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(centre="Ti", colour="blue")
+        item = LegendItem.from_polyhedron_spec(
+            spec, "octahedron", radius=8.0, gap_after=12.0,
+        )
+        assert item.radius == 8.0
+        assert item.gap_after == 12.0
+
+    def test_inherits_edge_colour(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(
+            centre="Ti", colour="blue", edge_colour=(0.1, 0.2, 0.3),
+        )
+        item = LegendItem.from_polyhedron_spec(spec, "octahedron")
+        assert item.edge_colour == (0.1, 0.2, 0.3)
+
+    def test_inherits_edge_width(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(
+            centre="Ti", colour="blue", edge_width=2.5,
+        )
+        item = LegendItem.from_polyhedron_spec(spec, "octahedron")
+        assert item.edge_width == 2.5
+
+    def test_edge_colour_override(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(
+            centre="Ti", colour="blue", edge_colour=(0.1, 0.2, 0.3),
+        )
+        item = LegendItem.from_polyhedron_spec(
+            spec, "octahedron", edge_colour="red",
+        )
+        assert item.edge_colour == (1.0, 0.0, 0.0)
+
+    def test_edge_width_override(self):
+        from hofmann.model import PolyhedronSpec
+        spec = PolyhedronSpec(
+            centre="Ti", colour="blue", edge_width=2.5,
+        )
+        item = LegendItem.from_polyhedron_spec(
+            spec, "octahedron", edge_width=0.5,
+        )
+        assert item.edge_width == 0.5
+
 
 class TestLegendStyle:
     def test_defaults(self):

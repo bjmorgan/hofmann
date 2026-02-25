@@ -1,7 +1,8 @@
 """Legend widget rendering.
 
 Builds and draws a vertical legend column of coloured markers
-(circles or regular polygons) with text labels.
+(circles, regular polygons, or miniature 3D polyhedra) with text
+labels.
 """
 
 from __future__ import annotations
@@ -9,7 +10,9 @@ from __future__ import annotations
 import re
 
 import matplotlib.patheffects as path_effects
+import numpy as np
 from matplotlib.axes import Axes
+from matplotlib.collections import PolyCollection
 from matplotlib.figure import Figure
 
 from hofmann.model import (
@@ -21,7 +24,14 @@ from hofmann.model import (
     _DEFAULT_SPACING,
     normalise_colour,
 )
+from hofmann.rendering._legend_polyhedra import (
+    CANONICAL_VERTICES,
+    LEGEND_ROTATION,
+    _get_faces,
+    shade_face,
+)
 from hofmann.rendering._widget_scale import _REFERENCE_WIDGET_PTS
+from hofmann._constants import POLYHEDRON_RADIUS_SCALE
 
 # Multiplier applied to the default entry spacing when any legend label
 # contains mathtext (super/subscripts).  The taller glyphs need a wider
@@ -156,13 +166,103 @@ def _resolve_item_radius(item: LegendItem, style: LegendStyle) -> float:
 
     Returns the item's explicit radius if set, otherwise falls back
     to the style's uniform ``circle_radius`` (when it is a plain
-    float) or ``_DEFAULT_CIRCLE_RADIUS``.
+    float) or ``_DEFAULT_CIRCLE_RADIUS``.  Polyhedron items without
+    an explicit radius default to twice the flat-marker radius so
+    that 3D icons are legible alongside the smaller circle markers.
     """
     if item.radius is not None:
         return item.radius
-    if isinstance(style.circle_radius, (int, float)):
-        return float(style.circle_radius)
-    return _DEFAULT_CIRCLE_RADIUS
+    base = (
+        float(style.circle_radius)
+        if isinstance(style.circle_radius, (int, float))
+        else _DEFAULT_CIRCLE_RADIUS
+    )
+    if item.polyhedron is not None:
+        return POLYHEDRON_RADIUS_SCALE * base
+    return base
+
+
+# ---------------------------------------------------------------------------
+# 3D polyhedron icon rendering
+# ---------------------------------------------------------------------------
+
+
+def _draw_legend_polyhedron(
+    ax: Axes,
+    shape: str,
+    centre_x: float,
+    centre_y: float,
+    radius_data: float,
+    base_rgb: tuple[float, float, float],
+    alpha: float,
+    polyhedra_shading: float = 1.0,
+    edge_colour: tuple[float, float, float] | None = None,
+    edge_width: float = 0.0,
+) -> None:
+    """Draw a miniature 3D-shaded polyhedron icon on *ax*.
+
+    Uses the same depth-sorted face rendering as the main painter
+    but with a fixed oblique viewing angle from
+    :data:`LEGEND_ROTATION`.
+
+    Args:
+        ax: Matplotlib ``Axes`` to draw into.
+        shape: Polyhedron shape name (key in :data:`CANONICAL_VERTICES`).
+        centre_x: Icon centre in data coordinates (x).
+        centre_y: Icon centre in data coordinates (y).
+        radius_data: Icon radius in data coordinates.
+        base_rgb: Base face colour before shading.
+        alpha: Face opacity (0--1).
+        polyhedra_shading: Shading strength (0 = flat, 1 = full).
+        edge_colour: Pre-resolved edge colour, or ``None`` to
+            disable edges.
+        edge_width: Pre-resolved edge width in points.
+    """
+    vertices = CANONICAL_VERTICES[shape]
+    faces = _get_faces(shape)
+
+    # Rotate, scale, and translate to the icon position.
+    rotated = vertices @ LEGEND_ROTATION.T
+    scaled = rotated * radius_data
+    translated = scaled[:, :2] + np.array([centre_x, centre_y])
+
+    # Depth-sort faces back-to-front (ascending mean z after rotation).
+    face_depths = [np.mean(rotated[face, 2]) for face in faces]
+    face_order = np.argsort(face_depths)
+
+    show_edges = edge_colour is not None and edge_width > 0.0
+    ec_rgba: tuple[float, ...] | None = (
+        (*edge_colour, 1.0) if edge_colour is not None and show_edges
+        else None
+    )
+
+    all_verts: list[np.ndarray] = []
+    face_colours: list[tuple[float, ...]] = []
+    edge_colours_list: list[tuple[float, ...]] = []
+    line_widths: list[float] = []
+
+    for fi in face_order:
+        face = faces[fi]
+        face_verts_rotated = rotated[face]
+        shaded = shade_face(face_verts_rotated, base_rgb, polyhedra_shading)
+
+        verts_2d = translated[face]
+        fc = (*shaded, alpha)
+        all_verts.append(verts_2d)
+        face_colours.append(fc)
+        edge_colours_list.append(ec_rgba if ec_rgba is not None else fc)
+        line_widths.append(edge_width if show_edges else 0.0)
+
+    if all_verts:
+        pc = PolyCollection(
+            all_verts,
+            closed=True,
+            facecolors=face_colours,
+            edgecolors=edge_colours_list,
+            linewidths=line_widths,
+            zorder=10,
+        )
+        ax.add_collection(pc)
 
 
 def _draw_legend_widget(
@@ -175,17 +275,20 @@ def _draw_legend_widget(
     cy: float = 0.0,
     outline_colour: tuple[float, float, float] | None = None,
     outline_width: float = 1.0,
+    polyhedra_shading: float = 1.0,
 ) -> None:
     """Draw a legend widget on *ax*.
 
     A vertical column of coloured markers with labels beside them.
     Each entry corresponds to one :class:`LegendItem`.  Markers may
-    be circles or regular polygons depending on the item's *sides*
-    field.
+    be circles, regular polygons, or miniature 3D polyhedra depending
+    on the item's fields.
 
-    This function adds ``Line2D`` artists (markers) and text labels.
+    This function adds ``Line2D`` artists (flat markers),
+    ``PolyCollection`` artists (3D polyhedra), and text labels.
     These are cleaned up on the next call to :func:`_draw_scene` via
-    the ``ax.lines[:]`` and ``ax.texts[:]`` removal.
+    the ``ax.lines[:]``, ``ax.collections[:]``, and ``ax.texts[:]``
+    removal.
 
     Args:
         ax: A matplotlib ``Axes`` to draw into.
@@ -200,6 +303,8 @@ def _draw_legend_widget(
         outline_colour: Outline colour for legend markers, or ``None``
             to disable outlines.
         outline_width: Line width for marker outlines in points.
+        polyhedra_shading: Shading strength for 3D polyhedron icons
+            (0 = flat, 1 = full Lambertian-style shading).
     """
     if style.items is not None:
         items = list(style.items)
@@ -291,23 +396,50 @@ def _draw_legend_widget(
     for i, item in enumerate(items):
 
         rgb = normalise_colour(item.colour)
-        face_colour: tuple[float, ...] = rgb
-        if item.alpha < 1.0:
-            face_colour = (*rgb, item.alpha)
 
-        edge_colour = outline_colour if outline_colour is not None else rgb
-        edge_width = outline_width * scale if outline_colour is not None else 0.0
-
-        ax.plot(
-            anchor_x, y_i,
-            marker=item.marker,
-            markersize=item_radius[i] * 2,
-            markerfacecolor=face_colour,
-            markeredgecolor=edge_colour,
-            markeredgewidth=edge_width,
-            linestyle="None",
-            zorder=10,
+        # Resolve per-item edge settings: item override → scene fallback.
+        # When outline_colour is None (show_outlines=False) and the item
+        # has no override, edges are disabled.
+        resolved_ec = (
+            item.edge_colour if item.edge_colour is not None
+            else outline_colour
         )
+        resolved_ew = (
+            item.edge_width if item.edge_width is not None
+            else outline_width
+        ) * scale if resolved_ec is not None else 0.0
+
+        if item.polyhedron is not None:
+            # 3D polyhedron icon path.
+            radius_data = item_radius[i] / pts_per_data
+            _draw_legend_polyhedron(
+                ax,
+                shape=item.polyhedron,
+                centre_x=anchor_x,
+                centre_y=y_i,
+                radius_data=radius_data,
+                base_rgb=rgb,
+                alpha=item.alpha,
+                polyhedra_shading=polyhedra_shading,
+                edge_colour=resolved_ec,
+                edge_width=resolved_ew,
+            )
+        else:
+            # Flat marker path (circle or polygon).
+            face_colour: tuple[float, ...] = rgb
+            if item.alpha < 1.0:
+                face_colour = (*rgb, item.alpha)
+
+            ax.plot(
+                anchor_x, y_i,
+                marker=item.marker,
+                markersize=item_radius[i] * 2,
+                markerfacecolor=face_colour,
+                markeredgecolor=resolved_ec if resolved_ec is not None else rgb,
+                markeredgewidth=resolved_ew,
+                linestyle="None",
+                zorder=10,
+            )
 
         # Nudge text down to visually centre with the marker.
         # va="center" includes descender space in the bounding box,
