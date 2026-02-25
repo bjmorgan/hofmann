@@ -5,17 +5,30 @@ Changelog
 ------
 
 - :class:`~hofmann.LegendItem` gains a ``polyhedron`` field.  Set it to
-  ``"octahedron"`` or ``"tetrahedron"`` to render a miniature 3D-shaded
-  polyhedron icon in the legend instead of a flat circle or polygon
-  marker.
+  ``"octahedron"``, ``"tetrahedron"``, or ``"cuboctahedron"`` to render
+  a miniature 3D-shaded polyhedron icon in the legend instead of a flat
+  circle or polygon marker.  Polyhedron icons default to twice the
+  flat-marker radius so that the 3D shading is legible at typical figure
+  sizes.
+
+- :class:`~hofmann.LegendItem` gains per-item ``edge_colour`` and
+  ``edge_width`` fields.  When set, these override the scene-level
+  outline settings; when unset, items fall back to the scene's
+  ``outline_colour`` and ``outline_width``.  Setting
+  ``show_outlines=False`` disables edges only for items that do not
+  define their own edge styling.
 
 - New :meth:`~hofmann.LegendItem.from_polyhedron_spec` classmethod
   creates a legend item from a :class:`~hofmann.PolyhedronSpec`,
-  inheriting colour and alpha without duplication.
+  inheriting colour, alpha, and edge settings without duplication.
 
 - :func:`~hofmann.rendering.static.render_legend` gains a
   ``polyhedra_shading`` parameter controlling the shading strength
   of 3D polyhedron icons (0 = flat, 1 = full).
+
+- Fix bounding box computation in :func:`~hofmann.rendering.static.render_legend`
+  to account for edge linewidth, preventing clipped outlines on
+  tightly-cropped legend images.
 
 0.11.1
 ------
