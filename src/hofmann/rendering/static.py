@@ -229,6 +229,7 @@ def render_legend(
     show_outlines: bool = True,
     outline_colour: Colour = (0.15, 0.15, 0.15),
     outline_width: float = 1.0,
+    polyhedra_shading: float = 1.0,
     dpi: int = 150,
     background: Colour = "white",
     transparent: bool = False,
@@ -254,6 +255,8 @@ def render_legend(
         outline_colour: Colour for circle outlines when
             *show_outlines* is ``True``.
         outline_width: Line width for circle outlines in points.
+        polyhedra_shading: Shading strength for 3D polyhedron legend
+            icons (0 = flat, 1 = full).
         dpi: Resolution for raster output formats.
         background: Figure background colour.
         transparent: If ``True``, save with a transparent background.
@@ -309,6 +312,7 @@ def render_legend(
         pad_x=1.0, pad_y=1.0,
         outline_colour=ol_rgb,
         outline_width=outline_width,
+        polyhedra_shading=polyhedra_shading,
     )
 
     # Materialise artist positions so get_window_extent returns
@@ -320,10 +324,18 @@ def render_legend(
     from matplotlib.transforms import Bbox
 
     renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
-    bboxes = [
+    bboxes_raw = [
         t.get_window_extent(renderer) for t in ax.texts
     ] + [
         line.get_window_extent(renderer) for line in ax.lines
+    ] + [
+        coll.get_window_extent(renderer) for coll in ax.collections
+    ]
+    # Filter out degenerate bounding boxes (e.g. PolyCollection can
+    # return infinite extents before the first full draw).
+    bboxes = [
+        bb for bb in bboxes_raw
+        if np.all(np.isfinite([bb.x0, bb.y0, bb.x1, bb.y1]))
     ]
     bbox_inches: Bbox | str
     if bboxes:

@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.12.0
+------
+
+- :class:`~hofmann.LegendItem` gains a ``polyhedron`` field.  Set it to
+  ``"octahedron"`` or ``"tetrahedron"`` to render a miniature 3D-shaded
+  polyhedron icon in the legend instead of a flat circle or polygon
+  marker.
+
+- New :meth:`~hofmann.LegendItem.from_polyhedron_spec` classmethod
+  creates a legend item from a :class:`~hofmann.PolyhedronSpec`,
+  inheriting colour and alpha without duplication.
+
+- :func:`~hofmann.rendering.static.render_legend` gains a
+  ``polyhedra_shading`` parameter controlling the shading strength
+  of 3D polyhedron icons (0 = flat, 1 = full).
+
 0.11.1
 ------
 

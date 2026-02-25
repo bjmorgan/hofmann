@@ -278,6 +278,18 @@ class TestLegendItemDict:
         d = item.to_dict()
         assert "alpha" not in d
 
+    def test_polyhedron_round_trip(self):
+        item = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
+        d = item.to_dict()
+        assert d["polyhedron"] == "octahedron"
+        restored = LegendItem.from_dict(d)
+        assert restored.polyhedron == "octahedron"
+
+    def test_polyhedron_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "polyhedron" not in d
+
 
 # -- LegendStyle --------------------------------------------------------------
 

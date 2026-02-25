@@ -840,6 +840,7 @@ def _draw_scene(
             pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
             outline_colour=outline_rgb if show_outlines else None,
             outline_width=atom_outline_width,
+            polyhedra_shading=polyhedra_shading,
         )
 
 
