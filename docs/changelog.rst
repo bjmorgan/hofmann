@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.11.1
+------
+
+- Internal: extract legend rendering from ``painter.py`` into a dedicated
+  ``legend.py`` module, and move the shared widget scaling constant into
+  ``_widget_scale.py``.
+
 0.11.0
 ------
 
