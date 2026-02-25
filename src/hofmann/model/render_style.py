@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from hofmann.model._util import _field_defaults
 from hofmann.model.colour import Colour, normalise_colour
+
+if TYPE_CHECKING:
+    from hofmann.model.polyhedron_spec import PolyhedronSpec
 
 
 class SlabClipMode(StrEnum):
