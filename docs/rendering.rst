@@ -516,9 +516,20 @@ instead:
 
    3D-shaded octahedron and tetrahedron legend icons.
 
+At the default ``circle_radius`` (5 pt) the icons are compact.  Set
+``radius`` on individual items to make them larger — useful when
+the shading detail matters:
+
+.. code-block:: python
+
+   LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
+              label="Octahedral", polyhedron="octahedron",
+              alpha=0.4, radius=12.0)
+
 The shading uses the same Lambertian-style lighting as the main scene.
 Control its strength with ``polyhedra_shading`` (0 = flat colour,
-1 = full shading):
+1 = full shading).  The comparison below uses ``radius=12.0`` to
+make the effect clear:
 
 .. list-table::
    :widths: 50 50
