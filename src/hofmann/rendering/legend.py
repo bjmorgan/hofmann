@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 
 import matplotlib.patheffects as path_effects
-import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -41,9 +40,9 @@ def _format_legend_label(text: str) -> str:
 
     Converts common shorthand into matplotlib mathtext:
 
-    * Trailing charge (``Sr2+``, ``O2-``) -> superscript with tight
+    * Trailing charge (``Sr2+``, ``O2-``) → superscript with tight
       kerning (``Sr$^{2\\!+}$``).
-    * Embedded digits (``TiO6``, ``H2O``) -> subscripts
+    * Embedded digits (``TiO6``, ``H2O``) → subscripts
       (``TiO$_6$``, ``H$_2$O``).
 
     Labels already containing ``$`` are returned unchanged, allowing
