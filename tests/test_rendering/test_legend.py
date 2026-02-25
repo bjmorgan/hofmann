@@ -5,8 +5,10 @@ import numpy as np
 from hofmann.model import (
     AtomStyle,
     Frame,
+    LegendItem,
     LegendStyle,
     StructureScene,
+    _DEFAULT_CIRCLE_RADIUS,
     normalise_colour,
 )
 
@@ -165,3 +167,35 @@ class TestBuildLegendItems:
         )
         items = self._build(scene)
         assert items == []
+
+
+class TestResolveItemRadius:
+    """Tests for _resolve_item_radius — polyhedron vs flat defaults."""
+
+    def _resolve(self, item, style):
+        from hofmann.rendering.legend import _resolve_item_radius
+        return _resolve_item_radius(item, style)
+
+    def test_explicit_radius_wins(self):
+        item = LegendItem(key="a", colour="red", radius=7.0)
+        assert self._resolve(item, LegendStyle()) == 7.0
+
+    def test_explicit_radius_wins_for_polyhedron(self):
+        item = LegendItem(
+            key="a", colour="red", polyhedron="octahedron", radius=20.0,
+        )
+        assert self._resolve(item, LegendStyle()) == 20.0
+
+    def test_flat_item_uses_circle_radius(self):
+        item = LegendItem(key="a", colour="red")
+        assert self._resolve(item, LegendStyle(circle_radius=8.0)) == 8.0
+
+    def test_polyhedron_defaults_to_twice_circle_radius(self):
+        """Polyhedra default to 2x the flat-marker radius."""
+        item = LegendItem(key="a", colour="red", polyhedron="octahedron")
+        assert self._resolve(item, LegendStyle()) == 2.0 * _DEFAULT_CIRCLE_RADIUS
+
+    def test_polyhedron_scales_with_circle_radius(self):
+        """Polyhedra scale to 2x when circle_radius is set."""
+        item = LegendItem(key="a", colour="red", polyhedron="tetrahedron")
+        assert self._resolve(item, LegendStyle(circle_radius=3.0)) == 6.0

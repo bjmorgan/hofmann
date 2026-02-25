@@ -165,13 +165,20 @@ def _resolve_item_radius(item: LegendItem, style: LegendStyle) -> float:
 
     Returns the item's explicit radius if set, otherwise falls back
     to the style's uniform ``circle_radius`` (when it is a plain
-    float) or ``_DEFAULT_CIRCLE_RADIUS``.
+    float) or ``_DEFAULT_CIRCLE_RADIUS``.  Polyhedron items without
+    an explicit radius default to twice the flat-marker radius so
+    that 3D icons are legible alongside the smaller circle markers.
     """
     if item.radius is not None:
         return item.radius
-    if isinstance(style.circle_radius, (int, float)):
-        return float(style.circle_radius)
-    return _DEFAULT_CIRCLE_RADIUS
+    base = (
+        float(style.circle_radius)
+        if isinstance(style.circle_radius, (int, float))
+        else _DEFAULT_CIRCLE_RADIUS
+    )
+    if item.polyhedron is not None:
+        return 2.0 * base
+    return base
 
 
 # ---------------------------------------------------------------------------

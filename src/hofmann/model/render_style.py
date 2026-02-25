@@ -234,7 +234,7 @@ class AxesStyle:
         return cls(**kwargs)
 
 
-_VALID_POLYHEDRA = frozenset({"octahedron", "tetrahedron"})
+_VALID_POLYHEDRA = frozenset({"octahedron", "tetrahedron", "cuboctahedron"})
 """Recognised polyhedron shape names for :class:`LegendItem`."""
 
 _DEFAULT_CIRCLE_RADIUS: float = 5.0

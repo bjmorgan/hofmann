@@ -28,14 +28,27 @@ CANONICAL_VERTICES: dict[str, np.ndarray] = {
         [-1, 1, -1],
         [-1, -1, 1],
     ], dtype=float) / np.sqrt(3),
+    "cuboctahedron": np.array([
+        [0,  1,  1], [0,  1, -1], [0, -1,  1], [0, -1, -1],
+        [1,  0,  1], [1,  0, -1], [-1,  0,  1], [-1,  0, -1],
+        [1,  1,  0], [1, -1,  0], [-1,  1,  0], [-1, -1,  0],
+    ], dtype=float) / np.sqrt(2),
 }
 
+SUPPORTED_POLYHEDRA: frozenset[str] = frozenset(CANONICAL_VERTICES)
+"""Recognised polyhedron shape names for legend icons.
+
+Derived from :data:`CANONICAL_VERTICES` so the two cannot drift
+out of sync.  Must match ``_VALID_POLYHEDRA`` in
+:mod:`hofmann.model.render_style`.
+"""
+
 # ---------------------------------------------------------------------------
-# Fixed legend rotation: Ry(-35 deg) @ Rx(25 deg)
+# Fixed legend rotation: Ry(-15 deg) @ Rx(10 deg)
 # ---------------------------------------------------------------------------
 
-_ANGLE_Y = np.radians(-35)
-_ANGLE_X = np.radians(25)
+_ANGLE_Y = np.radians(-15)
+_ANGLE_X = np.radians(10)
 
 _Ry = np.array([
     [np.cos(_ANGLE_Y), 0, np.sin(_ANGLE_Y)],

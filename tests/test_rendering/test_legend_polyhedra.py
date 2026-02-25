@@ -6,6 +6,7 @@ import pytest
 from hofmann.rendering._legend_polyhedra import (
     CANONICAL_VERTICES,
     LEGEND_ROTATION,
+    SUPPORTED_POLYHEDRA,
     _get_faces,
     shade_face,
 )
@@ -40,6 +41,29 @@ class TestCanonicalVertices:
         verts = CANONICAL_VERTICES["tetrahedron"]
         np.testing.assert_allclose(verts.mean(axis=0), 0.0, atol=1e-12)
 
+    def test_cuboctahedron_shape(self):
+        verts = CANONICAL_VERTICES["cuboctahedron"]
+        assert verts.shape == (12, 3)
+
+    def test_cuboctahedron_unit_radius(self):
+        verts = CANONICAL_VERTICES["cuboctahedron"]
+        radii = np.linalg.norm(verts, axis=1)
+        np.testing.assert_allclose(radii, 1.0)
+
+    def test_cuboctahedron_centred_at_origin(self):
+        verts = CANONICAL_VERTICES["cuboctahedron"]
+        np.testing.assert_allclose(verts.mean(axis=0), 0.0, atol=1e-12)
+
+    def test_supported_polyhedra_matches_vertices(self):
+        """SUPPORTED_POLYHEDRA must list exactly the CANONICAL_VERTICES keys."""
+        assert SUPPORTED_POLYHEDRA == frozenset(CANONICAL_VERTICES)
+
+    def test_valid_polyhedra_matches_supported(self):
+        """_VALID_POLYHEDRA in the model layer must match SUPPORTED_POLYHEDRA."""
+        from hofmann.model.render_style import _VALID_POLYHEDRA
+
+        assert _VALID_POLYHEDRA == SUPPORTED_POLYHEDRA
+
 
 class TestGetFaces:
     """Tests for the face computation and caching."""
@@ -61,6 +85,16 @@ class TestGetFaces:
         faces = _get_faces("tetrahedron")
         for face in faces:
             assert len(face) == 3
+
+    def test_cuboctahedron_face_count(self):
+        faces = _get_faces("cuboctahedron")
+        assert len(faces) == 14
+
+    def test_cuboctahedron_face_sizes(self):
+        """Cuboctahedron has 8 triangular and 6 square faces."""
+        faces = _get_faces("cuboctahedron")
+        sizes = sorted(len(f) for f in faces)
+        assert sizes == [3] * 8 + [4] * 6
 
     def test_unknown_shape_raises(self):
         with pytest.raises(ValueError, match="Unknown polyhedron shape"):

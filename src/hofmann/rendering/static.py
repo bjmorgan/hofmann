@@ -341,8 +341,17 @@ def render_legend(
     for line in ax.lines:
         bboxes.append(line.get_window_extent(renderer))
     for coll in ax.collections:
+        # Half the maximum linewidth in pixels — edges extend this
+        # far beyond the vertex positions.
+        lw_px = max(coll.get_linewidths(), default=0.0) / 2.0
+
         bb = coll.get_window_extent(renderer)
         if np.all(np.isfinite([bb.x0, bb.y0, bb.x1, bb.y1])):
+            if lw_px:
+                bb = Bbox([
+                    [bb.x0 - lw_px, bb.y0 - lw_px],
+                    [bb.x1 + lw_px, bb.y1 + lw_px],
+                ])
             bboxes.append(bb)
         else:
             # Derive extent from vertex paths in display coordinates.
@@ -351,8 +360,10 @@ def render_legend(
                 all_verts = np.vstack([p.vertices for p in paths])
                 display_verts = ax.transData.transform(all_verts)
                 bboxes.append(Bbox([
-                    [display_verts[:, 0].min(), display_verts[:, 1].min()],
-                    [display_verts[:, 0].max(), display_verts[:, 1].max()],
+                    [display_verts[:, 0].min() - lw_px,
+                     display_verts[:, 1].min() - lw_px],
+                    [display_verts[:, 0].max() + lw_px,
+                     display_verts[:, 1].max() + lw_px],
                 ]))
     bbox_inches: Bbox | str
     if bboxes:
