@@ -383,16 +383,19 @@ circles and accepts three forms:
 
    * - .. figure:: _static/legend_uniform.svg
           :align: center
+          :width: 60%
 
           Uniform (``5.0``)
 
      - .. figure:: _static/legend_proportional.svg
           :align: center
+          :width: 60%
 
           Proportional (``(3.0, 7.0)``)
 
      - .. figure:: _static/legend_dict.svg
           :align: center
+          :width: 60%
 
           Dict (per-species)
 
@@ -504,47 +507,45 @@ instead:
 .. code-block:: python
 
    items = (
-       LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
+       LegendItem(key="oct", colour="steelblue",
                   label="Octahedral", polyhedron="octahedron", alpha=0.4),
-       LegendItem(key="tet", colour=(0.85, 0.65, 0.85),
+       LegendItem(key="tet", colour="goldenrod",
                   label="Tetrahedral", polyhedron="tetrahedron", alpha=0.4),
+       LegendItem(key="cuboct", colour="mediumseagreen",
+                  label="Cuboctahedral", polyhedron="cuboctahedron", alpha=0.4),
    )
    style = LegendStyle(items=items)
 
 .. figure:: _static/legend_polyhedra.svg
    :align: center
 
-   3D-shaded octahedron and tetrahedron legend icons.
+   3D-shaded polyhedron legend icons.
 
-At the default ``circle_radius`` (5 pt) the icons are compact.  Set
-``radius`` on individual items to make them larger — useful when
-the shading detail matters:
-
-.. code-block:: python
-
-   LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
-              label="Octahedral", polyhedron="octahedron",
-              alpha=0.4, radius=12.0)
+Polyhedron icons default to twice the flat-marker radius so that
+the 3D shading is legible at typical figure sizes.  Override with
+``radius`` on the item if needed.
 
 The shading uses the same Lambertian-style lighting as the main scene.
 Control its strength with ``polyhedra_shading`` (0 = flat colour,
-1 = full shading).  The comparison below uses ``radius=12.0`` to
-make the effect clear:
+1 = full shading):
 
 .. list-table::
    :widths: 50 50
 
    * - .. figure:: _static/legend_polyhedra_shading_flat.svg
           :align: center
+          :width: 60%
 
           ``polyhedra_shading=0.0``
 
      - .. figure:: _static/legend_polyhedra_shading_full.svg
           :align: center
+          :width: 60%
 
           ``polyhedra_shading=1.0``
 
-Supported shapes are ``"octahedron"`` and ``"tetrahedron"``.
+Supported shapes are ``"octahedron"``, ``"tetrahedron"``, and
+``"cuboctahedron"``.
 
 Convenience factory
 """""""""""""""""""
@@ -573,8 +574,9 @@ Per-item edge styling
 Each item can carry its own ``edge_colour`` and ``edge_width``,
 overriding the scene-level outline settings.  When not set, the item
 falls back to the scene's ``outline_colour`` and ``outline_width``.
-Setting ``show_outlines=False`` disables edges on all items, matching
-the scene behaviour:
+Setting ``show_outlines=False`` disables edges for items that do not
+define their own edge styling; explicit per-item ``edge_colour`` /
+``edge_width`` values are still honoured:
 
 .. code-block:: python
 
