@@ -288,6 +288,13 @@ class LegendItem:
             Recognised names: ``"octahedron"``, ``"tetrahedron"``.
             ``None`` (the default) uses the flat marker path
             (circle or polygon via *sides*).
+        edge_colour: Override edge/outline colour for this item.
+            ``None`` (the default) falls back to the scene-level
+            outline colour.  Accepts any format understood by
+            :func:`normalise_colour`.
+        edge_width: Override edge/outline width in points for this
+            item.  ``None`` (the default) falls back to the
+            scene-level outline width.  Must be non-negative.
     """
 
     @staticmethod
@@ -326,6 +333,13 @@ class LegendItem:
             )
 
     @staticmethod
+    def _validate_edge_width(value: float | None) -> None:
+        if value is not None and value < 0:
+            raise ValueError(
+                f"edge_width must be non-negative, got {value}"
+            )
+
+    @staticmethod
     def _validate_polyhedron(value: str | None) -> None:
         if value is None:
             return
@@ -350,6 +364,8 @@ class LegendItem:
         gap_after: float | None = None,
         alpha: float = 1.0,
         polyhedron: str | None = None,
+        edge_colour: Colour | None = None,
+        edge_width: float | None = None,
     ) -> None:
         if not key:
             raise ValueError("key must be non-empty")
@@ -362,6 +378,10 @@ class LegendItem:
         self._gap_after = gap_after
         self._alpha = float(alpha)
         self._polyhedron = polyhedron
+        self._edge_colour = (
+            normalise_colour(edge_colour) if edge_colour is not None else None
+        )
+        self._edge_width = edge_width
         self._validate()
 
     def _validate(self) -> None:
@@ -370,6 +390,7 @@ class LegendItem:
         self._validate_gap_after(self._gap_after)
         self._validate_alpha(self._alpha)
         self._validate_polyhedron(self._polyhedron)
+        self._validate_edge_width(self._edge_width)
 
     @property
     def colour(self) -> tuple[float, float, float]:
@@ -440,6 +461,27 @@ class LegendItem:
         self._polyhedron = value
 
     @property
+    def edge_colour(self) -> tuple[float, float, float] | None:
+        """Per-item edge colour (normalised RGB), or ``None`` for scene default."""
+        return self._edge_colour
+
+    @edge_colour.setter
+    def edge_colour(self, value: Colour | None) -> None:
+        self._edge_colour = (
+            normalise_colour(value) if value is not None else None
+        )
+
+    @property
+    def edge_width(self) -> float | None:
+        """Per-item edge width in points, or ``None`` for scene default."""
+        return self._edge_width
+
+    @edge_width.setter
+    def edge_width(self, value: float | None) -> None:
+        self._validate_edge_width(value)
+        self._edge_width = value
+
+    @property
     def marker(self) -> str | tuple[int, int, float]:
         """Matplotlib marker specification derived from *sides* and *rotation*.
 
@@ -474,6 +516,10 @@ class LegendItem:
             parts.append(f"alpha={self._alpha!r}")
         if self._polyhedron is not None:
             parts.append(f"polyhedron={self._polyhedron!r}")
+        if self._edge_colour is not None:
+            parts.append(f"edge_colour={self._edge_colour!r}")
+        if self._edge_width is not None:
+            parts.append(f"edge_width={self._edge_width!r}")
         return f"LegendItem({', '.join(parts)})"
 
     def __eq__(self, other: object) -> bool:
@@ -489,6 +535,8 @@ class LegendItem:
             and self._gap_after == other._gap_after
             and self._alpha == other._alpha
             and self._polyhedron == other._polyhedron
+            and self._edge_colour == other._edge_colour
+            and self._edge_width == other._edge_width
         )
 
     __hash__ = None  # type: ignore[assignment]
@@ -513,6 +561,10 @@ class LegendItem:
             d["alpha"] = self._alpha
         if self._polyhedron is not None:
             d["polyhedron"] = self._polyhedron
+        if self._edge_colour is not None:
+            d["edge_colour"] = list(self._edge_colour)
+        if self._edge_width is not None:
+            d["edge_width"] = self._edge_width
         return d
 
     @classmethod
@@ -536,6 +588,11 @@ class LegendItem:
             kwargs["alpha"] = d["alpha"]
         if "polyhedron" in d:
             kwargs["polyhedron"] = d["polyhedron"]
+        if "edge_colour" in d:
+            ec = d["edge_colour"]
+            kwargs["edge_colour"] = tuple(ec) if isinstance(ec, list) else ec
+        if "edge_width" in d:
+            kwargs["edge_width"] = d["edge_width"]
         return cls(**kwargs)
 
     @classmethod
@@ -550,6 +607,8 @@ class LegendItem:
         alpha: float | None = None,
         radius: float | None = None,
         gap_after: float | None = None,
+        edge_colour: Colour | None = None,
+        edge_width: float | None = None,
     ) -> LegendItem:
         """Create a legend item from a :class:`PolyhedronSpec`.
 
@@ -571,6 +630,10 @@ class LegendItem:
             radius: Marker radius in points; ``None`` uses the
                 style default.
             gap_after: Vertical gap in points after this entry.
+            edge_colour: Override edge colour.  When ``None``,
+                inherits from ``spec.edge_colour``.
+            edge_width: Override edge width.  When ``None``,
+                inherits from ``spec.edge_width``.
 
         Returns:
             A new :class:`LegendItem` configured for a 3D polyhedron
@@ -580,8 +643,6 @@ class LegendItem:
             ValueError: If no colour can be resolved (both *colour*
                 and ``spec.colour`` are ``None``).
         """
-        from hofmann.model.polyhedron_spec import PolyhedronSpec as _PS  # noqa: F811
-
         resolved_colour = colour if colour is not None else spec.colour
         if resolved_colour is None:
             raise ValueError(
@@ -597,6 +658,8 @@ class LegendItem:
             alpha=alpha if alpha is not None else spec.alpha,
             gap_after=gap_after,
             polyhedron=shape,
+            edge_colour=edge_colour if edge_colour is not None else spec.edge_colour,
+            edge_width=edge_width if edge_width is not None else spec.edge_width,
         )
 
 

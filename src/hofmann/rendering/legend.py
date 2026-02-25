@@ -178,12 +178,6 @@ def _resolve_item_radius(item: LegendItem, style: LegendStyle) -> float:
 # 3D polyhedron icon rendering
 # ---------------------------------------------------------------------------
 
-_LEGEND_POLYHEDRON_EDGE_WIDTH = 0.5
-"""Edge line width for legend polyhedron icons (points)."""
-
-_LEGEND_POLYHEDRON_EDGE_COLOUR = (0.15, 0.15, 0.15)
-"""Edge colour for legend polyhedron icons."""
-
 
 def _draw_legend_polyhedron(
     ax: Axes,
@@ -193,8 +187,9 @@ def _draw_legend_polyhedron(
     radius_data: float,
     base_rgb: tuple[float, float, float],
     alpha: float,
-    scale: float,
     polyhedra_shading: float = 1.0,
+    edge_colour: tuple[float, float, float] | None = None,
+    edge_width: float = 0.0,
 ) -> None:
     """Draw a miniature 3D-shaded polyhedron icon on *ax*.
 
@@ -210,8 +205,10 @@ def _draw_legend_polyhedron(
         radius_data: Icon radius in data coordinates.
         base_rgb: Base face colour before shading.
         alpha: Face opacity (0--1).
-        scale: Display-space scaling factor (for edge width).
         polyhedra_shading: Shading strength (0 = flat, 1 = full).
+        edge_colour: Pre-resolved edge colour, or ``None`` to
+            disable edges.
+        edge_width: Pre-resolved edge width in points.
     """
     vertices = CANONICAL_VERTICES[shape]
     faces = _get_faces(shape)
@@ -225,12 +222,15 @@ def _draw_legend_polyhedron(
     face_depths = [np.mean(rotated[face, 2]) for face in faces]
     face_order = np.argsort(face_depths)
 
-    edge_w = _LEGEND_POLYHEDRON_EDGE_WIDTH * scale
-    edge_rgb = _LEGEND_POLYHEDRON_EDGE_COLOUR
+    show_edges = edge_colour is not None and edge_width > 0.0
+    ec_rgba: tuple[float, ...] | None = (
+        (*edge_colour, 1.0) if edge_colour is not None and show_edges
+        else None
+    )
 
     all_verts: list[np.ndarray] = []
     face_colours: list[tuple[float, ...]] = []
-    edge_colours: list[tuple[float, ...]] = []
+    edge_colours_list: list[tuple[float, ...]] = []
     line_widths: list[float] = []
 
     for fi in face_order:
@@ -239,17 +239,18 @@ def _draw_legend_polyhedron(
         shaded = shade_face(face_verts_rotated, base_rgb, polyhedra_shading)
 
         verts_2d = translated[face]
+        fc = (*shaded, alpha)
         all_verts.append(verts_2d)
-        face_colours.append((*shaded, alpha))
-        edge_colours.append((*edge_rgb, 1.0))
-        line_widths.append(edge_w)
+        face_colours.append(fc)
+        edge_colours_list.append(ec_rgba if ec_rgba is not None else fc)
+        line_widths.append(edge_width if show_edges else 0.0)
 
     if all_verts:
         pc = PolyCollection(
             all_verts,
             closed=True,
             facecolors=face_colours,
-            edgecolors=edge_colours,
+            edgecolors=edge_colours_list,
             linewidths=line_widths,
             zorder=10,
         )
@@ -388,6 +389,18 @@ def _draw_legend_widget(
 
         rgb = normalise_colour(item.colour)
 
+        # Resolve per-item edge settings: item override → scene fallback.
+        # When outline_colour is None (show_outlines=False) and the item
+        # has no override, edges are disabled.
+        resolved_ec = (
+            item.edge_colour if item.edge_colour is not None
+            else outline_colour
+        )
+        resolved_ew = (
+            item.edge_width if item.edge_width is not None
+            else outline_width
+        ) * scale if resolved_ec is not None else 0.0
+
         if item.polyhedron is not None:
             # 3D polyhedron icon path.
             radius_data = item_radius[i] / pts_per_data
@@ -399,8 +412,9 @@ def _draw_legend_widget(
                 radius_data=radius_data,
                 base_rgb=rgb,
                 alpha=item.alpha,
-                scale=scale,
                 polyhedra_shading=polyhedra_shading,
+                edge_colour=resolved_ec,
+                edge_width=resolved_ew,
             )
         else:
             # Flat marker path (circle or polygon).
@@ -408,16 +422,13 @@ def _draw_legend_widget(
             if item.alpha < 1.0:
                 face_colour = (*rgb, item.alpha)
 
-            edge_colour = outline_colour if outline_colour is not None else rgb
-            edge_width = outline_width * scale if outline_colour is not None else 0.0
-
             ax.plot(
                 anchor_x, y_i,
                 marker=item.marker,
                 markersize=item_radius[i] * 2,
                 markerfacecolor=face_colour,
-                markeredgecolor=edge_colour,
-                markeredgewidth=edge_width,
+                markeredgecolor=resolved_ec if resolved_ec is not None else rgb,
+                markeredgewidth=resolved_ew,
                 linestyle="None",
                 zorder=10,
             )

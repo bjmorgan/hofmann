@@ -290,6 +290,26 @@ class TestLegendItemDict:
         d = item.to_dict()
         assert "polyhedron" not in d
 
+    def test_edge_colour_round_trip(self):
+        item = LegendItem(key="Na", colour="blue", edge_colour=(0.1, 0.2, 0.3))
+        d = item.to_dict()
+        assert d["edge_colour"] == [0.1, 0.2, 0.3]
+        restored = LegendItem.from_dict(d)
+        assert restored.edge_colour == (0.1, 0.2, 0.3)
+
+    def test_edge_width_round_trip(self):
+        item = LegendItem(key="Na", colour="blue", edge_width=2.0)
+        d = item.to_dict()
+        assert d["edge_width"] == 2.0
+        restored = LegendItem.from_dict(d)
+        assert restored.edge_width == 2.0
+
+    def test_edge_fields_none_omitted(self):
+        item = LegendItem(key="Na", colour="blue")
+        d = item.to_dict()
+        assert "edge_colour" not in d
+        assert "edge_width" not in d
+
 
 # -- LegendStyle --------------------------------------------------------------
 

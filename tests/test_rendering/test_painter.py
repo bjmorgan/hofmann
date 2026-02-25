@@ -1473,6 +1473,14 @@ class TestLegendWidget:
         """A polyhedron item adds a PolyCollection (not a Line2D marker)."""
         from matplotlib.collections import PolyCollection
         scene = _minimal_scene()
+        # Baseline render without legend to count scene PolyCollections.
+        fig_base = render_mpl(scene, show=False, show_legend=False)
+        base_count = sum(
+            1 for c in fig_base.axes[0].collections
+            if isinstance(c, PolyCollection)
+        )
+        plt.close(fig_base)
+        # Render with polyhedron legend item.
         items = (
             LegendItem(key="oct", colour="blue", polyhedron="octahedron"),
         )
@@ -1482,14 +1490,13 @@ class TestLegendWidget:
             show_legend=True, legend_style=style,
         )
         ax = fig.axes[0]
-        # Should have at least one PolyCollection from the legend icon.
-        legend_polys = [
-            c for c in ax.collections if isinstance(c, PolyCollection)
-        ]
-        assert len(legend_polys) >= 1
+        legend_count = sum(
+            1 for c in ax.collections if isinstance(c, PolyCollection)
+        )
+        assert legend_count > base_count
         # No Line2D markers (the polyhedron replaces the flat marker).
         legend_lines = [
-            l for l in ax.lines if l.get_linestyle() == "None"
+            line for line in ax.lines if line.get_linestyle() == "None"
         ]
         assert len(legend_lines) == 0
         # Text label is present.
@@ -1501,6 +1508,14 @@ class TestLegendWidget:
         """Mixed polyhedron + flat items render both correctly."""
         from matplotlib.collections import PolyCollection
         scene = _minimal_scene()
+        # Baseline render without legend.
+        fig_base = render_mpl(scene, show=False, show_legend=False)
+        base_count = sum(
+            1 for c in fig_base.axes[0].collections
+            if isinstance(c, PolyCollection)
+        )
+        plt.close(fig_base)
+        # Render with mixed legend items.
         items = (
             LegendItem(key="oct", colour="blue", polyhedron="octahedron"),
             LegendItem(key="circle", colour="red"),
@@ -1511,14 +1526,13 @@ class TestLegendWidget:
             show_legend=True, legend_style=style,
         )
         ax = fig.axes[0]
-        # One PolyCollection for the polyhedron icon.
-        legend_polys = [
-            c for c in ax.collections if isinstance(c, PolyCollection)
-        ]
-        assert len(legend_polys) >= 1
+        legend_count = sum(
+            1 for c in ax.collections if isinstance(c, PolyCollection)
+        )
+        assert legend_count > base_count
         # One Line2D for the circle marker.
         legend_lines = [
-            l for l in ax.lines if l.get_marker() == "o"
+            line for line in ax.lines if line.get_marker() == "o"
         ]
         assert len(legend_lines) == 1
         # Both labels present.

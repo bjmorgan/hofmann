@@ -289,6 +289,12 @@ def render_legend(
     if legend_style is None:
         legend_style = LegendStyle()
 
+    if not (0.0 <= polyhedra_shading <= 1.0):
+        raise ValueError(
+            f"polyhedra_shading must be between 0.0 and 1.0, "
+            f"got {polyhedra_shading}"
+        )
+
     bg_rgb = normalise_colour(background)
 
     # Create a figure with a hidden axes for the legend widget to
