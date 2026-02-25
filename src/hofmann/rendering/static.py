@@ -330,19 +330,30 @@ def render_legend(
     from matplotlib.transforms import Bbox
 
     renderer = fig.canvas.get_renderer()  # type: ignore[attr-defined]
-    bboxes_raw = [
-        t.get_window_extent(renderer) for t in ax.texts
-    ] + [
-        line.get_window_extent(renderer) for line in ax.lines
-    ] + [
-        coll.get_window_extent(renderer) for coll in ax.collections
-    ]
-    # Filter out degenerate bounding boxes (e.g. PolyCollection can
-    # return infinite extents before the first full draw).
-    bboxes = [
-        bb for bb in bboxes_raw
-        if np.all(np.isfinite([bb.x0, bb.y0, bb.x1, bb.y1]))
-    ]
+
+    # Collect bounding boxes from all artist types.
+    # PolyCollection.get_window_extent() often returns degenerate
+    # (infinite) extents, so we fall back to computing the bbox from
+    # the actual vertex data transformed to display coordinates.
+    bboxes: list[Bbox] = []
+    for t in ax.texts:
+        bboxes.append(t.get_window_extent(renderer))
+    for line in ax.lines:
+        bboxes.append(line.get_window_extent(renderer))
+    for coll in ax.collections:
+        bb = coll.get_window_extent(renderer)
+        if np.all(np.isfinite([bb.x0, bb.y0, bb.x1, bb.y1])):
+            bboxes.append(bb)
+        else:
+            # Derive extent from vertex paths in display coordinates.
+            paths = coll.get_paths()
+            if paths:
+                all_verts = np.vstack([p.vertices for p in paths])
+                display_verts = ax.transData.transform(all_verts)
+                bboxes.append(Bbox([
+                    [display_verts[:, 0].min(), display_verts[:, 1].min()],
+                    [display_verts[:, 0].max(), display_verts[:, 1].max()],
+                ]))
     bbox_inches: Bbox | str
     if bboxes:
         legend_bb = Bbox.union(bboxes)
