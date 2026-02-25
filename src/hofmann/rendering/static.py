@@ -343,7 +343,7 @@ def render_legend(
     for coll in ax.collections:
         # Half the maximum linewidth in pixels — edges extend this
         # far beyond the vertex positions.
-        lw_px = max(coll.get_linewidths(), default=0.0) / 2.0
+        lw_px = float(np.max(np.atleast_1d(coll.get_linewidth()))) / 2.0
 
         bb = coll.get_window_extent(renderer)
         if np.all(np.isfinite([bb.x0, bb.y0, bb.x1, bb.y1])):
