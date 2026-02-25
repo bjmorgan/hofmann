@@ -20,7 +20,8 @@ from hofmann.model import (
     StructureScene,
     normalise_colour,
 )
-from hofmann.rendering.painter import _axes_bg_rgb, _draw_legend_widget, _draw_scene
+from hofmann.rendering.legend import _draw_legend_widget
+from hofmann.rendering.painter import _axes_bg_rgb, _draw_scene
 
 _STYLE_FIELDS = frozenset(f.name for f in __import__("dataclasses").fields(RenderStyle))
 _DEFAULT_RENDER_STYLE = RenderStyle()
