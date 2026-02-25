@@ -493,6 +493,86 @@ polyhedra with translucent faces and solid edges:
 
    LegendItem(key="oct", colour="blue", label="TiO6", sides=6, alpha=0.5)
 
+3D polyhedron icons
+^^^^^^^^^^^^^^^^^^^
+
+When a legend entry represents a polyhedron type, a flat circle or
+polygon is a poor visual match for the shaded 3D shape in the scene.
+Set ``polyhedron`` to render a miniature depth-sorted, shaded icon
+instead:
+
+.. code-block:: python
+
+   items = (
+       LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
+                  label="Octahedral", polyhedron="octahedron", alpha=0.4),
+       LegendItem(key="tet", colour=(0.85, 0.65, 0.85),
+                  label="Tetrahedral", polyhedron="tetrahedron", alpha=0.4),
+   )
+   style = LegendStyle(items=items)
+
+.. figure:: _static/legend_polyhedra.svg
+   :align: center
+
+   3D-shaded octahedron and tetrahedron legend icons.
+
+The shading uses the same Lambertian-style lighting as the main scene.
+Control its strength with ``polyhedra_shading`` (0 = flat colour,
+1 = full shading):
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/legend_polyhedra_shading_flat.svg
+          :align: center
+
+          ``polyhedra_shading=0.0``
+
+     - .. figure:: _static/legend_polyhedra_shading_full.svg
+          :align: center
+
+          ``polyhedra_shading=1.0``
+
+Supported shapes are ``"octahedron"`` and ``"tetrahedron"``.
+
+Convenience factory
+"""""""""""""""""""
+
+When building a legend to match existing polyhedra in a scene, use
+:meth:`~hofmann.LegendItem.from_polyhedron_spec` to inherit colour,
+alpha, and edge styling from the :class:`~hofmann.PolyhedronSpec`:
+
+.. code-block:: python
+
+   from hofmann import LegendItem, PolyhedronSpec
+
+   spec = PolyhedronSpec(
+       centre="Ti",
+       colour=(0.5, 0.7, 1.0),
+       alpha=0.3,
+       edge_colour=(0.3, 0.3, 0.3),
+   )
+   item = LegendItem.from_polyhedron_spec(spec, "octahedron")
+   # item.colour, item.alpha, item.edge_colour, item.edge_width
+   # all inherited from spec
+
+Per-item edge styling
+"""""""""""""""""""""
+
+Each item can carry its own ``edge_colour`` and ``edge_width``,
+overriding the scene-level outline settings.  When not set, the item
+falls back to the scene's ``outline_colour`` and ``outline_width``.
+Setting ``show_outlines=False`` disables edges on all items, matching
+the scene behaviour:
+
+.. code-block:: python
+
+   # Thick red edges on this item only:
+   LegendItem(
+       key="oct", colour="steelblue", polyhedron="octahedron",
+       edge_colour="red", edge_width=2.0,
+   )
+
 Standalone legend
 ~~~~~~~~~~~~~~~~~
 

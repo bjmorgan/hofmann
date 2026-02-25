@@ -958,6 +958,37 @@ def main() -> None:
     )
     print(f"  wrote {OUT / 'legend_polygon_markers.svg'}")
 
+    # 3D polyhedron legend icons.
+    _poly_items = (
+        LegendItem(key="oct", colour=(0.5, 0.7, 1.0),
+                   label="Octahedral", polyhedron="octahedron", alpha=0.4),
+        LegendItem(key="tet", colour=(0.85, 0.65, 0.85),
+                   label="Tetrahedral", polyhedron="tetrahedron", alpha=0.4),
+    )
+    render_legend(
+        _legend_scene, OUT / "legend_polyhedra.svg",
+        legend_style=LegendStyle(items=_poly_items),
+        figsize=(1.0, 0.6),
+    )
+    print(f"  wrote {OUT / 'legend_polyhedra.svg'}")
+
+    # Polyhedra shading comparison: flat vs full.
+    render_legend(
+        _legend_scene, OUT / "legend_polyhedra_shading_flat.svg",
+        legend_style=LegendStyle(items=_poly_items),
+        polyhedra_shading=0.0,
+        figsize=(1.0, 0.6),
+    )
+    print(f"  wrote {OUT / 'legend_polyhedra_shading_flat.svg'}")
+
+    render_legend(
+        _legend_scene, OUT / "legend_polyhedra_shading_full.svg",
+        legend_style=LegendStyle(items=_poly_items),
+        polyhedra_shading=1.0,
+        figsize=(1.0, 0.6),
+    )
+    print(f"  wrote {OUT / 'legend_polyhedra_shading_full.svg'}")
+
     # Non-uniform spacing with gap_after.
     render_legend(
         _legend_scene, OUT / "legend_spacing.svg",
