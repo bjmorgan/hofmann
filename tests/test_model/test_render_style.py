@@ -519,10 +519,6 @@ class TestAtomLegendItem:
         item = AtomLegendItem(key="Na", colour="blue")
         assert item.marker_type == "atom"
 
-    def test_marker(self):
-        item = AtomLegendItem(key="Na", colour="blue")
-        assert item.marker == "o"
-
     def test_repr(self):
         item = AtomLegendItem(key="Na", colour="blue")
         r = repr(item)
@@ -689,10 +685,6 @@ class TestPolygonLegendItem:
         item = PolygonLegendItem(key="Oct", colour="blue", sides=4, rotation=30)
         assert item.rotation == 30.0
         assert isinstance(item.rotation, float)
-
-    def test_marker(self):
-        item = PolygonLegendItem(key="Oct", colour="red", sides=6, rotation=15.0)
-        assert item.marker == (6, 0, 15.0)
 
     def test_repr_with_sides(self):
         item = PolygonLegendItem(key="Oct", colour="red", sides=6)

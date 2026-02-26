@@ -435,14 +435,19 @@ def _draw_legend_widget(
             )
         else:
             # Flat marker path (circle or polygon).
-            assert isinstance(item, (AtomLegendItem, PolygonLegendItem))
+            if isinstance(item, PolygonLegendItem):
+                marker: str | tuple[int, int, float] = (
+                    item.sides, 0, item.rotation
+                )
+            else:
+                marker = "o"
             face_colour: tuple[float, ...] = rgb
             if item.alpha < 1.0:
                 face_colour = (*rgb, item.alpha)
 
             ax.plot(
                 anchor_x, y_i,
-                marker=item.marker,
+                marker=marker,
                 markersize=item_radius[i] * 2,
                 markerfacecolor=face_colour,
                 markeredgecolor=resolved_ec if resolved_ec is not None else rgb,

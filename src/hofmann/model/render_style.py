@@ -554,11 +554,6 @@ class AtomLegendItem(LegendItem):
     def marker_type(self) -> str:
         return "atom"
 
-    @property
-    def marker(self) -> str:
-        """Matplotlib marker specification: ``'o'`` (circle)."""
-        return "o"
-
     def __repr__(self) -> str:
         return f"AtomLegendItem({', '.join(self._base_repr_parts())})"
 
@@ -652,11 +647,6 @@ class PolygonLegendItem(LegendItem):
     @rotation.setter
     def rotation(self, value: float) -> None:
         self._rotation = float(value)
-
-    @property
-    def marker(self) -> tuple[int, int, float]:
-        """Matplotlib marker specification: ``(sides, 0, rotation)``."""
-        return (self._sides, 0, self._rotation)
 
     def __repr__(self) -> str:
         parts = self._base_repr_parts()
