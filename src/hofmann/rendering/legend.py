@@ -19,6 +19,7 @@ from hofmann.model import (
     AtomLegendItem,
     LegendItem,
     LegendStyle,
+    PolygonLegendItem,
     PolyhedronLegendItem,
     StructureScene,
     WidgetCorner,
@@ -434,6 +435,7 @@ def _draw_legend_widget(
             )
         else:
             # Flat marker path (circle or polygon).
+            assert isinstance(item, (AtomLegendItem, PolygonLegendItem))
             face_colour: tuple[float, ...] = rgb
             if item.alpha < 1.0:
                 face_colour = (*rgb, item.alpha)
