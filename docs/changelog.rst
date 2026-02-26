@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.13.0
+0.12.1
 ------
 
 - :class:`~hofmann.LegendItem` gains a ``view_rotation`` field for
