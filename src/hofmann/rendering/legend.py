@@ -198,12 +198,13 @@ def _draw_legend_polyhedron(
     polyhedra_shading: float = 1.0,
     edge_colour: tuple[float, float, float] | None = None,
     edge_width: float = 0.0,
+    rotation: np.ndarray | None = None,
 ) -> None:
     """Draw a miniature 3D-shaded polyhedron icon on *ax*.
 
-    Uses the same depth-sorted face rendering as the main painter
-    but with a fixed oblique viewing angle from
-    :data:`LEGEND_ROTATION`.
+    Uses the same depth-sorted face rendering as the main painter.
+    When *rotation* is ``None`` the fixed oblique angle from
+    :data:`LEGEND_ROTATION` is used.
 
     Args:
         ax: Matplotlib ``Axes`` to draw into.
@@ -217,12 +218,15 @@ def _draw_legend_polyhedron(
         edge_colour: Pre-resolved edge colour, or ``None`` to
             disable edges.
         edge_width: Pre-resolved edge width in points.
+        rotation: 3x3 rotation matrix, or ``None`` to use the
+            default :data:`LEGEND_ROTATION`.
     """
     vertices = CANONICAL_VERTICES[shape]
     faces = _get_faces(shape)
 
     # Rotate, scale, and translate to the icon position.
-    rotated = vertices @ LEGEND_ROTATION.T
+    R = rotation if rotation is not None else LEGEND_ROTATION
+    rotated = vertices @ R.T
     scaled = rotated * radius_data
     translated = scaled[:, :2] + np.array([centre_x, centre_y])
 
@@ -407,7 +411,7 @@ def _draw_legend_widget(
         resolved_ew = (
             item.edge_width if item.edge_width is not None
             else outline_width
-        ) * scale if resolved_ec is not None else 0.0
+        ) if resolved_ec is not None else 0.0
 
         if item.polyhedron is not None:
             # 3D polyhedron icon path.
@@ -423,6 +427,7 @@ def _draw_legend_widget(
                 polyhedra_shading=polyhedra_shading,
                 edge_colour=resolved_ec,
                 edge_width=resolved_ew,
+                rotation=item.view_rotation,
             )
         else:
             # Flat marker path (circle or polygon).

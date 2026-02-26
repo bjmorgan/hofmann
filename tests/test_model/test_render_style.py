@@ -1,5 +1,6 @@
 """Tests for RenderStyle, SlabClipMode, CellEdgeStyle, WidgetCorner, AxesStyle, LegendItem, and LegendStyle."""
 
+import numpy as np
 import pytest
 
 from hofmann.model.render_style import (
@@ -765,6 +766,167 @@ class TestLegendItem:
         a = LegendItem(key="Na", colour="blue", edge_width=1.0)
         b = LegendItem(key="Na", colour="blue", edge_width=2.0)
         assert a != b
+
+    # ---- view_rotation ----
+
+    def test_view_rotation_default_none(self):
+        item = LegendItem(key="Ti", colour="blue")
+        assert item.view_rotation is None
+
+    def test_view_rotation_construction_matrix(self):
+        R = np.eye(3)
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron", view_rotation=R,
+        )
+        np.testing.assert_array_equal(item.view_rotation, np.eye(3))
+
+    def test_view_rotation_construction_angles(self):
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=(0.0, 0.0),
+        )
+        np.testing.assert_allclose(item.view_rotation, np.eye(3), atol=1e-15)
+
+    def test_view_rotation_angles_nontrivial(self):
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=(90.0, 0.0),
+        )
+        # Rx(90 deg): y -> -z, z -> y
+        expected = np.array([
+            [1, 0, 0],
+            [0, 0, -1],
+            [0, 1, 0],
+        ], dtype=float)
+        np.testing.assert_allclose(item.view_rotation, expected, atol=1e-15)
+
+    def test_view_rotation_setter(self):
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+        )
+        item.view_rotation = np.eye(3)
+        np.testing.assert_array_equal(item.view_rotation, np.eye(3))
+
+    def test_view_rotation_setter_angles(self):
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+        )
+        item.view_rotation = (0.0, 0.0)
+        np.testing.assert_allclose(item.view_rotation, np.eye(3), atol=1e-15)
+
+    def test_view_rotation_setter_none(self):
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=np.eye(3),
+        )
+        item.view_rotation = None
+        assert item.view_rotation is None
+
+    def test_view_rotation_wrong_type_raises(self):
+        with pytest.raises(TypeError, match="view_rotation must be"):
+            LegendItem(
+                key="Ti", colour="blue", polyhedron="octahedron",
+                view_rotation=[[1, 0, 0], [0, 1, 0], [0, 0, 1]],  # type: ignore[arg-type]
+            )
+
+    def test_view_rotation_wrong_shape_raises(self):
+        with pytest.raises(ValueError, match=r"view_rotation must have shape \(3, 3\)"):
+            LegendItem(
+                key="Ti", colour="blue", polyhedron="octahedron",
+                view_rotation=np.eye(4),
+            )
+
+    def test_view_rotation_without_polyhedron_raises(self):
+        with pytest.raises(ValueError, match="view_rotation requires polyhedron"):
+            LegendItem(key="Ti", colour="blue", view_rotation=np.eye(3))
+
+    def test_view_rotation_setter_without_polyhedron_raises(self):
+        item = LegendItem(key="Ti", colour="blue")
+        with pytest.raises(ValueError, match="view_rotation requires polyhedron"):
+            item.view_rotation = np.eye(3)
+
+    def test_view_rotation_bad_angle_tuple_raises(self):
+        with pytest.raises(TypeError, match="angle tuple must contain numbers"):
+            LegendItem(
+                key="Ti", colour="blue", polyhedron="octahedron",
+                view_rotation=("a", "b"),  # type: ignore[arg-type]
+            )
+
+    def test_repr_with_view_rotation(self):
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=np.eye(3),
+        )
+        assert "view_rotation=" in repr(item)
+
+    def test_repr_without_view_rotation(self):
+        item = LegendItem(key="Ti", colour="blue")
+        assert "view_rotation" not in repr(item)
+
+    def test_equality_with_view_rotation(self):
+        R = np.eye(3)
+        a = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron", view_rotation=R,
+        )
+        b = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron", view_rotation=R,
+        )
+        assert a == b
+
+    def test_inequality_different_view_rotation(self):
+        a = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=np.eye(3),
+        )
+        b = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=-np.eye(3),
+        )
+        assert a != b
+
+    def test_inequality_view_rotation_none_vs_set(self):
+        a = LegendItem(key="Ti", colour="blue", polyhedron="octahedron")
+        b = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron",
+            view_rotation=np.eye(3),
+        )
+        assert a != b
+
+    def test_to_dict_with_view_rotation(self):
+        R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron", view_rotation=R,
+        )
+        d = item.to_dict()
+        assert d["view_rotation"] == [[0, -1, 0], [1, 0, 0], [0, 0, 1]]
+
+    def test_to_dict_without_view_rotation(self):
+        item = LegendItem(key="Ti", colour="blue")
+        assert "view_rotation" not in item.to_dict()
+
+    def test_from_dict_with_view_rotation(self):
+        d = {
+            "key": "Ti", "colour": [0, 0, 1],
+            "polyhedron": "octahedron",
+            "view_rotation": [[1, 0, 0], [0, 1, 0], [0, 0, 1]],
+        }
+        item = LegendItem.from_dict(d)
+        np.testing.assert_array_equal(item.view_rotation, np.eye(3))
+
+    def test_serialisation_round_trip_view_rotation(self):
+        R = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float)
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron", view_rotation=R,
+        )
+        restored = LegendItem.from_dict(item.to_dict())
+        np.testing.assert_array_equal(restored.view_rotation, R)
+
+    def test_view_rotation_stored_as_float(self):
+        R = np.eye(3, dtype=np.int32)
+        item = LegendItem(
+            key="Ti", colour="blue", polyhedron="octahedron", view_rotation=R,
+        )
+        assert item.view_rotation.dtype == float
 
 
 class TestLegendItemFromPolyhedronSpec:

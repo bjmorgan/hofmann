@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.13.0
+------
+
+- :class:`~hofmann.LegendItem` gains a ``view_rotation`` field for
+  custom 3D rotation of polyhedron legend icons.  Accepts either a
+  ``(3, 3)`` numpy rotation matrix or an ``(Rx, Ry)`` tuple of
+  rotation angles in degrees; either form is normalised to a matrix
+  internally.  When unset, icons use the default oblique viewing angle.
+  :meth:`~hofmann.LegendItem.from_polyhedron_spec` also accepts the
+  new parameter.
+
+- Fix legend edge widths being incorrectly scaled by the widget
+  display-space factor, causing outlines on legend markers and
+  polyhedron icons to appear thicker than the corresponding scene
+  edges.  Edge widths are now applied in points without scaling.
+
 0.12.0
 ------
 

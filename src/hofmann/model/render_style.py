@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
+import numpy as np
+
 from hofmann._constants import VALID_POLYHEDRA
 from hofmann.model._util import _field_defaults
 from hofmann.model.colour import Colour, normalise_colour
@@ -352,6 +354,62 @@ class LegendItem:
                 f"got {value!r}"
             )
 
+    @staticmethod
+    def _normalise_view_rotation(
+        value: np.ndarray | tuple[float, float] | None,
+    ) -> np.ndarray | None:
+        """Validate and normalise *view_rotation* to a 3x3 matrix.
+
+        Accepts either a ``(3, 3)`` numpy array (used as-is) or a
+        ``(Rx, Ry)`` tuple of rotation angles in degrees, which is
+        converted to ``Ry @ Rx``.  Returns ``None`` unchanged.
+
+        Args:
+            value: Rotation specification, or ``None``.
+
+        Returns:
+            A ``(3, 3)`` float64 rotation matrix, or ``None``.
+
+        Raises:
+            TypeError: If *value* is not an ndarray, a 2-tuple of
+                numbers, or ``None``.
+            ValueError: If an ndarray has the wrong shape.
+        """
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            if value.shape != (3, 3):
+                raise ValueError(
+                    f"view_rotation must have shape (3, 3), got {value.shape}"
+                )
+            return np.array(value, dtype=float)
+        if isinstance(value, tuple) and len(value) == 2:
+            try:
+                rx_deg, ry_deg = float(value[0]), float(value[1])
+            except (TypeError, ValueError) as exc:
+                raise TypeError(
+                    f"view_rotation angle tuple must contain numbers, "
+                    f"got {value!r}"
+                ) from exc
+            rx = np.radians(rx_deg)
+            ry = np.radians(ry_deg)
+            Rx = np.array([
+                [1, 0, 0],
+                [0, np.cos(rx), -np.sin(rx)],
+                [0, np.sin(rx), np.cos(rx)],
+            ])
+            Ry = np.array([
+                [np.cos(ry), 0, np.sin(ry)],
+                [0, 1, 0],
+                [-np.sin(ry), 0, np.cos(ry)],
+            ])
+            return Ry @ Rx
+        raise TypeError(
+            f"view_rotation must be a (3, 3) numpy array or an "
+            f"(Rx, Ry) tuple of angles in degrees, got "
+            f"{type(value).__name__}"
+        )
+
     def __init__(
         self,
         key: str,
@@ -365,6 +423,7 @@ class LegendItem:
         polyhedron: str | None = None,
         edge_colour: Colour | None = None,
         edge_width: float | None = None,
+        view_rotation: np.ndarray | tuple[float, float] | None = None,
     ) -> None:
         if not key:
             raise ValueError("key must be non-empty")
@@ -381,6 +440,7 @@ class LegendItem:
             normalise_colour(edge_colour) if edge_colour is not None else None
         )
         self._edge_width = edge_width
+        self._view_rotation = self._normalise_view_rotation(view_rotation)
         self._validate()
 
     def _validate(self) -> None:
@@ -390,6 +450,10 @@ class LegendItem:
         self._validate_alpha(self._alpha)
         self._validate_polyhedron(self._polyhedron)
         self._validate_edge_width(self._edge_width)
+        if self._view_rotation is not None and self._polyhedron is None:
+            raise ValueError(
+                "view_rotation requires polyhedron to be set"
+            )
 
     @property
     def colour(self) -> tuple[float, float, float]:
@@ -481,6 +545,24 @@ class LegendItem:
         self._edge_width = value
 
     @property
+    def view_rotation(self) -> np.ndarray | None:
+        """3x3 rotation matrix for the polyhedron icon, or ``None``.
+
+        Can be set with a ``(3, 3)`` numpy array or an ``(Rx, Ry)``
+        tuple of rotation angles in degrees.  Either form is normalised
+        to a ``(3, 3)`` float64 matrix on assignment.
+        """
+        return self._view_rotation
+
+    @view_rotation.setter
+    def view_rotation(
+        self, value: np.ndarray | tuple[float, float] | None,
+    ) -> None:
+        if value is not None and self._polyhedron is None:
+            raise ValueError("view_rotation requires polyhedron to be set")
+        self._view_rotation = self._normalise_view_rotation(value)
+
+    @property
     def marker(self) -> str | tuple[int, int, float]:
         """Matplotlib marker specification derived from *sides* and *rotation*.
 
@@ -519,11 +601,24 @@ class LegendItem:
             parts.append(f"edge_colour={self._edge_colour!r}")
         if self._edge_width is not None:
             parts.append(f"edge_width={self._edge_width!r}")
+        if self._view_rotation is not None:
+            parts.append(f"view_rotation={self._view_rotation!r}")
         return f"LegendItem({', '.join(parts)})"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, LegendItem):
             return NotImplemented
+        # view_rotation requires element-wise array comparison.
+        if self._view_rotation is None and other._view_rotation is not None:
+            return False
+        if self._view_rotation is not None and other._view_rotation is None:
+            return False
+        if (
+            self._view_rotation is not None
+            and other._view_rotation is not None
+            and not np.array_equal(self._view_rotation, other._view_rotation)
+        ):
+            return False
         return (
             self.key == other.key
             and self._colour == other._colour
@@ -564,6 +659,8 @@ class LegendItem:
             d["edge_colour"] = list(self._edge_colour)
         if self._edge_width is not None:
             d["edge_width"] = self._edge_width
+        if self._view_rotation is not None:
+            d["view_rotation"] = self._view_rotation.tolist()
         return d
 
     @classmethod
@@ -592,6 +689,8 @@ class LegendItem:
             kwargs["edge_colour"] = tuple(ec) if isinstance(ec, list) else ec
         if "edge_width" in d:
             kwargs["edge_width"] = d["edge_width"]
+        if "view_rotation" in d:
+            kwargs["view_rotation"] = np.array(d["view_rotation"], dtype=float)
         return cls(**kwargs)
 
     @classmethod
@@ -608,6 +707,7 @@ class LegendItem:
         gap_after: float | None = None,
         edge_colour: Colour | None = None,
         edge_width: float | None = None,
+        view_rotation: np.ndarray | tuple[float, float] | None = None,
     ) -> LegendItem:
         """Create a legend item from a :class:`PolyhedronSpec`.
 
@@ -633,6 +733,10 @@ class LegendItem:
                 inherits from ``spec.edge_colour``.
             edge_width: Override edge width.  When ``None``,
                 inherits from ``spec.edge_width``.
+            view_rotation: Custom rotation for the polyhedron icon.
+                Accepts a ``(3, 3)`` numpy array or an ``(Rx, Ry)``
+                tuple of angles in degrees.  ``None`` uses the
+                default legend rotation.
 
         Returns:
             A new :class:`LegendItem` configured for a 3D polyhedron
@@ -659,6 +763,7 @@ class LegendItem:
             polyhedron=shape,
             edge_colour=edge_colour if edge_colour is not None else spec.edge_colour,
             edge_width=edge_width if edge_width is not None else spec.edge_width,
+            view_rotation=view_rotation,
         )
 
 
