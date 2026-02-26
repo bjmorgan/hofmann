@@ -16,8 +16,11 @@ from matplotlib.collections import PolyCollection
 from matplotlib.figure import Figure
 
 from hofmann.model import (
+    AtomLegendItem,
     LegendItem,
     LegendStyle,
+    PolygonLegendItem,
+    PolyhedronLegendItem,
     StructureScene,
     WidgetCorner,
     _DEFAULT_CIRCLE_RADIUS,
@@ -151,7 +154,7 @@ def _build_legend_items(
         labels = {sp: None for sp in species_list}
 
     return [
-        LegendItem(
+        AtomLegendItem(
             key=sp,
             colour=colours[sp],
             label=labels[sp],
@@ -177,7 +180,7 @@ def _resolve_item_radius(item: LegendItem, style: LegendStyle) -> float:
         if isinstance(style.circle_radius, (int, float))
         else _DEFAULT_CIRCLE_RADIUS
     )
-    if item.polyhedron is not None:
+    if isinstance(item, PolyhedronLegendItem):
         return POLYHEDRON_RADIUS_SCALE * base
     return base
 
@@ -198,12 +201,14 @@ def _draw_legend_polyhedron(
     polyhedra_shading: float = 1.0,
     edge_colour: tuple[float, float, float] | None = None,
     edge_width: float = 0.0,
+    rotation: np.ndarray | None = None,
 ) -> None:
     """Draw a miniature 3D-shaded polyhedron icon on *ax*.
 
-    Uses the same depth-sorted face rendering as the main painter
-    but with a fixed oblique viewing angle from
-    :data:`LEGEND_ROTATION`.
+    Uses the same depth-sorted face rendering as the main painter.
+    When *rotation* is ``None`` the default oblique viewing angle
+    from :data:`LEGEND_ROTATION` is used; otherwise the supplied
+    3x3 rotation matrix orients the icon.
 
     Args:
         ax: Matplotlib ``Axes`` to draw into.
@@ -217,12 +222,15 @@ def _draw_legend_polyhedron(
         edge_colour: Pre-resolved edge colour, or ``None`` to
             disable edges.
         edge_width: Pre-resolved edge width in points.
+        rotation: 3x3 rotation matrix, or ``None`` for the default
+            legend viewing angle.
     """
+    rot = rotation if rotation is not None else LEGEND_ROTATION
     vertices = CANONICAL_VERTICES[shape]
     faces = _get_faces(shape)
 
     # Rotate, scale, and translate to the icon position.
-    rotated = vertices @ LEGEND_ROTATION.T
+    rotated = vertices @ rot.T
     scaled = rotated * radius_data
     translated = scaled[:, :2] + np.array([centre_x, centre_y])
 
@@ -407,14 +415,14 @@ def _draw_legend_widget(
         resolved_ew = (
             item.edge_width if item.edge_width is not None
             else outline_width
-        ) * scale if resolved_ec is not None else 0.0
+        ) if resolved_ec is not None else 0.0
 
-        if item.polyhedron is not None:
+        if isinstance(item, PolyhedronLegendItem):
             # 3D polyhedron icon path.
             radius_data = item_radius[i] / pts_per_data
             _draw_legend_polyhedron(
                 ax,
-                shape=item.polyhedron,
+                shape=item.shape,
                 centre_x=anchor_x,
                 centre_y=y_i,
                 radius_data=radius_data,
@@ -423,16 +431,23 @@ def _draw_legend_widget(
                 polyhedra_shading=polyhedra_shading,
                 edge_colour=resolved_ec,
                 edge_width=resolved_ew,
+                rotation=item.rotation,
             )
         else:
             # Flat marker path (circle or polygon).
+            if isinstance(item, PolygonLegendItem):
+                marker: str | tuple[int, int, float] = (
+                    item.sides, 0, item.rotation
+                )
+            else:
+                marker = "o"
             face_colour: tuple[float, ...] = rgb
             if item.alpha < 1.0:
                 face_colour = (*rgb, item.alpha)
 
             ax.plot(
                 anchor_x, y_i,
-                marker=item.marker,
+                marker=marker,
                 markersize=item_radius[i] * 2,
                 markerfacecolor=face_colour,
                 markeredgecolor=resolved_ec if resolved_ec is not None else rgb,
