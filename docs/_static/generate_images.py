@@ -342,8 +342,8 @@ def logo_scene() -> StructureScene:
     return scene
 
 
-def main() -> None:
-    # Project logo: dodecahedron with inferno gradient
+def generate_logo() -> None:
+    """Generate the project logo at the repository root."""
     logo = logo_scene()
     logo_style = RenderStyle(polyhedra_shading=1.0, half_bonds=False)
     logo_kw = dict(colour_by="gradient", cmap="inferno", show=False,
@@ -356,6 +356,9 @@ def main() -> None:
                     **logo_kw)
     print(f"  wrote {repo_root / 'logo.png'}")
 
+
+def generate_docs_images() -> None:
+    """Generate all documentation SVGs into docs/_static/."""
     # CH4 -- simple ball-and-stick
     ch4 = ch4_scene()
     ch4.render_mpl(OUT / "ch4.svg", figsize=(4, 4), dpi=150)
@@ -1014,6 +1017,12 @@ def main() -> None:
         figsize=(0.75, 1.35),
     )
     print(f"  wrote {OUT / 'legend_spacing.svg'}")
+
+
+def main() -> None:
+    """Generate all images (docs figures and project logo)."""
+    generate_logo()
+    generate_docs_images()
 
 
 if __name__ == "__main__":
