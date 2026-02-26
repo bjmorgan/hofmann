@@ -3,7 +3,7 @@
 project = "hofmann"
 copyright = "2025, hofmann contributors"
 author = "hofmann contributors"
-release = "0.3.0"
+release = "0.13.1"
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -54,3 +54,26 @@ html_theme = "sphinx_rtd_theme"
 html_theme_options = {
     "navigation_depth": 3,
 }
+
+# -- Auto-generate documentation figures -------------------------------------
+
+import os
+import sys
+
+
+def _generate_figures(app):
+    """Generate documentation figures before Sphinx reads source files."""
+    if os.environ.get("SKIP_IMAGE_GEN"):
+        return
+    static_dir = os.path.join(os.path.dirname(__file__), "_static")
+    sys.path.insert(0, static_dir)
+    try:
+        from generate_images import generate_docs_images
+
+        generate_docs_images()
+    finally:
+        sys.path.pop(0)
+
+
+def setup(app):
+    app.connect("builder-inited", _generate_figures)

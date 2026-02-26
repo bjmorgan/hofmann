@@ -1,6 +1,16 @@
 Changelog
 =========
 
+0.13.1
+------
+
+- Documentation figures are now generated at Sphinx build time via a
+  ``builder-inited`` hook, rather than being pre-generated and committed
+  to the repository.  This ensures figures always reflect the current
+  rendering code.  ``pymatgen`` is now included in the ``docs`` optional
+  extra.  Set ``SKIP_IMAGE_GEN=1`` to skip figure generation during
+  rapid local iteration.
+
 0.13.0
 ------
 

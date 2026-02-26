@@ -4,6 +4,7 @@ examples/*.pdf
 examples/*.svg
 examples/*.png
 docs/_build/
+docs/_static/*.svg
 
 # Python
 __pycache__/
