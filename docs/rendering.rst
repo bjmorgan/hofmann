@@ -551,6 +551,46 @@ Control its strength with ``polyhedra_shading`` (0 = flat colour,
 Supported shapes are ``"octahedron"``, ``"tetrahedron"``, and
 ``"cuboctahedron"``.
 
+Icon rotation
+"""""""""""""
+
+By default, polyhedron icons are drawn at a fixed oblique viewing angle.
+Pass ``rotation`` to orient the icon differently.  Two forms are
+accepted:
+
+- **``(Rx, Ry)`` tuple** — rotation angles in degrees about the *x*
+  and *y* axes, applied as ``Ry @ Rx``.
+- **``(3, 3)`` numpy array** — a full rotation matrix used directly.
+
+``None`` (the default) uses the built-in oblique angle.
+
+.. code-block:: python
+
+   import numpy as np
+   from hofmann import PolyhedronLegendItem
+
+   # Tilt 30 degrees about x, 45 about y:
+   PolyhedronLegendItem(
+       key="oct", colour="steelblue", shape="octahedron",
+       rotation=(30.0, 45.0),
+   )
+
+   # Full rotation matrix (e.g. identity for a top-down view):
+   PolyhedronLegendItem(
+       key="oct", colour="steelblue", shape="octahedron",
+       rotation=np.eye(3),
+   )
+
+The rotation can also be changed after creation:
+
+.. code-block:: python
+
+   item = PolyhedronLegendItem(
+       key="oct", colour="steelblue", shape="octahedron",
+   )
+   item.rotation = (20.0, -15.0)   # update to a new orientation
+   item.rotation = None             # revert to default
+
 Convenience factory
 """""""""""""""""""
 
