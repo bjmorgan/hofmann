@@ -1,6 +1,42 @@
 Changelog
 =========
 
+0.13.0
+------
+
+- **Breaking:** :class:`~hofmann.LegendItem` is now an abstract base class.
+  Use the concrete subclasses :class:`~hofmann.AtomLegendItem` (circle
+  markers), :class:`~hofmann.PolygonLegendItem` (regular-polygon
+  markers with ``sides`` and ``rotation``), or
+  :class:`~hofmann.PolyhedronLegendItem` (miniature 3D icons with
+  ``shape`` and optional ``rotation``).
+
+  Migration:
+
+  - ``LegendItem(key=..., colour=...)`` becomes
+    ``AtomLegendItem(key=..., colour=...)``.
+  - ``LegendItem(key=..., colour=..., sides=6)`` becomes
+    ``PolygonLegendItem(key=..., colour=..., sides=6)``.
+  - ``LegendItem(key=..., colour=..., polyhedron="octahedron")``
+    becomes
+    ``PolyhedronLegendItem(key=..., colour=..., shape="octahedron")``.
+  - ``LegendItem.from_polyhedron_spec(...)`` becomes
+    ``PolyhedronLegendItem.from_polyhedron_spec(...)``.
+
+  Serialisation: ``to_dict()`` now includes a ``"type"`` discriminator;
+  ``LegendItem.from_dict()`` dispatches to the correct subclass.
+  Dictionaries without a ``"type"`` key are treated as atom items for
+  backwards compatibility.
+
+- :class:`~hofmann.PolyhedronLegendItem` gains a ``rotation``
+  parameter accepting a ``(3, 3)`` rotation matrix or an ``(Rx, Ry)``
+  tuple of angles in degrees.  When ``None`` (the default), the
+  standard oblique legend viewing angle is used.
+
+- Fix legend edge width scaling: legend marker outlines were
+  incorrectly multiplied by the widget display-space scaling factor,
+  making them appear thicker than the corresponding edges in the scene.
+
 0.12.0
 ------
 

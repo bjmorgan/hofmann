@@ -7,12 +7,15 @@ import pytest
 from matplotlib.figure import Figure
 
 from hofmann.model import (
+    AtomLegendItem,
     AtomStyle,
     AxesStyle,
     BondSpec,
     Frame,
     LegendItem,
     LegendStyle,
+    PolygonLegendItem,
+    PolyhedronLegendItem,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
@@ -1310,8 +1313,8 @@ class TestLegendWidget:
         """Explicit LegendItem entries are drawn with correct labels."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="oct", colour="blue", label="Octahedral"),
-            LegendItem(key="tet", colour="red", label="Tetrahedral"),
+            AtomLegendItem(key="oct", colour="blue", label="Octahedral"),
+            AtomLegendItem(key="tet", colour="red", label="Tetrahedral"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1331,8 +1334,8 @@ class TestLegendWidget:
         """Custom item colours are used for marker face colours."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="x", colour=(1.0, 0.0, 0.0)),
-            LegendItem(key="y", colour=(0.0, 1.0, 0.0)),
+            AtomLegendItem(key="x", colour=(1.0, 0.0, 0.0)),
+            AtomLegendItem(key="y", colour=(0.0, 1.0, 0.0)),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1351,8 +1354,8 @@ class TestLegendWidget:
         """Items with explicit radii produce different marker sizes."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="small", colour="blue", radius=3.0),
-            LegendItem(key="big", colour="red", radius=9.0),
+            AtomLegendItem(key="small", colour="blue", radius=3.0),
+            AtomLegendItem(key="big", colour="red", radius=9.0),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1368,7 +1371,7 @@ class TestLegendWidget:
     def test_custom_items_bypass_species(self):
         """Items with keys not matching any scene species still render."""
         scene = _minimal_scene()
-        items = (LegendItem(key="custom_cat", colour="purple"),)
+        items = (AtomLegendItem(key="custom_cat", colour="purple"),)
         style = LegendStyle(items=items)
         fig = render_mpl(
             scene, show=False,
@@ -1382,7 +1385,7 @@ class TestLegendWidget:
     def test_custom_items_label_formatting(self):
         """Chemical notation auto-formatting applies to item labels."""
         scene = _minimal_scene()
-        items = (LegendItem(key="Sr2+", colour="green"),)
+        items = (AtomLegendItem(key="Sr2+", colour="green"),)
         style = LegendStyle(items=items)
         fig = render_mpl(
             scene, show=False,
@@ -1398,9 +1401,9 @@ class TestLegendWidget:
         """Items with sides produce polygon markers instead of circles."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="oct", colour="blue", sides=6),
-            LegendItem(key="tet", colour="red", sides=4, rotation=45.0),
-            LegendItem(key="round", colour="green"),
+            PolygonLegendItem(key="oct", colour="blue", sides=6),
+            PolygonLegendItem(key="tet", colour="red", sides=4, rotation=45.0),
+            AtomLegendItem(key="round", colour="green"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1418,9 +1421,9 @@ class TestLegendWidget:
         """Items with gap_after produce non-uniform vertical spacing."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="A", colour="red", gap_after=20.0),
-            LegendItem(key="B", colour="green", gap_after=0.0),
-            LegendItem(key="C", colour="blue"),
+            AtomLegendItem(key="A", colour="red", gap_after=20.0),
+            AtomLegendItem(key="B", colour="green", gap_after=0.0),
+            AtomLegendItem(key="C", colour="blue"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1444,8 +1447,8 @@ class TestLegendWidget:
         """Items with alpha < 1 produce RGBA face colours."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="A", colour="red", alpha=0.4),
-            LegendItem(key="B", colour="green"),
+            AtomLegendItem(key="A", colour="red", alpha=0.4),
+            AtomLegendItem(key="B", colour="green"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1482,7 +1485,7 @@ class TestLegendWidget:
         plt.close(fig_base)
         # Render with polyhedron legend item.
         items = (
-            LegendItem(key="oct", colour="blue", polyhedron="octahedron"),
+            PolyhedronLegendItem(key="oct", colour="blue", shape="octahedron"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1517,8 +1520,8 @@ class TestLegendWidget:
         plt.close(fig_base)
         # Render with mixed legend items.
         items = (
-            LegendItem(key="oct", colour="blue", polyhedron="octahedron"),
-            LegendItem(key="circle", colour="red"),
+            PolyhedronLegendItem(key="oct", colour="blue", shape="octahedron"),
+            AtomLegendItem(key="circle", colour="red"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1545,7 +1548,7 @@ class TestLegendWidget:
         """Tetrahedron items also render without error."""
         scene = _minimal_scene()
         items = (
-            LegendItem(key="tet", colour="green", polyhedron="tetrahedron"),
+            PolyhedronLegendItem(key="tet", colour="green", shape="tetrahedron"),
         )
         style = LegendStyle(items=items)
         fig = render_mpl(
@@ -1615,8 +1618,8 @@ class TestRenderLegend:
         from hofmann.rendering.static import render_legend
         scene = _minimal_scene()
         items = (
-            LegendItem(key="Oct", colour="red", label="Oct", sides=6),
-            LegendItem(key="Tet", colour="blue", label="Tet", sides=4),
+            PolygonLegendItem(key="Oct", colour="red", label="Oct", sides=6),
+            PolygonLegendItem(key="Tet", colour="blue", label="Tet", sides=4),
         )
         style = LegendStyle(items=items)
         fig = render_legend(scene, legend_style=style)
@@ -1631,8 +1634,8 @@ class TestRenderLegend:
         from hofmann.rendering.static import render_legend
         scene = _minimal_scene()
         items = (
-            LegendItem(key="Oct", colour="red", polyhedron="octahedron"),
-            LegendItem(key="Tet", colour="blue", polyhedron="tetrahedron"),
+            PolyhedronLegendItem(key="Oct", colour="red", shape="octahedron"),
+            PolyhedronLegendItem(key="Tet", colour="blue", shape="tetrahedron"),
         )
         style = LegendStyle(items=items)
         fig = render_legend(scene, legend_style=style)
@@ -1647,7 +1650,7 @@ class TestRenderLegend:
         from hofmann.rendering.static import render_legend
         scene = _minimal_scene()
         items = (
-            LegendItem(key="Oct", colour="red", polyhedron="octahedron"),
+            PolyhedronLegendItem(key="Oct", colour="red", shape="octahedron"),
         )
         style = LegendStyle(items=items)
         path = tmp_path / "poly_legend.svg"

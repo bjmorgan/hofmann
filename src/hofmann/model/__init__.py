@@ -16,10 +16,13 @@ from hofmann.model.colour import (
 from hofmann.model.frame import Frame
 from hofmann.model.polyhedron_spec import Polyhedron, PolyhedronSpec
 from hofmann.model.render_style import (
+    AtomLegendItem,
     AxesStyle,
     CellEdgeStyle,
     LegendItem,
     LegendStyle,
+    PolygonLegendItem,
+    PolyhedronLegendItem,
     RenderStyle,
     SlabClipMode,
     WidgetCorner,
@@ -30,6 +33,7 @@ from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
 
 __all__ = [
+    "AtomLegendItem",
     "AtomStyle",
     "AxesStyle",
     "Bond",
@@ -41,6 +45,8 @@ __all__ = [
     "Colour",
     "Frame",
     "Polyhedron",
+    "PolygonLegendItem",
+    "PolyhedronLegendItem",
     "PolyhedronSpec",
     "RenderStyle",
     "SlabClipMode",

@@ -404,16 +404,16 @@ Custom legend items
 
 When colouring atoms by custom data (via ``colour_by``), the default
 species-based legend may not reflect the active colouring.  Pass a
-tuple of :class:`~hofmann.LegendItem` instances to display a fully
-custom legend:
+tuple of :class:`~hofmann.LegendItem` subclass instances to display
+a fully custom legend:
 
 .. code-block:: python
 
-   from hofmann import LegendItem, LegendStyle
+   from hofmann import AtomLegendItem, LegendStyle
 
    style = LegendStyle(items=(
-       LegendItem(key="octahedral", colour="blue", label="Octahedral"),
-       LegendItem(key="tetrahedral", colour="red", label="Tetrahedral"),
+       AtomLegendItem(key="octahedral", colour="blue", label="Octahedral"),
+       AtomLegendItem(key="tetrahedral", colour="red", label="Tetrahedral"),
    ))
    scene.render_mpl("output.svg", show_legend=True, legend_style=style)
 
@@ -424,28 +424,30 @@ when that is a plain float, or to its default value otherwise (the
 proportional and per-species dict modes do not apply to individual
 items).
 
-:class:`~hofmann.LegendItem` is mutable, so items can be tweaked
-after creation:
+Legend items are mutable, so they can be tweaked after creation:
 
 .. code-block:: python
 
-   item = LegendItem(key="oct", colour="blue")
+   item = AtomLegendItem(key="oct", colour="blue")
    item.label = "Octahedral"
    item.radius = 8.0
 
 Polygon markers
 ^^^^^^^^^^^^^^^
 
-By default, legend entries are drawn as circles.  Set ``sides`` to
-draw a regular polygon instead — useful for indicating polyhedra
-types.  ``rotation`` controls the orientation in degrees:
+By default, :class:`~hofmann.AtomLegendItem` entries are drawn as
+circles.  Use :class:`~hofmann.PolygonLegendItem` to draw a regular
+polygon instead -- useful for indicating polyhedra types.
+``rotation`` controls the orientation in degrees:
 
 .. code-block:: python
 
+   from hofmann import AtomLegendItem, PolygonLegendItem
+
    items = (
-       LegendItem(key="oct", colour="blue", label="Octahedral", sides=6),
-       LegendItem(key="tet", colour="red", label="Tetrahedral", sides=4, rotation=45.0),
-       LegendItem(key="round", colour="green", label="Spherical"),
+       PolygonLegendItem(key="oct", colour="blue", label="Octahedral", sides=6),
+       PolygonLegendItem(key="tet", colour="red", label="Tetrahedral", sides=4, rotation=45.0),
+       AtomLegendItem(key="round", colour="green", label="Spherical"),
    )
    style = LegendStyle(items=items)
    scene.render_mpl("output.svg", show_legend=True, legend_style=style)
@@ -472,11 +474,11 @@ related entries:
 .. code-block:: python
 
    items = (
-       LegendItem(key="Sr", colour="green"),
-       LegendItem(key="Ti", colour="silver"),
-       LegendItem(key="O", colour="red", gap_after=8.0),
-       LegendItem(key="oct", colour="blue", label="TiO6", sides=6),
-       LegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
+       AtomLegendItem(key="Sr", colour="green"),
+       AtomLegendItem(key="Ti", colour="silver"),
+       AtomLegendItem(key="O", colour="red", gap_after=8.0),
+       PolygonLegendItem(key="oct", colour="blue", label="TiO6", sides=6),
+       PolygonLegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
    )
    style = LegendStyle(items=items)
 
@@ -494,25 +496,27 @@ polyhedra with translucent faces and solid edges:
 
 .. code-block:: python
 
-   LegendItem(key="oct", colour="blue", label="TiO6", sides=6, alpha=0.5)
+   PolygonLegendItem(key="oct", colour="blue", label="TiO6", sides=6, alpha=0.5)
 
 3D polyhedron icons
 ^^^^^^^^^^^^^^^^^^^
 
 When a legend entry represents a polyhedron type, a flat circle or
 polygon is a poor visual match for the shaded 3D shape in the scene.
-Set ``polyhedron`` to render a miniature depth-sorted, shaded icon
-instead:
+Use :class:`~hofmann.PolyhedronLegendItem` to render a miniature
+depth-sorted, shaded icon instead:
 
 .. code-block:: python
 
+   from hofmann import PolyhedronLegendItem
+
    items = (
-       LegendItem(key="oct", colour="steelblue",
-                  label="Octahedral", polyhedron="octahedron", alpha=0.4),
-       LegendItem(key="tet", colour="goldenrod",
-                  label="Tetrahedral", polyhedron="tetrahedron", alpha=0.4),
-       LegendItem(key="cuboct", colour="mediumseagreen",
-                  label="Cuboctahedral", polyhedron="cuboctahedron", alpha=0.4),
+       PolyhedronLegendItem(key="oct", colour="steelblue",
+                            label="Octahedral", shape="octahedron", alpha=0.4),
+       PolyhedronLegendItem(key="tet", colour="goldenrod",
+                            label="Tetrahedral", shape="tetrahedron", alpha=0.4),
+       PolyhedronLegendItem(key="cuboct", colour="mediumseagreen",
+                            label="Cuboctahedral", shape="cuboctahedron", alpha=0.4),
    )
    style = LegendStyle(items=items)
 
@@ -551,12 +555,13 @@ Convenience factory
 """""""""""""""""""
 
 When building a legend to match existing polyhedra in a scene, use
-:meth:`~hofmann.LegendItem.from_polyhedron_spec` to inherit colour,
-alpha, and edge styling from the :class:`~hofmann.PolyhedronSpec`:
+:meth:`~hofmann.PolyhedronLegendItem.from_polyhedron_spec` to inherit
+colour, alpha, and edge styling from the
+:class:`~hofmann.PolyhedronSpec`:
 
 .. code-block:: python
 
-   from hofmann import LegendItem, PolyhedronSpec
+   from hofmann import PolyhedronLegendItem, PolyhedronSpec
 
    spec = PolyhedronSpec(
        centre="Ti",
@@ -564,7 +569,7 @@ alpha, and edge styling from the :class:`~hofmann.PolyhedronSpec`:
        alpha=0.3,
        edge_colour=(0.3, 0.3, 0.3),
    )
-   item = LegendItem.from_polyhedron_spec(spec, "octahedron")
+   item = PolyhedronLegendItem.from_polyhedron_spec(spec, "octahedron")
    # item.colour, item.alpha, item.edge_colour, item.edge_width
    # all inherited from spec
 
@@ -581,8 +586,8 @@ define their own edge styling; explicit per-item ``edge_colour`` /
 .. code-block:: python
 
    # Thick red edges on this item only:
-   LegendItem(
-       key="oct", colour="steelblue", polyhedron="octahedron",
+   PolyhedronLegendItem(
+       key="oct", colour="steelblue", shape="octahedron",
        edge_colour="red", edge_width=2.0,
    )
 

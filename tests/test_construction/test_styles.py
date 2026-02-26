@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from hofmann.model import (
+    AtomLegendItem,
     AtomStyle,
     AxesStyle,
     BondSpec,
@@ -13,6 +14,8 @@ from hofmann.model import (
     Frame,
     LegendItem,
     LegendStyle,
+    PolygonLegendItem,
+    PolyhedronLegendItem,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
@@ -197,15 +200,23 @@ class TestAxesStyleDict:
 # -- LegendItem ---------------------------------------------------------------
 
 class TestLegendItemDict:
-    def test_minimal_round_trip(self):
-        item = LegendItem(key="Na", colour="blue")
+    """Serialisation round-trip tests for LegendItem subclasses."""
+
+    # ---- AtomLegendItem ----
+
+    def test_atom_minimal_round_trip(self):
+        item = AtomLegendItem(key="Na", colour="blue")
         d = item.to_dict()
+        assert d["type"] == "atom"
         restored = LegendItem.from_dict(d)
+        assert isinstance(restored, AtomLegendItem)
         assert restored.key == "Na"
         assert restored.colour == normalise_colour("blue")
 
-    def test_full_round_trip(self):
-        item = LegendItem(key="Na", colour=(0.2, 0.4, 0.8), label="Sodium", radius=6.0)
+    def test_atom_full_round_trip(self):
+        item = AtomLegendItem(
+            key="Na", colour=(0.2, 0.4, 0.8), label="Sodium", radius=6.0,
+        )
         d = item.to_dict()
         restored = LegendItem.from_dict(d)
         assert restored.key == "Na"
@@ -214,101 +225,132 @@ class TestLegendItemDict:
         assert restored.radius == 6.0
 
     def test_label_none_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
+        d = AtomLegendItem(key="Na", colour="blue").to_dict()
         assert "label" not in d
 
     def test_radius_none_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
+        d = AtomLegendItem(key="Na", colour="blue").to_dict()
         assert "radius" not in d
 
     def test_colour_normalised_in_dict(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
+        d = AtomLegendItem(key="Na", colour="blue").to_dict()
         assert d["colour"] == list(normalise_colour("blue"))
 
-    def test_sides_round_trip(self):
-        item = LegendItem(key="Oct", colour="red", sides=6, rotation=30.0)
-        d = item.to_dict()
-        assert d["sides"] == 6
-        assert d["rotation"] == 30.0
-        restored = LegendItem.from_dict(d)
-        assert restored.sides == 6
-        assert restored.rotation == 30.0
-
-    def test_sides_none_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
-        assert "sides" not in d
-
-    def test_rotation_zero_omitted(self):
-        item = LegendItem(key="Na", colour="blue", sides=4)
-        d = item.to_dict()
-        assert "rotation" not in d
-
-    def test_sides_without_rotation_round_trip(self):
-        item = LegendItem(key="Tet", colour="green", sides=4)
-        d = item.to_dict()
-        restored = LegendItem.from_dict(d)
-        assert restored.sides == 4
-        assert restored.rotation == 0.0
-
     def test_gap_after_round_trip(self):
-        item = LegendItem(key="Na", colour="blue", gap_after=8.0)
+        item = AtomLegendItem(key="Na", colour="blue", gap_after=8.0)
         d = item.to_dict()
         assert d["gap_after"] == 8.0
         restored = LegendItem.from_dict(d)
         assert restored.gap_after == 8.0
 
     def test_gap_after_none_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
+        d = AtomLegendItem(key="Na", colour="blue").to_dict()
         assert "gap_after" not in d
 
     def test_alpha_round_trip(self):
-        item = LegendItem(key="Oct", colour="red", alpha=0.4)
+        item = AtomLegendItem(key="Na", colour="red", alpha=0.4)
         d = item.to_dict()
         assert d["alpha"] == 0.4
         restored = LegendItem.from_dict(d)
         assert restored.alpha == 0.4
 
     def test_alpha_default_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
+        d = AtomLegendItem(key="Na", colour="blue").to_dict()
         assert "alpha" not in d
 
-    def test_polyhedron_round_trip(self):
-        item = LegendItem(key="Oct", colour="red", polyhedron="octahedron")
-        d = item.to_dict()
-        assert d["polyhedron"] == "octahedron"
-        restored = LegendItem.from_dict(d)
-        assert restored.polyhedron == "octahedron"
-
-    def test_polyhedron_none_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
-        assert "polyhedron" not in d
-
     def test_edge_colour_round_trip(self):
-        item = LegendItem(key="Na", colour="blue", edge_colour=(0.1, 0.2, 0.3))
+        item = AtomLegendItem(
+            key="Na", colour="blue", edge_colour=(0.1, 0.2, 0.3),
+        )
         d = item.to_dict()
         assert d["edge_colour"] == [0.1, 0.2, 0.3]
         restored = LegendItem.from_dict(d)
         assert restored.edge_colour == (0.1, 0.2, 0.3)
 
     def test_edge_width_round_trip(self):
-        item = LegendItem(key="Na", colour="blue", edge_width=2.0)
+        item = AtomLegendItem(key="Na", colour="blue", edge_width=2.0)
         d = item.to_dict()
         assert d["edge_width"] == 2.0
         restored = LegendItem.from_dict(d)
         assert restored.edge_width == 2.0
 
     def test_edge_fields_none_omitted(self):
-        item = LegendItem(key="Na", colour="blue")
-        d = item.to_dict()
+        d = AtomLegendItem(key="Na", colour="blue").to_dict()
         assert "edge_colour" not in d
         assert "edge_width" not in d
+
+    def test_backwards_compat_no_type_key(self):
+        """Dicts without a 'type' key are treated as atom items."""
+        d = {"key": "Na", "colour": [0.0, 0.0, 1.0]}
+        restored = LegendItem.from_dict(d)
+        assert isinstance(restored, AtomLegendItem)
+
+    # ---- PolygonLegendItem ----
+
+    def test_polygon_round_trip(self):
+        item = PolygonLegendItem(
+            key="Oct", colour="red", sides=6, rotation=30.0,
+        )
+        d = item.to_dict()
+        assert d["type"] == "polygon"
+        assert d["sides"] == 6
+        assert d["rotation"] == 30.0
+        restored = LegendItem.from_dict(d)
+        assert isinstance(restored, PolygonLegendItem)
+        assert restored.sides == 6
+        assert restored.rotation == 30.0
+
+    def test_polygon_rotation_zero_omitted(self):
+        d = PolygonLegendItem(key="Na", colour="blue", sides=4).to_dict()
+        assert "rotation" not in d
+
+    def test_polygon_without_rotation_round_trip(self):
+        item = PolygonLegendItem(key="Tet", colour="green", sides=4)
+        d = item.to_dict()
+        restored = LegendItem.from_dict(d)
+        assert isinstance(restored, PolygonLegendItem)
+        assert restored.sides == 4
+        assert restored.rotation == 0.0
+
+    # ---- PolyhedronLegendItem ----
+
+    def test_polyhedron_round_trip(self):
+        item = PolyhedronLegendItem(
+            key="Oct", colour="red", shape="octahedron",
+        )
+        d = item.to_dict()
+        assert d["type"] == "polyhedron"
+        assert d["shape"] == "octahedron"
+        restored = LegendItem.from_dict(d)
+        assert isinstance(restored, PolyhedronLegendItem)
+        assert restored.shape == "octahedron"
+
+    def test_polyhedron_rotation_round_trip(self):
+        item = PolyhedronLegendItem(
+            key="Oct", colour="red", shape="octahedron",
+            rotation=(10.0, -15.0),
+        )
+        d = item.to_dict()
+        assert "rotation" in d
+        restored = LegendItem.from_dict(d)
+        assert isinstance(restored, PolyhedronLegendItem)
+        assert restored.rotation is not None
+        np.testing.assert_array_almost_equal(
+            restored.rotation, item.rotation,
+        )
+
+    def test_polyhedron_rotation_none_omitted(self):
+        d = PolyhedronLegendItem(
+            key="Oct", colour="red", shape="octahedron",
+        ).to_dict()
+        assert "rotation" not in d
+
+    # ---- Unknown type ----
+
+    def test_unknown_type_raises(self):
+        d = {"type": "unknown", "key": "Na", "colour": [0.0, 0.0, 1.0]}
+        with pytest.raises(ValueError, match="Unknown legend item type"):
+            LegendItem.from_dict(d)
 
 
 # -- LegendStyle --------------------------------------------------------------
@@ -402,8 +444,8 @@ class TestLegendStyleDict:
 
     def test_items_round_trip(self):
         items = (
-            LegendItem(key="oct", colour="blue", label="Octahedral"),
-            LegendItem(key="tet", colour="red", radius=3.0),
+            AtomLegendItem(key="oct", colour="blue", label="Octahedral"),
+            AtomLegendItem(key="tet", colour="red", radius=3.0),
         )
         style = LegendStyle(items=items)
         d = style.to_dict()

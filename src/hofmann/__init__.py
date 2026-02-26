@@ -20,6 +20,7 @@ from hofmann.construction.defaults import (
     default_bond_specs,
 )
 from hofmann.model import (
+    AtomLegendItem,
     AtomStyle,
     AxesStyle,
     Bond,
@@ -31,6 +32,8 @@ from hofmann.model import (
     LegendItem,
     LegendStyle,
     Polyhedron,
+    PolygonLegendItem,
+    PolyhedronLegendItem,
     PolyhedronSpec,
     RenderStyle,
     SlabClipMode,
@@ -44,6 +47,7 @@ from hofmann.construction.scene_builders import from_pymatgen, from_xbs
 from hofmann.construction.styles import StyleSet, load_styles, save_styles
 
 __all__ = [
+    "AtomLegendItem",
     "AtomStyle",
     "AxesStyle",
     "Bond",
@@ -57,6 +61,8 @@ __all__ = [
     "LegendItem",
     "LegendStyle",
     "Polyhedron",
+    "PolygonLegendItem",
+    "PolyhedronLegendItem",
     "PolyhedronSpec",
     "RenderStyle",
     "SlabClipMode",

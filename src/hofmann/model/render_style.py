@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import TYPE_CHECKING
+
+import numpy as np
 
 from hofmann._constants import VALID_POLYHEDRA
 from hofmann.model._util import _field_defaults
@@ -243,17 +246,18 @@ _DEFAULT_SPACING: float = 2.5
 """Default vertical spacing between legend entries in points."""
 
 
-class LegendItem:
-    """A single entry in the species legend.
+class LegendItem(ABC):
+    """Abstract base class for legend entries.
 
-    Each item carries a *key* (used as an identifier and fallback
-    display label), a *colour* for the legend circle, an optional
-    *label* override, and an optional *radius* in points.
+    Concrete subclasses:
 
-    The class follows the same validated-property pattern as
-    :class:`~hofmann.model.BondSpec`: ``colour`` and ``radius`` are
-    backed by private fields with setters that validate on every
-    assignment.
+    * :class:`AtomLegendItem` — circle marker (atoms).
+    * :class:`PolygonLegendItem` — regular-polygon marker.
+    * :class:`PolyhedronLegendItem` — miniature 3D polyhedron icon.
+
+    Shared fields live on the base class; marker-specific fields
+    (``sides``, ``rotation``, ``shape``) live on the relevant
+    subclass.
 
     Args:
         key: Identifier for this legend entry.  Also used as the
@@ -271,10 +275,6 @@ class LegendItem:
             ``LegendStyle.circle_radius`` when that is a plain float,
             or to its default value otherwise (the proportional and
             per-species dict modes do not apply to individual items).
-        sides: Number of sides for a regular-polygon marker, or
-            ``None`` for a circle (the default).  Must be at least 3.
-        rotation: Rotation of the polygon marker in degrees
-            (default 0.0).  Ignored when *sides* is ``None``.
         gap_after: Vertical gap in points between this entry and the
             next one.  ``None`` falls back to
             ``LegendStyle.spacing``.  Must be non-negative.  Ignored
@@ -282,11 +282,6 @@ class LegendItem:
         alpha: Opacity of the marker face, from 0.0 (fully transparent)
             to 1.0 (fully opaque, the default).  Marker outlines are
             unaffected and remain fully opaque.
-        polyhedron: Name of a 3D polyhedron shape to render as a
-            miniature shaded icon instead of a flat marker.
-            Recognised names: ``"octahedron"``, ``"tetrahedron"``.
-            ``None`` (the default) uses the flat marker path
-            (circle or polygon via *sides*).
         edge_colour: Override edge/outline colour for this item.
             ``None`` (the default) falls back to the scene-level
             outline colour.  Accepts any format understood by
@@ -296,25 +291,13 @@ class LegendItem:
             scene-level outline width.  Must be non-negative.
     """
 
+    # ---- Shared static validators ----
+
     @staticmethod
     def _validate_radius(value: float | None) -> None:
         if value is not None and value <= 0:
             raise ValueError(
                 f"radius must be positive, got {value}"
-            )
-
-    @staticmethod
-    def _validate_sides(value: int | None) -> None:
-        if value is None:
-            return
-        if isinstance(value, bool) or not isinstance(value, int):
-            raise TypeError(
-                f"sides must be an int >= 3, got {value!r} "
-                f"(type {type(value).__name__})"
-            )
-        if value < 3:
-            raise ValueError(
-                f"sides must be >= 3, got {value}"
             )
 
     @staticmethod
@@ -338,31 +321,14 @@ class LegendItem:
                 f"edge_width must be non-negative, got {value}"
             )
 
-    @staticmethod
-    def _validate_polyhedron(value: str | None) -> None:
-        if value is None:
-            return
-        if not isinstance(value, str):
-            raise TypeError(
-                f"polyhedron must be a string, got {type(value).__name__}"
-            )
-        if value not in VALID_POLYHEDRA:
-            raise ValueError(
-                f"polyhedron must be one of {sorted(VALID_POLYHEDRA)}, "
-                f"got {value!r}"
-            )
-
     def __init__(
         self,
         key: str,
         colour: Colour,
         label: str | None = None,
         radius: float | None = None,
-        sides: int | None = None,
-        rotation: float = 0.0,
         gap_after: float | None = None,
         alpha: float = 1.0,
-        polyhedron: str | None = None,
         edge_colour: Colour | None = None,
         edge_width: float | None = None,
     ) -> None:
@@ -372,28 +338,30 @@ class LegendItem:
         self._colour = normalise_colour(colour)
         self.label = label
         self._radius = radius
-        self._sides = sides
-        self._rotation = float(rotation)
         self._gap_after = gap_after
         self._alpha = float(alpha)
-        self._polyhedron = polyhedron
         self._edge_colour = (
             normalise_colour(edge_colour) if edge_colour is not None else None
         )
         self._edge_width = edge_width
-        self._validate()
-
-    def _validate(self) -> None:
         self._validate_radius(self._radius)
-        self._validate_sides(self._sides)
         self._validate_gap_after(self._gap_after)
         self._validate_alpha(self._alpha)
-        self._validate_polyhedron(self._polyhedron)
         self._validate_edge_width(self._edge_width)
+
+    # ---- Abstract property ----
+
+    @property
+    @abstractmethod
+    def marker_type(self) -> str:
+        """Return the marker type identifier (``"atom"``, ``"polygon"``,
+        or ``"polyhedron"``)."""
+
+    # ---- Shared properties ----
 
     @property
     def colour(self) -> tuple[float, float, float]:
-        """Fill colour for the legend circle (normalised RGB)."""
+        """Fill colour for the legend marker (normalised RGB)."""
         return self._colour
 
     @colour.setter
@@ -402,32 +370,13 @@ class LegendItem:
 
     @property
     def radius(self) -> float | None:
-        """Circle radius in points, or ``None`` for the style default."""
+        """Marker radius in points, or ``None`` for the style default."""
         return self._radius
 
     @radius.setter
     def radius(self, value: float | None) -> None:
         self._validate_radius(value)
         self._radius = value
-
-    @property
-    def sides(self) -> int | None:
-        """Number of polygon sides, or ``None`` for a circle."""
-        return self._sides
-
-    @sides.setter
-    def sides(self, value: int | None) -> None:
-        self._validate_sides(value)
-        self._sides = value
-
-    @property
-    def rotation(self) -> float:
-        """Rotation of the polygon marker in degrees."""
-        return self._rotation
-
-    @rotation.setter
-    def rotation(self, value: float) -> None:
-        self._rotation = float(value)
 
     @property
     def gap_after(self) -> float | None:
@@ -448,16 +397,6 @@ class LegendItem:
     def alpha(self, value: float) -> None:
         self._validate_alpha(value)
         self._alpha = float(value)
-
-    @property
-    def polyhedron(self) -> str | None:
-        """3D polyhedron shape name, or ``None`` for a flat marker."""
-        return self._polyhedron
-
-    @polyhedron.setter
-    def polyhedron(self, value: str | None) -> None:
-        self._validate_polyhedron(value)
-        self._polyhedron = value
 
     @property
     def edge_colour(self) -> tuple[float, float, float] | None:
@@ -481,22 +420,14 @@ class LegendItem:
         self._edge_width = value
 
     @property
-    def marker(self) -> str | tuple[int, int, float]:
-        """Matplotlib marker specification derived from *sides* and *rotation*.
-
-        Returns ``"o"`` for circles, or ``(sides, 0, rotation)`` for
-        regular polygons.
-        """
-        if self._sides is None:
-            return "o"
-        return (self._sides, 0, self._rotation)
-
-    @property
     def display_label(self) -> str:
         """The label to display, falling back to *key*."""
         return self.key if self.label is None else self.label
 
-    def __repr__(self) -> str:
+    # ---- Shared repr / eq helpers ----
+
+    def _base_repr_parts(self) -> list[str]:
+        """Return repr key=value fragments for shared fields."""
         parts = [
             f"key={self.key!r}",
             f"colour={self._colour!r}",
@@ -505,44 +436,38 @@ class LegendItem:
             parts.append(f"label={self.label!r}")
         if self._radius is not None:
             parts.append(f"radius={self._radius!r}")
-        if self._sides is not None:
-            parts.append(f"sides={self._sides!r}")
-        if self._rotation != 0.0:
-            parts.append(f"rotation={self._rotation!r}")
         if self._gap_after is not None:
             parts.append(f"gap_after={self._gap_after!r}")
         if self._alpha != 1.0:
             parts.append(f"alpha={self._alpha!r}")
-        if self._polyhedron is not None:
-            parts.append(f"polyhedron={self._polyhedron!r}")
         if self._edge_colour is not None:
             parts.append(f"edge_colour={self._edge_colour!r}")
         if self._edge_width is not None:
             parts.append(f"edge_width={self._edge_width!r}")
-        return f"LegendItem({', '.join(parts)})"
+        return parts
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, LegendItem):
-            return NotImplemented
+    def _base_eq(self, other: LegendItem) -> bool:
+        """Compare shared fields for equality."""
         return (
-            self.key == other.key
+            type(self) is type(other)
+            and self.key == other.key
             and self._colour == other._colour
             and self.label == other.label
             and self._radius == other._radius
-            and self._sides == other._sides
-            and self._rotation == other._rotation
             and self._gap_after == other._gap_after
             and self._alpha == other._alpha
-            and self._polyhedron == other._polyhedron
             and self._edge_colour == other._edge_colour
             and self._edge_width == other._edge_width
         )
 
     __hash__ = None  # type: ignore[assignment]
 
-    def to_dict(self) -> dict:
-        """Serialise to a JSON-compatible dictionary."""
+    # ---- Shared serialisation helpers ----
+
+    def _base_to_dict(self) -> dict:
+        """Return a dict with shared fields (always includes type)."""
         d: dict = {
+            "type": self.marker_type,
             "key": self.key,
             "colour": list(self._colour),
         }
@@ -550,25 +475,19 @@ class LegendItem:
             d["label"] = self.label
         if self._radius is not None:
             d["radius"] = self._radius
-        if self._sides is not None:
-            d["sides"] = self._sides
-        if self._rotation != 0.0:
-            d["rotation"] = self._rotation
         if self._gap_after is not None:
             d["gap_after"] = self._gap_after
         if self._alpha != 1.0:
             d["alpha"] = self._alpha
-        if self._polyhedron is not None:
-            d["polyhedron"] = self._polyhedron
         if self._edge_colour is not None:
             d["edge_colour"] = list(self._edge_colour)
         if self._edge_width is not None:
             d["edge_width"] = self._edge_width
         return d
 
-    @classmethod
-    def from_dict(cls, d: dict) -> LegendItem:
-        """Deserialise from a dictionary."""
+    @staticmethod
+    def _base_kwargs_from_dict(d: dict) -> dict:
+        """Extract shared constructor kwargs from a dictionary."""
         colour = d["colour"]
         if isinstance(colour, list):
             colour = tuple(colour)
@@ -577,21 +496,386 @@ class LegendItem:
             kwargs["label"] = d["label"]
         if "radius" in d:
             kwargs["radius"] = d["radius"]
-        if "sides" in d:
-            kwargs["sides"] = d["sides"]
-        if "rotation" in d:
-            kwargs["rotation"] = d["rotation"]
         if "gap_after" in d:
             kwargs["gap_after"] = d["gap_after"]
         if "alpha" in d:
             kwargs["alpha"] = d["alpha"]
-        if "polyhedron" in d:
-            kwargs["polyhedron"] = d["polyhedron"]
         if "edge_colour" in d:
             ec = d["edge_colour"]
             kwargs["edge_colour"] = tuple(ec) if isinstance(ec, list) else ec
         if "edge_width" in d:
             kwargs["edge_width"] = d["edge_width"]
+        return kwargs
+
+    @classmethod
+    def from_dict(cls, d: dict) -> LegendItem:
+        """Deserialise from a dictionary.
+
+        Dispatches to the correct subclass based on the ``"type"``
+        key.  Dictionaries without a ``"type"`` key are treated as
+        atom items for backwards compatibility.
+        """
+        item_type = d.get("type", "atom")
+        if item_type == "atom":
+            return AtomLegendItem.from_dict(d)
+        if item_type == "polygon":
+            return PolygonLegendItem.from_dict(d)
+        if item_type == "polyhedron":
+            return PolyhedronLegendItem.from_dict(d)
+        raise ValueError(f"Unknown legend item type {item_type!r}")
+
+    # ---- Abstract serialisation ----
+
+    @abstractmethod
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary."""
+
+
+class AtomLegendItem(LegendItem):
+    """Legend entry rendered as a circle marker (atom).
+
+    Has no additional fields beyond the shared base.
+
+    Args:
+        key: Identifier for this legend entry.
+        colour: Fill colour for the circle marker.
+        label: Display label text, or ``None`` to use *key*.
+        radius: Circle radius in points, or ``None`` for the style
+            default.
+        gap_after: Vertical gap in points after this entry.
+        alpha: Opacity (0.0--1.0, default 1.0).
+        edge_colour: Override outline colour, or ``None`` for scene
+            default.
+        edge_width: Override outline width in points, or ``None``
+            for scene default.
+    """
+
+    @property
+    def marker_type(self) -> str:
+        return "atom"
+
+    @property
+    def marker(self) -> str:
+        """Matplotlib marker specification: ``'o'`` (circle)."""
+        return "o"
+
+    def __repr__(self) -> str:
+        return f"AtomLegendItem({', '.join(self._base_repr_parts())})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LegendItem):
+            return NotImplemented
+        return self._base_eq(other)
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary."""
+        return self._base_to_dict()
+
+    @classmethod
+    def from_dict(cls, d: dict) -> AtomLegendItem:
+        """Deserialise from a dictionary."""
+        return cls(**cls._base_kwargs_from_dict(d))
+
+
+class PolygonLegendItem(LegendItem):
+    """Legend entry rendered as a regular-polygon marker.
+
+    Args:
+        key: Identifier for this legend entry.
+        colour: Fill colour for the polygon marker.
+        sides: Number of polygon sides (>= 3).
+        rotation: Rotation of the polygon in degrees (default 0.0).
+        label: Display label text, or ``None`` to use *key*.
+        radius: Marker radius in points, or ``None`` for the style
+            default.
+        gap_after: Vertical gap in points after this entry.
+        alpha: Opacity (0.0--1.0, default 1.0).
+        edge_colour: Override outline colour, or ``None`` for scene
+            default.
+        edge_width: Override outline width in points, or ``None``
+            for scene default.
+    """
+
+    @staticmethod
+    def _validate_sides(value: int) -> None:
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise TypeError(
+                f"sides must be an int >= 3, got {value!r} "
+                f"(type {type(value).__name__})"
+            )
+        if value < 3:
+            raise ValueError(
+                f"sides must be >= 3, got {value}"
+            )
+
+    def __init__(
+        self,
+        key: str,
+        colour: Colour,
+        sides: int,
+        rotation: float = 0.0,
+        label: str | None = None,
+        radius: float | None = None,
+        gap_after: float | None = None,
+        alpha: float = 1.0,
+        edge_colour: Colour | None = None,
+        edge_width: float | None = None,
+    ) -> None:
+        super().__init__(
+            key=key, colour=colour, label=label, radius=radius,
+            gap_after=gap_after, alpha=alpha,
+            edge_colour=edge_colour, edge_width=edge_width,
+        )
+        self._validate_sides(sides)
+        self._sides = sides
+        self._rotation = float(rotation)
+
+    @property
+    def marker_type(self) -> str:
+        return "polygon"
+
+    @property
+    def sides(self) -> int:
+        """Number of polygon sides."""
+        return self._sides
+
+    @sides.setter
+    def sides(self, value: int) -> None:
+        self._validate_sides(value)
+        self._sides = value
+
+    @property
+    def rotation(self) -> float:
+        """Rotation of the polygon marker in degrees."""
+        return self._rotation
+
+    @rotation.setter
+    def rotation(self, value: float) -> None:
+        self._rotation = float(value)
+
+    @property
+    def marker(self) -> tuple[int, int, float]:
+        """Matplotlib marker specification: ``(sides, 0, rotation)``."""
+        return (self._sides, 0, self._rotation)
+
+    def __repr__(self) -> str:
+        parts = self._base_repr_parts()
+        parts.append(f"sides={self._sides!r}")
+        if self._rotation != 0.0:
+            parts.append(f"rotation={self._rotation!r}")
+        return f"PolygonLegendItem({', '.join(parts)})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LegendItem):
+            return NotImplemented
+        if not self._base_eq(other):
+            return False
+        assert isinstance(other, PolygonLegendItem)
+        return (
+            self._sides == other._sides
+            and self._rotation == other._rotation
+        )
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary."""
+        d = self._base_to_dict()
+        d["sides"] = self._sides
+        if self._rotation != 0.0:
+            d["rotation"] = self._rotation
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> PolygonLegendItem:
+        """Deserialise from a dictionary."""
+        kwargs = cls._base_kwargs_from_dict(d)
+        kwargs["sides"] = d["sides"]
+        if "rotation" in d:
+            kwargs["rotation"] = d["rotation"]
+        return cls(**kwargs)
+
+
+class PolyhedronLegendItem(LegendItem):
+    """Legend entry rendered as a miniature 3D polyhedron icon.
+
+    Args:
+        key: Identifier for this legend entry.
+        colour: Fill colour for the polyhedron faces.
+        shape: Polyhedron shape name.  Recognised names:
+            ``"octahedron"``, ``"tetrahedron"``, ``"cuboctahedron"``.
+        rotation: Orientation of the icon.  ``None`` (the default)
+            uses the default oblique viewing angle.  An ``(Rx, Ry)``
+            tuple specifies rotation angles in degrees.  A ``(3, 3)``
+            numpy array specifies a full rotation matrix.
+        label: Display label text, or ``None`` to use *key*.
+        radius: Marker radius in points, or ``None`` for the style
+            default.
+        gap_after: Vertical gap in points after this entry.
+        alpha: Opacity (0.0--1.0, default 1.0).
+        edge_colour: Override edge colour, or ``None`` for scene
+            default.
+        edge_width: Override edge width in points, or ``None``
+            for scene default.
+    """
+
+    @staticmethod
+    def _validate_shape(value: str) -> None:
+        if not isinstance(value, str):
+            raise TypeError(
+                f"shape must be a string, got {type(value).__name__}"
+            )
+        if value not in VALID_POLYHEDRA:
+            raise ValueError(
+                f"shape must be one of {sorted(VALID_POLYHEDRA)}, "
+                f"got {value!r}"
+            )
+
+    @staticmethod
+    def _normalise_rotation(
+        value: np.ndarray | tuple[float, float] | None,
+    ) -> np.ndarray | None:
+        """Validate and normalise *rotation* to a 3x3 matrix.
+
+        Accepts a ``(3, 3)`` numpy array, an ``(Rx, Ry)`` tuple of
+        rotation angles in degrees (converted to ``Ry @ Rx``), or
+        ``None``.
+
+        Args:
+            value: Rotation specification, or ``None``.
+
+        Returns:
+            A ``(3, 3)`` float64 rotation matrix, or ``None``.
+
+        Raises:
+            TypeError: If *value* is not an ndarray, a 2-tuple of
+                numbers, or ``None``.
+            ValueError: If an ndarray has the wrong shape.
+        """
+        if value is None:
+            return None
+        if isinstance(value, np.ndarray):
+            if value.shape != (3, 3):
+                raise ValueError(
+                    f"rotation must have shape (3, 3), got {value.shape}"
+                )
+            return np.array(value, dtype=float)
+        if isinstance(value, tuple) and len(value) == 2:
+            try:
+                rx_deg, ry_deg = float(value[0]), float(value[1])
+            except (TypeError, ValueError) as exc:
+                raise TypeError(
+                    f"rotation angle tuple must contain numbers, "
+                    f"got {value!r}"
+                ) from exc
+            rx = np.radians(rx_deg)
+            ry = np.radians(ry_deg)
+            Rx = np.array([
+                [1, 0, 0],
+                [0, np.cos(rx), -np.sin(rx)],
+                [0, np.sin(rx), np.cos(rx)],
+            ])
+            Ry = np.array([
+                [np.cos(ry), 0, np.sin(ry)],
+                [0, 1, 0],
+                [-np.sin(ry), 0, np.cos(ry)],
+            ])
+            return Ry @ Rx
+        raise TypeError(
+            f"rotation must be a (3, 3) numpy array or an "
+            f"(Rx, Ry) tuple of angles in degrees, got "
+            f"{type(value).__name__}"
+        )
+
+    def __init__(
+        self,
+        key: str,
+        colour: Colour,
+        shape: str,
+        rotation: np.ndarray | tuple[float, float] | None = None,
+        label: str | None = None,
+        radius: float | None = None,
+        gap_after: float | None = None,
+        alpha: float = 1.0,
+        edge_colour: Colour | None = None,
+        edge_width: float | None = None,
+    ) -> None:
+        super().__init__(
+            key=key, colour=colour, label=label, radius=radius,
+            gap_after=gap_after, alpha=alpha,
+            edge_colour=edge_colour, edge_width=edge_width,
+        )
+        self._validate_shape(shape)
+        self._shape = shape
+        self._rotation = self._normalise_rotation(rotation)
+
+    @property
+    def marker_type(self) -> str:
+        return "polyhedron"
+
+    @property
+    def shape(self) -> str:
+        """Polyhedron shape name."""
+        return self._shape
+
+    @shape.setter
+    def shape(self, value: str) -> None:
+        self._validate_shape(value)
+        self._shape = value
+
+    @property
+    def rotation(self) -> np.ndarray | None:
+        """3x3 rotation matrix for the icon, or ``None`` for the default.
+
+        Can be set with a ``(3, 3)`` numpy array or an ``(Rx, Ry)``
+        tuple of rotation angles in degrees.
+        """
+        return self._rotation
+
+    @rotation.setter
+    def rotation(
+        self, value: np.ndarray | tuple[float, float] | None,
+    ) -> None:
+        self._rotation = self._normalise_rotation(value)
+
+    def __repr__(self) -> str:
+        parts = self._base_repr_parts()
+        parts.append(f"shape={self._shape!r}")
+        if self._rotation is not None:
+            parts.append(f"rotation={self._rotation!r}")
+        return f"PolyhedronLegendItem({', '.join(parts)})"
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, LegendItem):
+            return NotImplemented
+        if not self._base_eq(other):
+            return False
+        assert isinstance(other, PolyhedronLegendItem)
+        if self._rotation is None and other._rotation is not None:
+            return False
+        if self._rotation is not None and other._rotation is None:
+            return False
+        if (
+            self._rotation is not None
+            and other._rotation is not None
+            and not np.array_equal(self._rotation, other._rotation)
+        ):
+            return False
+        return self._shape == other._shape
+
+    def to_dict(self) -> dict:
+        """Serialise to a JSON-compatible dictionary."""
+        d = self._base_to_dict()
+        d["shape"] = self._shape
+        if self._rotation is not None:
+            d["rotation"] = self._rotation.tolist()
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> PolyhedronLegendItem:
+        """Deserialise from a dictionary."""
+        kwargs = cls._base_kwargs_from_dict(d)
+        kwargs["shape"] = d["shape"]
+        if "rotation" in d:
+            kwargs["rotation"] = np.array(d["rotation"], dtype=float)
         return cls(**kwargs)
 
     @classmethod
@@ -608,7 +892,8 @@ class LegendItem:
         gap_after: float | None = None,
         edge_colour: Colour | None = None,
         edge_width: float | None = None,
-    ) -> LegendItem:
+        rotation: np.ndarray | tuple[float, float] | None = None,
+    ) -> PolyhedronLegendItem:
         """Create a legend item from a :class:`PolyhedronSpec`.
 
         Convenience factory that pulls defaults from *spec* so that
@@ -633,10 +918,13 @@ class LegendItem:
                 inherits from ``spec.edge_colour``.
             edge_width: Override edge width.  When ``None``,
                 inherits from ``spec.edge_width``.
+            rotation: Custom rotation for the polyhedron icon.
+                Accepts a ``(3, 3)`` numpy array or an ``(Rx, Ry)``
+                tuple of angles in degrees.  ``None`` uses the
+                default legend rotation.
 
         Returns:
-            A new :class:`LegendItem` configured for a 3D polyhedron
-            icon.
+            A new :class:`PolyhedronLegendItem`.
 
         Raises:
             ValueError: If no colour can be resolved (both *colour*
@@ -652,13 +940,14 @@ class LegendItem:
         return cls(
             key=key if key is not None else spec.centre,
             colour=resolved_colour,
+            shape=shape,
             label=label,
             radius=radius,
             alpha=alpha if alpha is not None else spec.alpha,
             gap_after=gap_after,
-            polyhedron=shape,
             edge_colour=edge_colour if edge_colour is not None else spec.edge_colour,
             edge_width=edge_width if edge_width is not None else spec.edge_width,
+            rotation=rotation,
         )
 
 
