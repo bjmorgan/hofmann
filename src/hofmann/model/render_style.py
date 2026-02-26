@@ -512,8 +512,10 @@ class LegendItem(ABC):
         """Deserialise from a dictionary.
 
         Dispatches to the correct subclass based on the ``"type"``
-        key.  Dictionaries without a ``"type"`` key are treated as
-        atom items for backwards compatibility.
+        key.  Dictionaries without a ``"type"`` key default to
+        :class:`AtomLegendItem`.  Legacy dicts containing ``sides``
+        or ``polyhedron`` fields from 0.12.x are **not** inferred
+        automatically and must be migrated.
         """
         item_type = d.get("type", "atom")
         if item_type == "atom":

@@ -25,8 +25,9 @@ Changelog
 
   Serialisation: ``to_dict()`` now includes a ``"type"`` discriminator;
   ``LegendItem.from_dict()`` dispatches to the correct subclass.
-  Dictionaries without a ``"type"`` key are treated as atom items for
-  backwards compatibility.
+  Saved style files from 0.12.x that contain polygon or polyhedron
+  legend items must be re-saved; only plain atom-style dicts (no
+  ``sides``/``polyhedron`` fields) are handled without a ``"type"`` key.
 
 - :class:`~hofmann.PolyhedronLegendItem` gains a ``rotation``
   parameter accepting a ``(3, 3)`` rotation matrix or an ``(Rx, Ry)``
