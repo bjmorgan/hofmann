@@ -905,7 +905,7 @@ def generate_docs_images() -> None:
     _legend_scene = perovskite_plain_scene()
     _legend_species = ("Sr", "Ti", "O")
 
-    _legend_figsize = (0.55, 0.8)
+    _legend_figsize = (0.50, 0.73)
 
     render_legend(
         _legend_scene, OUT / "legend_uniform.svg",
@@ -959,7 +959,6 @@ def generate_docs_images() -> None:
                                label="Spherical"),
             ),
         ),
-        figsize=(0.9, 0.8),
     )
     print(f"  wrote {OUT / 'legend_polygon_markers.svg'}")
 
