@@ -1,11 +1,18 @@
 Rendering
 =========
 
+Once you have a :class:`~hofmann.StructureScene`, call
+:meth:`~hofmann.StructureScene.render_mpl` to produce an image.  The
+output format is inferred from the file extension (``.svg``, ``.pdf``,
+``.png``).  This page covers how to control the camera view, visual
+style, and figure overlays.
+
+
 Controlling the view
 --------------------
 
-The :class:`~hofmann.ViewState` controls rotation, zoom, perspective,
-and slab clipping.
+The :class:`~hofmann.ViewState` controls rotation, zoom, and
+perspective.
 
 Rotation
 ~~~~~~~~
@@ -49,24 +56,11 @@ Perspective
 
           Perspective (``perspective=0.5``)
 
-Slab clipping
-~~~~~~~~~~~~~
-
-Restrict the visible depth range to show a slice through the structure:
-
-.. code-block:: python
-
-   scene.view.slab_near = -2.0
-   scene.view.slab_far = 2.0
-
-See :meth:`~hofmann.ViewState.slab_mask` for how slab visibility is
-computed.
-
 
 Render styles
 -------------
 
-:class:`~hofmann.RenderStyle` groups all visual appearance settings
+:class:`~hofmann.RenderStyle` groups visual appearance settings
 independent of the structure data.  You can pass a full style object
 or use convenience keyword arguments:
 
@@ -111,32 +105,6 @@ Here is the same SrTiO\ :sub:`3` perovskite rendered with different styles:
 
           Outlines disabled (``show_outlines=False``)
 
-Key style options:
-
-- ``atom_scale`` -- ``0.5`` for ball-and-stick, ``1.0`` for space-filling
-- ``half_bonds`` -- colour each bond half to match the nearest atom
-- ``show_bonds`` / ``show_polyhedra`` -- toggle bond or polyhedra drawing
-- ``show_outlines`` -- toggle atom and bond outlines
-- ``show_cell`` -- toggle unit cell edges (auto-detected by default;
-  see :ref:`unit-cell` below)
-- ``cell_style`` -- :class:`~hofmann.CellEdgeStyle` for cell edge
-  colour, width, and linestyle
-- ``show_axes`` -- toggle axes orientation widget (auto-detected by
-  default; see :ref:`axes-widget` below)
-- ``axes_style`` -- :class:`~hofmann.AxesStyle` for widget
-  colour, labels, corner, and sizing
-- ``show_legend`` -- toggle species legend (off by default; see
-  :ref:`legend-widget` below)
-- ``legend_style`` -- :class:`~hofmann.LegendStyle` for legend
-  corner, sizing, and species selection
-- ``slab_clip_mode`` -- how slab clipping interacts with polyhedra
-  (see :ref:`slab-clipping` below)
-- ``circle_segments`` / ``arc_segments`` -- polygon resolution for
-  static output (defaults are publication quality)
-- ``interactive_circle_segments`` / ``interactive_arc_segments`` --
-  polygon resolution for the interactive viewer (lower defaults
-  for responsive redraws)
-
 Half-bonds
 ~~~~~~~~~~
 
@@ -156,9 +124,8 @@ midpoint and each half is coloured to match the nearest atom.  With
 
           ``half_bonds=False``
 
-
 Polyhedra shading
------------------
+~~~~~~~~~~~~~~~~~
 
 The ``polyhedra_shading`` setting controls diffuse (Lambertian) shading
 on polyhedra faces.  At ``0.0`` all faces are flat; at ``1.0`` (the
@@ -176,44 +143,17 @@ are dimmed.
 
           ``polyhedra_shading=1.0`` (Lambertian)
 
-.. _slab-clipping:
 
-Slab clipping and polyhedra
----------------------------
+Overlays and widgets
+--------------------
 
-The ``slab_clip_mode`` setting on :class:`~hofmann.RenderStyle`
-controls how polyhedra at the slab boundary are handled:
-
-- ``"per_face"`` (default) -- drop individual faces whose vertices
-  are outside the slab
-- ``"clip_whole"`` -- hide the entire polyhedron if any vertex is
-  clipped
-- ``"include_whole"`` -- force the complete polyhedron to be visible
-  when its centre atom is within the slab
-
-Here is the LLZO garnet with a depth slab that clips through several
-ZrO\ :sub:`6` octahedra, rendered with each mode:
-
-.. list-table::
-   :widths: 33 33 33
-
-   * - .. figure:: _static/llzo_clip_whole.svg
-
-          ``"clip_whole"``
-
-     - .. figure:: _static/llzo_clip_per_face.svg
-
-          ``"per_face"``
-
-     - .. figure:: _static/llzo_clip_include_whole.svg
-
-          ``"include_whole"``
-
+hofmann can draw extra annotations on top of the structure: unit cell
+edges, an axes orientation widget, and a species legend.
 
 .. _unit-cell:
 
 Unit cell
----------
+~~~~~~~~~
 
 For scenes created from pymatgen ``Structure`` objects, the unit cell
 wireframe is drawn automatically.  The 12 cell edges are
@@ -252,11 +192,10 @@ edges are not drawn.  You can set a lattice manually:
    scene = StructureScene.from_xbs("structure.bs")
    scene.lattice = np.diag([5.43, 5.43, 5.43])  # Cubic, 5.43 A
 
-
 .. _axes-widget:
 
 Axes orientation widget
------------------------
+~~~~~~~~~~~~~~~~~~~~~~~
 
 For periodic structures, an axes orientation widget shows the
 crystallographic **a**, **b**, **c** lattice directions as lines in
@@ -283,11 +222,10 @@ Disable or customise the widget via :class:`~hofmann.RenderStyle`:
    )
    scene.render_mpl("output.svg", style=style)
 
-
 .. _legend-widget:
 
 Species legend
---------------
+~~~~~~~~~~~~~~
 
 A species legend maps each atom species to its coloured circle.  Unlike
 cell edges and the axes widget, the legend is off by default — enable it
@@ -334,7 +272,7 @@ label, respectively (both in points):
    LegendStyle(spacing=5.0, label_gap=8.0)
 
 Custom labels
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 Pass a ``labels`` dict to override the display text for any species.
 Common chemical notation is auto-formatted: trailing charges become
@@ -356,7 +294,7 @@ Species not in the dict use their name as-is.
    :align: center
 
 Circle sizing
-~~~~~~~~~~~~~
+^^^^^^^^^^^^^
 
 The ``circle_radius`` parameter controls the size of the legend
 circles and accepts three forms:
@@ -383,256 +321,24 @@ circles and accepts three forms:
 
    * - .. figure:: _static/legend_uniform.svg
           :align: center
-          :width: 60%
 
           Uniform (``5.0``)
 
      - .. figure:: _static/legend_proportional.svg
           :align: center
-          :width: 60%
 
           Proportional (``(3.0, 7.0)``)
 
      - .. figure:: _static/legend_dict.svg
           :align: center
-          :width: 60%
 
           Dict (per-species)
 
-Custom legend items
-~~~~~~~~~~~~~~~~~~~
-
-When colouring atoms by custom data (via ``colour_by``), the default
-species-based legend may not reflect the active colouring.  Pass a
-tuple of :class:`~hofmann.LegendItem` subclass instances to display
-a fully custom legend:
-
-.. code-block:: python
-
-   from hofmann import AtomLegendItem, LegendStyle
-
-   style = LegendStyle(items=(
-       AtomLegendItem(key="octahedral", colour="blue", label="Octahedral"),
-       AtomLegendItem(key="tetrahedral", colour="red", label="Tetrahedral"),
-   ))
-   scene.render_mpl("output.svg", show_legend=True, legend_style=style)
-
-When ``items`` is provided, the ``species`` and ``labels`` parameters
-are ignored — each item carries its own key, colour, and optional
-label.  Items with ``radius=None`` fall back to ``circle_radius``
-when that is a plain float, or to its default value otherwise (the
-proportional and per-species dict modes do not apply to individual
-items).
-
-Legend items are mutable, so they can be tweaked after creation:
-
-.. code-block:: python
-
-   item = AtomLegendItem(key="oct", colour="blue")
-   item.label = "Octahedral"
-   item.radius = 8.0
-
-Polygon markers
-^^^^^^^^^^^^^^^
-
-By default, :class:`~hofmann.AtomLegendItem` entries are drawn as
-circles.  Use :class:`~hofmann.PolygonLegendItem` to draw a regular
-polygon instead -- useful for indicating polyhedra types.
-``rotation`` controls the orientation in degrees:
-
-.. code-block:: python
-
-   from hofmann import AtomLegendItem, PolygonLegendItem
-
-   items = (
-       PolygonLegendItem(key="oct", colour="blue", label="Octahedral", sides=6),
-       PolygonLegendItem(key="tet", colour="red", label="Tetrahedral", sides=4, rotation=45.0),
-       AtomLegendItem(key="round", colour="green", label="Spherical"),
-   )
-   style = LegendStyle(items=items)
-   scene.render_mpl("output.svg", show_legend=True, legend_style=style)
-
-.. figure:: _static/legend_polygon_markers.svg
-   :align: center
-
-   Hexagon, rotated square, and circle markers.
-
-.. note::
-
-   Spacing between entries is based on the bounding circle of
-   each marker.  Use ``gap_after`` to fine-tune spacing when
-   needed.
-
-Non-uniform spacing
-^^^^^^^^^^^^^^^^^^^
-
-Each item can control the vertical gap below it via ``gap_after``
-(in points).  Items without ``gap_after`` fall back to
-``LegendStyle.spacing``.  This is useful for visually grouping
-related entries:
-
-.. code-block:: python
-
-   items = (
-       AtomLegendItem(key="Sr", colour="green"),
-       AtomLegendItem(key="Ti", colour="silver"),
-       AtomLegendItem(key="O", colour="red", gap_after=8.0),
-       PolygonLegendItem(key="oct", colour="blue", label="TiO6", sides=6),
-       PolygonLegendItem(key="tet", colour="purple", label="SrO12", sides=4, rotation=45.0),
-   )
-   style = LegendStyle(items=items)
-
-.. figure:: _static/legend_spacing.svg
-   :align: center
-
-   Larger gap separates the species group from the polyhedra group.
-
-Marker opacity
-^^^^^^^^^^^^^^
-
-Set ``alpha`` (0.0--1.0) to make a marker face semi-transparent.
-Marker outlines remain fully opaque, matching the visual style of
-polyhedra with translucent faces and solid edges:
-
-.. code-block:: python
-
-   PolygonLegendItem(key="oct", colour="blue", label="TiO6", sides=6, alpha=0.5)
-
-3D polyhedron icons
-^^^^^^^^^^^^^^^^^^^
-
-When a legend entry represents a polyhedron type, a flat circle or
-polygon is a poor visual match for the shaded 3D shape in the scene.
-Use :class:`~hofmann.PolyhedronLegendItem` to render a miniature
-depth-sorted, shaded icon instead:
-
-.. code-block:: python
-
-   from hofmann import PolyhedronLegendItem
-
-   items = (
-       PolyhedronLegendItem(key="oct", colour="steelblue",
-                            label="Octahedral", shape="octahedron", alpha=0.4),
-       PolyhedronLegendItem(key="tet", colour="goldenrod",
-                            label="Tetrahedral", shape="tetrahedron", alpha=0.4),
-       PolyhedronLegendItem(key="cuboct", colour="mediumseagreen",
-                            label="Cuboctahedral", shape="cuboctahedron", alpha=0.4),
-   )
-   style = LegendStyle(items=items)
-
-.. figure:: _static/legend_polyhedra.svg
-   :align: center
-
-   3D-shaded polyhedron legend icons.
-
-Polyhedron icons default to twice the flat-marker radius so that
-the 3D shading is legible at typical figure sizes.  Override with
-``radius`` on the item if needed.
-
-The shading uses the same Lambertian-style lighting as the main scene.
-Control its strength with ``polyhedra_shading`` (0 = flat colour,
-1 = full shading):
-
-.. list-table::
-   :widths: 50 50
-
-   * - .. figure:: _static/legend_polyhedra_shading_flat.svg
-          :align: center
-          :width: 60%
-
-          ``polyhedra_shading=0.0``
-
-     - .. figure:: _static/legend_polyhedra_shading_full.svg
-          :align: center
-          :width: 60%
-
-          ``polyhedra_shading=1.0``
-
-Supported shapes are ``"octahedron"``, ``"tetrahedron"``, and
-``"cuboctahedron"``.
-
-Icon rotation
-"""""""""""""
-
-By default, polyhedron icons are drawn at a fixed oblique viewing angle.
-Pass ``rotation`` to orient the icon differently.  Two forms are
-accepted:
-
-- **``(Rx, Ry)`` tuple** — rotation angles in degrees about the *x*
-  and *y* axes, applied as ``Ry @ Rx``.
-- **``(3, 3)`` numpy array** — a full rotation matrix used directly.
-
-``None`` (the default) uses the built-in oblique angle.
-
-.. code-block:: python
-
-   import numpy as np
-   from hofmann import PolyhedronLegendItem
-
-   # Tilt 30 degrees about x, 45 about y:
-   PolyhedronLegendItem(
-       key="oct", colour="steelblue", shape="octahedron",
-       rotation=(30.0, 45.0),
-   )
-
-   # Full rotation matrix (e.g. identity for a top-down view):
-   PolyhedronLegendItem(
-       key="oct", colour="steelblue", shape="octahedron",
-       rotation=np.eye(3),
-   )
-
-The rotation can also be changed after creation:
-
-.. code-block:: python
-
-   item = PolyhedronLegendItem(
-       key="oct", colour="steelblue", shape="octahedron",
-   )
-   item.rotation = (20.0, -15.0)   # update to a new orientation
-   item.rotation = None             # revert to default
-
-Convenience factory
-"""""""""""""""""""
-
-When building a legend to match existing polyhedra in a scene, use
-:meth:`~hofmann.PolyhedronLegendItem.from_polyhedron_spec` to inherit
-colour, alpha, and edge styling from the
-:class:`~hofmann.PolyhedronSpec`:
-
-.. code-block:: python
-
-   from hofmann import PolyhedronLegendItem, PolyhedronSpec
-
-   spec = PolyhedronSpec(
-       centre="Ti",
-       colour=(0.5, 0.7, 1.0),
-       alpha=0.3,
-       edge_colour=(0.3, 0.3, 0.3),
-   )
-   item = PolyhedronLegendItem.from_polyhedron_spec(spec, "octahedron")
-   # item.colour, item.alpha, item.edge_colour, item.edge_width
-   # all inherited from spec
-
-Per-item edge styling
-"""""""""""""""""""""
-
-Each item can carry its own ``edge_colour`` and ``edge_width``,
-overriding the scene-level outline settings.  When not set, the item
-falls back to the scene's ``outline_colour`` and ``outline_width``.
-Setting ``show_outlines=False`` disables edges for items that do not
-define their own edge styling; explicit per-item ``edge_colour`` /
-``edge_width`` values are still honoured:
-
-.. code-block:: python
-
-   # Thick red edges on this item only:
-   PolyhedronLegendItem(
-       key="oct", colour="steelblue", shape="octahedron",
-       edge_colour="red", edge_width=2.0,
-   )
+For fully custom legends with polygon markers, 3D polyhedron icons, or
+fine-grained control over individual entries, see :doc:`legends`.
 
 Standalone legend
-~~~~~~~~~~~~~~~~~
+^^^^^^^^^^^^^^^^^
 
 Use :func:`~hofmann.rendering.static.render_legend` to produce a
 legend-only image — useful for composing figures manually in Inkscape,
@@ -654,8 +360,52 @@ structure.  See :func:`~hofmann.rendering.static.render_legend` for the
 full parameter list.
 
 
-Rendering into existing axes
------------------------------
+.. _slab-clipping:
+
+Depth slicing
+-------------
+
+Restrict the visible depth range to show a slice through the structure:
+
+.. code-block:: python
+
+   scene.view.slab_near = -2.0
+   scene.view.slab_far = 2.0
+
+See :meth:`~hofmann.ViewState.slab_mask` for how slab visibility is
+computed.
+
+The ``slab_clip_mode`` setting on :class:`~hofmann.RenderStyle`
+controls how polyhedra at the slab boundary are handled:
+
+- ``"per_face"`` (default) -- drop individual faces whose vertices
+  are outside the slab
+- ``"clip_whole"`` -- hide the entire polyhedron if any vertex is
+  clipped
+- ``"include_whole"`` -- force the complete polyhedron to be visible
+  when its centre atom is within the slab
+
+Here is the LLZO garnet with a depth slab that clips through several
+ZrO\ :sub:`6` octahedra, rendered with each mode:
+
+.. list-table::
+   :widths: 33 33 33
+
+   * - .. figure:: _static/llzo_clip_whole.svg
+
+          ``"clip_whole"``
+
+     - .. figure:: _static/llzo_clip_per_face.svg
+
+          ``"per_face"``
+
+     - .. figure:: _static/llzo_clip_include_whole.svg
+
+          ``"include_whole"``
+
+
+Multi-panel rendering
+---------------------
 
 By default :meth:`~hofmann.StructureScene.render_mpl` creates its own
 figure.  Pass the ``ax`` parameter to draw into an existing matplotlib

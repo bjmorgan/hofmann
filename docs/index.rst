@@ -34,9 +34,22 @@ Quick example
    getting-started
    scenes
    rendering
-   styles
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Guides
+
+   legends
    colouring
+   styles
    interactive
+
+.. toctree::
+   :maxdepth: 2
+   :hidden:
+   :caption: Reference
+
    api
    xbs-format
    citing

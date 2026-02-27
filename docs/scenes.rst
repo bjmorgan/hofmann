@@ -1,43 +1,17 @@
 Scenes and structures
 =====================
 
-Scenes and frames
------------------
-
-A :class:`~hofmann.StructureScene` is the central object in hofmann.  It
-holds everything needed to render a structure:
-
-- **species** -- one label per atom (e.g. ``["C", "H", "H", "H", "H"]``)
-- **frames** -- one or more :class:`~hofmann.Frame` coordinate snapshots
-- **atom_styles** -- mapping from species to :class:`~hofmann.AtomStyle`
-  (radius and colour)
-- **bond_specs** -- declarative :class:`~hofmann.BondSpec` rules
-- **polyhedra** -- optional :class:`~hofmann.PolyhedronSpec` rules
-- **view** -- a :class:`~hofmann.ViewState` controlling the camera
-
-Scenes are typically created via :meth:`~hofmann.StructureScene.from_xbs`
-or :meth:`~hofmann.StructureScene.from_pymatgen`, but you can also
-construct one directly from data.
-
-Here is a simple CH\ :sub:`4` molecule loaded from an XBS file:
-
-.. code-block:: python
-
-   from hofmann import StructureScene
-
-   scene = StructureScene.from_xbs("ch4.bs")
-   scene.render_mpl()
-
-.. image:: _static/ch4.svg
-   :width: 320px
-   :align: center
-   :alt: CH4 rendered from an XBS file
+A :class:`~hofmann.StructureScene` holds all the data needed to render
+a structure: atom positions, species, bonds, polyhedra, and a camera
+view.  The :doc:`getting-started` guide covers how to create a scene
+from an XBS file or a pymatgen ``Structure``.  This page explains how
+to customise what goes into a scene.
 
 
 .. _construction-time-styles:
 
-Customising styles at construction time
-----------------------------------------
+Atoms and styles
+----------------
 
 When building a scene from a pymatgen ``Structure``,
 :func:`~hofmann.from_pymatgen` generates default
@@ -84,38 +58,6 @@ The following keyword arguments are accepted by both the
   (see :doc:`colouring`).
 
 
-Periodic boundary conditions
------------------------------
-
-When a scene has a lattice (i.e. it was created from a pymatgen
-``Structure``), the renderer can expand periodic image atoms so that
-bonds crossing cell boundaries are drawn correctly.  PBC behaviour is
-controlled at render time via :class:`~hofmann.RenderStyle` fields:
-
-- ``pbc`` (default ``True``) -- enable or disable PBC expansion.
-- ``pbc_padding`` (default ``0.1`` angstroms) -- the Cartesian margin
-  around the unit cell.  Atoms within this distance of a cell face get
-  an image on the opposite side.  The default of 0.1 angstroms
-  captures atoms sitting on cell boundaries without cluttering the
-  scene.  Set to ``None`` to disable geometric padding entirely
-  (image atoms are still created by ``complete`` and ``recursive``
-  bond specs).
-
-.. code-block:: python
-
-   scene = StructureScene.from_pymatgen(structure, bonds)
-   scene.render_mpl(pbc=True, pbc_padding=0.1)
-
-.. image:: _static/si.svg
-   :width: 320px
-   :align: center
-   :alt: Diamond-cubic Si with PBC expansion
-
-When polyhedra are defined, the PBC expansion also ensures that every
-atom matching a polyhedron centre pattern has its full coordination
-shell present, so that boundary polyhedra are complete.
-
-
 Bonds
 -----
 
@@ -147,6 +89,11 @@ Species matching supports wildcards:
 When no bond specs are provided, :func:`~hofmann.from_pymatgen`
 generates sensible defaults from VESTA bond length cutoffs.
 
+.. image:: _static/perovskite_plain.svg
+   :width: 320px
+   :align: center
+   :alt: SrTiO3 perovskite with bonds
+
 Bond display defaults
 ~~~~~~~~~~~~~~~~~~~~~
 
@@ -164,13 +111,71 @@ The ``repr()`` of a spec shows ``<default ...>`` for values that will
 follow the class default, making it easy to see what has been
 explicitly set and what has not.
 
-.. image:: _static/perovskite_plain.svg
+
+Polyhedra
+---------
+
+Coordination polyhedra are built from the bond graph: for each atom
+whose species matches the ``centre`` pattern, a convex hull is
+constructed from its bonded neighbours.
+
+.. code-block:: python
+
+   from hofmann import PolyhedronSpec
+
+   spec = PolyhedronSpec(
+       centre="Ti",
+       colour=(0.5, 0.7, 1.0),
+       alpha=0.3,
+   )
+   scene = StructureScene.from_pymatgen(
+       structure, bonds, polyhedra=[spec],
+   )
+
+.. image:: _static/perovskite.svg
+   :width: 400px
+   :align: center
+   :alt: SrTiO3 perovskite with TiO6 octahedra
+
+Polyhedra can also inherit per-atom colours from ``colour_by``
+data attached to their centre atoms.  See :doc:`colouring` for
+details on per-atom colouring, custom colouring functions, and
+polyhedra colour inheritance.
+
+
+Periodic structures
+-------------------
+
+When a scene has a lattice (i.e. it was created from a pymatgen
+``Structure``), the renderer can expand periodic image atoms so that
+bonds crossing cell boundaries are drawn correctly.  PBC behaviour is
+controlled at render time via :class:`~hofmann.RenderStyle` fields:
+
+- ``pbc`` (default ``True``) -- enable or disable PBC expansion.
+- ``pbc_padding`` (default ``0.1`` angstroms) -- the Cartesian margin
+  around the unit cell.  Atoms within this distance of a cell face get
+  an image on the opposite side.  The default of 0.1 angstroms
+  captures atoms sitting on cell boundaries without cluttering the
+  scene.  Set to ``None`` to disable geometric padding entirely
+  (image atoms are still created by ``complete`` and ``recursive``
+  bond specs).
+
+.. code-block:: python
+
+   scene = StructureScene.from_pymatgen(structure, bonds)
+   scene.render_mpl(pbc=True, pbc_padding=0.1)
+
+.. image:: _static/si.svg
    :width: 320px
    :align: center
-   :alt: SrTiO3 perovskite with bonds
+   :alt: Diamond-cubic Si with PBC expansion
+
+When polyhedra are defined, the PBC expansion also ensures that every
+atom matching a polyhedron centre pattern has its full coordination
+shell present, so that boundary polyhedra are complete.
 
 Bond completion across boundaries
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 When atoms sit near cell boundaries, some of their bonded neighbours
 may lie outside the ``pbc_padding`` margin and are not included in the
@@ -230,12 +235,7 @@ bonded atoms across boundaries until no new atoms are found:
    :alt: Same structure with recursive=True completing all N2H6 molecules
 
 Iteration stops when no new atoms are found, or when
-``max_recursive_depth`` is reached (default 5, minimum 1).  You can
-increase this limit for molecules spanning many cell widths:
-
-.. code-block:: python
-
-   scene.render_mpl(max_recursive_depth=10)
+``max_recursive_depth`` is reached (default 5, minimum 1).
 
 Molecule deduplication
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -280,34 +280,3 @@ systems (e.g. a slab with adsorbed solvent):
 - **Orphan cleanup.**  After selection, any image atom that has no bonds
   within the kept set is removed.  This catches isolated padding
   artefacts at cell edges.
-
-
-Polyhedra
----------
-
-Coordination polyhedra are built from the bond graph: for each atom
-whose species matches the ``centre`` pattern, a convex hull is
-constructed from its bonded neighbours.
-
-.. code-block:: python
-
-   from hofmann import PolyhedronSpec
-
-   spec = PolyhedronSpec(
-       centre="Ti",
-       colour=(0.5, 0.7, 1.0),
-       alpha=0.3,
-   )
-   scene = StructureScene.from_pymatgen(
-       structure, bonds, polyhedra=[spec],
-   )
-
-.. image:: _static/perovskite.svg
-   :width: 400px
-   :align: center
-   :alt: SrTiO3 perovskite with TiO6 octahedra
-
-Polyhedra can also inherit per-atom colours from ``colour_by``
-data attached to their centre atoms.  See :doc:`colouring` for
-details on per-atom colouring, custom colouring functions, and
-polyhedra colour inheritance.
