@@ -4,6 +4,9 @@ Changelog
 0.13.1
 ------
 
+- Added :ref:`widget positioning <widget-positioning>` documentation
+  covering the ``corner``, ``margin``, and custom coordinate parameters
+  shared by :class:`~hofmann.AxesStyle` and :class:`~hofmann.LegendStyle`.
 - Documentation figures are now generated at Sphinx build time via a
   ``builder-inited`` hook, rather than being pre-generated and committed
   to the repository.  This ensures figures always reflect the current
