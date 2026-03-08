@@ -37,10 +37,13 @@ class SlabClipMode(StrEnum):
 
 
 class WidgetCorner(StrEnum):
-    """Which corner of the viewport to place the axes widget.
+    """Which corner of the viewport to place a widget.
+
+    Used by both :class:`AxesStyle` (default ``BOTTOM_LEFT``) and
+    :class:`LegendStyle` (default ``BOTTOM_RIGHT``).
 
     Attributes:
-        BOTTOM_LEFT: Bottom-left corner (default).
+        BOTTOM_LEFT: Bottom-left corner.
         BOTTOM_RIGHT: Bottom-right corner.
         TOP_LEFT: Top-left corner.
         TOP_RIGHT: Top-right corner.
