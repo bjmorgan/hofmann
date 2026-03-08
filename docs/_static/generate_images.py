@@ -901,6 +901,17 @@ def generate_docs_images() -> None:
     )
     print(f"  wrote {OUT / 'legend_perovskite.svg'}")
 
+    # Widget corner positioning: axes widget in each named corner.
+    for corner in ("bottom_left", "bottom_right", "top_left", "top_right"):
+        suffix = corner[:1] + corner.split("_")[1][:1]  # bl, br, tl, tr
+        _corner_scene = perovskite_plain_scene()
+        _corner_scene.render_mpl(
+            OUT / f"axes_corner_{suffix}.svg",
+            figsize=(4, 4), dpi=150,
+            axes_style=AxesStyle(corner=corner),
+        )
+        print(f"  wrote {OUT / f'axes_corner_{suffix}.svg'}")
+
     # Legend-only images via render_legend.
     _legend_scene = perovskite_plain_scene()
     _legend_species = ("Sr", "Ti", "O")

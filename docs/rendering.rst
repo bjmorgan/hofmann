@@ -359,6 +359,85 @@ The figure is cropped tightly to the legend entries and has no axes or
 structure.  See :func:`~hofmann.rendering.static.render_legend` for the
 full parameter list.
 
+.. _widget-positioning:
+
+Widget positioning
+~~~~~~~~~~~~~~~~~~
+
+Both the axes widget and the species legend share the same positioning
+interface via the ``corner`` and ``margin`` parameters on
+:class:`~hofmann.AxesStyle` and :class:`~hofmann.LegendStyle`.
+
+**Named corners**
+
+Pass one of ``"bottom_left"``, ``"bottom_right"``, ``"top_left"``, or
+``"top_right"`` (these correspond to the :class:`~hofmann.WidgetCorner`
+enum).  The default is ``"bottom_left"`` for the axes widget and
+``"bottom_right"`` for the legend.
+
+.. code-block:: python
+
+   from hofmann import AxesStyle, LegendStyle, RenderStyle
+
+   style = RenderStyle(
+       show_legend=True,
+       axes_style=AxesStyle(corner="top_left"),
+       legend_style=LegendStyle(corner="top_right"),
+   )
+
+The four-panel figure below shows the axes widget placed in each named
+corner:
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/axes_corner_bl.svg
+          :align: center
+
+          ``corner="bottom_left"`` (default)
+
+     - .. figure:: _static/axes_corner_br.svg
+          :align: center
+
+          ``corner="bottom_right"``
+
+   * - .. figure:: _static/axes_corner_tl.svg
+          :align: center
+
+          ``corner="top_left"``
+
+     - .. figure:: _static/axes_corner_tr.svg
+          :align: center
+
+          ``corner="top_right"``
+
+**Margin**
+
+The ``margin`` parameter controls how far the widget is inset from its
+corner, as a fraction of the viewport half-extent.  The default is
+``0.15``.  This only applies when ``corner`` is a named corner — it is
+ignored for explicit coordinates.
+
+.. code-block:: python
+
+   AxesStyle(corner="top_right", margin=0.05)   # Tighter to the edge
+   LegendStyle(corner="top_right", margin=0.30) # Further inset
+
+**Custom coordinates**
+
+For precise placement, pass a ``(x, y)`` tuple of fractional viewport
+coordinates, where ``(0.0, 0.0)`` is the bottom-left corner and
+``(1.0, 1.0)`` is the top-right corner.  The ``margin`` parameter is
+ignored in this case.
+
+.. code-block:: python
+
+   # Place the axes widget at a custom position.
+   AxesStyle(corner=(0.15, 0.85))
+
+   # Place the legend near the centre-right of the figure.
+   LegendStyle(corner=(0.85, 0.5))
+
 
 .. _slab-clipping:
 
