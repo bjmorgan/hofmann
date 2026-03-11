@@ -113,8 +113,8 @@ def from_ase(
     except ImportError:
         raise ImportError(
             "ase is required for from_ase(). "
-            "Install it with: pip install ase"
-        )
+            "Install it with: pip install 'hofmann[ase]'"
+        ) from None
 
     if isinstance(atoms, Atoms):
         atoms_list = [atoms]
