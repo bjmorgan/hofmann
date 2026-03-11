@@ -72,6 +72,26 @@ class TestStructureScene:
         )
         np.testing.assert_array_equal(scene.lattice, lat)
 
+    def test_lattice_assignment_raises(self):
+        coords = np.zeros((1, 3))
+        scene = StructureScene(
+            species=["A"],
+            frames=[Frame(coords=coords, lattice=np.eye(3))],
+        )
+        with pytest.raises(AttributeError, match="read-only"):
+            scene.lattice = np.eye(3) * 10.0
+
+    def test_mixed_lattice_frames_raises(self):
+        coords = np.zeros((1, 3))
+        with pytest.raises(ValueError, match="all frames must have a lattice"):
+            StructureScene(
+                species=["A"],
+                frames=[
+                    Frame(coords=coords, lattice=np.eye(3)),
+                    Frame(coords=coords),
+                ],
+            )
+
     def test_atom_data_default_empty(self):
         coords = np.zeros((2, 3))
         scene = StructureScene(

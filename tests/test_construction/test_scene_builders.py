@@ -63,6 +63,16 @@ class TestFromPymatgen:
         scene = from_pymatgen([s1, s2])
         assert len(scene.frames) == 2
 
+    def test_variable_cell_trajectory(self):
+        """Each frame stores its own lattice for NPT trajectories."""
+        lat1 = Lattice.cubic(5.0)
+        lat2 = Lattice.cubic(5.5)
+        s1 = Structure(lat1, ["Na"], [[0.5, 0.5, 0.5]])
+        s2 = Structure(lat2, ["Na"], [[0.5, 0.5, 0.5]])
+        scene = from_pymatgen([s1, s2])
+        np.testing.assert_allclose(scene.frames[0].lattice, lat1.matrix)
+        np.testing.assert_allclose(scene.frames[1].lattice, lat2.matrix)
+
     def test_classmethod(self):
         lattice = Lattice.cubic(5.0)
         struct = Structure(lattice, ["Na", "Cl"], [[0, 0, 0], [0.5, 0.5, 0.5]])

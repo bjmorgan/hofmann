@@ -50,6 +50,11 @@ class StructureScene:
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __setattr__(self, name: str, value: object) -> None:
+        if name == "lattice":
+            raise AttributeError(
+                "lattice is a read-only property; "
+                "set lattice on individual frames instead"
+            )
         if name == "view" and not isinstance(value, ViewState):
             hint = ""
             if isinstance(value, tuple):
@@ -83,6 +88,12 @@ class StructureScene:
                 raise ValueError(
                     f"species has {n_atoms} atoms but frame {i} has "
                     f"{frame.coords.shape[0]}"
+                )
+        if self.frames:
+            has_lattice = [f.lattice is not None for f in self.frames]
+            if any(has_lattice) and not all(has_lattice):
+                raise ValueError(
+                    "all frames must have a lattice or none must"
                 )
         for key, arr in self.atom_data.items():
             arr = np.asarray(arr)
