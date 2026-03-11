@@ -63,29 +63,14 @@ class TestStructureScene:
         scene = StructureScene(species=["A"], frames=[Frame(coords=coords)])
         assert scene.lattice is None
 
-    def test_lattice_accepted(self):
+    def test_lattice_property_returns_first_frame(self):
         coords = np.zeros((1, 3))
         lat = np.eye(3) * 5.0
         scene = StructureScene(
-            species=["A"], frames=[Frame(coords=coords)], lattice=lat,
+            species=["A"],
+            frames=[Frame(coords=coords, lattice=lat)],
         )
         np.testing.assert_array_equal(scene.lattice, lat)
-
-    def test_lattice_bad_shape_raises(self):
-        coords = np.zeros((1, 3))
-        with pytest.raises(ValueError, match="shape"):
-            StructureScene(
-                species=["A"], frames=[Frame(coords=coords)],
-                lattice=np.eye(2),
-            )
-
-    def test_lattice_coerced_to_float(self):
-        coords = np.zeros((1, 3))
-        lat_int = np.eye(3, dtype=int) * 5
-        scene = StructureScene(
-            species=["A"], frames=[Frame(coords=coords)], lattice=lat_int,
-        )
-        assert scene.lattice.dtype == float
 
     def test_atom_data_default_empty(self):
         coords = np.zeros((2, 3))

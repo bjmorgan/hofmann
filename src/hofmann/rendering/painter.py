@@ -115,7 +115,7 @@ def _precompute_scene(
 
     # Run periodic bond pipeline: compute bonds (with MIC when
     # periodic), then build the expanded rendering set.
-    lattice = scene.lattice if rs.pbc else None
+    lattice = frame.lattice if rs.pbc else None
     periodic_bonds = compute_bonds(
         scene.species, coords, scene.bond_specs, lattice=lattice,
     )
@@ -568,10 +568,11 @@ def _draw_scene(
         in_front_after_slot[slot].sort(key=lambda v: depth[v])
 
     # ---- Cell edge data ----
+    lattice = scene.frames[frame_index].lattice
     draw_cell = style.show_cell
     if draw_cell is None:
-        draw_cell = scene.lattice is not None
-    if draw_cell and scene.lattice is None:
+        draw_cell = lattice is not None
+    if draw_cell and lattice is None:
         raise ValueError("show_cell=True but scene has no lattice")
 
     cell_edge_by_depth_slot: dict[
@@ -590,7 +591,7 @@ def _draw_scene(
                 (xy[:, 1].max() - xy[:, 1].min()) / 2,
             ) + cell_margin
         cell_edge_by_depth_slot = _collect_cell_edges(
-            scene, view, style.cell_style, depth, order, cell_pad,
+            lattice, view, style.cell_style, depth, order, cell_pad,
             coords, radii_3d * atom_scale,
         )
 
@@ -799,7 +800,7 @@ def _draw_scene(
     # ---- Axes orientation widget ----
     draw_axes = style.show_axes
     if draw_axes is None:
-        draw_axes = scene.lattice is not None
+        draw_axes = lattice is not None
     if draw_axes and viewport_extent is None:
         # Expand viewport so the widget doesn't overlap atoms.
         # The widget spans (margin + 2 * arrow_length) * pad from the
@@ -827,10 +828,10 @@ def _draw_scene(
         )
 
     if draw_axes:
-        if scene.lattice is None:
+        if lattice is None:
             raise ValueError("show_axes=True but scene has no lattice")
         _draw_axes_widget(
-            ax, scene, view, style.axes_style,
+            ax, lattice, view, style.axes_style,
             pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
         )
 
@@ -846,7 +847,7 @@ def _draw_scene(
 
 def _draw_axes_widget(
     ax: "Axes",
-    scene: StructureScene,
+    lattice: np.ndarray,
     view: ViewState,
     style: AxesStyle,
     pad_x: float,
@@ -867,7 +868,8 @@ def _draw_axes_widget(
 
     Args:
         ax: A matplotlib ``Axes`` to draw into.
-        scene: The structure scene (provides lattice).
+        lattice: Unit-cell matrix, shape ``(3, 3)`` with rows as
+            lattice vectors.
         view: Camera / projection state.
         style: Visual style for the widget.
         pad_x: Viewport half-extent in the x direction (data coords).
@@ -875,8 +877,6 @@ def _draw_axes_widget(
         cx: Viewport centre x coordinate.
         cy: Viewport centre y coordinate.
     """
-    lattice = scene.lattice  # (3, 3), rows are a, b, c
-    assert lattice is not None, "axes widget requires a lattice"
     pad = max(pad_x, pad_y)
     arrow_len = style.arrow_length * pad
 

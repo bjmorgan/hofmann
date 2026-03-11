@@ -86,8 +86,9 @@ def _scene_extent(
         max_extent = 0.0
 
     # Include cell corners when a lattice is present.
-    if scene.lattice is not None:
-        corners = _FRAC_CORNERS @ scene.lattice  # (8, 3)
+    lattice = scene.frames[frame_index].lattice
+    if lattice is not None:
+        corners = _FRAC_CORNERS @ lattice  # (8, 3)
         corner_dists = np.linalg.norm(corners - view.centre, axis=1)
         max_extent = max(max_extent, float(np.max(corner_dists)))
 

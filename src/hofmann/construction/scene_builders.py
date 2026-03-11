@@ -158,7 +158,11 @@ def from_pymatgen(
     for i, s in enumerate(structures):
         frac = s.frac_coords % 1.0
         wrapped_coords = frac @ s.lattice.matrix
-        frames.append(Frame(coords=wrapped_coords, label=f"frame_{i}"))
+        frames.append(Frame(
+            coords=wrapped_coords,
+            lattice=s.lattice.matrix.copy(),
+            label=f"frame_{i}",
+        ))
 
     # Centre on first frame (unless the caller supplied a view).
     if view is None:
@@ -176,6 +180,5 @@ def from_pymatgen(
         polyhedra=polyhedra if polyhedra is not None else [],
         view=view,
         title=title,
-        lattice=structures[0].lattice.matrix.copy(),
         atom_data=dict(atom_data) if atom_data is not None else {},
     )
