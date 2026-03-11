@@ -10,6 +10,12 @@ Install hofmann from PyPI:
 
    pip install hofmann
 
+For ASE interoperability (optional):
+
+.. code-block:: bash
+
+   pip install "hofmann[ase]"
+
 For pymatgen interoperability (optional):
 
 .. code-block:: bash
@@ -29,6 +35,7 @@ Requirements
 - numpy >= 1.24
 - matplotlib >= 3.7
 - scipy >= 1.10
+- ase >= 3.22 (optional, for :func:`~hofmann.from_ase`)
 - pymatgen >= 2024.1.1 (optional, for :func:`~hofmann.from_pymatgen`)
 
 
@@ -52,6 +59,30 @@ rules in a simple text format (see :doc:`xbs-format`).
 
 The output format is inferred from the file extension: ``.svg``, ``.pdf``,
 and ``.png`` are all supported.
+
+
+Rendering from ASE
+------------------
+
+If you have ASE installed, you can build a scene directly from an
+``Atoms`` object:
+
+.. code-block:: python
+
+   from ase.build import bulk
+   from hofmann import StructureScene, BondSpec
+
+   atoms = bulk("Si", "diamond", a=5.43)
+   bonds = [BondSpec(species=("Si", "Si"), max_length=2.8)]
+   scene = StructureScene.from_ase(atoms, bonds)
+   scene.render_mpl("si.pdf")
+
+Both periodic and non-periodic ``Atoms`` objects are supported.  For
+periodic systems, fractional coordinates are wrapped into the unit cell
+automatically.  For non-periodic systems (molecules), Cartesian
+positions are stored directly.
+
+See :func:`~hofmann.from_ase` for full details.
 
 
 Rendering from pymatgen

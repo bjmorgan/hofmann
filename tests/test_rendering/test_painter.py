@@ -427,11 +427,26 @@ class TestVariableCellRendering:
             ],
             atom_styles={"A": AtomStyle(0.5, (0.5, 0.5, 0.5))},
         )
-        # Render frame 0 — should not raise.
-        fig0 = render_mpl(scene, frame_index=0, show=False)
+        # Render both frames with cell edges visible.
+        fig0 = render_mpl(
+            scene, frame_index=0, show=False, show_cell=True,
+        )
+        fig1 = render_mpl(
+            scene, frame_index=1, show=False, show_cell=True,
+        )
+
+        # The cell edge geometry should reflect each frame's lattice.
+        # Extract vertex extents from the PolyCollection paths.
+        def _poly_x_extent(fig):
+            coll = fig.axes[0].collections[0]
+            all_verts = np.concatenate(
+                [p.vertices for p in coll.get_paths()],
+            )
+            return all_verts[:, 0].max() - all_verts[:, 0].min()
+
+        assert _poly_x_extent(fig1) > _poly_x_extent(fig0)
+
         plt.close(fig0)
-        # Render frame 1 — should use the larger lattice, not frame 0's.
-        fig1 = render_mpl(scene, frame_index=1, show=False)
         plt.close(fig1)
 
 

@@ -18,6 +18,7 @@ from hofmann.model.render_style import RenderStyle
 from hofmann.model.view_state import ViewState
 
 if TYPE_CHECKING:
+    from ase import Atoms
     from pymatgen.core import Structure
 
 
@@ -127,6 +128,74 @@ class StructureScene:
         from hofmann.construction.scene_builders import from_xbs
 
         return from_xbs(bs_path, mv_path)
+
+    @classmethod
+    def from_ase(
+        cls,
+        atoms: Atoms | Sequence[Atoms],
+        bond_specs: list[BondSpec] | None = None,
+        *,
+        polyhedra: list[PolyhedronSpec] | None = None,
+        centre_atom: int | None = None,
+        atom_styles: dict[str, AtomStyle] | None = None,
+        title: str = "",
+        view: ViewState | None = None,
+        atom_data: dict[str, np.ndarray] | None = None,
+    ) -> StructureScene:
+        """Create a StructureScene from ASE ``Atoms`` object(s).
+
+        For periodic systems, fractional coordinates are wrapped to
+        ``[0, 1)`` and stored as Cartesian coordinates.  For non-periodic
+        systems, Cartesian positions are stored directly and
+        :attr:`lattice` is ``None``.
+
+        Args:
+            atoms: A single ASE ``Atoms`` object or a sequence of
+                ``Atoms`` (e.g. from an MD trajectory or
+                ``ase.io.Trajectory``).
+            bond_specs: Bond detection rules.  ``None`` generates
+                sensible defaults from VESTA bond length cutoffs;
+                pass an empty list to disable bonds.
+            polyhedra: Polyhedron rendering rules.  ``None`` disables
+                polyhedra.
+            centre_atom: Index of the atom to centre the unit cell on.
+                Fractional coordinates are shifted so this atom sits
+                at (0.5, 0.5, 0.5).  Only valid for periodic systems.
+                If *view* is also provided, the explicit view takes
+                precedence and only the fractional-coordinate shift is
+                applied.
+            atom_styles: Per-species style overrides.  When provided,
+                these are merged on top of the auto-generated defaults
+                so you only need to specify the species you want to
+                customise.
+            title: Scene title for display.
+            view: Camera / projection state.  When ``None`` (the
+                default), the view is auto-centred on the centre atom
+                (if set) or the centroid of all atoms.
+            atom_data: Per-atom metadata arrays, keyed by name.
+
+        Returns:
+            A StructureScene with default element styles.
+
+        Raises:
+            ImportError: If ASE is not installed.
+            ValueError: If *atoms* is an empty sequence, if
+                *centre_atom* is out of range, if *centre_atom* is
+                used with a non-periodic system, or if frames in a
+                trajectory have inconsistent species, atom counts,
+                or periodicity.
+
+        See Also:
+            :func:`hofmann.construction.scene_builders.from_ase`
+        """
+        from hofmann.construction.scene_builders import from_ase
+
+        return from_ase(
+            atoms, bond_specs, polyhedra=polyhedra,
+            centre_atom=centre_atom,
+            atom_styles=atom_styles, title=title, view=view,
+            atom_data=atom_data,
+        )
 
     @classmethod
     def from_pymatgen(

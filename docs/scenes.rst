@@ -4,8 +4,8 @@ Scenes and structures
 A :class:`~hofmann.StructureScene` holds all the data needed to render
 a structure: atom positions, species, bonds, polyhedra, and a camera
 view.  The :doc:`getting-started` guide covers how to create a scene
-from an XBS file or a pymatgen ``Structure``.  This page explains how
-to customise what goes into a scene.
+from an XBS file, an ASE ``Atoms`` object, or a pymatgen ``Structure``.
+This page explains how to customise what goes into a scene.
 
 
 .. _construction-time-styles:
@@ -13,8 +13,9 @@ to customise what goes into a scene.
 Atoms and styles
 ----------------
 
-When building a scene from a pymatgen ``Structure``,
-:func:`~hofmann.from_pymatgen` generates default
+When building a scene from an ASE ``Atoms`` object or a pymatgen
+``Structure``, :func:`~hofmann.from_ase` and
+:func:`~hofmann.from_pymatgen` generate default
 :class:`~hofmann.AtomStyle` objects for every species using
 :func:`~hofmann.default_atom_style`.  You can override individual
 species by passing an ``atom_styles`` dict -- only the species you
@@ -45,9 +46,9 @@ This also works with styles loaded from a file (see :doc:`styles`):
        atom_styles=styles.atom_styles,
    )
 
-The following keyword arguments are accepted by both the
-:func:`~hofmann.from_pymatgen` module-level function and the
-:meth:`~hofmann.StructureScene.from_pymatgen` classmethod:
+The following keyword arguments are accepted by
+:func:`~hofmann.from_ase` and :func:`~hofmann.from_pymatgen` (and
+their corresponding classmethods):
 
 - ``atom_styles`` -- per-species :class:`~hofmann.AtomStyle` overrides,
   merged on top of auto-generated defaults.
@@ -86,8 +87,9 @@ Species matching supports wildcards:
    # Match any bond between any species:
    BondSpec(species=("*", "*"), max_length=2.5)
 
-When no bond specs are provided, :func:`~hofmann.from_pymatgen`
-generates sensible defaults from VESTA bond length cutoffs.
+When no bond specs are provided, :func:`~hofmann.from_ase` and
+:func:`~hofmann.from_pymatgen` generate sensible defaults from VESTA
+bond length cutoffs.
 
 .. image:: _static/perovskite_plain.svg
    :width: 320px
@@ -146,8 +148,9 @@ polyhedra colour inheritance.
 Periodic structures
 -------------------
 
-When a scene has a lattice (i.e. it was created from a pymatgen
-``Structure``), the renderer can expand periodic image atoms so that
+When a scene has a lattice (i.e. it was created from a periodic ASE
+``Atoms`` object or a pymatgen ``Structure``), the renderer can expand
+periodic image atoms so that
 bonds crossing cell boundaries are drawn correctly.  PBC behaviour is
 controlled at render time via :class:`~hofmann.RenderStyle` fields:
 

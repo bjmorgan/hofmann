@@ -4,7 +4,15 @@ import numpy as np
 import pytest
 
 from hofmann.model import AtomStyle, StructureScene, ViewState
-from hofmann.construction.scene_builders import from_xbs, from_pymatgen
+from hofmann.construction.scene_builders import from_ase, from_xbs, from_pymatgen
+
+_has_ase = False
+try:
+    from ase import Atoms
+
+    _has_ase = True
+except ImportError:
+    pass
 
 _has_pymatgen = False
 try:
@@ -442,3 +450,259 @@ class TestCompleteBondSceneConstruction:
             np.sort(scene_pos.frames[0].coords, axis=0),
             atol=1e-10,
         )
+
+
+# --- ASE tests ---
+
+
+@pytest.mark.skipif(not _has_ase, reason="ase not installed")
+class TestFromAse:
+    def test_single_periodic(self):
+        atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        scene = from_ase(atoms)
+        assert len(scene.species) == 2
+        assert len(scene.frames) == 1
+        assert "Na" in scene.atom_styles
+        assert "Cl" in scene.atom_styles
+
+    def test_trajectory(self):
+        a1 = Atoms("Si2", positions=[[0, 0, 0], [1.25, 1.25, 1.25]],
+                    cell=[5, 5, 5], pbc=True)
+        a2 = Atoms("Si2", positions=[[0, 0, 0], [1.30, 1.30, 1.30]],
+                    cell=[5, 5, 5], pbc=True)
+        scene = from_ase([a1, a2])
+        assert len(scene.frames) == 2
+
+    def test_variable_cell_trajectory(self):
+        """Each frame stores its own lattice for NPT trajectories."""
+        a1 = Atoms("Na", positions=[[2.5, 2.5, 2.5]],
+                    cell=[5, 5, 5], pbc=True)
+        a2 = Atoms("Na", positions=[[2.75, 2.75, 2.75]],
+                    cell=[5.5, 5.5, 5.5], pbc=True)
+        scene = from_ase([a1, a2])
+        np.testing.assert_allclose(
+            scene.frames[0].lattice, np.diag([5, 5, 5]),
+        )
+        np.testing.assert_allclose(
+            scene.frames[1].lattice, np.diag([5.5, 5.5, 5.5]),
+        )
+
+    def test_classmethod(self):
+        atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        scene = StructureScene.from_ase(atoms)
+        assert isinstance(scene, StructureScene)
+
+    def test_view_centred(self):
+        atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        scene = from_ase(atoms)
+        expected = np.mean(scene.frames[0].coords, axis=0)
+        np.testing.assert_allclose(scene.view.centre, expected)
+
+    def test_lattice_stored(self):
+        atoms = Atoms("Na", positions=[[2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        scene = from_ase(atoms)
+        assert scene.lattice is not None
+        np.testing.assert_allclose(scene.lattice, np.diag([5, 5, 5]))
+
+    def test_lattice_is_copy(self):
+        atoms = Atoms("Na", positions=[[2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        scene = from_ase(atoms)
+        scene.lattice[0, 0] = 999.0
+        np.testing.assert_allclose(atoms.cell[0, 0], 5.0)
+
+    def test_coords_wrapped_to_unit_cell(self):
+        atoms = Atoms("Na", scaled_positions=[[0.02, 0.5, 0.5]],
+                       cell=[10, 10, 10], pbc=True)
+        scene = from_ase(atoms)
+        np.testing.assert_allclose(
+            scene.frames[0].coords[0, 0], 0.2, atol=1e-10,
+        )
+
+    def test_atom_styles_override(self):
+        atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        custom_na = AtomStyle(radius=2.0, colour=(1.0, 0.0, 0.0))
+        scene = from_ase(atoms, atom_styles={"Na": custom_na})
+        assert scene.atom_styles["Na"] is custom_na
+        assert "Cl" in scene.atom_styles
+        assert scene.atom_styles["Cl"] is not custom_na
+
+    def test_title_passthrough(self):
+        atoms = Atoms("Na", positions=[[2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        scene = from_ase(atoms, title="test title")
+        assert scene.title == "test title"
+
+    def test_view_override(self):
+        atoms = Atoms("Na", positions=[[2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        custom_view = ViewState(centre=np.array([1.0, 2.0, 3.0]))
+        scene = from_ase(atoms, view=custom_view)
+        assert scene.view is custom_view
+
+    def test_atom_data_passthrough(self):
+        atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        data = {"charge": np.array([1.0, -1.0])}
+        scene = from_ase(atoms, atom_data=data)
+        np.testing.assert_array_equal(scene.atom_data["charge"], [1.0, -1.0])
+
+    def test_classmethod_forwards_kwargs(self):
+        atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
+                       cell=[5, 5, 5], pbc=True)
+        custom_na = AtomStyle(radius=2.0, colour="red")
+        scene = StructureScene.from_ase(
+            atoms, atom_styles={"Na": custom_na}, title="via classmethod",
+        )
+        assert scene.atom_styles["Na"] is custom_na
+        assert scene.title == "via classmethod"
+
+
+@pytest.mark.skipif(not _has_ase, reason="ase not installed")
+class TestFromAseNonPeriodic:
+    def test_lattice_is_none(self):
+        atoms = Atoms("H2O", positions=[[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+        scene = from_ase(atoms)
+        assert scene.lattice is None
+
+    def test_positions_stored_directly(self):
+        positions = np.array([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0],
+                              [0.0, 1.0, 0.0]])
+        atoms = Atoms("H2O", positions=positions)
+        scene = from_ase(atoms)
+        np.testing.assert_allclose(scene.frames[0].coords, positions)
+
+    def test_centre_atom_raises(self):
+        atoms = Atoms("H2O", positions=[[0, 0, 0], [1, 0, 0], [0, 1, 0]])
+        with pytest.raises(ValueError, match="only supported for periodic"):
+            from_ase(atoms, centre_atom=0)
+
+
+@pytest.mark.skipif(not _has_ase, reason="ase not installed")
+class TestFromAseCentreAtom:
+    def test_centre_atom_shifts_frac_coords(self):
+        atoms = Atoms("NaCl",
+                       scaled_positions=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+                       cell=[10, 10, 10], pbc=True)
+        scene = from_ase(atoms, bond_specs=[], centre_atom=0)
+        np.testing.assert_allclose(
+            scene.frames[0].coords[0], [5.0, 5.0, 5.0], atol=1e-10,
+        )
+
+    def test_view_centres_on_atom(self):
+        atoms = Atoms("NaCl",
+                       scaled_positions=[[0.1, 0.2, 0.3], [0.6, 0.7, 0.8]],
+                       cell=[10, 10, 10], pbc=True)
+        scene = from_ase(atoms, bond_specs=[], centre_atom=0)
+        np.testing.assert_allclose(
+            scene.view.centre, scene.frames[0].coords[0], atol=1e-10,
+        )
+
+    def test_invalid_centre_atom_raises(self):
+        atoms = Atoms("Na", positions=[[0, 0, 0]],
+                       cell=[5, 5, 5], pbc=True)
+        with pytest.raises(ValueError, match="centre_atom"):
+            from_ase(atoms, bond_specs=[], centre_atom=10)
+
+    def test_negative_centre_atom_raises(self):
+        atoms = Atoms("Na", positions=[[0, 0, 0]],
+                       cell=[5, 5, 5], pbc=True)
+        with pytest.raises(ValueError, match="centre_atom"):
+            from_ase(atoms, bond_specs=[], centre_atom=-1)
+
+    def test_centre_atom_with_explicit_view(self):
+        """Explicit view takes precedence but frac shift still applies."""
+        atoms = Atoms("NaCl",
+                       scaled_positions=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+                       cell=[10, 10, 10], pbc=True)
+        custom_view = ViewState(centre=np.array([1.0, 2.0, 3.0]))
+        scene = from_ase(atoms, bond_specs=[], centre_atom=0,
+                         view=custom_view)
+        # Explicit view is used unchanged.
+        assert scene.view is custom_view
+        # Fractional shift still applied: atom 0 should be at (5, 5, 5).
+        np.testing.assert_allclose(
+            scene.frames[0].coords[0], [5.0, 5.0, 5.0], atol=1e-10,
+        )
+
+
+@pytest.mark.skipif(not _has_ase, reason="ase not installed")
+class TestFromAseWrapping:
+    def test_wrapping_invariance(self):
+        """Equivalent fractional coordinates produce the same scene."""
+        a1 = Atoms("Na", scaled_positions=[[-0.01, 0.5, 0.5]],
+                    cell=[10, 10, 10], pbc=True)
+        a2 = Atoms("Na", scaled_positions=[[0.99, 0.5, 0.5]],
+                    cell=[10, 10, 10], pbc=True)
+        scene1 = from_ase(a1, bond_specs=[])
+        scene2 = from_ase(a2, bond_specs=[])
+        np.testing.assert_allclose(
+            scene1.frames[0].coords, scene2.frames[0].coords, atol=1e-10,
+        )
+
+    def test_triclinic_cell(self):
+        """Non-diagonal cell matrix is handled correctly."""
+        cell = [[5, 0, 0], [2, 5, 0], [1, 1, 5]]
+        atoms = Atoms("NaCl",
+                       scaled_positions=[[0.1, 0.2, 0.3], [0.6, 0.7, 0.8]],
+                       cell=cell, pbc=True)
+        scene = from_ase(atoms, bond_specs=[])
+        expected = (np.array([[0.1, 0.2, 0.3], [0.6, 0.7, 0.8]])
+                    @ np.array(cell))
+        np.testing.assert_allclose(
+            scene.frames[0].coords, expected, atol=1e-10,
+        )
+
+@pytest.mark.skipif(not _has_ase, reason="ase not installed")
+class TestFromAseTrajectoryValidation:
+    def test_mismatched_species_raises(self):
+        a1 = Atoms("NaCl", positions=[[0, 0, 0], [2, 2, 2]],
+                    cell=[5, 5, 5], pbc=True)
+        a2 = Atoms("KCl", positions=[[0, 0, 0], [2, 2, 2]],
+                    cell=[5, 5, 5], pbc=True)
+        with pytest.raises(ValueError, match="same species"):
+            from_ase([a1, a2])
+
+    def test_mismatched_atom_count_raises(self):
+        a1 = Atoms("Na", positions=[[0, 0, 0]],
+                    cell=[5, 5, 5], pbc=True)
+        a2 = Atoms("NaCl", positions=[[0, 0, 0], [2, 2, 2]],
+                    cell=[5, 5, 5], pbc=True)
+        with pytest.raises(ValueError, match="same number of atoms"):
+            from_ase([a1, a2])
+
+    def test_mismatched_periodicity_raises(self):
+        a1 = Atoms("Na", positions=[[0, 0, 0]],
+                    cell=[5, 5, 5], pbc=True)
+        a2 = Atoms("Na", positions=[[0, 0, 0]])
+        with pytest.raises(ValueError, match="[Ii]nconsistent periodicity"):
+            from_ase([a1, a2])
+
+
+@pytest.mark.skipif(not _has_ase, reason="ase not installed")
+class TestFromAseEmptySequence:
+    def test_empty_list_raises(self):
+        with pytest.raises(ValueError, match="must not be empty"):
+            from_ase([], bond_specs=[])
+
+
+class TestFromAseImportError:
+    def test_import_error_when_missing(self, monkeypatch):
+        """Verify a helpful ImportError when ase is absent."""
+        import builtins
+
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == "ase":
+                raise ImportError("No module named 'ase'")
+            return real_import(name, *args, **kwargs)
+
+        monkeypatch.setattr(builtins, "__import__", mock_import)
+        with pytest.raises(ImportError, match="ase is required"):
+            from_ase(None)

@@ -37,6 +37,7 @@ Repository = "https://github.com/bjmorgan/hofmann"
 Issues = "https://github.com/bjmorgan/hofmann/issues"
 
 [project.optional-dependencies]
+ase = ["ase>=3.22"]
 pymatgen = ["pymatgen>=2024.1.1"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
 docs = [
@@ -45,7 +46,7 @@ docs = [
     "sphinx-autodoc-typehints>=2.0",
     "pymatgen>=2024.1.1",
 ]
-all = ["hofmann[pymatgen,dev,docs]"]
+all = ["hofmann[ase,pymatgen,dev,docs]"]
 
 [tool.setuptools.package-data]
 hofmann = ["py.typed", "data/*.json"]
