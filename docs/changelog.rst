@@ -16,6 +16,17 @@ Changelog
   lattice from the current frame, so cell edges, periodic bonds, and
   axes widgets update per frame.
 
+- New :func:`~hofmann.from_ase` constructor and
+  :meth:`~hofmann.StructureScene.from_ase` classmethod for building
+  scenes directly from ASE ``Atoms`` objects, without requiring
+  pymatgen.  Supports both periodic and non-periodic systems, single
+  structures and trajectories (``list[Atoms]`` or
+  ``ase.io.Trajectory``), and the same style, bond, polyhedra, and
+  view options as :func:`~hofmann.from_pymatgen`.  ASE is available as
+  an optional dependency: ``pip install "hofmann[ase]"``.
+  :func:`~hofmann.from_ase` stores the lattice per frame, correctly
+  supporting NPT trajectories where the cell changes between frames.
+
 0.13.1
 ------
 

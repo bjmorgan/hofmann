@@ -16,7 +16,7 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 
 - Static publication-quality output (SVG, PDF, PNG) via matplotlib
 - XBS `.bs` and `.mv` (trajectory) file formats
-- Optional pymatgen `Structure` interoperability
+- Optional ASE `Atoms` and pymatgen `Structure` interoperability
 - Periodic boundary conditions with automatic image expansion
 - Coordination polyhedra with configurable shading and slab clipping
 - Unit cell wireframe rendering
@@ -27,6 +27,12 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 
 ```bash
 pip install hofmann
+```
+
+For ASE interoperability:
+
+```bash
+pip install "hofmann[ase]"
 ```
 
 For pymatgen interoperability:
@@ -41,6 +47,7 @@ pip install "hofmann[pymatgen]"
 - numpy >= 1.24
 - matplotlib >= 3.7
 - scipy >= 1.10
+- ase >= 3.22 (optional)
 - pymatgen >= 2024.1.1 (optional)
 
 ## Quick start
@@ -52,6 +59,18 @@ from hofmann import StructureScene
 
 scene = StructureScene.from_xbs("structure.bs")
 scene.render_mpl("output.svg")
+```
+
+### From ASE Atoms
+
+```python
+from ase.build import bulk
+from hofmann import StructureScene, BondSpec
+
+atoms = bulk("Si", "diamond", a=5.43)
+bonds = [BondSpec(species=("Si", "Si"), max_length=2.8)]
+scene = StructureScene.from_ase(atoms, bonds)
+scene.render_mpl("si.pdf")
 ```
 
 ### From a pymatgen Structure

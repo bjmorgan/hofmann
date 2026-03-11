@@ -11,6 +11,8 @@ Scene construction
 
 .. autofunction:: from_xbs
 
+.. autofunction:: from_ase
+
 .. autofunction:: from_pymatgen
 
 
