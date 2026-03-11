@@ -13,6 +13,7 @@ from hofmann.model import (
 from hofmann.construction.parser import parse_bs, parse_mv
 
 if TYPE_CHECKING:
+    from ase import Atoms
     from pymatgen.core import Structure
 
 
@@ -51,6 +52,139 @@ def from_xbs(
         polyhedra=polyhedra_specs,
         view=view,
         title=bs_path.stem,
+    )
+
+
+def from_ase(
+    atoms: "Atoms | Sequence[Atoms]",
+    bond_specs: list[BondSpec] | None = None,
+    *,
+    polyhedra: list[PolyhedronSpec] | None = None,
+    centre_atom: int | None = None,
+    atom_styles: dict[str, AtomStyle] | None = None,
+    title: str = "",
+    view: ViewState | None = None,
+    atom_data: dict[str, np.ndarray] | None = None,
+) -> StructureScene:
+    """Create a StructureScene from ASE ``Atoms`` object(s).
+
+    For periodic systems (where ``atoms.pbc`` is set and the cell is
+    non-degenerate), fractional coordinates are wrapped to ``[0, 1)``
+    and stored as Cartesian coordinates, mirroring the behaviour of
+    :func:`from_pymatgen`.  For non-periodic systems, Cartesian
+    positions are stored directly and ``lattice`` is ``None``.
+
+    Args:
+        atoms: A single ASE ``Atoms`` object or a sequence of ``Atoms``
+            (e.g. from an MD trajectory or ``ase.io.Trajectory``).
+        bond_specs: Bond detection rules.  ``None`` generates sensible
+            defaults from VESTA bond length cutoffs; pass an empty list
+            to disable bonds.
+        polyhedra: Polyhedron rendering rules.  ``None`` disables
+            polyhedra.
+        centre_atom: Index of the atom to centre the unit cell on.
+            Fractional coordinates are shifted so this atom sits at
+            (0.5, 0.5, 0.5).  Only valid for periodic systems.
+            If *view* is also provided, the explicit view takes
+            precedence and only the fractional-coordinate shift is
+            applied.
+        atom_styles: Per-species style overrides.  When provided,
+            these are merged on top of the auto-generated defaults
+            so you only need to specify the species you want to
+            customise.
+        title: Scene title for display.
+        view: Camera / projection state.  When ``None`` (the
+            default), the view is auto-centred on the structure.
+        atom_data: Per-atom metadata arrays, keyed by name.
+
+    Returns:
+        A StructureScene with default element styles.
+
+    Raises:
+        ImportError: If ASE is not installed.
+        ValueError: If *centre_atom* is used with a non-periodic system.
+    """
+    try:
+        from ase import Atoms
+    except ImportError:
+        raise ImportError(
+            "ase is required for from_ase(). "
+            "Install it with: pip install ase"
+        )
+
+    if isinstance(atoms, Atoms):
+        atoms_list = [atoms]
+    else:
+        atoms_list = list(atoms)
+
+    if not atoms_list:
+        raise ValueError("atoms must not be empty")
+
+    first = atoms_list[0]
+    periodic = first.pbc.any() and first.cell.rank == 3
+
+    if centre_atom is not None and not periodic:
+        raise ValueError(
+            "centre_atom is only supported for periodic systems"
+        )
+
+    species = first.get_chemical_symbols()
+
+    if centre_atom is not None:
+        n_atoms = len(first)
+        if not 0 <= centre_atom < n_atoms:
+            raise ValueError(
+                f"centre_atom {centre_atom} out of range for structure "
+                f"with {n_atoms} atom(s)"
+            )
+
+    # Default atom styles from the element lookup, merged with overrides.
+    unique_species = sorted(set(species))
+    merged_styles = {sp: default_atom_style(sp) for sp in unique_species}
+    if atom_styles is not None:
+        merged_styles.update(atom_styles)
+
+    # Generate default bond specs from VESTA cutoffs if none provided.
+    if bond_specs is None:
+        bond_specs = default_bond_specs(species)
+
+    # Build frames.
+    frames = []
+    lattice = None
+    if periodic:
+        cell = first.cell.array.copy()
+        lattice = cell
+        for i, a in enumerate(atoms_list):
+            frac = a.get_scaled_positions(wrap=False) % 1.0
+            if centre_atom is not None:
+                shift = 0.5 - frac[centre_atom]
+                frac = (frac + shift) % 1.0
+            coords = frac @ a.cell.array
+            frames.append(Frame(coords=coords, label=f"frame_{i}"))
+    else:
+        for i, a in enumerate(atoms_list):
+            frames.append(
+                Frame(coords=a.positions.copy(), label=f"frame_{i}"),
+            )
+
+    # Centre on first frame (unless the caller supplied a view).
+    if view is None:
+        if centre_atom is not None:
+            view = ViewState(centre=frames[0].coords[centre_atom].copy())
+        else:
+            centroid = np.mean(frames[0].coords, axis=0)
+            view = ViewState(centre=centroid)
+
+    return StructureScene(
+        species=species,
+        frames=frames,
+        atom_styles=merged_styles,
+        bond_specs=bond_specs,
+        polyhedra=polyhedra if polyhedra is not None else [],
+        view=view,
+        title=title,
+        lattice=lattice,
+        atom_data=dict(atom_data) if atom_data is not None else {},
     )
 
 
