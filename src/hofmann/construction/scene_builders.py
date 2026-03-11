@@ -70,8 +70,8 @@ def from_ase(
 
     For periodic systems (where ``atoms.pbc`` is set and the cell is
     non-degenerate), fractional coordinates are wrapped to ``[0, 1)``
-    and stored as Cartesian coordinates, mirroring the behaviour of
-    :func:`from_pymatgen`.  For non-periodic systems, Cartesian
+    and stored as Cartesian coordinates, following the same approach
+    as :func:`from_pymatgen`.  For non-periodic systems, Cartesian
     positions are stored directly and ``lattice`` is ``None``.
 
     Args:
@@ -94,7 +94,8 @@ def from_ase(
             customise.
         title: Scene title for display.
         view: Camera / projection state.  When ``None`` (the
-            default), the view is auto-centred on the structure.
+            default), the view is auto-centred on the centre atom
+            (if set) or the centroid of all atoms.
         atom_data: Per-atom metadata arrays, keyed by name.
 
     Returns:
@@ -102,7 +103,10 @@ def from_ase(
 
     Raises:
         ImportError: If ASE is not installed.
-        ValueError: If *centre_atom* is used with a non-periodic system.
+        ValueError: If *atoms* is an empty sequence, if
+            *centre_atom* is out of range, if *centre_atom* is used
+            with a non-periodic system, or if frames in a trajectory
+            have inconsistent species, atom counts, or periodicity.
     """
     try:
         from ase import Atoms
@@ -129,6 +133,29 @@ def from_ase(
         )
 
     species = first.get_chemical_symbols()
+
+    # Validate trajectory consistency.
+    for i, a in enumerate(atoms_list[1:], start=1):
+        if len(a) != len(first):
+            raise ValueError(
+                f"all Atoms in a trajectory must have the same number "
+                f"of atoms. Frame 0 has {len(first)} but frame {i} "
+                f"has {len(a)}."
+            )
+        if a.get_chemical_symbols() != species:
+            raise ValueError(
+                f"all Atoms in a trajectory must have the same "
+                f"species. Frame 0 has {species} but frame {i} has "
+                f"{a.get_chemical_symbols()}."
+            )
+        frame_periodic = a.pbc.any() and a.cell.rank == 3
+        if frame_periodic != periodic:
+            raise ValueError(
+                f"inconsistent periodicity in trajectory: frame 0 is "
+                f"{'periodic' if periodic else 'non-periodic'} but "
+                f"frame {i} is "
+                f"{'periodic' if frame_periodic else 'non-periodic'}."
+            )
 
     if centre_atom is not None:
         n_atoms = len(first)

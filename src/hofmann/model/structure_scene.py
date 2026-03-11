@@ -170,7 +170,8 @@ class StructureScene:
                 customise.
             title: Scene title for display.
             view: Camera / projection state.  When ``None`` (the
-                default), the view is auto-centred on the structure.
+                default), the view is auto-centred on the centre atom
+                (if set) or the centroid of all atoms.
             atom_data: Per-atom metadata arrays, keyed by name.
 
         Returns:
@@ -178,8 +179,11 @@ class StructureScene:
 
         Raises:
             ImportError: If ASE is not installed.
-            ValueError: If *centre_atom* is used with a non-periodic
-                system.
+            ValueError: If *atoms* is an empty sequence, if
+                *centre_atom* is out of range, if *centre_atom* is
+                used with a non-periodic system, or if frames in a
+                trajectory have inconsistent species, atom counts,
+                or periodicity.
 
         See Also:
             :func:`hofmann.construction.scene_builders.from_ase`
