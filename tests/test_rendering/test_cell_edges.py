@@ -43,9 +43,11 @@ def _scene_with_lattice(**kwargs):
     a = kwargs.pop("a", 5.0)
     return StructureScene(
         species=["A"],
-        frames=[Frame(coords=np.array([[a / 2, a / 2, a / 2]]))],
+        frames=[Frame(
+            coords=np.array([[a / 2, a / 2, a / 2]]),
+            lattice=np.eye(3) * a,
+        )],
         atom_styles={"A": AtomStyle(0.5, (0.5, 0.5, 0.5))},
-        lattice=np.eye(3) * a,
         **kwargs,
     )
 
@@ -222,9 +224,11 @@ class TestCellEdgeRendering:
         a = 5.0
         scene = StructureScene(
             species=["A"],
-            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            frames=[Frame(
+                coords=np.array([[0.0, 0.0, 0.0]]),
+                lattice=np.eye(3) * a,
+            )],
             atom_styles={"A": AtomStyle(1.0, (0.5, 0.5, 0.5))},
-            lattice=np.eye(3) * a,
         )
         fig = render_mpl(scene, show=False)
         n_corner = len(fig.axes[0].collections[0].get_paths())

@@ -6,7 +6,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from hofmann.model import CellEdgeStyle, StructureScene, ViewState, normalise_colour
+from hofmann.model import CellEdgeStyle, ViewState, normalise_colour
 
 # The 12 edges of a unit cube in fractional coordinates.
 _CUBE_EDGES: list[tuple[tuple[int, int, int], tuple[int, int, int]]] = [
@@ -188,7 +188,7 @@ def _clip_edge_at_atoms(
 
 
 def _collect_cell_edges(
-    scene: StructureScene,
+    lattice: np.ndarray | None,
     view: ViewState,
     cell_style: CellEdgeStyle,
     depth: np.ndarray,
@@ -206,7 +206,8 @@ def _collect_cell_edges(
     into dash segments.
 
     Args:
-        scene: The scene (must have a non-None ``lattice``).
+        lattice: Unit-cell matrix, shape ``(3, 3)`` with rows as
+            lattice vectors, or ``None`` for non-periodic structures.
         view: Camera / projection state.
         cell_style: Visual style for the edges.
         depth: Per-atom depth array from projection.
@@ -224,10 +225,10 @@ def _collect_cell_edges(
         int, list[tuple[np.ndarray, tuple[float, ...], float]]
     ] = defaultdict(list)
 
-    if scene.lattice is None:
+    if lattice is None:
         return cell_edge_by_depth_slot
 
-    starts_3d, ends_3d = _cell_edges_3d(scene.lattice)
+    starts_3d, ends_3d = _cell_edges_3d(lattice)
     colour_rgb = normalise_colour(cell_style.colour)
     rgba = (*colour_rgb, 1.0)
 

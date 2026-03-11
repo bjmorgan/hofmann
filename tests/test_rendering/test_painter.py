@@ -132,9 +132,11 @@ def _scene_with_lattice(**kwargs):
     a = kwargs.pop("a", 5.0)
     return StructureScene(
         species=["A"],
-        frames=[Frame(coords=np.array([[a / 2, a / 2, a / 2]]))],
+        frames=[Frame(
+            coords=np.array([[a / 2, a / 2, a / 2]]),
+            lattice=np.eye(3) * a,
+        )],
         atom_styles={"A": AtomStyle(0.5, (0.5, 0.5, 0.5))},
-        lattice=np.eye(3) * a,
         **kwargs,
     )
 
@@ -406,6 +408,31 @@ class TestRenderMpl:
         paths_a = fig_default.axes[0].collections[0].get_paths()
         paths_b = fig_style.axes[0].collections[0].get_paths()
         assert len(paths_a) == len(paths_b)
+
+
+class TestVariableCellRendering:
+    """Rendering with different lattices per frame."""
+
+    def test_render_frame_with_different_lattice(self):
+        """Each frame uses its own lattice for cell edges and bonds."""
+        lat_small = np.eye(3) * 4.0
+        lat_large = np.eye(3) * 6.0
+        coords_small = np.array([[2.0, 2.0, 2.0]])
+        coords_large = np.array([[3.0, 3.0, 3.0]])
+        scene = StructureScene(
+            species=["A"],
+            frames=[
+                Frame(coords=coords_small, lattice=lat_small),
+                Frame(coords=coords_large, lattice=lat_large),
+            ],
+            atom_styles={"A": AtomStyle(0.5, (0.5, 0.5, 0.5))},
+        )
+        # Render frame 0 — should not raise.
+        fig0 = render_mpl(scene, frame_index=0, show=False)
+        plt.close(fig0)
+        # Render frame 1 — should use the larger lattice, not frame 0's.
+        fig1 = render_mpl(scene, frame_index=1, show=False)
+        plt.close(fig1)
 
 
 class TestPolyhedraRendering:
@@ -903,7 +930,7 @@ class TestAxesWidget:
     def test_show_axes_true_without_lattice_raises(self):
         """show_axes=True on a non-lattice scene raises ValueError."""
         scene = _minimal_scene()
-        with pytest.raises(ValueError, match="show_axes=True but scene has no lattice"):
+        with pytest.raises(ValueError, match="show_axes=True but frame 0 has no lattice"):
             render_mpl(scene, show=False, show_axes=True)
 
     def test_widget_has_three_labels(self):

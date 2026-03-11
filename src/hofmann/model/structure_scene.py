@@ -27,17 +27,13 @@ class StructureScene:
 
     Attributes:
         species: One label per atom.
-        frames: List of coordinate snapshots.
+        frames: List of coordinate snapshots.  Each :class:`Frame` may
+            carry its own ``lattice`` for variable-cell trajectories.
         atom_styles: Mapping from species label to visual style.
         bond_specs: Declarative bond detection rules.
         polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
-        lattice: Unit cell lattice matrix, shape ``(3, 3)`` with rows
-            as lattice vectors, or ``None`` for non-periodic structures.
-            When a lattice is present, the renderer can use it for
-            periodic bond computation and image-atom expansion
-            (controlled by :attr:`RenderStyle.pbc`).
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
             must be a 1-D array of length ``n_atoms``.  Use
             :meth:`set_atom_data` to populate this and ``colour_by``
@@ -51,10 +47,14 @@ class StructureScene:
     polyhedra: list[PolyhedronSpec] = field(default_factory=list)
     view: ViewState = field(default_factory=ViewState)
     title: str = ""
-    lattice: np.ndarray | None = None
     atom_data: dict[str, np.ndarray] = field(default_factory=dict)
 
     def __setattr__(self, name: str, value: object) -> None:
+        if name == "lattice":
+            raise AttributeError(
+                "lattice is a read-only property; "
+                "set lattice on individual frames instead"
+            )
         if name == "view" and not isinstance(value, ViewState):
             hint = ""
             if isinstance(value, tuple):
@@ -69,19 +69,31 @@ class StructureScene:
             )
         super().__setattr__(name, value)
 
+    @property
+    def lattice(self) -> np.ndarray | None:
+        """Lattice matrix of the first frame.
+
+        Convenience accessor equivalent to ``self.frames[0].lattice``.
+        Returns ``None`` when the scene has no frames or the first
+        frame has no lattice (non-periodic structure).
+        """
+        if not self.frames:
+            return None
+        return self.frames[0].lattice
+
     def __post_init__(self) -> None:
-        if self.lattice is not None:
-            self.lattice = np.asarray(self.lattice, dtype=float)
-            if self.lattice.shape != (3, 3):
-                raise ValueError(
-                    f"lattice must have shape (3, 3), got {self.lattice.shape}"
-                )
         n_atoms = len(self.species)
         for i, frame in enumerate(self.frames):
             if frame.coords.shape[0] != n_atoms:
                 raise ValueError(
                     f"species has {n_atoms} atoms but frame {i} has "
                     f"{frame.coords.shape[0]}"
+                )
+        if self.frames:
+            has_lattice = [f.lattice is not None for f in self.frames]
+            if any(has_lattice) and not all(has_lattice):
+                raise ValueError(
+                    "all frames must have a lattice or none must"
                 )
         for key, arr in self.atom_data.items():
             arr = np.asarray(arr)

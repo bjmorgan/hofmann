@@ -57,9 +57,11 @@ class TestSceneExtent:
         """An empty scene with a lattice uses cell corners for extent."""
         scene = StructureScene(
             species=[],
-            frames=[Frame(coords=np.empty((0, 3)))],
+            frames=[Frame(
+                coords=np.empty((0, 3)),
+                lattice=np.eye(3) * 10.0,
+            )],
             atom_styles={},
-            lattice=np.eye(3) * 10.0,
         )
         view = ViewState()
         extent = _scene_extent(scene, view, 0, atom_scale=0.5)
@@ -78,9 +80,11 @@ class TestSceneExtent:
 
         scene_lat = StructureScene(
             species=["A"],
-            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            frames=[Frame(
+                coords=np.array([[0.0, 0.0, 0.0]]),
+                lattice=np.eye(3) * 10.0,
+            )],
             atom_styles={"A": AtomStyle(0.5, (0.5, 0.5, 0.5))},
-            lattice=np.eye(3) * 10.0,
         )
         e_lat = _scene_extent(scene_lat, view, 0, atom_scale=0.5)
         assert e_lat > e_no_lat

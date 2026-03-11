@@ -1,6 +1,21 @@
 Changelog
 =========
 
+0.14.0
+------
+
+- **Breaking:** :class:`~hofmann.Frame` now carries a ``lattice`` field
+  (shape ``(3, 3)`` or ``None``).  The ``lattice`` field on
+  :class:`~hofmann.StructureScene` has been replaced by a read-only
+  property that delegates to ``frames[0].lattice``.  Code that
+  constructed a ``StructureScene`` with ``lattice=...`` should move the
+  lattice onto each :class:`~hofmann.Frame` instead.
+
+  This correctly supports NPT (variable-cell) trajectories where the
+  unit cell changes between frames.  Rendering functions now resolve the
+  lattice from the current frame, so cell edges, periodic bonds, and
+  axes widgets update per frame.
+
 0.13.1
 ------
 
