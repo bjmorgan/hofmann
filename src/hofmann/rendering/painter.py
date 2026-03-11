@@ -573,7 +573,9 @@ def _draw_scene(
     if draw_cell is None:
         draw_cell = lattice is not None
     if draw_cell and lattice is None:
-        raise ValueError("show_cell=True but scene has no lattice")
+        raise ValueError(
+            f"show_cell=True but frame {frame_index} has no lattice"
+        )
 
     cell_edge_by_depth_slot: dict[
         int, list[tuple[np.ndarray, tuple[float, ...], float]]
@@ -829,7 +831,9 @@ def _draw_scene(
 
     if draw_axes:
         if lattice is None:
-            raise ValueError("show_axes=True but scene has no lattice")
+            raise ValueError(
+                f"show_axes=True but frame {frame_index} has no lattice"
+            )
         _draw_axes_widget(
             ax, lattice, view, style.axes_style,
             pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,

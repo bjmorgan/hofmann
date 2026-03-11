@@ -930,7 +930,7 @@ class TestAxesWidget:
     def test_show_axes_true_without_lattice_raises(self):
         """show_axes=True on a non-lattice scene raises ValueError."""
         scene = _minimal_scene()
-        with pytest.raises(ValueError, match="show_axes=True but scene has no lattice"):
+        with pytest.raises(ValueError, match="show_axes=True but frame 0 has no lattice"):
             render_mpl(scene, show=False, show_axes=True)
 
     def test_widget_has_three_labels(self):
