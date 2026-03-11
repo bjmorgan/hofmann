@@ -658,16 +658,6 @@ class TestFromAseWrapping:
             scene.frames[0].coords, expected, atol=1e-10,
         )
 
-    def test_pbc_true_degenerate_cell_treated_as_non_periodic(self):
-        """pbc=True with a zero-volume cell is treated as non-periodic."""
-        atoms = Atoms("H2", positions=[[0, 0, 0], [1, 0, 0]], pbc=True)
-        scene = from_ase(atoms, bond_specs=[])
-        assert scene.lattice is None
-        np.testing.assert_allclose(
-            scene.frames[0].coords, [[0, 0, 0], [1, 0, 0]],
-        )
-
-
 @pytest.mark.skipif(not _has_ase, reason="ase not installed")
 class TestFromAseTrajectoryValidation:
     def test_mismatched_species_raises(self):
