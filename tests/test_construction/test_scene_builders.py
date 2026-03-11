@@ -474,6 +474,20 @@ class TestFromAse:
         scene = from_ase([a1, a2])
         assert len(scene.frames) == 2
 
+    def test_variable_cell_trajectory(self):
+        """Each frame stores its own lattice for NPT trajectories."""
+        a1 = Atoms("Na", positions=[[2.5, 2.5, 2.5]],
+                    cell=[5, 5, 5], pbc=True)
+        a2 = Atoms("Na", positions=[[2.75, 2.75, 2.75]],
+                    cell=[5.5, 5.5, 5.5], pbc=True)
+        scene = from_ase([a1, a2])
+        np.testing.assert_allclose(
+            scene.frames[0].lattice, np.diag([5, 5, 5]),
+        )
+        np.testing.assert_allclose(
+            scene.frames[1].lattice, np.diag([5.5, 5.5, 5.5]),
+        )
+
     def test_classmethod(self):
         atoms = Atoms("NaCl", positions=[[0, 0, 0], [2.5, 2.5, 2.5]],
                        cell=[5, 5, 5], pbc=True)

@@ -148,19 +148,22 @@ def from_ase(
     if bond_specs is None:
         bond_specs = default_bond_specs(species)
 
-    # Build frames.
+    # Build frames.  For periodic systems, wrap fractional coordinates
+    # to [0, 1) and store the lattice per frame (supporting NPT
+    # trajectories with variable cell).
     frames = []
-    lattice = None
     if periodic:
-        cell = first.cell.array.copy()
-        lattice = cell
         for i, a in enumerate(atoms_list):
             frac = a.get_scaled_positions(wrap=False) % 1.0
             if centre_atom is not None:
                 shift = 0.5 - frac[centre_atom]
                 frac = (frac + shift) % 1.0
             coords = frac @ a.cell.array
-            frames.append(Frame(coords=coords, label=f"frame_{i}"))
+            frames.append(Frame(
+                coords=coords,
+                lattice=a.cell.array.copy(),
+                label=f"frame_{i}",
+            ))
     else:
         for i, a in enumerate(atoms_list):
             frames.append(
@@ -183,7 +186,6 @@ def from_ase(
         polyhedra=polyhedra if polyhedra is not None else [],
         view=view,
         title=title,
-        lattice=lattice,
         atom_data=dict(atom_data) if atom_data is not None else {},
     )
 
