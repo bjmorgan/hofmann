@@ -592,9 +592,13 @@ def _draw_scene(
                 (xy[:, 0].max() - xy[:, 0].min()) / 2,
                 (xy[:, 1].max() - xy[:, 1].min()) / 2,
             ) + cell_margin
+        # Only clip cell edges at atoms that are actually drawn (#41).
+        clip_visible = slab_visible.copy()
+        for idx in hidden_atoms:
+            clip_visible[idx] = False
         cell_edge_by_depth_slot = _collect_cell_edges(
             lattice, view, style.cell_style, depth, order, cell_pad,
-            coords, radii_3d * atom_scale,
+            coords[clip_visible], (radii_3d * atom_scale)[clip_visible],
         )
 
     # Collect raw vertex arrays in painter's order, then batch-add
