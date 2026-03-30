@@ -329,3 +329,53 @@ class TestCellEdgeRendering:
         # An invisible atom on a cell edge should produce the same
         # number of paths as one that doesn't intersect any edge.
         assert n_inv == n_no_clip
+
+    def test_hidden_polyhedra_vertices_do_not_clip_cell_edge(self):
+        """Vertex atoms hidden by hide_vertices=True should not clip cell edges."""
+        a = 10.0
+        d = 1.8
+        ti = np.array([a / 2, a / 2, a / 2])
+        # One O vertex sits on the cell edge at (a/2, 0, 0).
+        coords = np.array([
+            ti,
+            np.array([a / 2, 0.0, 0.0]),
+            ti + d * np.array([1, -1, -1]) / np.sqrt(3),
+            ti + d * np.array([-1, 1, -1]) / np.sqrt(3),
+            ti + d * np.array([-1, -1, 1]) / np.sqrt(3),
+        ])
+
+        def _make_scene(hide_vertices):
+            return StructureScene(
+                species=["Ti", "O", "O", "O", "O"],
+                frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
+                atom_styles={
+                    "Ti": AtomStyle(0.5, (0.2, 0.4, 0.9)),
+                    "O": AtomStyle(1.0, (0.9, 0.1, 0.1)),
+                },
+                bond_specs=[
+                    BondSpec(species=("Ti", "O"), min_length=0.5,
+                             max_length=6.0, radius=0.1,
+                             colour=(0.4, 0.4, 0.4)),
+                ],
+                polyhedra=[
+                    PolyhedronSpec(centre="Ti",
+                                   hide_vertices=hide_vertices,
+                                   hide_bonds=True),
+                ],
+            )
+
+        render_kwargs = dict(show=False, show_polyhedra=True,
+                             show_cell=True)
+
+        fig_hidden = render_mpl(_make_scene(hide_vertices=True),
+                                **render_kwargs)
+        n_hidden = len(fig_hidden.axes[0].collections[0].get_paths())
+        plt.close(fig_hidden)
+
+        fig_visible = render_mpl(_make_scene(hide_vertices=False),
+                                 **render_kwargs)
+        n_visible = len(fig_visible.axes[0].collections[0].get_paths())
+        plt.close(fig_visible)
+
+        # When vertex is hidden, it should not clip the cell edge.
+        assert n_hidden < n_visible
