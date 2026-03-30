@@ -538,11 +538,11 @@ def _draw_scene(
     # AtomStyle.visible=False hiding is always applied.  Polyhedra-
     # driven hiding (hide_centre, hide_bonds, hide_vertices) is only
     # applied when polyhedra are actually being drawn.
-    hidden_atoms = set(precomputed.style_hidden_atoms)
-    hidden_bond_ids = set(precomputed.style_hidden_bond_ids)
+    all_hidden_atoms = set(precomputed.style_hidden_atoms)
+    all_hidden_bond_ids = set(precomputed.style_hidden_bond_ids)
     if show_polyhedra:
-        hidden_atoms |= precomputed.hidden_atoms
-        hidden_bond_ids |= precomputed.hidden_bond_ids
+        all_hidden_atoms |= precomputed.hidden_atoms
+        all_hidden_bond_ids |= precomputed.hidden_bond_ids
 
     face_by_depth_slot, vertex_max_face_slot = _collect_polyhedra_faces(
         precomputed, polyhedra_list, poly_skip, slab_visible,
@@ -557,7 +557,7 @@ def _draw_scene(
     if show_polyhedra and vertex_max_face_slot:
         atom_depths_sorted = depth[order]
         for vi, max_slot in vertex_max_face_slot.items():
-            if vi in hidden_atoms:
+            if vi in all_hidden_atoms:
                 continue
             vi_slot = int(np.searchsorted(atom_depths_sorted, depth[vi]))
             if vi_slot <= max_slot:
@@ -592,9 +592,13 @@ def _draw_scene(
                 (xy[:, 0].max() - xy[:, 0].min()) / 2,
                 (xy[:, 1].max() - xy[:, 1].min()) / 2,
             ) + cell_margin
+        # Only clip cell edges at atoms that are actually drawn (#41).
+        clip_visible = slab_visible.copy()
+        if all_hidden_atoms:
+            clip_visible[list(all_hidden_atoms)] = False
         cell_edge_by_depth_slot = _collect_cell_edges(
             lattice, view, style.cell_style, depth, order, cell_pad,
-            coords, radii_3d * atom_scale,
+            coords[clip_visible], (radii_3d * atom_scale)[clip_visible],
         )
 
     # Collect raw vertex arrays in painter's order, then batch-add
@@ -627,7 +631,7 @@ def _draw_scene(
                 bond_id = id(bond)
                 if bond_id in drawn_bonds:
                     continue
-                if bond_id in hidden_bond_ids:
+                if bond_id in all_hidden_bond_ids:
                     drawn_bonds.add(bond_id)
                     continue
                 if bond_id in poly_clip_hidden_bonds:
@@ -735,7 +739,7 @@ def _draw_scene(
 
         # Draw atom circle (unless hidden by a polyhedron spec or
         # deferred for polyhedron vertex ordering).
-        if (k not in hidden_atoms
+        if (k not in all_hidden_atoms
                 and k not in deferred_vertex_atoms):
             fc_atom = (*atom_colours[k], 1.0)
             all_verts.append(unit_circle * atom_screen_radii[k] + xy[k])

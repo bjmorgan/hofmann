@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.14.1
+------
+
+- Fixed cell edge lines being clipped at atoms that are not drawn.
+  Atoms hidden by :attr:`~hofmann.PolyhedronSpec.hide_centre`,
+  :attr:`~hofmann.AtomStyle.visible`, or slab clipping no longer
+  produce spurious gaps in cell outline edges.
+  (`#41 <https://github.com/bjmorgan/hofmann/issues/41>`_).
+
 0.14.0
 ------
 
