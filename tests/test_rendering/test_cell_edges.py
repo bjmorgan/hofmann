@@ -10,6 +10,7 @@ from hofmann.model import (
     BondSpec,
     CellEdgeStyle,
     Frame,
+    PolyhedronSpec,
     RenderStyle,
     StructureScene,
     ViewState,
@@ -244,3 +245,91 @@ class TestCellEdgeRendering:
         # edge polygons (clipping shortens edges but doesn't remove them).
         assert n_corner >= 1
         assert n_mid >= 1
+
+    def test_hidden_polyhedra_centre_does_not_clip_cell_edge(self):
+        """A polyhedron centre with hide_centre=True should not clip cell edges.
+
+        Reproduces https://github.com/bjmorgan/hofmann/issues/41.
+        """
+        a = 10.0
+        d = 1.8
+        ti = np.array([a / 2, 0.0, 0.0])
+        coords = np.array([
+            ti,
+            ti + d * np.array([1, 1, 1]) / np.sqrt(3),
+            ti + d * np.array([1, -1, -1]) / np.sqrt(3),
+            ti + d * np.array([-1, 1, -1]) / np.sqrt(3),
+            ti + d * np.array([-1, -1, 1]) / np.sqrt(3),
+        ])
+        scene_hidden = StructureScene(
+            species=["Ti", "O", "O", "O", "O"],
+            frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
+            atom_styles={
+                "Ti": AtomStyle(1.2, (0.2, 0.4, 0.9)),
+                "O": AtomStyle(0.5, (0.9, 0.1, 0.1)),
+            },
+            bond_specs=[
+                BondSpec(species=("Ti", "O"), min_length=0.5,
+                         max_length=3.5, radius=0.1, colour=(0.4, 0.4, 0.4)),
+            ],
+            polyhedra=[
+                PolyhedronSpec(centre="Ti", hide_centre=True,
+                               hide_bonds=True),
+            ],
+        )
+        scene_visible = StructureScene(
+            species=["Ti", "O", "O", "O", "O"],
+            frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
+            atom_styles={
+                "Ti": AtomStyle(1.2, (0.2, 0.4, 0.9)),
+                "O": AtomStyle(0.5, (0.9, 0.1, 0.1)),
+            },
+            bond_specs=[
+                BondSpec(species=("Ti", "O"), min_length=0.5,
+                         max_length=3.5, radius=0.1, colour=(0.4, 0.4, 0.4)),
+            ],
+        )
+        fig_hidden = render_mpl(scene_hidden, show=False,
+                                show_polyhedra=True, show_cell=True)
+        n_hidden = len(fig_hidden.axes[0].collections[0].get_paths())
+        plt.close(fig_hidden)
+
+        fig_visible = render_mpl(scene_visible, show=False,
+                                 show_polyhedra=False, show_cell=True)
+        n_visible = len(fig_visible.axes[0].collections[0].get_paths())
+        plt.close(fig_visible)
+
+        assert n_hidden < n_visible
+
+    def test_invisible_atom_does_not_clip_cell_edge(self):
+        """An atom with AtomStyle.visible=False should not clip cell edges."""
+        a = 10.0
+        coords = np.array([[a / 2, 0.0, 0.0]])
+        # Scene with invisible atom on the cell edge.
+        scene_invisible = StructureScene(
+            species=["A"],
+            frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
+            atom_styles={"A": AtomStyle(1.0, (0.5, 0.5, 0.5),
+                                        visible=False)},
+        )
+        # Baseline: atom far from any cell edge (no clipping).
+        scene_no_clip = StructureScene(
+            species=["A"],
+            frames=[Frame(
+                coords=np.array([[a / 2, a / 2, a / 2]]),
+                lattice=np.eye(3) * a,
+            )],
+            atom_styles={"A": AtomStyle(1.0, (0.5, 0.5, 0.5),
+                                        visible=False)},
+        )
+        fig_inv = render_mpl(scene_invisible, show=False, show_cell=True)
+        n_inv = len(fig_inv.axes[0].collections[0].get_paths())
+        plt.close(fig_inv)
+
+        fig_no_clip = render_mpl(scene_no_clip, show=False, show_cell=True)
+        n_no_clip = len(fig_no_clip.axes[0].collections[0].get_paths())
+        plt.close(fig_no_clip)
+
+        # An invisible atom on a cell edge should produce the same
+        # number of paths as one that doesn't intersect any edge.
+        assert n_inv == n_no_clip
