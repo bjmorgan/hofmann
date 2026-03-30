@@ -594,8 +594,8 @@ def _draw_scene(
             ) + cell_margin
         # Only clip cell edges at atoms that are actually drawn (#41).
         clip_visible = slab_visible.copy()
-        for idx in hidden_atoms:
-            clip_visible[idx] = False
+        if hidden_atoms:
+            clip_visible[list(hidden_atoms)] = False
         cell_edge_by_depth_slot = _collect_cell_edges(
             lattice, view, style.cell_style, depth, order, cell_pad,
             coords[clip_visible], (radii_3d * atom_scale)[clip_visible],

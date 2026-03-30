@@ -254,51 +254,47 @@ class TestCellEdgeRendering:
         a = 10.0
         d = 1.8
         ti = np.array([a / 2, 0.0, 0.0])
-        coords = np.array([
-            ti,
-            ti + d * np.array([1, 1, 1]) / np.sqrt(3),
-            ti + d * np.array([1, -1, -1]) / np.sqrt(3),
-            ti + d * np.array([-1, 1, -1]) / np.sqrt(3),
-            ti + d * np.array([-1, -1, 1]) / np.sqrt(3),
+        offsets = d / np.sqrt(3) * np.array([
+            [1, 1, 1], [1, -1, -1], [-1, 1, -1], [-1, -1, 1],
         ])
-        scene_hidden = StructureScene(
-            species=["Ti", "O", "O", "O", "O"],
-            frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
-            atom_styles={
-                "Ti": AtomStyle(1.2, (0.2, 0.4, 0.9)),
-                "O": AtomStyle(0.5, (0.9, 0.1, 0.1)),
-            },
-            bond_specs=[
-                BondSpec(species=("Ti", "O"), min_length=0.5,
-                         max_length=3.5, radius=0.1, colour=(0.4, 0.4, 0.4)),
-            ],
-            polyhedra=[
-                PolyhedronSpec(centre="Ti", hide_centre=True,
-                               hide_bonds=True),
-            ],
-        )
-        scene_visible = StructureScene(
-            species=["Ti", "O", "O", "O", "O"],
-            frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
-            atom_styles={
-                "Ti": AtomStyle(1.2, (0.2, 0.4, 0.9)),
-                "O": AtomStyle(0.5, (0.9, 0.1, 0.1)),
-            },
-            bond_specs=[
-                BondSpec(species=("Ti", "O"), min_length=0.5,
-                         max_length=3.5, radius=0.1, colour=(0.4, 0.4, 0.4)),
-            ],
-        )
-        fig_hidden = render_mpl(scene_hidden, show=False,
-                                show_polyhedra=True, show_cell=True)
+        coords = np.vstack([ti[None, :], ti + offsets])
+
+        def _make_scene(hide_centre):
+            return StructureScene(
+                species=["Ti", "O", "O", "O", "O"],
+                frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
+                atom_styles={
+                    "Ti": AtomStyle(1.2, (0.2, 0.4, 0.9)),
+                    "O": AtomStyle(0.5, (0.9, 0.1, 0.1)),
+                },
+                bond_specs=[
+                    BondSpec(species=("Ti", "O"), min_length=0.5,
+                             max_length=3.5, radius=0.1,
+                             colour=(0.4, 0.4, 0.4)),
+                ],
+                polyhedra=[
+                    PolyhedronSpec(centre="Ti", hide_centre=hide_centre,
+                                   hide_bonds=True),
+                ],
+            )
+
+        render_kwargs = dict(show=False, show_polyhedra=True,
+                             show_cell=True)
+
+        # Centre hidden — should not clip cell edges.
+        fig_hidden = render_mpl(_make_scene(hide_centre=True),
+                                **render_kwargs)
         n_hidden = len(fig_hidden.axes[0].collections[0].get_paths())
         plt.close(fig_hidden)
 
-        fig_visible = render_mpl(scene_visible, show=False,
-                                 show_polyhedra=False, show_cell=True)
+        # Centre visible — should clip cell edges.
+        fig_visible = render_mpl(_make_scene(hide_centre=False),
+                                 **render_kwargs)
         n_visible = len(fig_visible.axes[0].collections[0].get_paths())
         plt.close(fig_visible)
 
+        # The only difference is Ti visibility.  When hidden it should
+        # not split cell edges, producing fewer polygon paths.
         assert n_hidden < n_visible
 
     def test_invisible_atom_does_not_clip_cell_edge(self):
