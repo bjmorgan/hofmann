@@ -308,11 +308,12 @@ class TestCellEdgeRendering:
             atom_styles={"A": AtomStyle(1.0, (0.5, 0.5, 0.5),
                                         visible=False)},
         )
-        # Baseline: atom far from any cell edge (no clipping).
+        # Baseline: atom far from any cell edge but at the same depth
+        # (z=0) so depth-splitting of cell edges is identical.
         scene_no_clip = StructureScene(
             species=["A"],
             frames=[Frame(
-                coords=np.array([[a / 2, a / 2, a / 2]]),
+                coords=np.array([[a / 2, a / 2, 0.0]]),
                 lattice=np.eye(3) * a,
             )],
             atom_styles={"A": AtomStyle(1.0, (0.5, 0.5, 0.5),
