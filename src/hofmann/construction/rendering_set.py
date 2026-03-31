@@ -375,9 +375,25 @@ def build_rendering_set(
         image_source.append(phys_idx)
         return idx
 
-    # --- Single-pass completion (complete set, recursive=False) ---
     rendering_bonds: list[Bond] = list(direct_bonds)
 
+    # --- Geometric padding (pbc_padding) ---
+    # Materialise image atoms for physical atoms near cell faces.
+    padding_new_atoms: list[tuple[int, ImageVector, int]] = []
+    if pbc_padding is not None and pbc_padding > 0:
+        padding_new_atoms = _expand_padding(
+            coords, lattice, n_physical, pbc_padding, _materialise,
+        )
+
+    # --- Bond discovery for padding atoms ---
+    # Scan periodic bonds for connections to newly created padding atoms.
+    if padding_new_atoms:
+        _discover_bonds_for_new_atoms(
+            padding_new_atoms, periodic_bonds, coords, lattice,
+            image_registry, rendering_bonds,
+        )
+
+    # --- Single-pass completion (complete set, recursive=False) ---
     for bond in periodic:
         spec = bond.spec
         if spec.recursive:
@@ -490,22 +506,6 @@ def build_rendering_set(
             if not next_queue:
                 break
             queue = next_queue
-
-    # --- Geometric padding (pbc_padding) ---
-    # Materialise image atoms for physical atoms near cell faces.
-    padding_new_atoms: list[tuple[int, ImageVector, int]] = []
-    if pbc_padding is not None and pbc_padding > 0:
-        padding_new_atoms = _expand_padding(
-            coords, lattice, n_physical, pbc_padding, _materialise,
-        )
-
-    # --- Bond discovery for padding atoms ---
-    # Scan periodic bonds for connections to newly created padding atoms.
-    if padding_new_atoms:
-        _discover_bonds_for_new_atoms(
-            padding_new_atoms, periodic_bonds, coords, lattice,
-            image_registry, rendering_bonds,
-        )
 
     # --- Polyhedra vertex completion ---
     # Ensure every polyhedron centre has its full coordination shell.
