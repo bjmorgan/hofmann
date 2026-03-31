@@ -282,10 +282,45 @@ def build_rendering_set(
 
     Takes physical atoms and their periodic bonds (including cross-
     boundary bonds with non-zero ``image`` fields) and produces an
-    expanded set of atoms and bonds suitable for rendering.  Image
-    atoms are materialised according to the ``complete`` and
-    ``recursive`` settings on each bond spec, geometric cell-face
-    padding, and polyhedra vertex completion.
+    expanded set of atoms and bonds suitable for rendering.
+
+    The atom categories are:
+    - **Base**: physical atoms (in the unit cell) plus padding images
+      (near cell faces). These exist before completion runs and are
+      treated uniformly.
+    - **C** (completion): image atoms materialised to satisfy a
+      ``complete`` filter.
+    - **R** (recursive): image atoms materialised by recursive bond
+      following.
+    - **V** (vertex): image atoms materialised by polyhedra vertex
+      completion.
+
+    The rendering pipeline proceeds in the following stages:
+
+    1. **Compute all bonds**: Input includes periodic bonds from
+       :func:`compute_bonds`.
+    2. **Add direct bonds**: Base <-> Base within cell (bonds with
+       ``image == (0, 0, 0)``).
+    3. **Geometric padding**: Atoms near cell faces are duplicated on
+       opposite sides; padding atoms join the base set.
+    4. **Padding bond discovery**: Base <-> Base periodic bonds with
+       ``image != (0, 0, 0)`` are identified but not materialised.
+    5. **Completion**: Bonds matching ``complete`` filters are added;
+       C atoms are materialised (Base <-> C).
+    6. **Recursive expansion**: Bonds matching ``recursive`` filters
+       are traversed to materialise R atoms (Base <-> R and R <-> R).
+    7. **Polyhedra vertex completion**: Coordination shells are
+       completed; V atoms are materialised (Base <-> V and C <-> V).
+    8. **Bond deduplication**: Duplicate bonds are removed.
+
+    Bond ownership (each bond is owned by exactly one pipeline step):
+    - Base <-> Base (direct, no image): Step 2
+    - Base <-> Base (periodic): Step 4
+    - Base <-> C: Step 5
+    - Base <-> R: Step 6
+    - R <-> R: Step 6
+    - Base <-> V: Step 7
+    - C <-> V: Step 7
 
     Args:
         species: Species labels for the physical atoms.
