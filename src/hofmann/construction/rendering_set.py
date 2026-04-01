@@ -150,7 +150,10 @@ def _discover_bonds_for_new_atoms(
 
     Args:
         new_atoms: List of ``(phys_idx, shift, expanded_idx)``.
-        periodic_bonds: Original periodic bonds.
+        periodic_bonds: All bonds (direct and periodic) from
+            :func:`compute_bonds`.  Direct bonds are included so
+            that padding images can connect to other padding images
+            of directly bonded atoms.
         coords: Physical atom coordinates.
         lattice: Lattice matrix.
         image_registry: Maps ``(phys_idx, image)`` to expanded index.
@@ -242,8 +245,6 @@ def _complete_polyhedra_vertices(
         neg_img = _neg_image(img)
         atom_bonds.setdefault(b, []).append((a, neg_img, bond.spec))
 
-    new_atoms: list[tuple[int, ImageVector, int]] = []
-
     # Snapshot of all atoms to check (physical + current images).
     # We freeze this before adding vertices so the step is single-pass.
     atoms_to_check: list[tuple[int, ImageVector]] = [
@@ -258,6 +259,9 @@ def _complete_polyhedra_vertices(
 
         for other_phys, bond_img, spec in atom_bonds[phys_idx]:
             target_shift = _add_images(shift, bond_img)
+            # Both endpoints physical — bond already in direct_bonds.
+            if shift == (0, 0, 0) and target_shift == (0, 0, 0):
+                continue
             if target_shift == (0, 0, 0):
                 target_idx = other_phys  # Physical atom, always exists.
             else:
@@ -266,7 +270,6 @@ def _complete_polyhedra_vertices(
                     target_idx = image_registry[target_key]
                 else:
                     target_idx = materialise(other_phys, target_shift)
-                    new_atoms.append((other_phys, target_shift, target_idx))
 
             # Create centre-vertex bond.
             # Safe: atoms_to_check is a frozen snapshot taken before
