@@ -139,16 +139,21 @@ def _discover_bonds_for_new_atoms(
     image_registry: dict[tuple[int, ImageVector], int],
     rendering_bonds: list[Bond],
 ) -> None:
-    """Find bonds between newly created image atoms and existing atoms.
+    """Connect padding atoms to existing base atoms and to each other.
 
     For each new atom ``(phys_idx, shift)``, scans periodic bonds
     involving ``phys_idx`` and adds rendering bonds to any target that
     already exists in the expanded set.  Does NOT materialise new
     atoms — only connects to existing ones.
 
+    Used exclusively for padding bond discovery (pipeline step 4).
+
     Args:
         new_atoms: List of ``(phys_idx, shift, expanded_idx)``.
-        periodic_bonds: Original periodic bonds.
+        periodic_bonds: All bonds (direct and periodic) from
+            :func:`compute_bonds`.  Direct bonds are included so
+            that padding images can connect to other padding images
+            of directly bonded atoms.
         coords: Physical atom coordinates.
         lattice: Lattice matrix.
         image_registry: Maps ``(phys_idx, image)`` to expanded index.
@@ -199,13 +204,15 @@ def _complete_polyhedra_vertices(
     polyhedra_specs: list,
     image_registry: dict[tuple[int, ImageVector], int],
     materialise: Callable[[int, ImageVector], int],
-) -> list[tuple[int, ImageVector, int]]:
+    rendering_bonds: list[Bond],
+) -> None:
     """Ensure polyhedron centres have complete coordination shells.
 
     For each atom (physical or image) matching a
     :class:`PolyhedronSpec` centre pattern, materialises any missing
-    bonded neighbours.  Single-pass: newly created vertex atoms are
-    not themselves checked as potential centres.
+    bonded neighbours and creates the corresponding centre-vertex bonds.
+    Single-pass: newly created vertex atoms are not themselves checked
+    as potential centres.
 
     Args:
         species: Species labels for physical atoms.
@@ -214,12 +221,9 @@ def _complete_polyhedra_vertices(
         n_physical: Number of physical atoms.
         periodic_bonds: Original periodic bonds.
         polyhedra_specs: Polyhedron specification rules.
-        image_registry: Current ``(phys_idx, image)`` → expanded index map.
+        image_registry: Current ``(phys_idx, image)`` -> expanded index map.
         materialise: Callback ``(phys_idx, image_tuple) -> exp_idx``.
-
-    Returns:
-        List of ``(phys_idx, shift, expanded_idx)`` for newly created
-        vertex atoms.
+        rendering_bonds: Mutable list to append new centre-vertex bonds to.
     """
     from hofmann.model import PolyhedronSpec as _PSpec
 
@@ -227,7 +231,7 @@ def _complete_polyhedra_vertices(
     centre_patterns = [s.centre for s in polyhedra_specs
                        if isinstance(s, _PSpec)]
     if not centre_patterns:
-        return []
+        return
 
     def _is_centre(sp: str) -> bool:
         return any(fnmatch(sp, pat) for pat in centre_patterns)
@@ -240,8 +244,6 @@ def _complete_polyhedra_vertices(
         atom_bonds.setdefault(a, []).append((b, img, bond.spec))
         neg_img = _neg_image(img)
         atom_bonds.setdefault(b, []).append((a, neg_img, bond.spec))
-
-    new_atoms: list[tuple[int, ImageVector, int]] = []
 
     # Snapshot of all atoms to check (physical + current images).
     # We freeze this before adding vertices so the step is single-pass.
@@ -257,15 +259,36 @@ def _complete_polyhedra_vertices(
 
         for other_phys, bond_img, spec in atom_bonds[phys_idx]:
             target_shift = _add_images(shift, bond_img)
+            # Both endpoints physical — bond already in direct_bonds.
+            if shift == (0, 0, 0) and target_shift == (0, 0, 0):
+                continue
             if target_shift == (0, 0, 0):
-                continue  # Physical atom, already exists.
-            target_key = (other_phys, target_shift)
-            if target_key in image_registry:
-                continue  # Already materialised.
-            exp_idx = materialise(other_phys, target_shift)
-            new_atoms.append((other_phys, target_shift, exp_idx))
+                target_idx = other_phys  # Physical atom, always exists.
+            else:
+                target_key = (other_phys, target_shift)
+                if target_key in image_registry:
+                    target_idx = image_registry[target_key]
+                else:
+                    target_idx = materialise(other_phys, target_shift)
 
-    return new_atoms
+            # Create centre-vertex bond.
+            # Safe: atoms_to_check is a frozen snapshot taken before
+            # this loop, so all image centres are already registered.
+            if shift == (0, 0, 0):
+                centre_idx = phys_idx
+            else:
+                centre_idx = image_registry[(phys_idx, shift)]
+
+            if shift == (0, 0, 0):
+                centre_coord = coords[phys_idx]
+            else:
+                centre_coord = coords[phys_idx] + np.array(shift, dtype=float) @ lattice
+            if target_shift == (0, 0, 0):
+                target_coord = coords[other_phys]
+            else:
+                target_coord = coords[other_phys] + np.array(target_shift, dtype=float) @ lattice
+            length = float(np.linalg.norm(target_coord - centre_coord))
+            rendering_bonds.append(Bond(centre_idx, target_idx, length, spec))
 
 
 def build_rendering_set(
@@ -282,10 +305,48 @@ def build_rendering_set(
 
     Takes physical atoms and their periodic bonds (including cross-
     boundary bonds with non-zero ``image`` fields) and produces an
-    expanded set of atoms and bonds suitable for rendering.  Image
-    atoms are materialised according to the ``complete`` and
-    ``recursive`` settings on each bond spec, geometric cell-face
-    padding, and polyhedra vertex completion.
+    expanded set of atoms and bonds suitable for rendering.
+
+    The atom categories are:
+    - **Base**: physical atoms (in the unit cell) plus padding images
+      (near cell faces). These exist before completion runs and are
+      treated uniformly.
+    - **C** (completion): image atoms materialised to satisfy a
+      ``complete`` filter.
+    - **R** (recursive): image atoms materialised by recursive bond
+      following.
+    - **V** (vertex): image atoms materialised by polyhedra vertex
+      completion.
+
+    The rendering pipeline proceeds in the following stages:
+
+    1. **Compute all bonds**: Input includes periodic bonds from
+       :func:`compute_bonds`.
+    2. **Add direct bonds**: Base <-> Base within cell (bonds with
+       ``image == (0, 0, 0)``).
+    3. **Geometric padding**: Atoms near cell faces are duplicated on
+       opposite sides; padding atoms join the base set.
+    4. **Padding bond discovery**: Rendering bonds are created between
+       padding atoms and existing base atoms.  No new atoms are
+       materialised.
+    5. **Completion**: Bonds matching ``complete`` filters are added;
+       C atoms are materialised (Base <-> C).
+    6. **Recursive expansion**: Bonds matching ``recursive`` filters
+       are traversed to materialise R atoms (Base <-> R and R <-> R).
+    7. **Polyhedra vertex completion**: Coordination shells are
+       completed; V atoms are materialised (Base <-> V and C <-> V).
+    8. **Bond deduplication**: Duplicate bonds are removed.
+
+    Bond ownership (each bond is owned by exactly one pipeline step):
+    - Base <-> Base (direct, no image): Step 2
+    - Base <-> Base (periodic): Step 4
+    - Base <-> C: Step 5
+    - Base <-> R: Step 6
+    - R <-> R: Step 6
+    - Base <-> V: Step 7
+    - C <-> V: Step 7
+    - R <-> V: not produced (recursive expansion and polyhedra
+      vertex completion are separate use cases)
 
     Args:
         species: Species labels for the physical atoms.
@@ -340,9 +401,24 @@ def build_rendering_set(
         image_source.append(phys_idx)
         return idx
 
-    # --- Single-pass completion (complete set, recursive=False) ---
     rendering_bonds: list[Bond] = list(direct_bonds)
 
+    # --- Geometric padding (pbc_padding) ---
+    # Materialise image atoms for physical atoms near cell faces.
+    padding_new_atoms: list[tuple[int, ImageVector, int]] = []
+    if pbc_padding is not None and pbc_padding > 0:
+        padding_new_atoms = _expand_padding(
+            coords, lattice, n_physical, pbc_padding, _materialise,
+        )
+
+    # --- Bond discovery for padding atoms ---
+    if padding_new_atoms:
+        _discover_bonds_for_new_atoms(
+            padding_new_atoms, periodic_bonds, coords, lattice,
+            image_registry, rendering_bonds,
+        )
+
+    # --- Single-pass completion (complete set, recursive=False) ---
     for bond in periodic:
         spec = bond.spec
         if spec.recursive:
@@ -367,6 +443,50 @@ def build_rendering_set(
             rendering_bonds.append(
                 Bond(b, a_img_idx, bond.length, spec)
             )
+
+    # --- Completion for padding atoms ---
+    # Mirrors the physical-atom completion loop, checking both
+    # bond directions for each padding atom.
+    #
+    # Unlike the physical-atom loop (which iterates ``periodic``
+    # only), this iterates ALL bonds including direct ones.  A
+    # padding atom at shift (-1,0,0) needs its direct-bond
+    # neighbours materialised at the same shift — the physical-
+    # atom loop skips direct bonds because those neighbours already
+    # exist in the cell.
+    if padding_new_atoms:
+        padding_by_phys: dict[int, list[tuple[ImageVector, int]]] = {}
+        for phys_idx, shift, exp_idx in padding_new_atoms:
+            padding_by_phys.setdefault(phys_idx, []).append((shift, exp_idx))
+
+        for bond in periodic_bonds:
+            spec = bond.spec
+            if spec.recursive:
+                continue
+            if spec.complete is False:
+                continue
+
+            a, b = bond.index_a, bond.index_b
+            img = bond.image
+
+            # Check both directions: (a -> b via img) and (b -> a via -img).
+            for src, tgt, bond_img in [(a, b, img),
+                                       (b, a, _neg_image(img))]:
+                if not _complete_matches(spec.complete, species[src]):
+                    continue
+                for shift, exp_idx in padding_by_phys.get(src, []):
+                    target_shift = _add_images(shift, bond_img)
+                    if target_shift == (0, 0, 0):
+                        target_idx = tgt
+                    else:
+                        target_idx = _materialise(tgt, target_shift)
+                    src_coord = coords[src] + np.array(shift, dtype=float) @ lattice
+                    if target_shift == (0, 0, 0):
+                        tgt_coord = coords[tgt]
+                    else:
+                        tgt_coord = coords[tgt] + np.array(target_shift, dtype=float) @ lattice
+                    length = float(np.linalg.norm(tgt_coord - src_coord))
+                    rendering_bonds.append(Bond(exp_idx, target_idx, length, spec))
 
     # --- Recursive expansion (recursive=True specs only) ---
     recursive_specs = [s for s in bond_specs if s.recursive]
@@ -435,18 +555,16 @@ def build_rendering_set(
                     b_idx = max(exp_idx, target_idx)
                     if a_idx != b_idx:
                         # Compute length from expanded coordinates.
-                        a_coord = (
-                            coords[phys_idx]
-                            + np.array(shift, dtype=float) @ lattice
-                            if shift != (0, 0, 0)
-                            else coords[phys_idx]
-                        )
-                        b_coord = (
-                            coords[other_phys]
-                            + np.array(target_shift, dtype=float) @ lattice
-                            if target_shift != (0, 0, 0)
-                            else coords[other_phys]
-                        )
+                        if shift != (0, 0, 0):
+                            a_coord = (coords[phys_idx]
+                                       + np.array(shift, dtype=float) @ lattice)
+                        else:
+                            a_coord = coords[phys_idx]
+                        if target_shift != (0, 0, 0):
+                            b_coord = (coords[other_phys]
+                                       + np.array(target_shift, dtype=float) @ lattice)
+                        else:
+                            b_coord = coords[other_phys]
                         length = float(np.linalg.norm(b_coord - a_coord))
                         rendering_bonds.append(
                             Bond(a_idx, b_idx, length, spec)
@@ -456,34 +574,14 @@ def build_rendering_set(
                 break
             queue = next_queue
 
-    # --- Geometric padding (pbc_padding) ---
-    # Materialise image atoms for physical atoms near cell faces.
-    padding_new_atoms: list[tuple[int, ImageVector, int]] = []
-    if pbc_padding is not None and pbc_padding > 0:
-        padding_new_atoms = _expand_padding(
-            coords, lattice, n_physical, pbc_padding, _materialise,
-        )
-
-    # --- Bond discovery for padding atoms ---
-    # Scan periodic bonds for connections to newly created padding atoms.
-    if padding_new_atoms:
-        _discover_bonds_for_new_atoms(
-            padding_new_atoms, periodic_bonds, coords, lattice,
-            image_registry, rendering_bonds,
-        )
-
     # --- Polyhedra vertex completion ---
     # Ensure every polyhedron centre has its full coordination shell.
     if polyhedra_specs:
-        vertex_new = _complete_polyhedra_vertices(
+        _complete_polyhedra_vertices(
             species, coords, lattice, n_physical, periodic_bonds,
             polyhedra_specs, image_registry, _materialise,
+            rendering_bonds,
         )
-        if vertex_new:
-            _discover_bonds_for_new_atoms(
-                vertex_new, periodic_bonds, coords, lattice,
-                image_registry, rendering_bonds,
-            )
 
     # --- Build output ---
     if image_species:
@@ -500,7 +598,13 @@ def build_rendering_set(
         expanded_coords = coords.copy()
         source_indices = np.arange(n_physical)
 
-    # Deduplicate rendering bonds.
+    # Deduplicate rendering bonds by atom-pair key (spec-agnostic).
+    # Multiple pipeline stages may produce a bond between the same
+    # atom pair (e.g. padding bond discovery and completion); the
+    # first-appended bond is kept.  If two different BondSpecs both
+    # match the same atom pair, only one bond is rendered — this is
+    # inherent to the atom-pair dedup and matches the visual intent
+    # (one cylinder per pair).
     seen: set[tuple[int, int]] = set()
     unique_bonds: list[Bond] = []
     for bond in rendering_bonds:
