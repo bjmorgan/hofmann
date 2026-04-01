@@ -90,7 +90,6 @@ class TestPaddingBondDiscovery:
         assert len(rset.bonds) >= 2  # At least Na_img-Cl and Cl_img-Na
 
 
-@pytest.mark.xfail(reason="Issue #38: padding atoms not yet completed")
 class TestPaddingAtomCompletion:
     """Step 5 applied to padding atoms: completion materialises missing
     partners for padding atoms whose species matches a complete filter."""
