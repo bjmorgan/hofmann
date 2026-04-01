@@ -174,6 +174,12 @@ def _apply_key_action(
         state["frame_index"] = 0
         return "full"
 
+    # -- Frame indicator --
+    elif key == "f" and n_frames > 1:
+        state["indicator_visible"] = not state.get("indicator_visible", False)
+    elif key == "f" and n_frames <= 1:
+        return "none"
+
     # -- Reset --
     elif key == "r":
         view.rotation = initial_view["rotation"].copy()

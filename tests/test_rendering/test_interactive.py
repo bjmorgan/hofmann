@@ -75,6 +75,9 @@ def _key_action_fixtures():
         "frame_index": 0,
         "help_visible": False,
         "frame_step": 1,
+        "indicator_visible": False,
+        "input_mode": None,
+        "input_buffer": "",
     }
     initial_view = {
         "rotation": view.rotation.copy(),
@@ -424,6 +427,125 @@ class TestKeyActions:
         kind = _do_key("z", view, style, state, iv)
         assert kind == "none"
         np.testing.assert_array_equal(view.rotation, old_rotation)
+
+    # -- Frame indicator toggle --
+
+    def test_frame_indicator_toggle(self):
+        """f toggles indicator_visible for multi-frame scenes."""
+        view, style, state, iv = _key_action_fixtures()
+        assert state["indicator_visible"] is False
+        kind = _do_key("f", view, style, state, iv, n_frames=5)
+        assert state["indicator_visible"] is True
+        assert kind == "view"
+        _do_key("f", view, style, state, iv, n_frames=5)
+        assert state["indicator_visible"] is False
+
+    def test_frame_indicator_noop_single_frame(self):
+        """f is a no-op for single-frame scenes."""
+        view, style, state, iv = _key_action_fixtures()
+        kind = _do_key("f", view, style, state, iv, n_frames=1)
+        assert state["indicator_visible"] is False
+        assert kind == "none"
+
+    # -- Number input mode --
+
+    def test_goto_frame(self):
+        """g + digits + enter jumps to the specified frame."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_index"] = 0
+        _do_key("g", view, style, state, iv, n_frames=100)
+        assert state["input_mode"] == "goto"
+        _do_key("4", view, style, state, iv, n_frames=100)
+        _do_key("2", view, style, state, iv, n_frames=100)
+        assert state["input_buffer"] == "42"
+        kind = _do_key("enter", view, style, state, iv, n_frames=100)
+        assert state["frame_index"] == 42
+        assert state["input_mode"] is None
+        assert state["input_buffer"] == ""
+        assert kind == "full"
+
+    def test_set_step(self):
+        """s + digits + enter sets the frame step."""
+        view, style, state, iv = _key_action_fixtures()
+        _do_key("s", view, style, state, iv, n_frames=100)
+        assert state["input_mode"] == "step"
+        _do_key("1", view, style, state, iv, n_frames=100)
+        _do_key("0", view, style, state, iv, n_frames=100)
+        kind = _do_key("enter", view, style, state, iv, n_frames=100)
+        assert state["frame_step"] == 10
+        assert state["input_mode"] is None
+        assert kind == "view"
+
+    def test_input_mode_escape(self):
+        """Escape cancels input mode without changing state."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_index"] = 5
+        _do_key("g", view, style, state, iv, n_frames=100)
+        _do_key("9", view, style, state, iv, n_frames=100)
+        kind = _do_key("escape", view, style, state, iv, n_frames=100)
+        assert state["frame_index"] == 5
+        assert state["input_mode"] is None
+        assert state["input_buffer"] == ""
+        assert kind == "view"
+
+    def test_input_mode_swallows_other_keys(self):
+        """Non-digit, non-control keys are swallowed during input mode."""
+        view, style, state, iv = _key_action_fixtures()
+        _do_key("g", view, style, state, iv, n_frames=100)
+        old_rotation = view.rotation.copy()
+        kind = _do_key("left", view, style, state, iv, n_frames=100)
+        np.testing.assert_array_equal(view.rotation, old_rotation)
+        assert state["input_mode"] == "goto"
+        assert kind == "view"
+
+    def test_goto_clamps_to_valid_range(self):
+        """Out-of-range frame index is clamped."""
+        view, style, state, iv = _key_action_fixtures()
+        _do_key("g", view, style, state, iv, n_frames=10)
+        _do_key("9", view, style, state, iv, n_frames=10)
+        _do_key("9", view, style, state, iv, n_frames=10)
+        _do_key("enter", view, style, state, iv, n_frames=10)
+        assert state["frame_index"] == 9
+
+    def test_set_step_rejects_zero(self):
+        """Setting step to 0 keeps the previous step."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_step"] = 5
+        _do_key("s", view, style, state, iv, n_frames=100)
+        _do_key("0", view, style, state, iv, n_frames=100)
+        _do_key("enter", view, style, state, iv, n_frames=100)
+        assert state["frame_step"] == 5
+
+    def test_set_step_empty_enter(self):
+        """Pressing enter with no digits keeps the previous step."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_step"] = 3
+        _do_key("s", view, style, state, iv, n_frames=100)
+        _do_key("enter", view, style, state, iv, n_frames=100)
+        assert state["frame_step"] == 3
+
+    def test_goto_empty_enter(self):
+        """Pressing enter with no digits in goto mode keeps the current frame."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_index"] = 7
+        _do_key("g", view, style, state, iv, n_frames=100)
+        kind = _do_key("enter", view, style, state, iv, n_frames=100)
+        assert state["frame_index"] == 7
+        assert state["input_mode"] is None
+
+    def test_goto_noop_single_frame(self):
+        """g is a no-op for single-frame scenes."""
+        view, style, state, iv = _key_action_fixtures()
+        kind = _do_key("g", view, style, state, iv, n_frames=1)
+        assert state.get("input_mode") is None
+        assert kind == "none"
+
+    def test_set_step_noop_single_frame(self):
+        """s is a no-op for single-frame scenes."""
+        view, style, state, iv = _key_action_fixtures()
+        kind = _do_key("s", view, style, state, iv, n_frames=1)
+        assert state.get("input_mode") is None
+        assert kind == "none"
 
     # -- Help text constant --
 
