@@ -276,10 +276,14 @@ def _complete_polyhedra_vertices(
             else:
                 centre_idx = image_registry[(phys_idx, shift)]
 
-            centre_coord = (coords[phys_idx] if shift == (0, 0, 0)
-                            else coords[phys_idx] + np.array(shift, dtype=float) @ lattice)
-            target_coord = (coords[other_phys] if target_shift == (0, 0, 0)
-                            else coords[other_phys] + np.array(target_shift, dtype=float) @ lattice)
+            if shift == (0, 0, 0):
+                centre_coord = coords[phys_idx]
+            else:
+                centre_coord = coords[phys_idx] + np.array(shift, dtype=float) @ lattice
+            if target_shift == (0, 0, 0):
+                target_coord = coords[other_phys]
+            else:
+                target_coord = coords[other_phys] + np.array(target_shift, dtype=float) @ lattice
             length = float(np.linalg.norm(target_coord - centre_coord))
             rendering_bonds.append(Bond(centre_idx, target_idx, length, spec))
 
@@ -474,10 +478,10 @@ def build_rendering_set(
                     else:
                         target_idx = _materialise(tgt, target_shift)
                     src_coord = coords[src] + np.array(shift, dtype=float) @ lattice
-                    tgt_coord = (
-                        coords[tgt] if target_shift == (0, 0, 0)
-                        else coords[tgt] + np.array(target_shift, dtype=float) @ lattice
-                    )
+                    if target_shift == (0, 0, 0):
+                        tgt_coord = coords[tgt]
+                    else:
+                        tgt_coord = coords[tgt] + np.array(target_shift, dtype=float) @ lattice
                     length = float(np.linalg.norm(tgt_coord - src_coord))
                     rendering_bonds.append(Bond(exp_idx, target_idx, length, spec))
 
@@ -548,18 +552,16 @@ def build_rendering_set(
                     b_idx = max(exp_idx, target_idx)
                     if a_idx != b_idx:
                         # Compute length from expanded coordinates.
-                        a_coord = (
-                            coords[phys_idx]
-                            + np.array(shift, dtype=float) @ lattice
-                            if shift != (0, 0, 0)
-                            else coords[phys_idx]
-                        )
-                        b_coord = (
-                            coords[other_phys]
-                            + np.array(target_shift, dtype=float) @ lattice
-                            if target_shift != (0, 0, 0)
-                            else coords[other_phys]
-                        )
+                        if shift != (0, 0, 0):
+                            a_coord = (coords[phys_idx]
+                                       + np.array(shift, dtype=float) @ lattice)
+                        else:
+                            a_coord = coords[phys_idx]
+                        if target_shift != (0, 0, 0):
+                            b_coord = (coords[other_phys]
+                                       + np.array(target_shift, dtype=float) @ lattice)
+                        else:
+                            b_coord = coords[other_phys]
                         length = float(np.linalg.norm(b_coord - a_coord))
                         rendering_bonds.append(
                             Bond(a_idx, b_idx, length, spec)
