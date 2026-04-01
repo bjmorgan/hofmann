@@ -181,19 +181,21 @@ class TestPolyhedraVertexCompletion:
 
     def test_missing_vertex_materialised(self):
         """Ti centre with a periodic O bond: vertex completion adds the O image."""
+        # Ti at (0.5, 2.5, 2.5), O1 direct bond at distance 1.0,
+        # O2 only reachable via periodic image at distance 0.7.
         species = ["Ti", "O", "O"]
         lattice = np.diag([5.0, 5.0, 5.0])
         coords = np.array([
-            [2.5, 2.5, 2.5],  # Ti at cell centre
-            [2.5, 2.5, 0.5],  # O1 inside cell (direct bond)
-            [2.5, 2.5, 4.9],  # O2 near high-z face (periodic bond)
+            [0.5, 2.5, 2.5],  # Ti
+            [1.5, 2.5, 2.5],  # O1 direct bond (1.0 A)
+            [4.8, 2.5, 2.5],  # O2 periodic bond via (-1,0,0) (0.7 A)
         ])
         # complete=False: no completion images.
         bond_spec = BondSpec(species=("Ti", "O"), min_length=0.0,
-                             max_length=3.0, radius=0.1, colour=1.0)
+                             max_length=1.5, radius=0.1, colour=1.0)
         poly_spec = PolyhedronSpec(centre="Ti")
         bonds = compute_bonds(species, coords, [bond_spec], lattice=lattice)
-        # Without polyhedra: periodic O not materialised.
+        # Without polyhedra: only the direct Ti-O1 bond.
         rset_no = build_rendering_set(
             species, coords, bonds, [bond_spec], lattice,
         )
@@ -202,8 +204,8 @@ class TestPolyhedraVertexCompletion:
             species, coords, bonds, [bond_spec], lattice,
             polyhedra_specs=[poly_spec],
         )
-        assert len(rset_yes.species) > len(rset_no.species)
-        # Ti should have bonds to all O atoms.
+        assert len(rset_no.bonds) == 1
+        assert len(rset_yes.species) == 4  # 3 physical + 1 O2 image
         ti_bonds = [b for b in rset_yes.bonds
                     if b.index_a == 0 or b.index_b == 0]
-        assert len(ti_bonds) == 4
+        assert len(ti_bonds) == 2  # Direct O1 + materialised O2 image
