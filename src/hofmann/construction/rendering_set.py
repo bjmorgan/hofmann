@@ -139,12 +139,14 @@ def _discover_bonds_for_new_atoms(
     image_registry: dict[tuple[int, ImageVector], int],
     rendering_bonds: list[Bond],
 ) -> None:
-    """Find bonds between newly created image atoms and existing atoms.
+    """Connect padding atoms to existing base atoms and to each other.
 
     For each new atom ``(phys_idx, shift)``, scans periodic bonds
     involving ``phys_idx`` and adds rendering bonds to any target that
     already exists in the expanded set.  Does NOT materialise new
     atoms — only connects to existing ones.
+
+    Used exclusively for padding bond discovery (pipeline step 4).
 
     Args:
         new_atoms: List of ``(phys_idx, shift, expanded_idx)``.
