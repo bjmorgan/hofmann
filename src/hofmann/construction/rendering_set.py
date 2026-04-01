@@ -400,7 +400,6 @@ def build_rendering_set(
         )
 
     # --- Bond discovery for padding atoms ---
-    # Scan periodic bonds for connections to newly created padding atoms.
     if padding_new_atoms:
         _discover_bonds_for_new_atoms(
             padding_new_atoms, periodic_bonds, coords, lattice,
@@ -434,10 +433,9 @@ def build_rendering_set(
             )
 
     # --- Completion for padding atoms ---
-    # Padding atoms are base atoms; complete their coordination shells too.
-    # Mirrors the physical-atom completion loop above.
+    # Mirrors the physical-atom completion loop, checking both
+    # bond directions for each padding atom.
     if padding_new_atoms:
-        # Index padding atoms by physical source for fast lookup.
         padding_by_phys: dict[int, list[tuple[ImageVector, int]]] = {}
         for phys_idx, shift, exp_idx in padding_new_atoms:
             padding_by_phys.setdefault(phys_idx, []).append((shift, exp_idx))
@@ -452,37 +450,23 @@ def build_rendering_set(
             a, b = bond.index_a, bond.index_b
             img = bond.image
 
-            # Padding atoms with physical source == a
-            for shift, exp_idx in padding_by_phys.get(a, []):
-                if _complete_matches(spec.complete, species[a]):
-                    target_shift = _add_images(shift, img)
+            # Check both directions: (a -> b via img) and (b -> a via -img).
+            for src, tgt, bond_img in [(a, b, img),
+                                       (b, a, _neg_image(img))]:
+                if not _complete_matches(spec.complete, species[src]):
+                    continue
+                for shift, exp_idx in padding_by_phys.get(src, []):
+                    target_shift = _add_images(shift, bond_img)
                     if target_shift == (0, 0, 0):
-                        target_idx = b
+                        target_idx = tgt
                     else:
-                        target_idx = _materialise(b, target_shift)
-                    a_coord = coords[a] + np.array(shift, dtype=float) @ lattice
-                    b_coord = (
-                        coords[b] if target_shift == (0, 0, 0)
-                        else coords[b] + np.array(target_shift, dtype=float) @ lattice
+                        target_idx = _materialise(tgt, target_shift)
+                    src_coord = coords[src] + np.array(shift, dtype=float) @ lattice
+                    tgt_coord = (
+                        coords[tgt] if target_shift == (0, 0, 0)
+                        else coords[tgt] + np.array(target_shift, dtype=float) @ lattice
                     )
-                    length = float(np.linalg.norm(b_coord - a_coord))
-                    rendering_bonds.append(Bond(exp_idx, target_idx, length, spec))
-
-            # Padding atoms with physical source == b
-            neg_img = _neg_image(img)
-            for shift, exp_idx in padding_by_phys.get(b, []):
-                if _complete_matches(spec.complete, species[b]):
-                    target_shift = _add_images(shift, neg_img)
-                    if target_shift == (0, 0, 0):
-                        target_idx = a
-                    else:
-                        target_idx = _materialise(a, target_shift)
-                    b_coord = coords[b] + np.array(shift, dtype=float) @ lattice
-                    a_coord = (
-                        coords[a] if target_shift == (0, 0, 0)
-                        else coords[a] + np.array(target_shift, dtype=float) @ lattice
-                    )
-                    length = float(np.linalg.norm(a_coord - b_coord))
+                    length = float(np.linalg.norm(tgt_coord - src_coord))
                     rendering_bonds.append(Bond(exp_idx, target_idx, length, spec))
 
     # --- Recursive expansion (recursive=True specs only) ---

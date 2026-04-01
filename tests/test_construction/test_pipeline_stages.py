@@ -87,7 +87,7 @@ class TestPaddingBondDiscovery:
         rset = build_rendering_set(
             species, coords, bonds, [spec], lattice, pbc_padding=0.5,
         )
-        assert len(rset.bonds) >= 2  # At least Na_img-Cl and Cl_img-Na
+        assert len(rset.bonds) == 2  # Na_img-Cl and Cl_img-Na
 
 
 class TestPaddingAtomCompletion:
@@ -117,14 +117,14 @@ class TestPaddingAtomCompletion:
             i for i in range(3, len(rset.species))
             if rset.species[i] == "Mn"
         ]
-        assert len(mn_images) >= 1, "Padding should create Mn image"
+        assert len(mn_images) == 1, "Padding should create exactly one Mn image"
         mn_img = mn_images[0]
         # The Mn image should have bonds to BOTH O atoms
         # (one via O1's image, one via physical O2 or its image).
         mn_img_bonds = [b for b in rset.bonds
                         if b.index_a == mn_img or b.index_b == mn_img]
-        assert len(mn_img_bonds) >= 2, (
-            f"Mn image should have >= 2 bonds but has {len(mn_img_bonds)}"
+        assert len(mn_img_bonds) == 2, (
+            f"Mn image should have 2 bonds but has {len(mn_img_bonds)}"
         )
 
 
@@ -207,4 +207,4 @@ class TestPolyhedraVertexCompletion:
         # Ti should have bonds to all O atoms.
         ti_bonds = [b for b in rset_yes.bonds
                     if b.index_a == 0 or b.index_b == 0]
-        assert len(ti_bonds) >= 2
+        assert len(ti_bonds) == 4
