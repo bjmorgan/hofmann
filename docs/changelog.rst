@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.14.2
+------
+
+- Fixed bond completion missing padding image atoms near cell
+  boundaries.  Padding atoms now get their full coordination
+  shell, matching physical atoms.
+
 0.14.1
 ------
 
@@ -8,7 +15,6 @@ Changelog
   Atoms hidden by :attr:`~hofmann.PolyhedronSpec.hide_centre`,
   :attr:`~hofmann.AtomStyle.visible`, or slab clipping no longer
   produce spurious gaps in cell outline edges.
-  (`#41 <https://github.com/bjmorgan/hofmann/issues/41>`_).
 
 0.14.0
 ------
