@@ -199,13 +199,15 @@ def _complete_polyhedra_vertices(
     polyhedra_specs: list,
     image_registry: dict[tuple[int, ImageVector], int],
     materialise: Callable[[int, ImageVector], int],
-) -> list[tuple[int, ImageVector, int]]:
+    rendering_bonds: list[Bond],
+) -> None:
     """Ensure polyhedron centres have complete coordination shells.
 
     For each atom (physical or image) matching a
     :class:`PolyhedronSpec` centre pattern, materialises any missing
-    bonded neighbours.  Single-pass: newly created vertex atoms are
-    not themselves checked as potential centres.
+    bonded neighbours and creates the corresponding centre-vertex bonds.
+    Single-pass: newly created vertex atoms are not themselves checked
+    as potential centres.
 
     Args:
         species: Species labels for physical atoms.
@@ -216,10 +218,7 @@ def _complete_polyhedra_vertices(
         polyhedra_specs: Polyhedron specification rules.
         image_registry: Current ``(phys_idx, image)`` → expanded index map.
         materialise: Callback ``(phys_idx, image_tuple) -> exp_idx``.
-
-    Returns:
-        List of ``(phys_idx, shift, expanded_idx)`` for newly created
-        vertex atoms.
+        rendering_bonds: Mutable list to append new centre-vertex bonds to.
     """
     from hofmann.model import PolyhedronSpec as _PSpec
 
@@ -227,7 +226,7 @@ def _complete_polyhedra_vertices(
     centre_patterns = [s.centre for s in polyhedra_specs
                        if isinstance(s, _PSpec)]
     if not centre_patterns:
-        return []
+        return
 
     def _is_centre(sp: str) -> bool:
         return any(fnmatch(sp, pat) for pat in centre_patterns)
@@ -258,14 +257,27 @@ def _complete_polyhedra_vertices(
         for other_phys, bond_img, spec in atom_bonds[phys_idx]:
             target_shift = _add_images(shift, bond_img)
             if target_shift == (0, 0, 0):
-                continue  # Physical atom, already exists.
-            target_key = (other_phys, target_shift)
-            if target_key in image_registry:
-                continue  # Already materialised.
-            exp_idx = materialise(other_phys, target_shift)
-            new_atoms.append((other_phys, target_shift, exp_idx))
+                target_idx = other_phys  # Physical atom, always exists.
+            else:
+                target_key = (other_phys, target_shift)
+                if target_key in image_registry:
+                    target_idx = image_registry[target_key]
+                else:
+                    target_idx = materialise(other_phys, target_shift)
+                    new_atoms.append((other_phys, target_shift, target_idx))
 
-    return new_atoms
+            # Create centre-vertex bond.
+            if shift == (0, 0, 0):
+                centre_idx = phys_idx
+            else:
+                centre_idx = image_registry[(phys_idx, shift)]
+
+            centre_coord = (coords[phys_idx] if shift == (0, 0, 0)
+                            else coords[phys_idx] + np.array(shift, dtype=float) @ lattice)
+            target_coord = (coords[other_phys] if target_shift == (0, 0, 0)
+                            else coords[other_phys] + np.array(target_shift, dtype=float) @ lattice)
+            length = float(np.linalg.norm(target_coord - centre_coord))
+            rendering_bonds.append(Bond(centre_idx, target_idx, length, spec))
 
 
 def build_rendering_set(
@@ -562,15 +574,11 @@ def build_rendering_set(
     # --- Polyhedra vertex completion ---
     # Ensure every polyhedron centre has its full coordination shell.
     if polyhedra_specs:
-        vertex_new = _complete_polyhedra_vertices(
+        _complete_polyhedra_vertices(
             species, coords, lattice, n_physical, periodic_bonds,
             polyhedra_specs, image_registry, _materialise,
+            rendering_bonds,
         )
-        if vertex_new:
-            _discover_bonds_for_new_atoms(
-                vertex_new, periodic_bonds, coords, lattice,
-                image_registry, rendering_bonds,
-            )
 
     # --- Build output ---
     if image_species:
