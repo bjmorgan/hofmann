@@ -71,7 +71,11 @@ def _key_action_fixtures():
     """Build a ViewState, RenderStyle, state dict, and initial_view for tests."""
     view = ViewState()
     style = RenderStyle()
-    state = {"frame_index": 0, "help_visible": False}
+    state = {
+        "frame_index": 0,
+        "help_visible": False,
+        "frame_step": 1,
+    }
     initial_view = {
         "rotation": view.rotation.copy(),
         "zoom": view.zoom,
@@ -350,6 +354,38 @@ class TestKeyActions:
             kind = _do_key(key, view, style, state, iv, n_frames=1)
             assert state["frame_index"] == 0
             assert kind == "none"
+
+    def test_frame_next_respects_step(self):
+        """] advances by frame_step, not always 1."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_step"] = 3
+        kind = _do_key("]", view, style, state, iv, n_frames=10)
+        assert state["frame_index"] == 3
+        assert kind == "full"
+
+    def test_frame_prev_respects_step(self):
+        """[ goes back by frame_step."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_index"] = 5
+        state["frame_step"] = 2
+        _do_key("[", view, style, state, iv, n_frames=10)
+        assert state["frame_index"] == 3
+
+    def test_frame_next_step_wraps(self):
+        """Stepping past the end wraps around."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_index"] = 8
+        state["frame_step"] = 5
+        _do_key("]", view, style, state, iv, n_frames=10)
+        assert state["frame_index"] == 3
+
+    def test_frame_prev_step_wraps(self):
+        """Stepping before the start wraps around."""
+        view, style, state, iv = _key_action_fixtures()
+        state["frame_index"] = 2
+        state["frame_step"] = 5
+        _do_key("[", view, style, state, iv, n_frames=10)
+        assert state["frame_index"] == 7
 
     # -- Reset --
 

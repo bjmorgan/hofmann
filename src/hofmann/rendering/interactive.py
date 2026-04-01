@@ -160,10 +160,12 @@ def _apply_key_action(
 
     # -- Frame navigation --
     elif key == "]" and n_frames > 1:
-        state["frame_index"] = (state["frame_index"] + 1) % n_frames
+        step = state.get("frame_step", 1)
+        state["frame_index"] = (state["frame_index"] + step) % n_frames
         return "full"
     elif key == "[" and n_frames > 1:
-        state["frame_index"] = (state["frame_index"] - 1) % n_frames
+        step = state.get("frame_step", 1)
+        state["frame_index"] = (state["frame_index"] - step) % n_frames
         return "full"
     elif key == "}" and n_frames > 1:
         state["frame_index"] = n_frames - 1
