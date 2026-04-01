@@ -1,7 +1,6 @@
 """Tests for individual pipeline stages in the bond/atom materialisation pipeline."""
 
 import numpy as np
-import pytest
 
 from hofmann.construction.bonds import compute_bonds
 from hofmann.construction.rendering_set import build_rendering_set
