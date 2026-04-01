@@ -96,6 +96,36 @@ def _apply_key_action(
     - ``"full"`` — style or frame change needing recomputation.
     - ``"none"`` — unrecognised key, no redraw needed.
     """
+    # -- Number input mode --
+    input_mode = state.get("input_mode")
+    if input_mode is not None:
+        if key in "0123456789":
+            state["input_buffer"] = state.get("input_buffer", "") + key
+            return "view"
+        elif key == "enter":
+            buf = state.get("input_buffer", "")
+            state["input_mode"] = None
+            state["input_buffer"] = ""
+            if input_mode == "goto":
+                if buf:
+                    target = int(buf)
+                    state["frame_index"] = max(0, min(target, n_frames - 1))
+                    return "full"
+                return "view"
+            elif input_mode == "step":
+                if buf:
+                    val = int(buf)
+                    if val >= 1:
+                        state["frame_step"] = min(val, n_frames - 1)
+                return "view"
+        elif key == "escape":
+            state["input_mode"] = None
+            state["input_buffer"] = ""
+            return "view"
+        else:
+            # Swallow all other keys during input mode.
+            return "view"
+
     # -- Rotation --
     if key == "left":
         view.rotation = _rotation_y(-_KEY_ROTATION_STEP) @ view.rotation
@@ -173,6 +203,18 @@ def _apply_key_action(
     elif key == "{" and n_frames > 1:
         state["frame_index"] = 0
         return "full"
+
+    # -- Input mode entry --
+    elif key == "g" and n_frames > 1:
+        state["input_mode"] = "goto"
+        state["input_buffer"] = ""
+        return "view"
+    elif key == "s" and n_frames > 1:
+        state["input_mode"] = "step"
+        state["input_buffer"] = ""
+        return "view"
+    elif key in ("g", "s") and n_frames <= 1:
+        return "none"
 
     # -- Frame indicator --
     elif key == "f" and n_frames > 1:
