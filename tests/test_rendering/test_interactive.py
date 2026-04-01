@@ -555,3 +555,6 @@ class TestKeyActions:
         assert "Zoom" in _HELP_TEXT
         assert "Rotate" in _HELP_TEXT
         assert "help" in _HELP_TEXT.lower()
+        assert "Go to frame" in _HELP_TEXT
+        assert "Set step" in _HELP_TEXT
+        assert "Frame indicator" in _HELP_TEXT

@@ -73,6 +73,8 @@ b          Bonds           o             Outlines
 e          Polyhedra       u             Unit cell
 a          Axes            r             Reset view
 [  ]       Prev/next frame {  }          First/last
+f          Frame indicator g             Go to frame
+s          Set step size
 h          Toggle help     Scroll        Zoom
 Drag       Rotate"""
 
@@ -373,6 +375,10 @@ def render_mpl_interactive(
         "help_visible": False,
         "precomputed": pre,
         "base_extent": base_extent,
+        "frame_step": 1,
+        "input_mode": None,
+        "input_buffer": "",
+        "indicator_visible": False,
     }
 
     # Snapshot for the reset key.
@@ -397,6 +403,8 @@ def render_mpl_interactive(
         )
         if state["help_visible"]:
             _add_help_overlay()
+        if state.get("indicator_visible") or state.get("input_mode"):
+            _add_frame_indicator()
         fig.canvas.draw_idle()
         state["last_draw_t"] = time.monotonic()
 
@@ -431,6 +439,33 @@ def render_mpl_interactive(
                 alpha=0.85,
                 edgecolor="grey",
             ),
+            zorder=1000,
+        )
+
+    def _add_frame_indicator() -> None:
+        """Add the frame indicator text at bottom-centre."""
+        idx = state["frame_index"]
+        total = n_frames
+        step = state.get("frame_step", 1)
+        input_mode = state.get("input_mode")
+
+        if input_mode == "goto":
+            text = f"Go to: {state.get('input_buffer', '')}_"
+        elif input_mode == "step":
+            text = f"Step: {state.get('input_buffer', '')}_"
+        elif step > 1:
+            text = f"Frame {idx} / {total} (step {step})"
+        else:
+            text = f"Frame {idx} / {total}"
+
+        ax.text(
+            0.5, 0.02, text,
+            transform=ax.transAxes,
+            fontsize=7,
+            fontfamily="monospace",
+            ha="center",
+            va="bottom",
+            color="0.4",
             zorder=1000,
         )
 
