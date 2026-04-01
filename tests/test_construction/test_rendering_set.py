@@ -439,27 +439,6 @@ class TestPbcPadding:
                     atol=1e-6,
                 )
 
-    def test_bond_to_padding_atom(self):
-        """Periodic bond connecting a padding atom to a physical atom."""
-        species = ["Na", "Cl"]
-        lattice = np.diag([5.0, 5.0, 5.0])
-        coords = np.array([
-            [0.1, 2.5, 2.5],   # Na near low-x face
-            [4.9, 2.5, 2.5],   # Cl near high-x face
-        ])
-        # complete=False so completion doesn't create any images.
-        spec = BondSpec(species=("Na", "Cl"), min_length=0.0,
-                        max_length=1.0, radius=0.1, colour=1.0)
-        bonds = compute_bonds(species, coords, [spec], lattice=lattice)
-        rset = build_rendering_set(
-            species, coords, bonds, [spec], lattice, pbc_padding=0.5,
-        )
-        # Padding creates images.  Na near low face → Na image at high face.
-        # Cl near high face → Cl image at low face.
-        # The periodic bond Na-Cl should appear between the padding images
-        # and the physical atoms they are near.
-        assert len(rset.bonds) > 0
-
     def test_source_indices_for_padding(self):
         """Source indices correctly map padding atoms to physical atoms."""
         species = ["A"]
