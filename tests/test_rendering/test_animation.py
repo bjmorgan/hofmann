@@ -3,9 +3,10 @@
 import matplotlib
 matplotlib.use("Agg")
 
-import imageio
 import numpy as np
 import pytest
+
+imageio = pytest.importorskip("imageio")
 
 from hofmann.model import Frame, StructureScene
 
