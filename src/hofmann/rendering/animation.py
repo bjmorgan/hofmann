@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import shutil
+import subprocess
 from pathlib import Path
 from typing import Protocol
 
@@ -50,3 +52,61 @@ class _GifWriter:
             duration=self._duration,
             loop=0,
         )
+
+
+class _Mp4Writer:
+    """Write animation frames to an MP4 file via ffmpeg.
+
+    Frames are piped to an ``ffmpeg`` subprocess as raw RGBA data.
+
+    Args:
+        output: Destination file path.
+        fps: Frames per second.
+        width: Frame width in pixels.
+        height: Frame height in pixels.
+
+    Raises:
+        FileNotFoundError: If ``ffmpeg`` is not on ``PATH``.
+    """
+
+    def __init__(
+        self,
+        output: str | Path,
+        *,
+        fps: int = 10,
+        width: int,
+        height: int,
+    ) -> None:
+        if shutil.which("ffmpeg") is None:
+            raise FileNotFoundError(
+                "ffmpeg is required for MP4 output but was not found "
+                "on PATH"
+            )
+        self._output = Path(output)
+        self._proc = subprocess.Popen(
+            [
+                "ffmpeg", "-y",
+                "-f", "rawvideo",
+                "-pix_fmt", "rgba",
+                "-s", f"{width}x{height}",
+                "-r", str(fps),
+                "-i", "pipe:",
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                str(self._output),
+            ],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    def add_frame(self, fig: Figure) -> None:
+        """Pipe the current figure as a raw RGBA frame to ffmpeg."""
+        fig.canvas.draw()
+        buf = fig.canvas.buffer_rgba()
+        self._proc.stdin.write(bytes(buf))
+
+    def finish(self) -> None:
+        """Close the ffmpeg pipe and wait for the process to exit."""
+        self._proc.stdin.close()
+        self._proc.wait()
