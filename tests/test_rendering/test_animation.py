@@ -177,3 +177,11 @@ class TestRenderAnimation:
         scene = _make_scene(n_frames=5)
         with pytest.raises(ValueError, match="Unsupported"):
             render_animation(scene, tmp_path / "bad.avi")
+
+    def test_scene_method_delegates(self, tmp_path):
+        """StructureScene.render_animation() produces output."""
+        scene = _make_scene(n_frames=3)
+        output = tmp_path / "method.gif"
+        result = scene.render_animation(output, dpi=50, figsize=(2, 2))
+        assert result == output
+        assert output.exists()
