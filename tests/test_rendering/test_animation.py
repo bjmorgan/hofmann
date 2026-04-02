@@ -1,7 +1,5 @@
 """Tests for animation rendering."""
 
-from pathlib import Path
-
 import matplotlib
 matplotlib.use("Agg")
 
