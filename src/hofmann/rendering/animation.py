@@ -136,8 +136,8 @@ def render_animation(
                 frame_index=frame_indices[0], bg_rgb=bg_rgb,
                 precomputed=first_pre,
             )
-            fixed_xlim = ax.get_xlim()
-            fixed_ylim = ax.get_ylim()
+            xlim = ax.get_xlim()
+            ylim = ax.get_ylim()
             fig.canvas.draw()
             writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])  # type: ignore[attr-defined]
 
@@ -151,9 +151,8 @@ def render_animation(
                     ax, scene, view, resolved,
                     frame_index=frame_idx, bg_rgb=bg_rgb,
                     precomputed=precomputed,
+                    fixed_xlim=xlim, fixed_ylim=ylim,
                 )
-                ax.set_xlim(*fixed_xlim)
-                ax.set_ylim(*fixed_ylim)
                 fig.canvas.draw()
                 writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])  # type: ignore[attr-defined]
     finally:

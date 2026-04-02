@@ -421,6 +421,8 @@ def _draw_scene(
     colour_by: str | list[str] | None = None,
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
+    fixed_xlim: tuple[float, float] | None = None,
+    fixed_ylim: tuple[float, float] | None = None,
 ) -> None:
     """Paint atoms and bonds onto *ax* using the painter's algorithm.
 
@@ -821,8 +823,12 @@ def _draw_scene(
         expand_per_side = widget_frac * 0.5
         pad_x *= 1.0 + expand_per_side
         pad_y *= 1.0 + expand_per_side
-    ax.set_xlim(cx - pad_x, cx + pad_x)
-    ax.set_ylim(cy - pad_y, cy + pad_y)
+    if fixed_xlim is not None and fixed_ylim is not None:
+        ax.set_xlim(*fixed_xlim)
+        ax.set_ylim(*fixed_ylim)
+    else:
+        ax.set_xlim(cx - pad_x, cx + pad_x)
+        ax.set_ylim(cy - pad_y, cy + pad_y)
     ax.axis("off")
 
     if scene.title:
@@ -843,10 +849,7 @@ def _draw_scene(
             raise ValueError(
                 f"show_axes=True but frame {frame_index} has no lattice"
             )
-        _draw_axes_widget(
-            ax, lattice, view, style.axes_style,
-            pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
-        )
+        _draw_axes_widget(ax, lattice, view, style.axes_style)
 
     if style.show_legend:
         _draw_legend_widget(
@@ -863,10 +866,6 @@ def _draw_axes_widget(
     lattice: np.ndarray,
     view: ViewState,
     style: AxesStyle,
-    pad_x: float,
-    pad_y: float,
-    cx: float = 0.0,
-    cy: float = 0.0,
 ) -> None:
     """Draw a crystallographic axes orientation widget on *ax*.
 
@@ -874,6 +873,10 @@ def _draw_axes_widget(
     from a common origin in the specified corner of the viewport.  The
     lines rotate in sync with the structure via ``view.rotation``,
     with italic labels at the tips.
+
+    The widget position is derived from the current axes limits, so
+    ``ax.set_xlim`` / ``ax.set_ylim`` must be called before this
+    function.
 
     This function adds ``Line2D`` artists and text labels.  These are
     cleaned up on the next call to :func:`_draw_scene` via the
@@ -885,11 +888,13 @@ def _draw_axes_widget(
             lattice vectors.
         view: Camera / projection state.
         style: Visual style for the widget.
-        pad_x: Viewport half-extent in the x direction (data coords).
-        pad_y: Viewport half-extent in the y direction (data coords).
-        cx: Viewport centre x coordinate.
-        cy: Viewport centre y coordinate.
     """
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    cx = (xlim[0] + xlim[1]) / 2
+    cy = (ylim[0] + ylim[1]) / 2
+    pad_x = (xlim[1] - xlim[0]) / 2
+    pad_y = (ylim[1] - ylim[0]) / 2
     pad = max(pad_x, pad_y)
     arrow_len = style.arrow_length * pad
 
