@@ -95,7 +95,9 @@ class _Mp4Writer:
         if shutil.which("ffmpeg") is None:
             raise FileNotFoundError(
                 "ffmpeg is required for MP4 output but was not found "
-                "on PATH"
+                "on PATH. Install it with 'brew install ffmpeg' "
+                "(macOS), 'apt install ffmpeg' (Debian/Ubuntu), or "
+                "'conda install ffmpeg' (conda)."
             )
         self._output = Path(output)
         self._proc = subprocess.Popen(
