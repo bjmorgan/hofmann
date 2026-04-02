@@ -113,13 +113,12 @@ def _apply_key_action(
                     target = int(buf)
                     state["frame_index"] = max(0, min(target, n_frames - 1))
                     return "full"
-                return "view"
             elif input_mode == "step":
                 if buf:
                     val = int(buf)
                     if val >= 1:
                         state["frame_step"] = min(val, n_frames - 1)
-                return "view"
+            return "view"
         elif key == "escape":
             state["input_mode"] = None
             state["input_buffer"] = ""

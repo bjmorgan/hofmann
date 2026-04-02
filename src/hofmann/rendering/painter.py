@@ -104,10 +104,11 @@ def _precompute_scene(
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> _PrecomputedScene:
-    """Pre-compute frame-independent data for repeated rendering.
+    """Pre-compute view-independent data for a single frame.
 
     Returns a :class:`_PrecomputedScene` of radii, colours, bonds, and
-    adjacency that stay constant across rotation / zoom changes.
+    adjacency that stay constant across rotation / zoom changes but
+    must be recomputed when the frame changes.
     """
     rs = render_style or RenderStyle()
     frame = scene.frames[frame_index]
