@@ -72,7 +72,7 @@ A vibrating methane molecule styled to match the
 
    traj = read("ch4_md.traj", index=":")
 
-   bonds = [BondSpec(species=("C", "H"), max_length=1.5, colour=1.0)]
+   bonds = [BondSpec(species=("C", "H"), max_length=1.5, radius=0.109, colour=1.0)]
    atom_styles = {
        "C": AtomStyle(radius=1.0, colour=0.7),
        "H": AtomStyle(radius=0.7, colour=1.0),

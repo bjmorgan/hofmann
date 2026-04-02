@@ -21,7 +21,9 @@ traj = read(str(TRAJ), index=":")
 print(f"Rendering {len(traj)} frames")
 
 # XBS-style appearance (matches the Getting Started CH4 example).
-bonds = [BondSpec(species=("C", "H"), max_length=1.5, colour=1.0)]
+bonds = [
+    BondSpec(species=("C", "H"), max_length=1.5, radius=0.109, colour=1.0),
+]
 atom_styles = {
     "C": AtomStyle(radius=1.0, colour=0.7),
     "H": AtomStyle(radius=0.7, colour=1.0),

@@ -1048,7 +1048,12 @@ def generate_animation_gifs() -> None:
         ch4_traj = read(str(ch4_traj_path), index=":")
         ch4_scene = StructureScene.from_ase(
             ch4_traj,
-            bond_specs=[BondSpec(species=("C", "H"), max_length=1.5, colour=1.0)],
+            bond_specs=[
+                BondSpec(
+                    species=("C", "H"), max_length=1.5,
+                    radius=0.109, colour=1.0,
+                ),
+            ],
             atom_styles={
                 "C": AtomStyle(radius=1.0, colour=0.7),
                 "H": AtomStyle(radius=0.7, colour=1.0),
