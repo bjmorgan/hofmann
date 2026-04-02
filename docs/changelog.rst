@@ -1,8 +1,8 @@
 Changelog
 =========
 
-Unreleased
-----------
+0.15.0
+------
 
 - Interactive viewer: frame indicator (``f``), go-to-frame (``g``),
   set-step (``s``), and step-aware frame navigation.
