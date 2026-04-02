@@ -301,9 +301,14 @@ def render_mpl_interactive(
         figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution.
         background: Background colour.
-        colour_by: Key into ``scene.atom_data`` to colour atoms by.
-        cmap: Matplotlib colourmap name, object, or callable.
+        colour_by: Key (or list of keys) into ``scene.atom_data``
+            to colour atoms by.
+        cmap: Matplotlib colourmap name, object, or callable.  When
+            *colour_by* is a list, may also be a list of the same
+            length.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+            When *colour_by* is a list, may also be a list of the
+            same length.
         **style_kwargs: Any :class:`RenderStyle` field name as a
             keyword argument.  Unknown names raise :class:`TypeError`.
 
@@ -348,8 +353,9 @@ def render_mpl_interactive(
     # appear to shift or rescale while dragging.
     base_extent = _scene_extent(scene, view, frame_index, resolved.atom_scale)
 
-    # Pre-compute bonds, colours, adjacency once — these don't change
-    # during interactive rotation / zoom.
+    # Pre-compute bonds, colours, adjacency for the current frame —
+    # these don't change during interactive rotation / zoom but are
+    # recomputed on frame navigation.
     colour_kwargs: dict[str, Any] = dict(
         colour_by=colour_by,
         cmap=cmap,
@@ -475,11 +481,20 @@ def render_mpl_interactive(
 
     # ---- Mouse handlers ----
 
+    # Matplotlib's event loop silently discards exceptions raised
+    # inside callbacks, leaving the viewer frozen with no feedback.
+    # Wrapping each handler in try/except with traceback.print_exc()
+    # ensures errors are at least visible on stderr.  The alternative
+    # — letting exceptions propagate — would crash the window with no
+    # diagnostic output, which is worse for the user.
     def on_press(event):
-        if event.inaxes != ax or event.button != 1:
-            return
-        state["drag_active"] = True
-        state["drag_last_xy"] = (event.x, event.y)
+        try:
+            if event.inaxes != ax or event.button != 1:
+                return
+            state["drag_active"] = True
+            state["drag_last_xy"] = (event.x, event.y)
+        except Exception:
+            traceback.print_exc()
 
     def on_motion(event):
         try:
@@ -560,10 +575,10 @@ def render_mpl_interactive(
     try:
         plt.show()
     finally:
-        plt.close(fig)
         # Restore static-quality segment counts so the returned style
         # is ready for publication rendering.
         resolved.circle_segments = static_circle_segments
         resolved.arc_segments = static_arc_segments
+        plt.close(fig)
 
     return view, resolved

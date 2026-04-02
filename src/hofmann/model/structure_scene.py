@@ -565,7 +565,9 @@ class StructureScene:
 
         Raises:
             ValueError: If *frames* is empty or contains out-of-range
-                indices, or if *fps* is less than 1.
+                indices, if *fps* is less than 1, or if *output*
+                has an unsupported file extension (must be ``.gif``
+                or ``.mp4``).
             ImportError: If ``imageio`` is not installed.
 
         See Also:

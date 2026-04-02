@@ -315,7 +315,6 @@ def render_legend(
 
     _draw_legend_widget(
         ax, scene, legend_style,
-        pad_x=1.0, pad_y=1.0,
         outline_colour=ol_rgb,
         outline_width=outline_width,
         polyhedra_shading=polyhedra_shading,

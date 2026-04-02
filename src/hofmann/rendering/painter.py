@@ -72,9 +72,9 @@ class _PolyhedronRenderData:
 
 @dataclass
 class _PrecomputedScene:
-    """Frame-independent data cached between redraws.
+    """View-independent data cached between redraws.
 
-    Built once by :func:`_precompute_scene` and reused across rotation /
+    Built once per frame by :func:`_precompute_scene` and reused across rotation /
     zoom changes in the interactive viewer.
     """
 
@@ -829,6 +829,11 @@ def _draw_scene(
         expand_per_side = widget_frac * 0.5
         pad_x *= 1.0 + expand_per_side
         pad_y *= 1.0 + expand_per_side
+    if (fixed_xlim is None) != (fixed_ylim is None):
+        raise ValueError(
+            "fixed_xlim and fixed_ylim must both be provided or both "
+            "be None"
+        )
     if fixed_xlim is not None and fixed_ylim is not None:
         ax.set_xlim(*fixed_xlim)
         ax.set_ylim(*fixed_ylim)
@@ -860,7 +865,6 @@ def _draw_scene(
     if style.show_legend:
         _draw_legend_widget(
             ax, scene, style.legend_style,
-            pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
             outline_colour=outline_rgb if show_outlines else None,
             outline_width=atom_outline_width,
             polyhedra_shading=polyhedra_shading,

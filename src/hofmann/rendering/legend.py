@@ -277,10 +277,6 @@ def _draw_legend_widget(
     ax: Axes,
     scene: StructureScene,
     style: LegendStyle,
-    pad_x: float,
-    pad_y: float,
-    cx: float = 0.0,
-    cy: float = 0.0,
     outline_colour: tuple[float, float, float] | None = None,
     outline_width: float = 1.0,
     polyhedra_shading: float = 1.0,
@@ -291,6 +287,10 @@ def _draw_legend_widget(
     Each entry corresponds to one :class:`LegendItem`.  Markers may
     be circles, regular polygons, or miniature 3D polyhedra depending
     on the item's fields.
+
+    The widget position is derived from the current axes limits, so
+    ``ax.set_xlim`` / ``ax.set_ylim`` must be called before this
+    function.
 
     This function adds ``Line2D`` artists (flat markers),
     ``PolyCollection`` artists (3D polyhedra), and text labels.
@@ -304,10 +304,6 @@ def _draw_legend_widget(
             for auto-generated items).  Unused when ``style.items``
             is provided.
         style: Visual style for the widget.
-        pad_x: Viewport half-extent in the x direction (data coords).
-        pad_y: Viewport half-extent in the y direction (data coords).
-        cx: Viewport centre x coordinate.
-        cy: Viewport centre y coordinate.
         outline_colour: Outline colour for legend markers, or ``None``
             to disable outlines.
         outline_width: Line width for marker outlines in points.
@@ -320,6 +316,14 @@ def _draw_legend_widget(
         items = _build_legend_items(scene, style)
     if not items:
         return
+
+    # ---- Derive viewport from axes limits ----
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    cx = (xlim[0] + xlim[1]) / 2
+    cy = (ylim[0] + ylim[1]) / 2
+    pad_x = (xlim[1] - xlim[0]) / 2
+    pad_y = (ylim[1] - ylim[0]) / 2
 
     # ---- Display-space scaling ----
     pad = max(pad_x, pad_y)

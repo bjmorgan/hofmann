@@ -91,6 +91,14 @@ class TestRenderAnimation:
         with pytest.raises(ValueError, match="out of range"):
             render_animation(scene, tmp_path / "bad.gif", frames=[-1])
 
+    def test_raises_on_unsupported_extension(self, tmp_path):
+        """ValueError if output file has an unsupported extension."""
+        from hofmann.rendering.animation import render_animation
+
+        scene = _make_scene(n_frames=3)
+        with pytest.raises(ValueError, match="unsupported output format"):
+            render_animation(scene, tmp_path / "bad.avi")
+
     def test_raises_on_invalid_fps(self, tmp_path):
         """ValueError if fps is zero or negative."""
         from hofmann.rendering.animation import render_animation
@@ -107,6 +115,35 @@ class TestRenderAnimation:
         scene = _make_scene(n_frames=5)
         with pytest.raises(ValueError, match="empty"):
             render_animation(scene, tmp_path / "bad.gif", frames=[])
+
+    def test_partial_output_removed_on_failure(self, tmp_path):
+        """Partial output file is removed when rendering fails mid-render."""
+        from unittest.mock import patch
+
+        from hofmann.rendering.animation import render_animation
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _make_scene(n_frames=3)
+        output = tmp_path / "fail.gif"
+
+        call_count = 0
+        real_precompute = _precompute_scene
+
+        def _fail_on_second_call(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 2:
+                raise ValueError("synthetic error")
+            return real_precompute(*args, **kwargs)
+
+        with patch(
+            "hofmann.rendering.animation._precompute_scene",
+            side_effect=_fail_on_second_call,
+        ):
+            with pytest.raises(ValueError, match="synthetic error"):
+                render_animation(scene, output)
+
+        assert not output.exists()
 
     def test_scene_method_delegates(self, tmp_path):
         """StructureScene.render_animation() produces output."""

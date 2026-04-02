@@ -20,6 +20,8 @@ from hofmann.model import (
 from hofmann.rendering.painter import _draw_scene, _precompute_scene
 from hofmann.rendering.static import _resolve_style
 
+_SUPPORTED_EXTENSIONS = frozenset({".gif", ".mp4"})
+
 
 def render_animation(
     scene: StructureScene,
@@ -109,7 +111,6 @@ def render_animation(
     if fps < 1:
         raise ValueError(f"fps must be >= 1, got {fps}")
 
-    _SUPPORTED_EXTENSIONS = {".gif", ".mp4"}
     ext = output.suffix.lower()
     if ext not in _SUPPORTED_EXTENSIONS:
         raise ValueError(
@@ -163,16 +164,21 @@ def render_animation(
                         np.asarray(canvas.buffer_rgba())[:, :, :3],
                     )
                 except Exception as exc:
-                    raise RuntimeError(
-                        f"error rendering frame {frame_idx}: {exc}"
-                    ) from exc
+                    exc.add_note(f"While rendering frame {frame_idx}")
+                    raise
         succeeded = True
     finally:
         fig.clear()
         if not succeeded and output.exists():
             try:
                 output.unlink()
-            except OSError:
-                pass
+            except OSError as cleanup_exc:
+                import warnings
+
+                warnings.warn(
+                    f"Failed to remove partial output {output}: "
+                    f"{cleanup_exc}",
+                    stacklevel=2,
+                )
 
     return output
