@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hofmann"
-version = "0.14.2"
+version = "0.15.0"
 description = "A modern Python reimagining of the XBS ball-and-stick crystal structure viewer"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -37,6 +37,7 @@ Repository = "https://github.com/bjmorgan/hofmann"
 Issues = "https://github.com/bjmorgan/hofmann/issues"
 
 [project.optional-dependencies]
+animation = ["imageio>=2.30", "imageio-ffmpeg>=0.5"]
 ase = ["ase>=3.22"]
 pymatgen = ["pymatgen>=2024.1.1"]
 dev = ["pytest>=7.0", "pytest-cov>=4.0"]
@@ -46,7 +47,7 @@ docs = [
     "sphinx-autodoc-typehints>=2.0",
     "pymatgen>=2024.1.1",
 ]
-all = ["hofmann[ase,pymatgen,dev,docs]"]
+all = ["hofmann[animation,ase,pymatgen,dev,docs]"]
 
 [tool.setuptools.package-data]
 hofmann = ["py.typed", "data/*.json"]

@@ -73,6 +73,8 @@ b          Bonds           o             Outlines
 e          Polyhedra       u             Unit cell
 a          Axes            r             Reset view
 [  ]       Prev/next frame {  }          First/last
+f          Frame indicator g             Go to frame
+s          Set step size
 h          Toggle help     Scroll        Zoom
 Drag       Rotate"""
 
@@ -96,6 +98,35 @@ def _apply_key_action(
     - ``"full"`` — style or frame change needing recomputation.
     - ``"none"`` — unrecognised key, no redraw needed.
     """
+    # -- Number input mode --
+    input_mode = state.get("input_mode")
+    if input_mode is not None:
+        if key in "0123456789":
+            state["input_buffer"] = state.get("input_buffer", "") + key
+            return "view"
+        elif key == "enter":
+            buf = state.get("input_buffer", "")
+            state["input_mode"] = None
+            state["input_buffer"] = ""
+            if input_mode == "goto":
+                if buf:
+                    target = int(buf)
+                    state["frame_index"] = max(0, min(target, n_frames - 1))
+                    return "full"
+            elif input_mode == "step":
+                if buf:
+                    val = int(buf)
+                    if val >= 1:
+                        state["frame_step"] = min(val, n_frames - 1)
+            return "view"
+        elif key == "escape":
+            state["input_mode"] = None
+            state["input_buffer"] = ""
+            return "view"
+        else:
+            # Swallow all other keys during input mode.
+            return "view"
+
     # -- Rotation --
     if key == "left":
         view.rotation = _rotation_y(-_KEY_ROTATION_STEP) @ view.rotation
@@ -160,10 +191,12 @@ def _apply_key_action(
 
     # -- Frame navigation --
     elif key == "]" and n_frames > 1:
-        state["frame_index"] = (state["frame_index"] + 1) % n_frames
+        step = state.get("frame_step", 1)
+        state["frame_index"] = (state["frame_index"] + step) % n_frames
         return "full"
     elif key == "[" and n_frames > 1:
-        state["frame_index"] = (state["frame_index"] - 1) % n_frames
+        step = state.get("frame_step", 1)
+        state["frame_index"] = (state["frame_index"] - step) % n_frames
         return "full"
     elif key == "}" and n_frames > 1:
         state["frame_index"] = n_frames - 1
@@ -171,6 +204,25 @@ def _apply_key_action(
     elif key == "{" and n_frames > 1:
         state["frame_index"] = 0
         return "full"
+
+    # -- Input mode entry --
+    elif key == "g" and n_frames > 1:
+        state["input_mode"] = "goto"
+        state["input_buffer"] = ""
+        return "view"
+    elif key == "s" and n_frames > 1:
+        state["input_mode"] = "step"
+        state["input_buffer"] = ""
+        return "view"
+    elif key in ("g", "s") and n_frames <= 1:
+        return "none"
+
+    # -- Frame indicator --
+    elif key == "f" and n_frames > 1:
+        state["indicator_visible"] = not state.get("indicator_visible", False)
+        return "view"
+    elif key == "f" and n_frames <= 1:
+        return "none"
 
     # -- Reset --
     elif key == "r":
@@ -225,6 +277,8 @@ def render_mpl_interactive(
       **u** toggle unit cell, **a** toggle axes widget.
     - **[** / **]** step to the previous/next frame;
       **{** / **}** jump to the first/last frame.
+    - **f** toggle frame indicator, **g** go to a specific frame,
+      **s** set frame step size.
     - **r** reset the view to its initial state.
     - **h** toggle a help overlay listing all keybindings.
 
@@ -245,9 +299,14 @@ def render_mpl_interactive(
         figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution.
         background: Background colour.
-        colour_by: Key into ``scene.atom_data`` to colour atoms by.
-        cmap: Matplotlib colourmap name, object, or callable.
+        colour_by: Key (or list of keys) into ``scene.atom_data``
+            to colour atoms by.
+        cmap: Matplotlib colourmap name, object, or callable.  When
+            *colour_by* is a list, may also be a list of the same
+            length.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+            When *colour_by* is a list, may also be a list of the
+            same length.
         **style_kwargs: Any :class:`RenderStyle` field name as a
             keyword argument.  Unknown names raise :class:`TypeError`.
 
@@ -292,8 +351,9 @@ def render_mpl_interactive(
     # appear to shift or rescale while dragging.
     base_extent = _scene_extent(scene, view, frame_index, resolved.atom_scale)
 
-    # Pre-compute bonds, colours, adjacency once — these don't change
-    # during interactive rotation / zoom.
+    # Pre-compute bonds, colours, adjacency for the current frame —
+    # these don't change during interactive rotation / zoom but are
+    # recomputed on frame navigation.
     colour_kwargs: dict[str, Any] = dict(
         colour_by=colour_by,
         cmap=cmap,
@@ -323,6 +383,10 @@ def render_mpl_interactive(
         "help_visible": False,
         "precomputed": pre,
         "base_extent": base_extent,
+        "frame_step": 1,
+        "input_mode": None,
+        "input_buffer": "",
+        "indicator_visible": False,
     }
 
     # Snapshot for the reset key.
@@ -347,6 +411,8 @@ def render_mpl_interactive(
         )
         if state["help_visible"]:
             _add_help_overlay()
+        if state.get("indicator_visible") or state.get("input_mode"):
+            _add_frame_indicator()
         fig.canvas.draw_idle()
         state["last_draw_t"] = time.monotonic()
 
@@ -384,6 +450,33 @@ def render_mpl_interactive(
             zorder=1000,
         )
 
+    def _add_frame_indicator() -> None:
+        """Add the frame indicator or input prompt at bottom-centre."""
+        idx = state["frame_index"]
+        total = n_frames
+        step = state.get("frame_step", 1)
+        input_mode = state.get("input_mode")
+
+        if input_mode == "goto":
+            text = f"Go to: {state.get('input_buffer', '')}_"
+        elif input_mode == "step":
+            text = f"Step: {state.get('input_buffer', '')}_"
+        elif step > 1:
+            text = f"Frame {idx} / {total} (step {step})"
+        else:
+            text = f"Frame {idx} / {total}"
+
+        ax.text(
+            0.5, 0.02, text,
+            transform=ax.transAxes,
+            fontsize=7,
+            fontfamily="monospace",
+            ha="center",
+            va="bottom",
+            color="0.4",
+            zorder=1000,
+        )
+
     # ---- Mouse handlers ----
 
     def on_press(event):
@@ -417,7 +510,7 @@ def render_mpl_interactive(
             _redraw()
 
     def on_scroll(event):
-        if event.inaxes != ax:
+        if event.inaxes != ax or event.step is None:
             return
         factor = _KEY_ZOOM_FACTOR ** event.step
         view.zoom = max(0.01, min(100.0, view.zoom * factor))
@@ -456,11 +549,13 @@ def render_mpl_interactive(
         if handler_id is not None:
             fig.canvas.mpl_disconnect(handler_id)
 
-    plt.show()
-
-    # Restore static-quality segment counts so the returned style
-    # is ready for publication rendering.
-    resolved.circle_segments = static_circle_segments
-    resolved.arc_segments = static_arc_segments
+    try:
+        plt.show()
+    finally:
+        # Restore static-quality segment counts so the returned style
+        # is ready for publication rendering.
+        resolved.circle_segments = static_circle_segments
+        resolved.arc_segments = static_arc_segments
+        plt.close(fig)
 
     return view, resolved

@@ -513,3 +513,71 @@ class StructureScene:
             colour_by=colour_by, cmap=cmap, colour_range=colour_range,
             **style_kwargs,
         )
+
+    def render_animation(
+        self,
+        output: str | Path,
+        *,
+        style: RenderStyle | None = None,
+        frames: range | Sequence[int] | None = None,
+        fps: int = 30,
+        figsize: tuple[float, float] = (5.0, 5.0),
+        dpi: int = 150,
+        background: Colour = "white",
+        colour_by: str | list[str] | None = None,
+        cmap: CmapSpec | list[CmapSpec] = "viridis",
+        colour_range: (
+            tuple[float, float]
+            | None
+            | list[tuple[float, float] | None]
+        ) = None,
+        **style_kwargs: object,
+    ) -> Path:
+        """Render a trajectory animation to a GIF or MP4 file.
+
+        Loops over the specified frames, rendering each with the
+        per-frame pipeline and writing it to the output file.
+
+        Args:
+            output: Destination file path.  Extension determines the
+                format (e.g. ``.gif``, ``.mp4``).
+            style: A :class:`RenderStyle` controlling visual appearance.
+                Any :class:`RenderStyle` field name may also be passed
+                as a keyword argument to override individual fields.
+            frames: Which frame indices to render, in order.  ``None``
+                renders all frames.  Accepts ``range(0, 100, 5)`` or
+                an arbitrary sequence of indices.
+            fps: Frames per second in the output file.
+            figsize: Figure size in inches ``(width, height)``.
+            dpi: Resolution in dots per inch.
+            background: Background colour.
+            colour_by: Key (or list of keys) into :attr:`atom_data`
+                to colour atoms by.
+            cmap: A :type:`CmapSpec` — colourmap name, object, or
+                callable.
+            colour_range: Explicit ``(vmin, vmax)`` for numerical
+                data.
+            **style_kwargs: Any :class:`RenderStyle` field name as a
+                keyword argument (e.g. ``show_bonds=False``).
+
+        Returns:
+            The output file path as a :class:`~pathlib.Path`.
+
+        Raises:
+            ValueError: If *frames* is empty or contains out-of-range
+                indices, if *fps* is less than 1, or if *output*
+                has an unsupported file extension (must be ``.gif``
+                or ``.mp4``).
+            ImportError: If ``imageio`` is not installed.
+
+        See Also:
+            :func:`hofmann.rendering.animation.render_animation`
+        """
+        from hofmann.rendering.animation import render_animation
+
+        return render_animation(
+            self, output, style=style, frames=frames, fps=fps,
+            figsize=figsize, dpi=dpi, background=background,
+            colour_by=colour_by, cmap=cmap,
+            colour_range=colour_range, **style_kwargs,
+        )

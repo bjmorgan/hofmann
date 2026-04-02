@@ -18,7 +18,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: pip install ".[dev,pymatgen,ase]"
+        run: pip install ".[dev,animation,pymatgen,ase]"
       - name: Run tests
         run: pytest --tb=short -q
 
@@ -30,6 +30,6 @@ jobs:
         with:
           python-version: "3.13"
       - name: Install dependencies
-        run: pip install ".[dev,pymatgen,ase]" mypy
+        run: pip install ".[dev,animation,pymatgen,ase]" mypy
       - name: Run mypy
         run: mypy src/hofmann --ignore-missing-imports

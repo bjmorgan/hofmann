@@ -72,9 +72,9 @@ class _PolyhedronRenderData:
 
 @dataclass
 class _PrecomputedScene:
-    """Frame-independent data cached between redraws.
+    """View-independent data cached between redraws.
 
-    Built once by :func:`_precompute_scene` and reused across rotation /
+    Built once per frame by :func:`_precompute_scene` and reused across rotation /
     zoom changes in the interactive viewer.
     """
 
@@ -104,10 +104,11 @@ def _precompute_scene(
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
 ) -> _PrecomputedScene:
-    """Pre-compute frame-independent data for repeated rendering.
+    """Pre-compute view-independent data for a single frame.
 
     Returns a :class:`_PrecomputedScene` of radii, colours, bonds, and
-    adjacency that stay constant across rotation / zoom changes.
+    adjacency that stay constant across rotation / zoom changes but
+    must be recomputed when the frame changes.
     """
     rs = render_style or RenderStyle()
     frame = scene.frames[frame_index]
@@ -421,6 +422,8 @@ def _draw_scene(
     colour_by: str | list[str] | None = None,
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
+    fixed_xlim: tuple[float, float] | None = None,
+    fixed_ylim: tuple[float, float] | None = None,
 ) -> None:
     """Paint atoms and bonds onto *ax* using the painter's algorithm.
 
@@ -442,10 +445,20 @@ def _draw_scene(
         precomputed: Pre-computed scene data from
             :func:`_precompute_scene`.  If ``None``, computed on the
             fly.
-        colour_by: Key into ``scene.atom_data`` for colourmap-based
-            colouring.
-        cmap: Matplotlib colourmap name, object, or callable.
+        colour_by: Key (or list of keys) into ``scene.atom_data``
+            for colourmap-based colouring.
+        cmap: Matplotlib colourmap name, object, or callable.  When
+            *colour_by* is a list, may also be a list of the same
+            length.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+            When *colour_by* is a list, may also be a list of the
+            same length.
+        fixed_xlim: If given, use these x-axis limits instead of
+            computing from the projected geometry.  Used by
+            :func:`render_animation` to lock the viewport across
+            frames.
+        fixed_ylim: If given, use these y-axis limits instead of
+            computing from the projected geometry.
     """
     atom_scale = style.atom_scale
     bond_scale = style.bond_scale
@@ -801,8 +814,13 @@ def _draw_scene(
         margin = np.max(atom_screen_radii) + 1.0
         cx = (xy[:, 0].max() + xy[:, 0].min()) / 2
         cy = (xy[:, 1].max() + xy[:, 1].min()) / 2
-        pad_x = (xy[:, 0].max() - xy[:, 0].min()) / 2 + margin
-        pad_y = (xy[:, 1].max() - xy[:, 1].min()) / 2 + margin
+        # Divide by zoom so that zoom > 1 crops the viewport
+        # (zooms in) and zoom < 1 adds padding (zooms out).
+        # The projected coordinates already have zoom applied,
+        # so at zoom=1 everything fits; at zoom=2 the viewport
+        # is half as wide and edge atoms are clipped.
+        pad_x = ((xy[:, 0].max() - xy[:, 0].min()) / 2 + margin) / view.zoom
+        pad_y = ((xy[:, 1].max() - xy[:, 1].min()) / 2 + margin) / view.zoom
     # ---- Axes orientation widget ----
     draw_axes = style.show_axes
     if draw_axes is None:
@@ -816,8 +834,17 @@ def _draw_scene(
         expand_per_side = widget_frac * 0.5
         pad_x *= 1.0 + expand_per_side
         pad_y *= 1.0 + expand_per_side
-    ax.set_xlim(cx - pad_x, cx + pad_x)
-    ax.set_ylim(cy - pad_y, cy + pad_y)
+    if (fixed_xlim is None) != (fixed_ylim is None):
+        raise ValueError(
+            "fixed_xlim and fixed_ylim must both be provided or both "
+            "be None"
+        )
+    if fixed_xlim is not None and fixed_ylim is not None:
+        ax.set_xlim(*fixed_xlim)
+        ax.set_ylim(*fixed_ylim)
+    else:
+        ax.set_xlim(cx - pad_x, cx + pad_x)
+        ax.set_ylim(cy - pad_y, cy + pad_y)
     ax.axis("off")
 
     if scene.title:
@@ -838,15 +865,11 @@ def _draw_scene(
             raise ValueError(
                 f"show_axes=True but frame {frame_index} has no lattice"
             )
-        _draw_axes_widget(
-            ax, lattice, view, style.axes_style,
-            pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
-        )
+        _draw_axes_widget(ax, lattice, view, style.axes_style)
 
     if style.show_legend:
         _draw_legend_widget(
             ax, scene, style.legend_style,
-            pad_x=pad_x, pad_y=pad_y, cx=cx, cy=cy,
             outline_colour=outline_rgb if show_outlines else None,
             outline_width=atom_outline_width,
             polyhedra_shading=polyhedra_shading,
@@ -858,10 +881,6 @@ def _draw_axes_widget(
     lattice: np.ndarray,
     view: ViewState,
     style: AxesStyle,
-    pad_x: float,
-    pad_y: float,
-    cx: float = 0.0,
-    cy: float = 0.0,
 ) -> None:
     """Draw a crystallographic axes orientation widget on *ax*.
 
@@ -869,6 +888,10 @@ def _draw_axes_widget(
     from a common origin in the specified corner of the viewport.  The
     lines rotate in sync with the structure via ``view.rotation``,
     with italic labels at the tips.
+
+    The widget position is derived from the current axes limits, so
+    ``ax.set_xlim`` / ``ax.set_ylim`` must be called before this
+    function.
 
     This function adds ``Line2D`` artists and text labels.  These are
     cleaned up on the next call to :func:`_draw_scene` via the
@@ -880,11 +903,13 @@ def _draw_axes_widget(
             lattice vectors.
         view: Camera / projection state.
         style: Visual style for the widget.
-        pad_x: Viewport half-extent in the x direction (data coords).
-        pad_y: Viewport half-extent in the y direction (data coords).
-        cx: Viewport centre x coordinate.
-        cy: Viewport centre y coordinate.
     """
+    xlim = ax.get_xlim()
+    ylim = ax.get_ylim()
+    cx = (xlim[0] + xlim[1]) / 2
+    cy = (ylim[0] + ylim[1]) / 2
+    pad_x = (xlim[1] - xlim[0]) / 2
+    pad_y = (ylim[1] - ylim[0]) / 2
     pad = max(pad_x, pad_y)
     arrow_len = style.arrow_length * pad
 
