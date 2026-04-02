@@ -6,8 +6,9 @@ import copy
 from collections.abc import Sequence
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
 
 from hofmann.model import (
     CmapSpec,
@@ -61,7 +62,8 @@ def render_animation(
         figsize: Figure size in inches ``(width, height)``.
         dpi: Resolution in dots per inch.
         background: Background colour.
-        colour_by: Key into ``scene.atom_data`` to colour atoms by.
+        colour_by: Key (or list of keys) into ``scene.atom_data``
+            to colour atoms by.
         cmap: Matplotlib colourmap specification.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
         **style_kwargs: Any :class:`RenderStyle` field name as a
@@ -72,7 +74,7 @@ def render_animation(
 
     Raises:
         ValueError: If *frames* is empty or contains out-of-range
-            indices.
+            indices, or if *fps* is less than 1.
         ImportError: If ``imageio`` is not installed.
     """
     try:
@@ -108,10 +110,13 @@ def render_animation(
     view = copy.deepcopy(scene.view)
     bg_rgb = normalise_colour(background)
 
-    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
+    fig = Figure(figsize=figsize, dpi=dpi)
+    FigureCanvasAgg(fig)
+    ax = fig.add_subplot(1, 1, 1)
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
+    succeeded = False
     try:
         ext = output.suffix.lower()
         writer_kwargs: dict = {}
@@ -139,23 +144,31 @@ def render_animation(
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
             fig.canvas.draw()
-            writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])  # type: ignore[attr-defined]
+            writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])
 
             for frame_idx in frame_indices[1:]:
-                precomputed = _precompute_scene(
-                    scene, frame_idx, resolved,
-                    colour_by=colour_by, cmap=cmap,
-                    colour_range=colour_range,
-                )
-                _draw_scene(
-                    ax, scene, view, resolved,
-                    frame_index=frame_idx, bg_rgb=bg_rgb,
-                    precomputed=precomputed,
-                    fixed_xlim=xlim, fixed_ylim=ylim,
-                )
+                try:
+                    precomputed = _precompute_scene(
+                        scene, frame_idx, resolved,
+                        colour_by=colour_by, cmap=cmap,
+                        colour_range=colour_range,
+                    )
+                    _draw_scene(
+                        ax, scene, view, resolved,
+                        frame_index=frame_idx, bg_rgb=bg_rgb,
+                        precomputed=precomputed,
+                        fixed_xlim=xlim, fixed_ylim=ylim,
+                    )
+                except Exception as exc:
+                    raise type(exc)(
+                        f"error rendering frame {frame_idx}: {exc}"
+                    ) from exc
                 fig.canvas.draw()
-                writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])  # type: ignore[attr-defined]
+                writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])
+        succeeded = True
     finally:
-        plt.close(fig)
+        fig.clear()
+        if not succeeded and output.exists():
+            output.unlink()
 
     return output

@@ -540,6 +540,15 @@ class TestKeyActions:
         assert state.get("input_mode") is None
         assert kind == "none"
 
+    def test_set_step_clamped_to_max_frames(self):
+        """Step size is clamped to n_frames - 1."""
+        view, style, state, iv = _key_action_fixtures()
+        _do_key("s", view, style, state, iv, n_frames=10)
+        _do_key("5", view, style, state, iv, n_frames=10)
+        _do_key("0", view, style, state, iv, n_frames=10)
+        _do_key("enter", view, style, state, iv, n_frames=10)
+        assert state["frame_step"] == 9
+
     def test_set_step_noop_single_frame(self):
         """s is a no-op for single-frame scenes."""
         view, style, state, iv = _key_action_fixtures()

@@ -540,8 +540,7 @@ class StructureScene:
 
         Args:
             output: Destination file path.  Extension determines the
-                format: ``.gif`` for GIF (via Pillow), ``.mp4`` for
-                MP4 (via ffmpeg).
+                format (e.g. ``.gif``, ``.mp4``).
             style: A :class:`RenderStyle` controlling visual appearance.
                 Any :class:`RenderStyle` field name may also be passed
                 as a keyword argument to override individual fields.
@@ -566,7 +565,7 @@ class StructureScene:
 
         Raises:
             ValueError: If *frames* is empty or contains out-of-range
-                indices.
+                indices, or if *fps* is less than 1.
             ImportError: If ``imageio`` is not installed.
 
         See Also:

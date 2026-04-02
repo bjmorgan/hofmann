@@ -83,6 +83,14 @@ class TestRenderAnimation:
         with pytest.raises(ValueError, match="out of range"):
             render_animation(scene, tmp_path / "bad.gif", frames=[10])
 
+    def test_raises_on_negative_frame_index(self, tmp_path):
+        """ValueError if frame indices are negative."""
+        from hofmann.rendering.animation import render_animation
+
+        scene = _make_scene(n_frames=5)
+        with pytest.raises(ValueError, match="out of range"):
+            render_animation(scene, tmp_path / "bad.gif", frames=[-1])
+
     def test_raises_on_invalid_fps(self, tmp_path):
         """ValueError if fps is zero or negative."""
         from hofmann.rendering.animation import render_animation

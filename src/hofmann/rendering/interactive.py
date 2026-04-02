@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+import traceback
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -221,6 +222,7 @@ def _apply_key_action(
     # -- Frame indicator --
     elif key == "f" and n_frames > 1:
         state["indicator_visible"] = not state.get("indicator_visible", False)
+        return "view"
     elif key == "f" and n_frames <= 1:
         return "none"
 
@@ -277,6 +279,8 @@ def render_mpl_interactive(
       **u** toggle unit cell, **a** toggle axes widget.
     - **[** / **]** step to the previous/next frame;
       **{** / **}** jump to the first/last frame.
+    - **f** toggle frame indicator, **g** go to a specific frame,
+      **s** set frame step size.
     - **r** reset the view to its initial state.
     - **h** toggle a help overlay listing all keybindings.
 
@@ -478,52 +482,64 @@ def render_mpl_interactive(
         state["drag_last_xy"] = (event.x, event.y)
 
     def on_motion(event):
-        if not state["drag_active"] or state["drag_last_xy"] is None:
-            return
-        x0, y0 = state["drag_last_xy"]
-        dx = event.x - x0
-        dy = event.y - y0
-        state["drag_last_xy"] = (event.x, event.y)
-        # Incremental rotation in screen space: horizontal drag rotates
-        # around the screen Y axis, vertical drag around screen X.
-        # Applying to the *current* rotation gives intuitive "grab and
-        # drag the object" behaviour regardless of accumulated rotation.
-        view.rotation = (
-            _rotation_y(dx * _DRAG_SENSITIVITY)
-            @ _rotation_x(-dy * _DRAG_SENSITIVITY)
-            @ view.rotation
-        )
-        _throttled_redraw()
+        try:
+            if not state["drag_active"] or state["drag_last_xy"] is None:
+                return
+            x0, y0 = state["drag_last_xy"]
+            dx = event.x - x0
+            dy = event.y - y0
+            state["drag_last_xy"] = (event.x, event.y)
+            # Incremental rotation in screen space: horizontal drag rotates
+            # around the screen Y axis, vertical drag around screen X.
+            # Applying to the *current* rotation gives intuitive "grab and
+            # drag the object" behaviour regardless of accumulated rotation.
+            view.rotation = (
+                _rotation_y(dx * _DRAG_SENSITIVITY)
+                @ _rotation_x(-dy * _DRAG_SENSITIVITY)
+                @ view.rotation
+            )
+            _throttled_redraw()
+        except Exception:
+            traceback.print_exc()
 
     def on_release(event):
-        if state["drag_active"]:
-            state["drag_active"] = False
-            # Final redraw to ensure the last position is rendered.
-            _redraw()
+        try:
+            if state["drag_active"]:
+                state["drag_active"] = False
+                # Final redraw to ensure the last position is rendered.
+                _redraw()
+        except Exception:
+            traceback.print_exc()
 
     def on_scroll(event):
-        if event.inaxes != ax:
-            return
-        factor = _KEY_ZOOM_FACTOR ** event.step
-        view.zoom = max(0.01, min(100.0, view.zoom * factor))
-        _redraw()
+        try:
+            if event.inaxes != ax or event.step is None:
+                return
+            factor = _KEY_ZOOM_FACTOR ** event.step
+            view.zoom = max(0.01, min(100.0, view.zoom * factor))
+            _redraw()
+        except Exception:
+            traceback.print_exc()
 
     # ---- Keyboard handler ----
 
     def on_key_press(event):
-        if event.key is None:
-            return
-        kind = _apply_key_action(
-            event.key, view, resolved, state,
-            n_frames=len(scene.frames),
-            base_extent=state["base_extent"],
-            initial_view=initial_view,
-            has_lattice=scene.lattice is not None,
-        )
-        if kind == "full":
-            _full_redraw()
-        elif kind == "view":
-            _throttled_redraw()
+        try:
+            if event.key is None:
+                return
+            kind = _apply_key_action(
+                event.key, view, resolved, state,
+                n_frames=len(scene.frames),
+                base_extent=state["base_extent"],
+                initial_view=initial_view,
+                has_lattice=scene.lattice is not None,
+            )
+            if kind == "full":
+                _full_redraw()
+            elif kind == "view":
+                _throttled_redraw()
+        except Exception:
+            traceback.print_exc()
 
     # ---- Connect events ----
 
@@ -541,11 +557,13 @@ def render_mpl_interactive(
         if handler_id is not None:
             fig.canvas.mpl_disconnect(handler_id)
 
-    plt.show()
-
-    # Restore static-quality segment counts so the returned style
-    # is ready for publication rendering.
-    resolved.circle_segments = static_circle_segments
-    resolved.arc_segments = static_arc_segments
+    try:
+        plt.show()
+    finally:
+        plt.close(fig)
+        # Restore static-quality segment counts so the returned style
+        # is ready for publication rendering.
+        resolved.circle_segments = static_circle_segments
+        resolved.arc_segments = static_arc_segments
 
     return view, resolved
