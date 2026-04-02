@@ -233,38 +233,33 @@ def render_animation(
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
-    # Pre-render all frames to find a stable bounding box.
-    # Each frame auto-fits via _draw_scene (no viewport_extent),
-    # and we collect the resulting axis limits.
-    precomputed_frames = []
-    xlims: list[tuple[float, float]] = []
-    ylims: list[tuple[float, float]] = []
-    for frame_idx in frame_indices:
-        pre = _precompute_scene(
+    # Render the first frame to establish the viewport bounding box.
+    # This auto-fits to the projected geometry (tight, aspect-aware).
+    # All subsequent frames reuse these fixed limits.
+    first_pre = _precompute_scene(
+        scene, frame_indices[0], resolved,
+        colour_by=colour_by, cmap=cmap,
+        colour_range=colour_range,
+    )
+    _draw_scene(
+        ax, scene, view, resolved,
+        frame_index=frame_indices[0], bg_rgb=bg_rgb,
+        precomputed=first_pre,
+    )
+    fixed_xlim = ax.get_xlim()
+    fixed_ylim = ax.get_ylim()
+    writer.add_frame(fig)
+
+    for frame_idx in frame_indices[1:]:
+        precomputed = _precompute_scene(
             scene, frame_idx, resolved,
             colour_by=colour_by, cmap=cmap,
             colour_range=colour_range,
         )
-        precomputed_frames.append((frame_idx, pre))
         _draw_scene(
             ax, scene, view, resolved,
             frame_index=frame_idx, bg_rgb=bg_rgb,
-            precomputed=pre,
-        )
-        xlims.append(ax.get_xlim())
-        ylims.append(ax.get_ylim())
-
-    # Union of all per-frame bounding boxes: stable across frames
-    # and tight to the actual projected geometry.
-    fixed_xlim = (min(lo for lo, _ in xlims), max(hi for _, hi in xlims))
-    fixed_ylim = (min(lo for lo, _ in ylims), max(hi for _, hi in ylims))
-
-    # Now render for real with the fixed bounding box.
-    for frame_idx, pre in precomputed_frames:
-        _draw_scene(
-            ax, scene, view, resolved,
-            frame_index=frame_idx, bg_rgb=bg_rgb,
-            precomputed=pre,
+            precomputed=precomputed,
         )
         ax.set_xlim(*fixed_xlim)
         ax.set_ylim(*fixed_ylim)
