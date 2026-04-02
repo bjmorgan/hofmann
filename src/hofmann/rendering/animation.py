@@ -137,6 +137,7 @@ class _Mp4Writer:
         self._proc = subprocess.Popen(
             [
                 "ffmpeg", "-y",
+                "-loglevel", "error",
                 "-f", "rawvideo",
                 "-pix_fmt", "rgba",
                 "-s", f"{width}x{height}",
@@ -179,13 +180,15 @@ class _Mp4Writer:
         """Close the ffmpeg pipe and wait for the process to exit."""
         assert self._proc.stdin is not None
         self._proc.stdin.close()
+        # Drain stderr to prevent pipe buffer deadlocks, then wait.
+        assert self._proc.stderr is not None
+        stderr_bytes = self._proc.stderr.read()
         self._proc.wait()
         if self._proc.returncode != 0:
-            assert self._proc.stderr is not None
-            stderr = self._proc.stderr.read().decode(errors="replace")
+            stderr_text = stderr_bytes.decode(errors="replace")
             raise RuntimeError(
                 f"ffmpeg exited with code {self._proc.returncode}:\n"
-                f"{stderr[-500:]}"
+                f"{stderr_text[-500:]}"
             )
 
 
