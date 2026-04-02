@@ -23,10 +23,15 @@ Build a scene from a trajectory and call ``render_animation()``:
    scene.render_animation("output.gif")
 
 The output format is determined by the file extension — ``.gif`` for
-GIF or ``.mp4`` for MP4.  The examples on this page use ASE for
-trajectory I/O.  Install both optional extras with::
+GIF or ``.mp4`` for MP4.  Animation rendering requires the
+``animation`` optional extra::
 
-   pip install "hofmann[animation,ase]"
+   pip install "hofmann[animation]"
+
+The examples on this page use ASE for trajectory loading, which
+requires the ``ase`` extra::
+
+   pip install "hofmann[ase]"
 
 
 Frame selection
