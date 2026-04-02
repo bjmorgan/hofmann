@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+- Interactive viewer: frame indicator (``f``), go-to-frame (``g``),
+  set-step (``s``), and step-aware frame navigation.
+
+- New :meth:`~hofmann.StructureScene.render_animation` method for
+  exporting trajectories as GIF or MP4 animations.
+
 0.14.2
 ------
 
