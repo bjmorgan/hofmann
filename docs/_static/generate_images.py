@@ -1066,10 +1066,28 @@ def generate_animation_gifs() -> None:
     else:
         print(f"  skipping CH4 GIF ({ch4_traj_path} not found)")
 
-    # SrTiO3 perovskite MD — single-layer slice of TiO6 polyhedra.
+    # SrTiO3 perovskite MD — pre-filtered single octahedral layer.
     srtio3_traj_path = OUT / "srtio3_md.traj"
     if srtio3_traj_path.exists():
-        srtio3_traj = read(str(srtio3_traj_path), index="::2")
+        import numpy as np_
+
+        full_traj = read(str(srtio3_traj_path), index="::2")
+
+        # Select one Sr plane, one Ti plane, and coordinating O
+        # from the first frame — render these atoms throughout.
+        ref = full_traj[0]
+        z = ref.positions[:, 2]
+        symbols = np_.array(ref.get_chemical_symbols())
+        sr_mask = (symbols == "Sr") & (np_.abs(z - 3.9) < 0.5)
+        ti_mask = (symbols == "Ti") & (np_.abs(z - 5.9) < 0.5)
+        o_mask = (symbols == "O") & (
+            (np_.abs(z - 3.9) < 0.5)
+            | (np_.abs(z - 5.9) < 0.5)
+            | (np_.abs(z - 7.8) < 0.5)
+        )
+        indices = np_.where(sr_mask | ti_mask | o_mask)[0]
+        srtio3_traj = [frame[indices] for frame in full_traj]
+
         srtio3_scene = StructureScene.from_ase(
             srtio3_traj,
             bond_specs=[
@@ -1090,13 +1108,10 @@ def generate_animation_gifs() -> None:
                 "Ti": AtomStyle(radius=0.8, colour="steelblue"),
                 "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
             },
-            centre_atom=5,
         )
-        srtio3_scene.view.slab_near = -2.0
-        srtio3_scene.view.slab_far = 2.0
         srtio3_scene.render_animation(
             OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
-            pbc_padding=1.0, show_axes=False, show_cell=False,
+            show_axes=False, show_cell=False,
             slab_clip_mode="include_whole",
         )
         print(f"  wrote {OUT / 'srtio3_md.gif'}")

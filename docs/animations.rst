@@ -90,31 +90,42 @@ A vibrating methane molecule styled to match the
 Example: SrTiO3 perovskite MD
 ------------------------------
 
-A single-layer slice through a 4x4x4 SrTiO3 supercell at 1000 K,
-showing TiO6 octahedral polyhedra.  Oxygen atoms are hidden to
-emphasise the polyhedral network, and depth-slab clipping isolates
-one octahedral layer:
+A single octahedral layer from a 4x4x4 SrTiO3 supercell at 1000 K.
+The trajectory is pre-filtered to a fixed set of atom indices
+(one Sr plane, one Ti plane, and their coordinating O), so the
+same atoms are shown in every frame regardless of thermal
+displacement.  Oxygen atoms are hidden to emphasise the polyhedral
+network:
 
 .. code-block:: python
 
+   import numpy as np
    from ase.io import read
    from hofmann import (
        AtomStyle, BondSpec, PolyhedronSpec, StructureScene,
    )
 
-   traj = read("srtio3_md.traj", index="::2")
+   full_traj = read("srtio3_md.traj", index="::2")
 
-   bonds = [
-       BondSpec(species=("Ti", "O"), max_length=2.5),
-   ]
+   # Select one octahedral layer from the first frame.
+   ref = full_traj[0]
+   z = ref.positions[:, 2]
+   symbols = np.array(ref.get_chemical_symbols())
+   sr = (symbols == "Sr") & (np.abs(z - 3.9) < 0.5)
+   ti = (symbols == "Ti") & (np.abs(z - 5.9) < 0.5)
+   o = (symbols == "O") & (
+       (np.abs(z - 3.9) < 0.5)
+       | (np.abs(z - 5.9) < 0.5)
+       | (np.abs(z - 7.8) < 0.5)
+   )
+   idx = np.where(sr | ti | o)[0]
+   traj = [frame[idx] for frame in full_traj]
+
+   bonds = [BondSpec(species=("Ti", "O"), max_length=2.5)]
    polyhedra = [
        PolyhedronSpec(
-           centre="Ti",
-           colour="steelblue",
-           alpha=0.4,
-           hide_centre=True,
-           hide_bonds=True,
-           hide_vertices=True,
+           centre="Ti", colour="steelblue", alpha=0.4,
+           hide_centre=True, hide_bonds=True, hide_vertices=True,
        ),
    ]
    atom_styles = {
@@ -124,20 +135,12 @@ one octahedral layer:
    }
 
    scene = StructureScene.from_ase(
-       traj,
-       bond_specs=bonds,
-       polyhedra=polyhedra,
+       traj, bond_specs=bonds, polyhedra=polyhedra,
        atom_styles=atom_styles,
-       centre_atom=5,  # Sr in the second layer
    )
-
-   # Clip to a single octahedral layer.
-   scene.view.slab_near = -2.0
-   scene.view.slab_far = 2.0
-
    scene.render_animation(
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
-       pbc_padding=1.0, show_axes=False, show_cell=False,
+       show_axes=False, show_cell=False,
        slab_clip_mode="include_whole",
    )
 
