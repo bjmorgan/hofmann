@@ -12,7 +12,6 @@ from typing import Protocol
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.figure import Figure
-from PIL import Image
 
 from hofmann.model import (
     CmapSpec,
@@ -22,7 +21,6 @@ from hofmann.model import (
     normalise_colour,
 )
 from hofmann.rendering.painter import _draw_scene, _precompute_scene
-from hofmann.rendering.projection import _scene_extent
 from hofmann.rendering.static import _resolve_style
 
 
@@ -41,11 +39,19 @@ class _GifWriter:
     Args:
         output: Destination file path.
         fps: Frames per second (converted to per-frame duration).
+
+    Raises:
+        ValueError: If *fps* is less than 1.
     """
 
-    def __init__(self, output: str | Path, *, fps: int = 10) -> None:
+    def __init__(self, output: str | Path, *, fps: int = 30) -> None:
+        from PIL import Image
+
+        if fps < 1:
+            raise ValueError(f"fps must be >= 1, got {fps}")
         self._output = Path(output)
         self._duration = round(1000 / fps)
+        self._Image = Image
         self._frames: list[Image.Image] = []
 
     def add_frame(self, fig: Figure) -> None:
@@ -53,7 +59,7 @@ class _GifWriter:
         fig.canvas.draw()
         buf = fig.canvas.buffer_rgba()  # type: ignore[attr-defined]
         arr = np.asarray(buf)
-        self._frames.append(Image.fromarray(arr).convert("RGB"))
+        self._frames.append(self._Image.fromarray(arr).convert("RGB"))
 
     def finish(self) -> None:
         """Write all collected frames to the GIF file."""
@@ -82,13 +88,14 @@ class _Mp4Writer:
 
     Raises:
         FileNotFoundError: If ``ffmpeg`` is not on ``PATH``.
+        ValueError: If *fps* is less than 1.
     """
 
     def __init__(
         self,
         output: str | Path,
         *,
-        fps: int = 10,
+        fps: int = 30,
         width: int,
         height: int,
     ) -> None:
@@ -99,6 +106,8 @@ class _Mp4Writer:
                 "(macOS), 'apt install ffmpeg' (Debian/Ubuntu), or "
                 "'conda install ffmpeg' (conda)."
             )
+        if fps < 1:
+            raise ValueError(f"fps must be >= 1, got {fps}")
         self._output = Path(output)
         self._proc = subprocess.Popen(
             [
@@ -114,7 +123,7 @@ class _Mp4Writer:
             ],
             stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
         )
 
     def add_frame(self, fig: Figure) -> None:
@@ -122,13 +131,20 @@ class _Mp4Writer:
         fig.canvas.draw()
         buf = fig.canvas.buffer_rgba()  # type: ignore[attr-defined]
         assert self._proc.stdin is not None
-        self._proc.stdin.write(bytes(buf))
+        self._proc.stdin.write(buf)
 
     def finish(self) -> None:
         """Close the ffmpeg pipe and wait for the process to exit."""
         assert self._proc.stdin is not None
         self._proc.stdin.close()
         self._proc.wait()
+        if self._proc.returncode != 0:
+            assert self._proc.stderr is not None
+            stderr = self._proc.stderr.read().decode(errors="replace")
+            raise RuntimeError(
+                f"ffmpeg exited with code {self._proc.returncode}:\n"
+                f"{stderr[-500:]}"
+            )
 
 
 def _make_writer(
@@ -157,7 +173,7 @@ def render_animation(
     *,
     style: RenderStyle | None = None,
     frames: range | Sequence[int] | None = None,
-    fps: int = 10,
+    fps: int = 30,
     figsize: tuple[float, float] = (5.0, 5.0),
     dpi: int = 150,
     background: Colour = "white",
@@ -233,38 +249,41 @@ def render_animation(
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
-    # Render the first frame to establish the viewport bounding box.
-    # This auto-fits to the projected geometry (tight, aspect-aware).
-    # All subsequent frames reuse these fixed limits.
-    first_pre = _precompute_scene(
-        scene, frame_indices[0], resolved,
-        colour_by=colour_by, cmap=cmap,
-        colour_range=colour_range,
-    )
-    _draw_scene(
-        ax, scene, view, resolved,
-        frame_index=frame_indices[0], bg_rgb=bg_rgb,
-        precomputed=first_pre,
-    )
-    fixed_xlim = ax.get_xlim()
-    fixed_ylim = ax.get_ylim()
-    writer.add_frame(fig)
-
-    for frame_idx in frame_indices[1:]:
-        precomputed = _precompute_scene(
-            scene, frame_idx, resolved,
+    try:
+        # Render the first frame to establish the viewport bounding box.
+        # This auto-fits to the projected geometry (tight, aspect-aware).
+        # All subsequent frames reuse these fixed limits.
+        first_pre = _precompute_scene(
+            scene, frame_indices[0], resolved,
             colour_by=colour_by, cmap=cmap,
             colour_range=colour_range,
         )
         _draw_scene(
             ax, scene, view, resolved,
-            frame_index=frame_idx, bg_rgb=bg_rgb,
-            precomputed=precomputed,
+            frame_index=frame_indices[0], bg_rgb=bg_rgb,
+            precomputed=first_pre,
         )
-        ax.set_xlim(*fixed_xlim)
-        ax.set_ylim(*fixed_ylim)
+        fixed_xlim = ax.get_xlim()
+        fixed_ylim = ax.get_ylim()
         writer.add_frame(fig)
 
-    writer.finish()
-    plt.close(fig)
+        for frame_idx in frame_indices[1:]:
+            precomputed = _precompute_scene(
+                scene, frame_idx, resolved,
+                colour_by=colour_by, cmap=cmap,
+                colour_range=colour_range,
+            )
+            _draw_scene(
+                ax, scene, view, resolved,
+                frame_index=frame_idx, bg_rgb=bg_rgb,
+                precomputed=precomputed,
+            )
+            ax.set_xlim(*fixed_xlim)
+            ax.set_ylim(*fixed_ylim)
+            writer.add_frame(fig)
+
+        writer.finish()
+    finally:
+        plt.close(fig)
+
     return output

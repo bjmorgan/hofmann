@@ -520,7 +520,7 @@ class StructureScene:
         *,
         style: RenderStyle | None = None,
         frames: range | Sequence[int] | None = None,
-        fps: int = 10,
+        fps: int = 30,
         figsize: tuple[float, float] = (5.0, 5.0),
         dpi: int = 150,
         background: Colour = "white",
