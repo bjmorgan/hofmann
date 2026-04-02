@@ -1,18 +1,15 @@
 """Sphinx configuration for hofmann documentation."""
 
+import tomllib
 from pathlib import Path
 
 project = "hofmann"
 copyright = "2025, hofmann contributors"
 author = "hofmann contributors"
 
-# Read version from pyproject.toml so it stays in sync without
-# requiring a package reinstall.
 _pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
-release = "0.0.0"
-for line in _pyproject.read_text().splitlines():
-    if line.startswith("version"):
-        release = line.split('"')[1]
+with _pyproject.open("rb") as f:
+    release = tomllib.load(f)["project"]["version"]
         break
 
 extensions = [
