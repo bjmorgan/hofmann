@@ -447,7 +447,7 @@ def render_mpl_interactive(
         )
 
     def _add_frame_indicator() -> None:
-        """Add the frame indicator text at bottom-centre."""
+        """Add the frame indicator or input prompt at bottom-centre."""
         idx = state["frame_index"]
         total = n_frames
         step = state.get("frame_step", 1)

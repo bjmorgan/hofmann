@@ -532,6 +532,7 @@ class TestKeyActions:
         kind = _do_key("enter", view, style, state, iv, n_frames=100)
         assert state["frame_index"] == 7
         assert state["input_mode"] is None
+        assert kind == "view"
 
     def test_goto_noop_single_frame(self):
         """g is a no-op for single-frame scenes."""

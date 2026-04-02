@@ -448,6 +448,12 @@ def _draw_scene(
             colouring.
         cmap: Matplotlib colourmap name, object, or callable.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+        fixed_xlim: If given, use these x-axis limits instead of
+            computing from the projected geometry.  Used by
+            :func:`render_animation` to lock the viewport across
+            frames.
+        fixed_ylim: If given, use these y-axis limits instead of
+            computing from the projected geometry.
     """
     atom_scale = style.atom_scale
     bond_scale = style.bond_scale

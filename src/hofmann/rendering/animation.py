@@ -74,7 +74,9 @@ def render_animation(
 
     Raises:
         ValueError: If *frames* is empty or contains out-of-range
-            indices, or if *fps* is less than 1.
+            indices, if *fps* is less than 1, or if *output* has
+            an unsupported file extension (must be ``.gif`` or
+            ``.mp4``).
         ImportError: If ``imageio`` is not installed.
     """
     try:
@@ -107,6 +109,14 @@ def render_animation(
     if fps < 1:
         raise ValueError(f"fps must be >= 1, got {fps}")
 
+    _SUPPORTED_EXTENSIONS = {".gif", ".mp4"}
+    ext = output.suffix.lower()
+    if ext not in _SUPPORTED_EXTENSIONS:
+        raise ValueError(
+            f"unsupported output format {ext!r}; "
+            f"expected one of {sorted(_SUPPORTED_EXTENSIONS)}"
+        )
+
     view = copy.deepcopy(scene.view)
     bg_rgb = normalise_colour(background)
 
@@ -118,7 +128,6 @@ def render_animation(
 
     succeeded = False
     try:
-        ext = output.suffix.lower()
         writer_kwargs: dict = {}
         if ext == ".gif":
             writer_kwargs["duration"] = round(1000 / fps)
@@ -128,25 +137,9 @@ def render_animation(
             writer_kwargs["macro_block_size"] = 1
 
         with imageio.get_writer(output, **writer_kwargs) as writer:
-            # Render the first frame to establish the viewport bounding
-            # box.  This auto-fits to the projected geometry (tight,
-            # aspect-aware).  All subsequent frames reuse these limits.
-            first_pre = _precompute_scene(
-                scene, frame_indices[0], resolved,
-                colour_by=colour_by, cmap=cmap,
-                colour_range=colour_range,
-            )
-            _draw_scene(
-                ax, scene, view, resolved,
-                frame_index=frame_indices[0], bg_rgb=bg_rgb,
-                precomputed=first_pre,
-            )
-            xlim = ax.get_xlim()
-            ylim = ax.get_ylim()
-            fig.canvas.draw()
-            writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])
-
-            for frame_idx in frame_indices[1:]:
+            xlim = None
+            ylim = None
+            for frame_idx in frame_indices:
                 try:
                     precomputed = _precompute_scene(
                         scene, frame_idx, resolved,
@@ -159,16 +152,27 @@ def render_animation(
                         precomputed=precomputed,
                         fixed_xlim=xlim, fixed_ylim=ylim,
                     )
+                    # Lock the viewport to the first frame's bounding
+                    # box so that subsequent frames are rendered with
+                    # a stable viewport.
+                    if xlim is None:
+                        xlim = ax.get_xlim()
+                        ylim = ax.get_ylim()
+                    fig.canvas.draw()
+                    writer.append_data(
+                        np.asarray(fig.canvas.buffer_rgba())[:, :, :3],
+                    )
                 except Exception as exc:
-                    raise type(exc)(
+                    raise RuntimeError(
                         f"error rendering frame {frame_idx}: {exc}"
                     ) from exc
-                fig.canvas.draw()
-                writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])
         succeeded = True
     finally:
         fig.clear()
         if not succeeded and output.exists():
-            output.unlink()
+            try:
+                output.unlink()
+            except OSError:
+                pass
 
     return output

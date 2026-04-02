@@ -1,4 +1,4 @@
-"""Rendering: depth-sorted matplotlib output (static and interactive)."""
+"""Rendering: depth-sorted matplotlib output (static, interactive, and animation)."""
 
 from hofmann.rendering.animation import render_animation
 from hofmann.rendering.interactive import render_mpl_interactive
