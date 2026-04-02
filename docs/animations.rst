@@ -20,7 +20,7 @@ Build a scene from a trajectory and call ``render_animation()``:
 
    traj = read("trajectory.traj", index=":")
    scene = StructureScene.from_ase(traj)
-   scene.render_animation("output.gif", fps=10)
+   scene.render_animation("output.gif")
 
 The output format is determined by the file extension — ``.gif`` for
 GIF or ``.mp4`` for MP4.  Animation rendering requires the
@@ -53,14 +53,14 @@ Control the output resolution with ``dpi`` and ``figsize``:
 
    scene.render_animation(
        "output.gif",
-       fps=10,
-       dpi=150,              # 150 DPI (default)
-       figsize=(6.0, 6.0),   # 6 x 6 inches -> 900 x 900 px
+       fps=10,               # default: 30
+       dpi=100,              # default: 150
+       figsize=(6.0, 6.0),   # default: (5.0, 5.0)
    )
 
 
 Example: CH\ :sub:`4` vibration
-----------------------
+-------------------------------
 
 A vibrating methane molecule styled to match the
 :doc:`Getting Started <getting-started>` example:

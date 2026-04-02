@@ -19,16 +19,20 @@ EXAMPLES_DIR = Path(__file__).resolve().parent
 TRAJ = EXAMPLES_DIR / "srtio3_md.traj"
 OUTPUT = EXAMPLES_DIR / "srtio3_md.gif"
 
-# Load the full trajectory.
 full_traj = read(str(TRAJ), index="::2")
 print(f"Loaded {len(full_traj)} frames")
 
-# Select one octahedral layer from the first frame:
-# one Sr plane, one Ti plane, and all coordinating O.
+# Select one octahedral layer from the first frame.
 ref = full_traj[0]
 z = ref.positions[:, 2]
 symbols = np.array(ref.get_chemical_symbols())
 
+# In the 4x4x4 supercell (a = 3.905 A), atomic layers along z are:
+#   Sr at z ~ 0, 3.9, 7.8, 11.7
+#   Ti at z ~ 2.0, 5.9, 9.8, 13.7
+#   O  at z ~ 0, 2.0, 3.9, 5.9, 7.8, 9.8, 11.7, 13.7
+# Select one Sr plane, one Ti plane, and the three O layers that
+# form the TiO6 octahedra (lower apical, equatorial, upper apical).
 sr_mask = (symbols == "Sr") & (np.abs(z - 3.9) < 0.5)
 ti_mask = (symbols == "Ti") & (np.abs(z - 5.9) < 0.5)
 o_mask = (symbols == "O") & (
@@ -39,10 +43,8 @@ o_mask = (symbols == "O") & (
 indices = np.where(sr_mask | ti_mask | o_mask)[0]
 print(f"Selected {len(indices)} atoms for rendering")
 
-# Filter every frame down to these atom indices.
 traj = [frame[indices] for frame in full_traj]
 
-# Bond and style definitions.
 bonds = [
     BondSpec(species=("Ti", "O"), max_length=2.5),
 ]

@@ -1031,75 +1031,58 @@ def generate_docs_images() -> None:
 
 def generate_animation_gifs() -> None:
     """Generate animation GIFs from pre-computed trajectories."""
-    try:
-        from ase.io import read
-    except ImportError:
-        print("  skipping animation GIFs (ase not installed)")
-        return
-    try:
-        import imageio  # noqa: F401
-    except ImportError:
-        print("  skipping animation GIFs (imageio not installed)")
-        return
+    from ase.io import read
 
-    # CH4 vibration — XBS visual style.
-    ch4_traj_path = OUT / "ch4_md.traj"
-    if ch4_traj_path.exists():
-        ch4_traj = read(str(ch4_traj_path), index=":")
-        ch4_scene = StructureScene.from_ase(
-            ch4_traj,
-            bond_specs=[
-                BondSpec(
-                    species=("C", "H"), max_length=1.5,
-                    radius=0.055, colour=1.0,
-                ),
-            ],
-            atom_styles={
-                "C": AtomStyle(radius=0.5, colour=0.7),
-                "H": AtomStyle(radius=0.35, colour=1.0),
-            },
-        )
-        ch4_scene.render_animation(
-            OUT / "ch4_md.gif", fps=15, dpi=100, figsize=(4, 4),
-        )
-        print(f"  wrote {OUT / 'ch4_md.gif'}")
-    else:
-        print(f"  skipping CH4 GIF ({ch4_traj_path} not found)")
+    # CH4 vibration.
+    ch4_traj = read(str(OUT / "ch4_md.traj"), index=":")
+    ch4_scene = StructureScene.from_ase(
+        ch4_traj,
+        bond_specs=[
+            BondSpec(
+                species=("C", "H"), max_length=1.5,
+                radius=0.055, colour=1.0,
+            ),
+        ],
+        atom_styles={
+            "C": AtomStyle(radius=0.5, colour=0.7),
+            "H": AtomStyle(radius=0.35, colour=1.0),
+        },
+    )
+    ch4_scene.render_animation(
+        OUT / "ch4_md.gif", fps=15, dpi=100, figsize=(4, 4),
+    )
+    print(f"  wrote {OUT / 'ch4_md.gif'}")
 
     # SrTiO3 perovskite MD — pre-filtered single octahedral layer.
-    srtio3_traj_path = OUT / "srtio3_md.traj"
-    if srtio3_traj_path.exists():
-        srtio3_traj = read(str(srtio3_traj_path), index=":")
-        srtio3_scene = StructureScene.from_ase(
-            srtio3_traj,
-            bond_specs=[
-                BondSpec(species=("Ti", "O"), max_length=2.5),
-            ],
-            polyhedra=[
-                PolyhedronSpec(
-                    centre="Ti",
-                    colour="steelblue",
-                    alpha=0.4,
-                    hide_centre=True,
-                    hide_bonds=True,
-                    hide_vertices=True,
-                ),
-            ],
-            atom_styles={
-                "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
-                "Ti": AtomStyle(radius=0.8, colour="steelblue"),
-                "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
-            },
-        )
-        srtio3_scene.render_animation(
-            OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
-            show_axes=False, show_cell=False,
-            slab_clip_mode="include_whole",
-            pbc_padding=1.0,
-        )
-        print(f"  wrote {OUT / 'srtio3_md.gif'}")
-    else:
-        print(f"  skipping SrTiO3 GIF ({srtio3_traj_path} not found)")
+    srtio3_traj = read(str(OUT / "srtio3_md.traj"), index=":")
+    srtio3_scene = StructureScene.from_ase(
+        srtio3_traj,
+        bond_specs=[
+            BondSpec(species=("Ti", "O"), max_length=2.5),
+        ],
+        polyhedra=[
+            PolyhedronSpec(
+                centre="Ti",
+                colour="steelblue",
+                alpha=0.4,
+                hide_centre=True,
+                hide_bonds=True,
+                hide_vertices=True,
+            ),
+        ],
+        atom_styles={
+            "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
+            "Ti": AtomStyle(radius=0.8, colour="steelblue"),
+            "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
+        },
+    )
+    srtio3_scene.render_animation(
+        OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
+        show_axes=False, show_cell=False,
+        slab_clip_mode="include_whole",
+        pbc_padding=1.0,
+    )
+    print(f"  wrote {OUT / 'srtio3_md.gif'}")
 
 
 def main() -> None:

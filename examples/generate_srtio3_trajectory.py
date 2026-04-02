@@ -1,7 +1,7 @@
 """Generate an SrTiO3 MD trajectory using ASE and CHGNet.
 
 Builds a 4x4x4 cubic perovskite supercell and runs a short NVT
-molecular dynamics simulation.  The trajectory is saved as an ASE
+molecular dynamics simulation at 1000 K.  The trajectory is saved as an ASE
 ``.traj`` file for rendering with hofmann.
 
 Requires: ase, chgnet
@@ -23,10 +23,7 @@ unit_cell = read(str(EXAMPLES_DIR / "srtio3.cif"))
 atoms = unit_cell.repeat((4, 4, 4))
 print(f"Supercell: {len(atoms)} atoms")
 
-# Attach CHGNet calculator.
 atoms.calc = CHGNetCalculator()
-
-# Run NVT Langevin dynamics at 1000 K.
 dyn = Langevin(atoms, timestep=2.0 * units.fs, temperature_K=1000, friction=0.01)
 
 # Equilibrate before sampling.
