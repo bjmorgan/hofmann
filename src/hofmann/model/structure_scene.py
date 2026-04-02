@@ -553,7 +553,7 @@ class StructureScene:
             background: Background colour.
             colour_by: Key (or list of keys) into :attr:`atom_data`
                 to colour atoms by.
-            cmap: A :type:`CmapSpec` -- colourmap name, object, or
+            cmap: A :type:`CmapSpec` — colourmap name, object, or
                 callable.
             colour_range: Explicit ``(vmin, vmax)`` for numerical
                 data.

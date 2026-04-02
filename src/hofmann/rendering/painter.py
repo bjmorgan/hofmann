@@ -445,10 +445,14 @@ def _draw_scene(
         precomputed: Pre-computed scene data from
             :func:`_precompute_scene`.  If ``None``, computed on the
             fly.
-        colour_by: Key into ``scene.atom_data`` for colourmap-based
-            colouring.
-        cmap: Matplotlib colourmap name, object, or callable.
+        colour_by: Key (or list of keys) into ``scene.atom_data``
+            for colourmap-based colouring.
+        cmap: Matplotlib colourmap name, object, or callable.  When
+            *colour_by* is a list, may also be a list of the same
+            length.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+            When *colour_by* is a list, may also be a list of the
+            same length.
         fixed_xlim: If given, use these x-axis limits instead of
             computing from the projected geometry.  Used by
             :func:`render_animation` to lock the viewport across

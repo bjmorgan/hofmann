@@ -158,6 +158,38 @@ class TestFrameIndexValidation:
         assert isinstance(fig, Figure)
 
 
+class TestFixedLimitsValidation:
+    def test_fixed_xlim_without_ylim_raises(self):
+        """ValueError if only fixed_xlim is provided."""
+        from hofmann.rendering.painter import _draw_scene
+
+        scene = _minimal_scene()
+        fig, ax = plt.subplots()
+        try:
+            with pytest.raises(ValueError, match="both be provided"):
+                _draw_scene(
+                    ax, scene, scene.view, RenderStyle(),
+                    fixed_xlim=(-5, 5),
+                )
+        finally:
+            plt.close(fig)
+
+    def test_fixed_ylim_without_xlim_raises(self):
+        """ValueError if only fixed_ylim is provided."""
+        from hofmann.rendering.painter import _draw_scene
+
+        scene = _minimal_scene()
+        fig, ax = plt.subplots()
+        try:
+            with pytest.raises(ValueError, match="both be provided"):
+                _draw_scene(
+                    ax, scene, scene.view, RenderStyle(),
+                    fixed_ylim=(-5, 5),
+                )
+        finally:
+            plt.close(fig)
+
+
 class TestRenderMpl:
     def test_returns_figure(self):
         scene = _minimal_scene()

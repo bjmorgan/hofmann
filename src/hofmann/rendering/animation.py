@@ -57,6 +57,8 @@ def render_animation(
         output: Destination file path.  Extension determines the
             format (e.g. ``.gif``, ``.mp4``).
         style: A :class:`RenderStyle` controlling visual appearance.
+            Any :class:`RenderStyle` field name may also be passed
+            as a keyword argument to override individual fields.
         frames: Which frame indices to render, in order.  ``None``
             renders all frames.  Accepts ``range(0, 100, 5)`` or
             an arbitrary sequence of indices.
@@ -66,8 +68,12 @@ def render_animation(
         background: Background colour.
         colour_by: Key (or list of keys) into ``scene.atom_data``
             to colour atoms by.
-        cmap: Matplotlib colourmap specification.
+        cmap: Matplotlib colourmap name, object, or callable.  When
+            *colour_by* is a list, may also be a list of the same
+            length.
         colour_range: Explicit ``(vmin, vmax)`` for numerical data.
+            When *colour_by* is a list, may also be a list of the
+            same length.
         **style_kwargs: Any :class:`RenderStyle` field name as a
             keyword argument.
 
@@ -93,6 +99,9 @@ def render_animation(
     resolved = _resolve_style(style, **style_kwargs)
 
     n_scene_frames = len(scene.frames)
+    if n_scene_frames == 0:
+        raise ValueError("scene has no frames to render")
+
     if frames is None:
         frame_indices = list(range(n_scene_frames))
     else:
