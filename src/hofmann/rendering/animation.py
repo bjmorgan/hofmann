@@ -3,16 +3,11 @@
 from __future__ import annotations
 
 import copy
-import shutil
-import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from types import TracebackType
-from typing import Protocol, Self
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.figure import Figure
 
 from hofmann.model import (
     CmapSpec,
@@ -23,193 +18,6 @@ from hofmann.model import (
 )
 from hofmann.rendering.painter import _draw_scene, _precompute_scene
 from hofmann.rendering.static import _resolve_style
-
-
-class _FrameWriter(Protocol):
-    """Protocol for animation frame writers."""
-
-    def add_frame(self, fig: Figure) -> None: ...
-    def finish(self) -> None: ...
-    def __enter__(self) -> Self: ...
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None: ...
-
-
-class _GifWriter:
-    """Write animation frames to a GIF file using Pillow.
-
-    Frames are collected in memory and written on :meth:`finish`.
-    Use as a context manager to ensure cleanup on error.
-
-    Args:
-        output: Destination file path.
-        fps: Frames per second (converted to per-frame duration).
-
-    Raises:
-        ValueError: If *fps* is less than 1.
-    """
-
-    def __init__(self, output: str | Path, *, fps: int = 30) -> None:
-        from PIL import Image
-
-        if fps < 1:
-            raise ValueError(f"fps must be >= 1, got {fps}")
-        self._output = Path(output)
-        self._duration = round(1000 / fps)
-        self._Image = Image
-        self._frames: list[Image.Image] = []
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        # GIF writer holds PIL images in memory; nothing to close.
-        # On success, finish() has already been called.
-        # On error, we just discard the frames.
-        self._frames.clear()
-
-    def add_frame(self, fig: Figure) -> None:
-        """Capture the current figure as a GIF frame."""
-        fig.canvas.draw()
-        buf = fig.canvas.buffer_rgba()  # type: ignore[attr-defined]
-        arr = np.asarray(buf)
-        self._frames.append(self._Image.fromarray(arr).convert("RGB"))
-
-    def finish(self) -> None:
-        """Write all collected frames to the GIF file."""
-        if not self._frames:
-            return
-        self._frames[0].save(
-            self._output,
-            save_all=True,
-            append_images=self._frames[1:],
-            duration=self._duration,
-            loop=0,
-            disposal=2,
-        )
-
-
-class _Mp4Writer:
-    """Write animation frames to an MP4 file via ffmpeg.
-
-    Frames are piped to an ``ffmpeg`` subprocess as raw RGBA data.
-    Use as a context manager to ensure the subprocess is cleaned up
-    on error.
-
-    Args:
-        output: Destination file path.
-        fps: Frames per second.
-        width: Frame width in pixels.
-        height: Frame height in pixels.
-
-    Raises:
-        FileNotFoundError: If ``ffmpeg`` is not on ``PATH``.
-        ValueError: If *fps* is less than 1.
-    """
-
-    def __init__(
-        self,
-        output: str | Path,
-        *,
-        fps: int = 30,
-        width: int,
-        height: int,
-    ) -> None:
-        if shutil.which("ffmpeg") is None:
-            raise FileNotFoundError(
-                "ffmpeg is required for MP4 output but was not found "
-                "on PATH. Install it with 'brew install ffmpeg' "
-                "(macOS), 'apt install ffmpeg' (Debian/Ubuntu), or "
-                "'conda install ffmpeg' (conda)."
-            )
-        if fps < 1:
-            raise ValueError(f"fps must be >= 1, got {fps}")
-        self._output = Path(output)
-        self._proc = subprocess.Popen(
-            [
-                "ffmpeg", "-y",
-                "-loglevel", "error",
-                "-f", "rawvideo",
-                "-pix_fmt", "rgba",
-                "-s", f"{width}x{height}",
-                "-r", str(fps),
-                "-i", "pipe:",
-                "-c:v", "libx264",
-                "-pix_fmt", "yuv420p",
-                str(self._output),
-            ],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.PIPE,
-        )
-
-    def __enter__(self) -> Self:
-        return self
-
-    def __exit__(
-        self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
-        exc_tb: TracebackType | None,
-    ) -> None:
-        # Ensure the ffmpeg process is terminated on error.
-        assert self._proc.stdin is not None
-        if not self._proc.stdin.closed:
-            self._proc.stdin.close()
-        if self._proc.poll() is None:
-            self._proc.terminate()
-            self._proc.wait()
-
-    def add_frame(self, fig: Figure) -> None:
-        """Pipe the current figure as a raw RGBA frame to ffmpeg."""
-        fig.canvas.draw()
-        buf = fig.canvas.buffer_rgba()  # type: ignore[attr-defined]
-        assert self._proc.stdin is not None
-        self._proc.stdin.write(buf)
-
-    def finish(self) -> None:
-        """Close the ffmpeg pipe and wait for the process to exit."""
-        assert self._proc.stdin is not None
-        self._proc.stdin.close()
-        # Drain stderr to prevent pipe buffer deadlocks, then wait.
-        assert self._proc.stderr is not None
-        stderr_bytes = self._proc.stderr.read()
-        self._proc.wait()
-        if self._proc.returncode != 0:
-            stderr_text = stderr_bytes.decode(errors="replace")
-            raise RuntimeError(
-                f"ffmpeg exited with code {self._proc.returncode}:\n"
-                f"{stderr_text[-500:]}"
-            )
-
-
-def _make_writer(
-    output: Path,
-    *,
-    fps: int,
-    width: int,
-    height: int,
-) -> _GifWriter | _Mp4Writer:
-    """Select and construct a frame writer based on file extension."""
-    ext = Path(output).suffix.lower()
-    if ext == ".gif":
-        return _GifWriter(output, fps=fps)
-    elif ext == ".mp4":
-        return _Mp4Writer(output, fps=fps, width=width, height=height)
-    else:
-        raise ValueError(
-            f"Unsupported output format {ext!r}. "
-            f"Supported: .gif, .mp4"
-        )
 
 
 def render_animation(
@@ -236,11 +44,15 @@ def render_animation(
     Loops over the specified frames, rendering each with the
     existing per-frame pipeline and writing it to the output file.
 
+    Requires the ``imageio`` package.  For MP4 output,
+    ``imageio-ffmpeg`` is also required.  Install both with::
+
+        pip install imageio imageio-ffmpeg
+
     Args:
         scene: The StructureScene to animate.
         output: Destination file path.  Extension determines the
-            format: ``.gif`` for GIF (via Pillow), ``.mp4`` for
-            MP4 (via ffmpeg).
+            format (e.g. ``.gif``, ``.mp4``).
         style: A :class:`RenderStyle` controlling visual appearance.
         frames: Which frame indices to render, in order.  ``None``
             renders all frames.  Accepts ``range(0, 100, 5)`` or
@@ -259,11 +71,18 @@ def render_animation(
         The output file path as a :class:`~pathlib.Path`.
 
     Raises:
-        ValueError: If *frames* is empty, contains out-of-range
-            indices, or the output extension is unsupported.
-        FileNotFoundError: If the output is ``.mp4`` and ``ffmpeg``
-            is not on ``PATH``.
+        ValueError: If *frames* is empty or contains out-of-range
+            indices.
+        ImportError: If ``imageio`` is not installed.
     """
+    try:
+        import imageio
+    except ImportError as exc:
+        raise ImportError(
+            "imageio is required for animation rendering. "
+            "Install it with: pip install imageio imageio-ffmpeg"
+        ) from exc
+
     output = Path(output)
     resolved = _resolve_style(style, **style_kwargs)
 
@@ -286,15 +105,21 @@ def render_animation(
     view = copy.deepcopy(scene.view)
     bg_rgb = normalise_colour(background)
 
-    width_px = int(figsize[0] * dpi)
-    height_px = int(figsize[1] * dpi)
-
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
     try:
-        with _make_writer(output, fps=fps, width=width_px, height=height_px) as writer:
+        ext = output.suffix.lower()
+        writer_kwargs: dict = {}
+        if ext == ".gif":
+            writer_kwargs["duration"] = round(1000 / fps)
+            writer_kwargs["loop"] = 0
+        else:
+            writer_kwargs["fps"] = fps
+            writer_kwargs["macro_block_size"] = 1
+
+        with imageio.get_writer(output, **writer_kwargs) as writer:
             # Render the first frame to establish the viewport bounding
             # box.  This auto-fits to the projected geometry (tight,
             # aspect-aware).  All subsequent frames reuse these limits.
@@ -310,7 +135,8 @@ def render_animation(
             )
             fixed_xlim = ax.get_xlim()
             fixed_ylim = ax.get_ylim()
-            writer.add_frame(fig)
+            fig.canvas.draw()
+            writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])  # type: ignore[attr-defined]
 
             for frame_idx in frame_indices[1:]:
                 precomputed = _precompute_scene(
@@ -325,9 +151,8 @@ def render_animation(
                 )
                 ax.set_xlim(*fixed_xlim)
                 ax.set_ylim(*fixed_ylim)
-                writer.add_frame(fig)
-
-            writer.finish()
+                fig.canvas.draw()
+                writer.append_data(np.asarray(fig.canvas.buffer_rgba())[:, :, :3])  # type: ignore[attr-defined]
     finally:
         plt.close(fig)
 

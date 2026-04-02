@@ -565,10 +565,9 @@ class StructureScene:
             The output file path as a :class:`~pathlib.Path`.
 
         Raises:
-            ValueError: If *frames* is empty, contains out-of-range
-                indices, or the output extension is unsupported.
-            FileNotFoundError: If the output is ``.mp4`` and
-                ``ffmpeg`` is not on ``PATH``.
+            ValueError: If *frames* is empty or contains out-of-range
+                indices.
+            ImportError: If ``imageio`` is not installed.
 
         See Also:
             :func:`hofmann.rendering.animation.render_animation`
