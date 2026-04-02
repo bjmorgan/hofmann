@@ -801,8 +801,13 @@ def _draw_scene(
         margin = np.max(atom_screen_radii) + 1.0
         cx = (xy[:, 0].max() + xy[:, 0].min()) / 2
         cy = (xy[:, 1].max() + xy[:, 1].min()) / 2
-        pad_x = (xy[:, 0].max() - xy[:, 0].min()) / 2 + margin
-        pad_y = (xy[:, 1].max() - xy[:, 1].min()) / 2 + margin
+        # Divide by zoom so that zoom > 1 crops the viewport
+        # (zooms in) and zoom < 1 adds padding (zooms out).
+        # The projected coordinates already have zoom applied,
+        # so at zoom=1 everything fits; at zoom=2 the viewport
+        # is half as wide and edge atoms are clipped.
+        pad_x = ((xy[:, 0].max() - xy[:, 0].min()) / 2 + margin) / view.zoom
+        pad_y = ((xy[:, 1].max() - xy[:, 1].min()) / 2 + margin) / view.zoom
     # ---- Axes orientation widget ----
     draw_axes = style.show_axes
     if draw_axes is None:
