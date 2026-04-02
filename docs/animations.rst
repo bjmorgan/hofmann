@@ -62,15 +62,23 @@ Control the output resolution with ``dpi`` and ``figsize``:
 Example: CH4 vibration
 ----------------------
 
-A vibrating methane molecule using the default rendering options:
+A vibrating methane molecule styled to match the
+:doc:`Getting Started <getting-started>` example:
 
 .. code-block:: python
 
    from ase.io import read
-   from hofmann import StructureScene
+   from hofmann import AtomStyle, BondSpec, StructureScene
 
    traj = read("ch4_md.traj", index=":")
-   scene = StructureScene.from_ase(traj)
+
+   bonds = [BondSpec(species=("C", "H"), max_length=1.5, colour=1.0)]
+   atom_styles = {
+       "C": AtomStyle(radius=1.0, colour=0.7),
+       "H": AtomStyle(radius=0.7, colour=1.0),
+   }
+
+   scene = StructureScene.from_ase(traj, bond_specs=bonds, atom_styles=atom_styles)
    scene.render_animation("ch4_md.gif", fps=15, dpi=100, figsize=(4, 4))
 
 .. image:: _static/ch4_md.gif

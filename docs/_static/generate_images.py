@@ -1042,11 +1042,18 @@ def generate_animation_gifs() -> None:
         print("  skipping animation GIFs (imageio not installed)")
         return
 
-    # CH4 vibration — default styling.
+    # CH4 vibration — XBS visual style.
     ch4_traj_path = OUT / "ch4_md.traj"
     if ch4_traj_path.exists():
         ch4_traj = read(str(ch4_traj_path), index=":")
-        ch4_scene = StructureScene.from_ase(ch4_traj)
+        ch4_scene = StructureScene.from_ase(
+            ch4_traj,
+            bond_specs=[BondSpec(species=("C", "H"), max_length=1.5, colour=1.0)],
+            atom_styles={
+                "C": AtomStyle(radius=1.0, colour=0.7),
+                "H": AtomStyle(radius=0.7, colour=1.0),
+            },
+        )
         ch4_scene.render_animation(
             OUT / "ch4_md.gif", fps=15, dpi=100, figsize=(4, 4),
         )
