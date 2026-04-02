@@ -128,7 +128,7 @@ one octahedral layer:
        bond_specs=bonds,
        polyhedra=polyhedra,
        atom_styles=atom_styles,
-       centre_atom=6,
+       centre_atom=5,  # Sr in the second layer
    )
 
    # Clip to a single octahedral layer.
@@ -138,6 +138,7 @@ one octahedral layer:
    scene.render_animation(
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
        pbc_padding=1.0, show_axes=False, show_cell=False,
+       slab_clip_mode="include_whole",
    )
 
 .. image:: _static/srtio3_md.gif

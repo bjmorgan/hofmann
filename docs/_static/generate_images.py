@@ -1085,13 +1085,14 @@ def generate_animation_gifs() -> None:
                 "Ti": AtomStyle(radius=0.8, colour="steelblue"),
                 "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
             },
-            centre_atom=6,
+            centre_atom=5,
         )
         srtio3_scene.view.slab_near = -2.0
         srtio3_scene.view.slab_far = 2.0
         srtio3_scene.render_animation(
             OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
             pbc_padding=1.0, show_axes=False, show_cell=False,
+            slab_clip_mode="include_whole",
         )
         print(f"  wrote {OUT / 'srtio3_md.gif'}")
     else:
