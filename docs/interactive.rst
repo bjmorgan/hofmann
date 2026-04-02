@@ -114,6 +114,12 @@ For scenes with multiple frames (trajectories):
      - Step to previous / next frame
    * - ``{`` / ``}``
      - Jump to first / last frame
+   * - ``f``
+     - Toggle frame indicator
+   * - ``g``
+     - Go to a specific frame (type digits, then Enter)
+   * - ``s``
+     - Set frame step size (type digits, then Enter)
 
 Other
 ^^^^^

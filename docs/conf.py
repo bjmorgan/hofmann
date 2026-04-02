@@ -68,9 +68,10 @@ def _generate_figures(app):
     static_dir = os.path.join(os.path.dirname(__file__), "_static")
     sys.path.insert(0, static_dir)
     try:
-        from generate_images import generate_docs_images
+        from generate_images import generate_animation_gifs, generate_docs_images
 
         generate_docs_images()
+        generate_animation_gifs()
     finally:
         sys.path.pop(0)
 

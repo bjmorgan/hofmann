@@ -1029,10 +1029,78 @@ def generate_docs_images() -> None:
     print(f"  wrote {OUT / 'legend_spacing.svg'}")
 
 
+def generate_animation_gifs() -> None:
+    """Generate animation GIFs from pre-computed trajectories."""
+    try:
+        from ase.io import read
+    except ImportError:
+        print("  skipping animation GIFs (ase not installed)")
+        return
+    try:
+        import imageio  # noqa: F401
+    except ImportError:
+        print("  skipping animation GIFs (imageio not installed)")
+        return
+
+    # CH4 vibration.
+    ch4_traj_path = OUT / "ch4_md.traj"
+    if ch4_traj_path.exists():
+        ch4_traj = read(str(ch4_traj_path), index=":")
+        ch4_scene = StructureScene.from_ase(
+            ch4_traj,
+            bond_specs=[BondSpec(species=("C", "H"), max_length=1.3)],
+            atom_styles={
+                "C": AtomStyle(radius=0.6, colour="dimgrey"),
+                "H": AtomStyle(radius=0.35, colour="lightgrey"),
+            },
+        )
+        ch4_scene.render_animation(
+            OUT / "ch4_md.gif", fps=15, dpi=100, figsize=(4, 4),
+        )
+        print(f"  wrote {OUT / 'ch4_md.gif'}")
+    else:
+        print(f"  skipping CH4 GIF ({ch4_traj_path} not found)")
+
+    # SrTiO3 perovskite MD.
+    srtio3_traj_path = OUT / "srtio3_md.traj"
+    if srtio3_traj_path.exists():
+        srtio3_traj = read(str(srtio3_traj_path), index="::2")
+        srtio3_scene = StructureScene.from_ase(
+            srtio3_traj,
+            bond_specs=[
+                BondSpec(species=("Ti", "O"), max_length=2.5, complete="*"),
+                BondSpec(species=("Sr", "O"), max_length=3.2),
+            ],
+            polyhedra=[
+                PolyhedronSpec(
+                    centre="Ti",
+                    colour="steelblue",
+                    alpha=0.4,
+                    hide_centre=True,
+                    hide_bonds=True,
+                    hide_vertices=True,
+                ),
+            ],
+            atom_styles={
+                "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
+                "Ti": AtomStyle(radius=0.8, colour="steelblue"),
+                "O": AtomStyle(radius=0.6, colour="firebrick"),
+            },
+        )
+        srtio3_scene.render_animation(
+            OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
+            pbc_padding=1.0,
+        )
+        print(f"  wrote {OUT / 'srtio3_md.gif'}")
+    else:
+        print(f"  skipping SrTiO3 GIF ({srtio3_traj_path} not found)")
+
+
 def main() -> None:
     """Generate all images (docs figures and project logo)."""
     generate_logo()
     generate_docs_images()
+    generate_animation_gifs()
 
 
 if __name__ == "__main__":

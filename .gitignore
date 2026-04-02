@@ -3,8 +3,11 @@ CLAUDE.md
 examples/*.pdf
 examples/*.svg
 examples/*.png
+examples/*.gif
+examples/*.traj
 docs/_build/
 docs/_static/*.svg
+docs/_static/*.gif
 
 # Python
 __pycache__/

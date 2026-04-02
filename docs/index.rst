@@ -42,6 +42,7 @@ Quick example
 
    legends
    colouring
+   animations
    styles
    interactive
 
