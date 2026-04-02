@@ -121,7 +121,7 @@ def render_animation(
     bg_rgb = normalise_colour(background)
 
     fig = Figure(figsize=figsize, dpi=dpi)
-    FigureCanvasAgg(fig)
+    canvas = FigureCanvasAgg(fig)
     ax = fig.add_subplot(1, 1, 1)
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
@@ -158,9 +158,9 @@ def render_animation(
                     if xlim is None:
                         xlim = ax.get_xlim()
                         ylim = ax.get_ylim()
-                    fig.canvas.draw()
-                    writer.append_data(
-                        np.asarray(fig.canvas.buffer_rgba())[:, :, :3],
+                    canvas.draw()
+                    writer.append_data(  # type: ignore[attr-defined]
+                        np.asarray(canvas.buffer_rgba())[:, :, :3],
                     )
                 except Exception as exc:
                     raise RuntimeError(
