@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import time
-import traceback
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -481,80 +480,59 @@ def render_mpl_interactive(
 
     # ---- Mouse handlers ----
 
-    # Matplotlib's event loop silently discards exceptions raised
-    # inside callbacks, leaving the viewer frozen with no feedback.
-    # Wrapping each handler in try/except with traceback.print_exc()
-    # ensures errors are at least visible on stderr.  The alternative
-    # — letting exceptions propagate — would crash the window with no
-    # diagnostic output, which is worse for the user.
     def on_press(event):
-        try:
-            if event.inaxes != ax or event.button != 1:
-                return
-            state["drag_active"] = True
-            state["drag_last_xy"] = (event.x, event.y)
-        except Exception:
-            traceback.print_exc()
+        if event.inaxes != ax or event.button != 1:
+            return
+        state["drag_active"] = True
+        state["drag_last_xy"] = (event.x, event.y)
 
     def on_motion(event):
-        try:
-            if not state["drag_active"] or state["drag_last_xy"] is None:
-                return
-            x0, y0 = state["drag_last_xy"]
-            dx = event.x - x0
-            dy = event.y - y0
-            state["drag_last_xy"] = (event.x, event.y)
-            # Incremental rotation in screen space: horizontal drag rotates
-            # around the screen Y axis, vertical drag around screen X.
-            # Applying to the *current* rotation gives intuitive "grab and
-            # drag the object" behaviour regardless of accumulated rotation.
-            view.rotation = (
-                _rotation_y(dx * _DRAG_SENSITIVITY)
-                @ _rotation_x(-dy * _DRAG_SENSITIVITY)
-                @ view.rotation
-            )
-            _throttled_redraw()
-        except Exception:
-            traceback.print_exc()
+        if not state["drag_active"] or state["drag_last_xy"] is None:
+            return
+        x0, y0 = state["drag_last_xy"]
+        dx = event.x - x0
+        dy = event.y - y0
+        state["drag_last_xy"] = (event.x, event.y)
+        # Incremental rotation in screen space: horizontal drag rotates
+        # around the screen Y axis, vertical drag around screen X.
+        # Applying to the *current* rotation gives intuitive "grab and
+        # drag the object" behaviour regardless of accumulated rotation.
+        view.rotation = (
+            _rotation_y(dx * _DRAG_SENSITIVITY)
+            @ _rotation_x(-dy * _DRAG_SENSITIVITY)
+            @ view.rotation
+        )
+        _throttled_redraw()
 
     def on_release(event):
-        try:
-            if state["drag_active"]:
-                state["drag_active"] = False
-                # Final redraw to ensure the last position is rendered.
-                _redraw()
-        except Exception:
-            traceback.print_exc()
+        if state["drag_active"]:
+            state["drag_active"] = False
+            # Final redraw to ensure the last position is rendered.
+            _redraw()
 
     def on_scroll(event):
-        try:
-            if event.inaxes != ax or event.step is None:
-                return
-            factor = _KEY_ZOOM_FACTOR ** event.step
-            view.zoom = max(0.01, min(100.0, view.zoom * factor))
-            _redraw()
-        except Exception:
-            traceback.print_exc()
+        if event.inaxes != ax or event.step is None:
+            return
+        factor = _KEY_ZOOM_FACTOR ** event.step
+        view.zoom = max(0.01, min(100.0, view.zoom * factor))
+        _redraw()
 
     # ---- Keyboard handler ----
 
     def on_key_press(event):
-        try:
-            if event.key is None:
-                return
-            kind = _apply_key_action(
-                event.key, view, resolved, state,
-                n_frames=len(scene.frames),
-                base_extent=state["base_extent"],
-                initial_view=initial_view,
-                has_lattice=scene.lattice is not None,
-            )
-            if kind == "full":
-                _full_redraw()
-            elif kind == "view":
-                _throttled_redraw()
-        except Exception:
-            traceback.print_exc()
+        if event.key is None:
+            return
+        kind = _apply_key_action(
+            event.key, view, resolved, state,
+            n_frames=len(scene.frames),
+            base_extent=state["base_extent"],
+            initial_view=initial_view,
+            has_lattice=scene.lattice is not None,
+        )
+        if kind == "full":
+            _full_redraw()
+        elif kind == "view":
+            _throttled_redraw()
 
     # ---- Connect events ----
 
