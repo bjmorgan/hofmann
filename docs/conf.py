@@ -1,9 +1,19 @@
 """Sphinx configuration for hofmann documentation."""
 
+from pathlib import Path
+
 project = "hofmann"
 copyright = "2025, hofmann contributors"
 author = "hofmann contributors"
-release = "0.13.1"
+
+# Read version from pyproject.toml so it stays in sync without
+# requiring a package reinstall.
+_pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+release = "0.0.0"
+for line in _pyproject.read_text().splitlines():
+    if line.startswith("version"):
+        release = line.split('"')[1]
+        break
 
 extensions = [
     "sphinx.ext.autodoc",
