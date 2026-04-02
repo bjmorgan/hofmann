@@ -10,7 +10,6 @@ author = "hofmann contributors"
 _pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
 with _pyproject.open("rb") as f:
     release = tomllib.load(f)["project"]["version"]
-        break
 
 extensions = [
     "sphinx.ext.autodoc",
