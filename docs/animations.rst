@@ -59,7 +59,7 @@ Control the output resolution with ``dpi`` and ``figsize``:
    )
 
 
-Example: CH4 vibration
+Example: CH\ :sub:`4` vibration
 ----------------------
 
 A vibrating methane molecule styled to match the
@@ -72,10 +72,10 @@ A vibrating methane molecule styled to match the
 
    traj = read("ch4_md.traj", index=":")
 
-   bonds = [BondSpec(species=("C", "H"), max_length=1.5, radius=0.109, colour=1.0)]
+   bonds = [BondSpec(species=("C", "H"), max_length=1.5, radius=0.055, colour=1.0)]
    atom_styles = {
-       "C": AtomStyle(radius=1.0, colour=0.7),
-       "H": AtomStyle(radius=0.7, colour=1.0),
+       "C": AtomStyle(radius=0.5, colour=0.7),
+       "H": AtomStyle(radius=0.35, colour=1.0),
    }
 
    scene = StructureScene.from_ase(traj, bond_specs=bonds, atom_styles=atom_styles)
@@ -87,39 +87,22 @@ A vibrating methane molecule styled to match the
    :alt: CH4 vibration animation
 
 
-Example: SrTiO3 perovskite MD
-------------------------------
+Example: SrTiO\ :sub:`3` perovskite MD
+---------------------------------------
 
-A single octahedral layer from a 4x4x4 SrTiO3 supercell at 1000 K.
-The trajectory is pre-filtered to a fixed set of atom indices
-(one Sr plane, one Ti plane, and their coordinating O), so the
-same atoms are shown in every frame regardless of thermal
-displacement.  Oxygen atoms are hidden to emphasise the polyhedral
-network:
+A single octahedral layer from a 4x4x4 SrTiO\ :sub:`3` supercell at 1000 K.
+The trajectory has been pre-filtered to one Sr plane, one Ti plane,
+and their coordinating O.  Oxygen atoms are hidden to emphasise the
+polyhedral network:
 
 .. code-block:: python
 
-   import numpy as np
    from ase.io import read
    from hofmann import (
        AtomStyle, BondSpec, PolyhedronSpec, StructureScene,
    )
 
-   full_traj = read("srtio3_md.traj", index="::2")
-
-   # Select one octahedral layer from the first frame.
-   ref = full_traj[0]
-   z = ref.positions[:, 2]
-   symbols = np.array(ref.get_chemical_symbols())
-   sr = (symbols == "Sr") & (np.abs(z - 3.9) < 0.5)
-   ti = (symbols == "Ti") & (np.abs(z - 5.9) < 0.5)
-   o = (symbols == "O") & (
-       (np.abs(z - 3.9) < 0.5)
-       | (np.abs(z - 5.9) < 0.5)
-       | (np.abs(z - 7.8) < 0.5)
-   )
-   idx = np.where(sr | ti | o)[0]
-   traj = [frame[idx] for frame in full_traj]
+   traj = read("srtio3_md.traj", index=":")
 
    bonds = [BondSpec(species=("Ti", "O"), max_length=2.5)]
    polyhedra = [
@@ -142,6 +125,7 @@ network:
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
        show_axes=False, show_cell=False,
        slab_clip_mode="include_whole",
+       pbc_padding=1.0,
    )
 
 .. image:: _static/srtio3_md.gif
@@ -162,7 +146,7 @@ argument to ``render_animation()``, just as with ``render_mpl()``:
        "output.gif",
        show_bonds=False,
        show_polyhedra=True,
-       pbc_padding=2.0,
+       pbc_padding=1.0,
    )
 
 

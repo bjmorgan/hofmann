@@ -22,11 +22,11 @@ print(f"Rendering {len(traj)} frames")
 
 # XBS-style appearance (matches the Getting Started CH4 example).
 bonds = [
-    BondSpec(species=("C", "H"), max_length=1.5, radius=0.109, colour=1.0),
+    BondSpec(species=("C", "H"), max_length=1.5, radius=0.055, colour=1.0),
 ]
 atom_styles = {
-    "C": AtomStyle(radius=1.0, colour=0.7),
-    "H": AtomStyle(radius=0.7, colour=1.0),
+    "C": AtomStyle(radius=0.5, colour=0.7),
+    "H": AtomStyle(radius=0.35, colour=1.0),
 }
 
 scene = StructureScene.from_ase(traj, bond_specs=bonds, atom_styles=atom_styles)

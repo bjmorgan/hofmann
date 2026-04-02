@@ -1051,12 +1051,12 @@ def generate_animation_gifs() -> None:
             bond_specs=[
                 BondSpec(
                     species=("C", "H"), max_length=1.5,
-                    radius=0.109, colour=1.0,
+                    radius=0.055, colour=1.0,
                 ),
             ],
             atom_styles={
-                "C": AtomStyle(radius=1.0, colour=0.7),
-                "H": AtomStyle(radius=0.7, colour=1.0),
+                "C": AtomStyle(radius=0.5, colour=0.7),
+                "H": AtomStyle(radius=0.35, colour=1.0),
             },
         )
         ch4_scene.render_animation(
@@ -1069,25 +1069,7 @@ def generate_animation_gifs() -> None:
     # SrTiO3 perovskite MD — pre-filtered single octahedral layer.
     srtio3_traj_path = OUT / "srtio3_md.traj"
     if srtio3_traj_path.exists():
-        import numpy as np_
-
-        full_traj = read(str(srtio3_traj_path), index="::2")
-
-        # Select one Sr plane, one Ti plane, and coordinating O
-        # from the first frame — render these atoms throughout.
-        ref = full_traj[0]
-        z = ref.positions[:, 2]
-        symbols = np_.array(ref.get_chemical_symbols())
-        sr_mask = (symbols == "Sr") & (np_.abs(z - 3.9) < 0.5)
-        ti_mask = (symbols == "Ti") & (np_.abs(z - 5.9) < 0.5)
-        o_mask = (symbols == "O") & (
-            (np_.abs(z - 3.9) < 0.5)
-            | (np_.abs(z - 5.9) < 0.5)
-            | (np_.abs(z - 7.8) < 0.5)
-        )
-        indices = np_.where(sr_mask | ti_mask | o_mask)[0]
-        srtio3_traj = [frame[indices] for frame in full_traj]
-
+        srtio3_traj = read(str(srtio3_traj_path), index=":")
         srtio3_scene = StructureScene.from_ase(
             srtio3_traj,
             bond_specs=[
@@ -1113,6 +1095,7 @@ def generate_animation_gifs() -> None:
             OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
             show_axes=False, show_cell=False,
             slab_clip_mode="include_whole",
+            pbc_padding=1.0,
         )
         print(f"  wrote {OUT / 'srtio3_md.gif'}")
     else:

@@ -70,5 +70,6 @@ scene.render_animation(
     OUTPUT, fps=10, dpi=100, figsize=(6, 6),
     show_axes=False, show_cell=False,
     slab_clip_mode="include_whole",
+    pbc_padding=1.0,
 )
 print(f"Animation saved to {OUTPUT}")
