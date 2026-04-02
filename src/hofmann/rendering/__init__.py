@@ -8,8 +8,8 @@ def render_animation(*args, **kwargs):
     """Render a trajectory animation to a GIF or MP4 file.
 
     Lazily imports :mod:`hofmann.rendering.animation` so that
-    optional dependencies (Pillow) are only required when animation
-    rendering is actually used.
+    optional dependencies (``imageio`` / ``imageio-ffmpeg``) are
+    only required when animation rendering is actually used.
 
     See :func:`hofmann.rendering.animation.render_animation` for
     full documentation.

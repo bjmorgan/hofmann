@@ -102,6 +102,9 @@ def render_animation(
                 f"with {n_scene_frames} frame(s)"
             )
 
+    if fps < 1:
+        raise ValueError(f"fps must be >= 1, got {fps}")
+
     view = copy.deepcopy(scene.view)
     bg_rgb = normalise_colour(background)
 
