@@ -49,6 +49,11 @@ ch4.set_velocities(vel)
 # Run NVE dynamics.
 dyn = VelocityVerlet(ch4, timestep=0.5 * units.fs)
 
+# Equilibrate before sampling.
+equil_steps = 50
+dyn.run(equil_steps)
+print(f"Equilibrated for {equil_steps} steps")
+
 n_steps = 200
 sample_interval = 2
 

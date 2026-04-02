@@ -90,8 +90,10 @@ A vibrating methane molecule styled to match the
 Example: SrTiO3 perovskite MD
 ------------------------------
 
-A 4x4x4 SrTiO3 supercell with TiO6 octahedral polyhedra.  Oxygen
-atoms are hidden to emphasise the polyhedral network:
+A single-layer slice through a 4x4x4 SrTiO3 supercell at 1000 K,
+showing TiO6 octahedral polyhedra.  Oxygen atoms are hidden to
+emphasise the polyhedral network, and depth-slab clipping isolates
+one octahedral layer:
 
 .. code-block:: python
 
@@ -126,10 +128,16 @@ atoms are hidden to emphasise the polyhedral network:
        bond_specs=bonds,
        polyhedra=polyhedra,
        atom_styles=atom_styles,
+       centre_atom=6,
    )
+
+   # Clip to a single octahedral layer.
+   scene.view.slab_near = -2.0
+   scene.view.slab_far = 2.0
+
    scene.render_animation(
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
-       pbc_padding=1.0, show_axes=False,
+       pbc_padding=1.0, show_axes=False, show_cell=False,
    )
 
 .. image:: _static/srtio3_md.gif

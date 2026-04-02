@@ -26,8 +26,13 @@ print(f"Supercell: {len(atoms)} atoms")
 # Attach CHGNet calculator.
 atoms.calc = CHGNetCalculator()
 
-# Run NVT Langevin dynamics at 600 K.
-dyn = Langevin(atoms, timestep=2.0 * units.fs, temperature_K=600, friction=0.01)
+# Run NVT Langevin dynamics at 1000 K.
+dyn = Langevin(atoms, timestep=2.0 * units.fs, temperature_K=1000, friction=0.01)
+
+# Equilibrate before sampling.
+equil_steps = 100
+dyn.run(equil_steps)
+print(f"Equilibrated for {equil_steps} steps")
 
 n_steps = 200
 sample_interval = 2
