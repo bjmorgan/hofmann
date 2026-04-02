@@ -1042,18 +1042,11 @@ def generate_animation_gifs() -> None:
         print("  skipping animation GIFs (imageio not installed)")
         return
 
-    # CH4 vibration.
+    # CH4 vibration — default styling.
     ch4_traj_path = OUT / "ch4_md.traj"
     if ch4_traj_path.exists():
         ch4_traj = read(str(ch4_traj_path), index=":")
-        ch4_scene = StructureScene.from_ase(
-            ch4_traj,
-            bond_specs=[BondSpec(species=("C", "H"), max_length=1.3)],
-            atom_styles={
-                "C": AtomStyle(radius=0.6, colour="dimgrey"),
-                "H": AtomStyle(radius=0.35, colour="lightgrey"),
-            },
-        )
+        ch4_scene = StructureScene.from_ase(ch4_traj)
         ch4_scene.render_animation(
             OUT / "ch4_md.gif", fps=15, dpi=100, figsize=(4, 4),
         )
@@ -1061,15 +1054,14 @@ def generate_animation_gifs() -> None:
     else:
         print(f"  skipping CH4 GIF ({ch4_traj_path} not found)")
 
-    # SrTiO3 perovskite MD.
+    # SrTiO3 perovskite MD — TiO6 polyhedra, O atoms hidden.
     srtio3_traj_path = OUT / "srtio3_md.traj"
     if srtio3_traj_path.exists():
         srtio3_traj = read(str(srtio3_traj_path), index="::2")
         srtio3_scene = StructureScene.from_ase(
             srtio3_traj,
             bond_specs=[
-                BondSpec(species=("Ti", "O"), max_length=2.5, complete="*"),
-                BondSpec(species=("Sr", "O"), max_length=3.2),
+                BondSpec(species=("Ti", "O"), max_length=2.5),
             ],
             polyhedra=[
                 PolyhedronSpec(
@@ -1084,12 +1076,12 @@ def generate_animation_gifs() -> None:
             atom_styles={
                 "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
                 "Ti": AtomStyle(radius=0.8, colour="steelblue"),
-                "O": AtomStyle(radius=0.6, colour="firebrick"),
+                "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
             },
         )
         srtio3_scene.render_animation(
             OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
-            pbc_padding=1.0,
+            pbc_padding=1.0, show_axes=False,
         )
         print(f"  wrote {OUT / 'srtio3_md.gif'}")
     else:

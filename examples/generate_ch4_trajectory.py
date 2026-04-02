@@ -35,9 +35,9 @@ ch4 = Atoms("CH4", positions=positions, cell=[10, 10, 10], pbc=False)
 # Attach CHGNet calculator.
 ch4.calc = CHGNetCalculator()
 
-# Give a small random velocity kick to excite vibrations.
+# Give a random velocity kick to excite vibrations.
 rng = np.random.default_rng(42)
-ch4.set_velocities(rng.normal(0, 0.02, (5, 3)))
+ch4.set_velocities(rng.normal(0, 0.08, (5, 3)))
 
 # Zero centre-of-mass velocity so the molecule vibrates in place.
 masses = ch4.get_masses()

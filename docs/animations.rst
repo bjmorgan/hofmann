@@ -23,10 +23,10 @@ Build a scene from a trajectory and call ``render_animation()``:
    scene.render_animation("output.gif", fps=10)
 
 The output format is determined by the file extension — ``.gif`` for
-GIF (requires ``imageio``) or ``.mp4`` for MP4 (requires
-``imageio-ffmpeg``).  Install the optional dependencies with::
+GIF or ``.mp4`` for MP4.  Animation rendering requires the
+``animation`` optional extra::
 
-   pip install imageio imageio-ffmpeg
+   pip install "hofmann[animation]"
 
 
 Frame selection
@@ -62,46 +62,28 @@ Control the output resolution with ``dpi`` and ``figsize``:
 Example: CH4 vibration
 ----------------------
 
-A minimal molecular example — a vibrating methane molecule rendered
-with C-H bonds:
+A vibrating methane molecule using the default rendering options:
+
+.. code-block:: python
+
+   from ase.io import read
+   from hofmann import StructureScene
+
+   traj = read("ch4_md.traj", index=":")
+   scene = StructureScene.from_ase(traj)
+   scene.render_animation("ch4_md.gif", fps=15, dpi=100, figsize=(4, 4))
 
 .. image:: _static/ch4_md.gif
    :width: 300px
    :align: center
    :alt: CH4 vibration animation
 
-.. code-block:: python
-
-   from ase.io import read
-   from hofmann import AtomStyle, BondSpec, StructureScene
-
-   traj = read("ch4_md.traj", index=":")
-
-   bonds = [BondSpec(species=("C", "H"), max_length=1.3)]
-   atom_styles = {
-       "C": AtomStyle(radius=0.6, colour="dimgrey"),
-       "H": AtomStyle(radius=0.35, colour="lightgrey"),
-   }
-
-   scene = StructureScene.from_ase(
-       traj, bond_specs=bonds, atom_styles=atom_styles,
-   )
-   scene.render_animation("ch4_md.gif", fps=15, dpi=100, figsize=(4, 4))
-
-See ``examples/generate_ch4_trajectory.py`` and
-``examples/render_ch4_animation.py`` for the full runnable scripts.
-
 
 Example: SrTiO3 perovskite MD
 ------------------------------
 
-A periodic structure with TiO6 octahedral polyhedra.  Bond completion
-ensures octahedra are drawn correctly across periodic boundaries:
-
-.. image:: _static/srtio3_md.gif
-   :width: 450px
-   :align: center
-   :alt: SrTiO3 perovskite MD animation
+A 4x4x4 SrTiO3 supercell with TiO6 octahedral polyhedra.  Oxygen
+atoms are hidden to emphasise the polyhedral network:
 
 .. code-block:: python
 
@@ -113,8 +95,7 @@ ensures octahedra are drawn correctly across periodic boundaries:
    traj = read("srtio3_md.traj", index="::2")
 
    bonds = [
-       BondSpec(species=("Ti", "O"), max_length=2.5, complete="*"),
-       BondSpec(species=("Sr", "O"), max_length=3.2),
+       BondSpec(species=("Ti", "O"), max_length=2.5),
    ]
    polyhedra = [
        PolyhedronSpec(
@@ -129,7 +110,7 @@ ensures octahedra are drawn correctly across periodic boundaries:
    atom_styles = {
        "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
        "Ti": AtomStyle(radius=0.8, colour="steelblue"),
-       "O": AtomStyle(radius=0.6, colour="firebrick"),
+       "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
    }
 
    scene = StructureScene.from_ase(
@@ -140,11 +121,13 @@ ensures octahedra are drawn correctly across periodic boundaries:
    )
    scene.render_animation(
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
-       pbc_padding=1.0,
+       pbc_padding=1.0, show_axes=False,
    )
 
-See ``examples/generate_srtio3_trajectory.py`` and
-``examples/render_srtio3_animation.py`` for the full runnable scripts.
+.. image:: _static/srtio3_md.gif
+   :width: 450px
+   :align: center
+   :alt: SrTiO3 perovskite MD animation
 
 
 Style keyword arguments
