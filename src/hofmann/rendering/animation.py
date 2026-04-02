@@ -7,7 +7,8 @@ import shutil
 import subprocess
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Protocol
+from types import TracebackType
+from typing import Protocol, Self
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -29,12 +30,20 @@ class _FrameWriter(Protocol):
 
     def add_frame(self, fig: Figure) -> None: ...
     def finish(self) -> None: ...
+    def __enter__(self) -> Self: ...
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None: ...
 
 
 class _GifWriter:
     """Write animation frames to a GIF file using Pillow.
 
     Frames are collected in memory and written on :meth:`finish`.
+    Use as a context manager to ensure cleanup on error.
 
     Args:
         output: Destination file path.
@@ -53,6 +62,20 @@ class _GifWriter:
         self._duration = round(1000 / fps)
         self._Image = Image
         self._frames: list[Image.Image] = []
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        # GIF writer holds PIL images in memory; nothing to close.
+        # On success, finish() has already been called.
+        # On error, we just discard the frames.
+        self._frames.clear()
 
     def add_frame(self, fig: Figure) -> None:
         """Capture the current figure as a GIF frame."""
@@ -79,6 +102,8 @@ class _Mp4Writer:
     """Write animation frames to an MP4 file via ffmpeg.
 
     Frames are piped to an ``ffmpeg`` subprocess as raw RGBA data.
+    Use as a context manager to ensure the subprocess is cleaned up
+    on error.
 
     Args:
         output: Destination file path.
@@ -126,6 +151,23 @@ class _Mp4Writer:
             stderr=subprocess.PIPE,
         )
 
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
+        # Ensure the ffmpeg process is terminated on error.
+        assert self._proc.stdin is not None
+        if not self._proc.stdin.closed:
+            self._proc.stdin.close()
+        if self._proc.poll() is None:
+            self._proc.terminate()
+            self._proc.wait()
+
     def add_frame(self, fig: Figure) -> None:
         """Pipe the current figure as a raw RGBA frame to ffmpeg."""
         fig.canvas.draw()
@@ -153,7 +195,7 @@ def _make_writer(
     fps: int,
     width: int,
     height: int,
-) -> _FrameWriter:
+) -> _GifWriter | _Mp4Writer:
     """Select and construct a frame writer based on file extension."""
     ext = Path(output).suffix.lower()
     if ext == ".gif":
@@ -243,46 +285,46 @@ def render_animation(
 
     width_px = int(figsize[0] * dpi)
     height_px = int(figsize[1] * dpi)
-    writer = _make_writer(output, fps=fps, width=width_px, height=height_px)
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
     try:
-        # Render the first frame to establish the viewport bounding box.
-        # This auto-fits to the projected geometry (tight, aspect-aware).
-        # All subsequent frames reuse these fixed limits.
-        first_pre = _precompute_scene(
-            scene, frame_indices[0], resolved,
-            colour_by=colour_by, cmap=cmap,
-            colour_range=colour_range,
-        )
-        _draw_scene(
-            ax, scene, view, resolved,
-            frame_index=frame_indices[0], bg_rgb=bg_rgb,
-            precomputed=first_pre,
-        )
-        fixed_xlim = ax.get_xlim()
-        fixed_ylim = ax.get_ylim()
-        writer.add_frame(fig)
-
-        for frame_idx in frame_indices[1:]:
-            precomputed = _precompute_scene(
-                scene, frame_idx, resolved,
+        with _make_writer(output, fps=fps, width=width_px, height=height_px) as writer:
+            # Render the first frame to establish the viewport bounding
+            # box.  This auto-fits to the projected geometry (tight,
+            # aspect-aware).  All subsequent frames reuse these limits.
+            first_pre = _precompute_scene(
+                scene, frame_indices[0], resolved,
                 colour_by=colour_by, cmap=cmap,
                 colour_range=colour_range,
             )
             _draw_scene(
                 ax, scene, view, resolved,
-                frame_index=frame_idx, bg_rgb=bg_rgb,
-                precomputed=precomputed,
+                frame_index=frame_indices[0], bg_rgb=bg_rgb,
+                precomputed=first_pre,
             )
-            ax.set_xlim(*fixed_xlim)
-            ax.set_ylim(*fixed_ylim)
+            fixed_xlim = ax.get_xlim()
+            fixed_ylim = ax.get_ylim()
             writer.add_frame(fig)
 
-        writer.finish()
+            for frame_idx in frame_indices[1:]:
+                precomputed = _precompute_scene(
+                    scene, frame_idx, resolved,
+                    colour_by=colour_by, cmap=cmap,
+                    colour_range=colour_range,
+                )
+                _draw_scene(
+                    ax, scene, view, resolved,
+                    frame_index=frame_idx, bg_rgb=bg_rgb,
+                    precomputed=precomputed,
+                )
+                ax.set_xlim(*fixed_xlim)
+                ax.set_ylim(*fixed_ylim)
+                writer.add_frame(fig)
+
+            writer.finish()
     finally:
         plt.close(fig)
 
