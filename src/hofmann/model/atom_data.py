@@ -38,6 +38,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
         self._frames = frames
         self._data: dict[str, np.ndarray] = {}
         self._range_cache: dict[str, tuple[float, float] | None] = {}
+        self._labels_cache: dict[str, list[str] | None] = {}
 
     @property
     def n_atoms(self) -> int:
@@ -73,6 +74,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
             )
         self._data[key] = arr
         self._range_cache.pop(key, None)
+        self._labels_cache.pop(key, None)
 
     def __getitem__(self, key: str) -> np.ndarray:
         return self._data[key]
@@ -80,6 +82,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
     def __delitem__(self, key: str) -> None:
         del self._data[key]
         self._range_cache.pop(key, None)
+        self._labels_cache.pop(key, None)
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
@@ -107,6 +110,34 @@ class AtomData(MutableMapping[str, np.ndarray]):
             return None
         result = (float(np.min(valid)), float(np.max(valid)))
         self._range_cache[key] = result
+        return result
+
+    def global_labels(self, key: str) -> list[str] | None:
+        """Return the unique non-missing labels across all frames.
+
+        The result is cached and invalidated when the key is reassigned
+        or deleted.  Returns ``None`` for 1-D arrays or non-categorical
+        (numeric) arrays.  Missing values (``None``, ``""``, ``NaN``)
+        are excluded.
+        """
+        if key in self._labels_cache:
+            return self._labels_cache[key]
+        arr = self._data[key]
+        if arr.ndim != 2 or arr.dtype.kind not in ("U", "O"):
+            self._labels_cache[key] = None
+            return None
+        seen: dict[str, None] = {}
+        for v in arr.ravel():
+            s = str(v)
+            if v is None or s == "" or s == "nan":
+                continue
+            if s not in seen:
+                seen[s] = None
+        if not seen:
+            self._labels_cache[key] = None
+            return None
+        result = list(seen)
+        self._labels_cache[key] = result
         return result
 
     def __repr__(self) -> str:

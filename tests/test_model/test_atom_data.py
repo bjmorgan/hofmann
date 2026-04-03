@@ -115,6 +115,41 @@ class TestAtomData:
         ad["val"] = np.array([[10.0, 20.0], [30.0, 40.0]])
         assert ad.global_range("val") == (10.0, 40.0)
 
+    def test_global_labels_2d_categorical(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["site"] = np.array([["alpha", "beta"], ["beta", "gamma"]], dtype=object)
+        assert ad.global_labels("site") == ["alpha", "beta", "gamma"]
+
+    def test_global_labels_1d_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=1)
+        ad["site"] = np.array(["alpha", "beta"], dtype=object)
+        assert ad.global_labels("site") is None
+
+    def test_global_labels_numeric_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[1.0, 2.0], [3.0, 4.0]])
+        assert ad.global_labels("val") is None
+
+    def test_global_labels_excludes_missing(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=2)
+        ad["site"] = np.array([["alpha", None, "beta"],
+                                [None, "alpha", None]], dtype=object)
+        assert ad.global_labels("site") == ["alpha", "beta"]
+
+    def test_global_labels_cached(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["site"] = np.array([["a", "b"], ["b", "a"]], dtype=object)
+        r1 = ad.global_labels("site")
+        r2 = ad.global_labels("site")
+        assert r1 is r2
+
+    def test_global_labels_invalidated_on_set(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["site"] = np.array([["a", "b"], ["b", "a"]], dtype=object)
+        assert ad.global_labels("site") == ["a", "b"]
+        ad["site"] = np.array([["x", "y"], ["y", "x"]], dtype=object)
+        assert ad.global_labels("site") == ["x", "y"]
+
     def test_global_range_partial_nan(self):
         ad = _make_atom_data(n_atoms=3, n_frames=2)
         ad["val"] = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, np.nan]])
