@@ -60,6 +60,26 @@ class TestAtomStyleDict:
         style = AtomStyle.from_dict(d)
         assert style.colour == "green"
 
+    def test_hidden_only_round_trip(self):
+        """A hidden style with no radius/colour survives serialisation."""
+        style = AtomStyle(visible=False)
+        d = style.to_dict()
+        assert d == {"visible": False}
+        restored = AtomStyle.from_dict(d)
+        assert restored.visible is False
+        assert restored.radius is None
+        assert restored.colour is None
+
+    def test_hidden_with_style_round_trip(self):
+        """A hidden style with radius/colour preserves them."""
+        style = AtomStyle(radius=1.0, colour="red", visible=False)
+        d = style.to_dict()
+        assert "radius" in d
+        assert d["visible"] is False
+        restored = AtomStyle.from_dict(d)
+        assert restored.visible is False
+        assert restored.radius == 1.0
+
 
 # -- BondSpec -----------------------------------------------------------------
 
@@ -625,6 +645,18 @@ class TestSaveLoadStyles:
         result = load_styles(path)
         assert result.atom_styles is None
         assert result.bond_specs is None
+
+    def test_save_load_hidden_species(self, tmp_path):
+        """Hidden species survive file save/load."""
+        path = tmp_path / "styles.json"
+        save_styles(path, atom_styles={
+            "Sr": AtomStyle(radius=1.2, colour="green"),
+            "O": AtomStyle(visible=False),
+        })
+        loaded = load_styles(path)
+        assert loaded.atom_styles["Sr"].radius == 1.2
+        assert loaded.atom_styles["O"].visible is False
+        assert loaded.atom_styles["O"].radius is None
 
     def test_json_is_human_readable(self, tmp_path):
         path = tmp_path / "pretty.json"
