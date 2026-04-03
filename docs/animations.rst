@@ -119,7 +119,6 @@ polyhedral network:
    atom_styles = {
        "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
        "Ti": AtomStyle(radius=0.8, colour="steelblue"),
-       "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
    }
 
    scene = StructureScene.from_ase(
@@ -130,7 +129,6 @@ polyhedral network:
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
        show_axes=False, show_cell=False,
        slab_clip_mode="include_whole",
-       pbc_padding=1.0,
    )
 
 .. image:: _static/srtio3_md.gif
