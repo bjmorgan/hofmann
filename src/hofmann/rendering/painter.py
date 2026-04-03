@@ -148,28 +148,6 @@ def _precompute_scene(
         row = arr[frame_index] if arr.ndim == 2 else arr
         atom_data[key] = row[source_indices]
 
-    # Fill in global colour ranges for 2-D numeric data whose
-    # colour_range is None, so colourmap scaling is consistent
-    # across frames.  Uses the cached AtomData.global_range().
-    if colour_by is not None:
-        if isinstance(colour_by, str):
-            if colour_range is None:
-                gr = scene.atom_data.global_range(colour_by)
-                if gr is not None:
-                    colour_range = gr
-        else:
-            keys = list(colour_by)
-            if isinstance(colour_range, list):
-                ranges = list(colour_range)
-            else:
-                ranges = [colour_range] * len(keys)
-            for i, (key, rng) in enumerate(zip(keys, ranges)):
-                if rng is None:
-                    gr = scene.atom_data.global_range(key)
-                    if gr is not None:
-                        ranges[i] = gr
-            colour_range = ranges
-
     radii_3d = np.empty(n_atoms)
     for i in range(n_atoms):
         sp = species[i]
@@ -179,6 +157,7 @@ def _precompute_scene(
     atom_colours = resolve_atom_colours(
         species, scene.atom_styles, atom_data,
         colour_by=colour_by, cmap=cmap, colour_range=colour_range,
+        scene_atom_data=scene.atom_data,
     )
     bond_half_colours = list(atom_colours)
 

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
+    from hofmann.model.atom_data import AtomData
     from hofmann.model.atom_style import AtomStyle
 
 #: A colour specification accepted throughout hofmann.
@@ -136,8 +137,16 @@ def _resolve_single_layer(
     fallback: list[tuple[float, float, float]],
     cmap: CmapSpec,
     colour_range: tuple[float, float] | None,
+    scene_atom_data: AtomData | None = None,
 ) -> tuple[list[tuple[float, float, float]], np.ndarray]:
     """Resolve colours for a single colour_by key.
+
+    Args:
+        scene_atom_data: The scene's :class:`AtomData` container.
+            When provided and *colour_range* is ``None``, the cached
+            global range from :meth:`AtomData.global_range` is used
+            for 2-D numeric data so that colourmap scaling is
+            consistent across animation frames.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *colours* is a
@@ -149,7 +158,10 @@ def _resolve_single_layer(
     cmap_fn = _resolve_cmap(cmap)
     if values.dtype.kind in ("U", "O"):
         return _resolve_categorical(values, fallback, cmap_fn)
-    return _resolve_numerical(values, fallback, cmap_fn, colour_range)
+    effective_range = colour_range
+    if effective_range is None and scene_atom_data is not None:
+        effective_range = scene_atom_data.global_range(key)
+    return _resolve_numerical(values, fallback, cmap_fn, effective_range)
 
 
 def resolve_atom_colours(
@@ -159,6 +171,7 @@ def resolve_atom_colours(
     colour_by: str | list[str] | None = None,
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
+    scene_atom_data: AtomData | None = None,
 ) -> list[tuple[float, float, float]]:
     """Resolve per-atom RGB colours, optionally using a colourmap.
 
@@ -195,6 +208,10 @@ def resolve_atom_colours(
             numerical data.  ``None`` auto-ranges from the data.
             Ignored for categorical data.  When *colour_by* is a
             list, may also be a list of the same length.
+        scene_atom_data: The scene's :class:`AtomData` container.
+            When provided and a key's *colour_range* is ``None``,
+            the cached global range is used for 2-D numeric data
+            so that colourmap scaling is consistent across frames.
 
     Returns:
         List of ``(r, g, b)`` tuples, one per atom.
@@ -225,6 +242,7 @@ def resolve_atom_colours(
             )
         colours, _mask = _resolve_single_layer(
             atom_data, colour_by, fallback, cmap, colour_range,
+            scene_atom_data=scene_atom_data,
         )
         return colours
 
@@ -255,7 +273,10 @@ def resolve_atom_colours(
 
     # Resolve each layer independently.
     layers = [
-        _resolve_single_layer(atom_data, key, fallback, cm, cr)
+        _resolve_single_layer(
+            atom_data, key, fallback, cm, cr,
+            scene_atom_data=scene_atom_data,
+        )
         for key, cm, cr in zip(colour_by, cmaps, ranges)
     ]
 
