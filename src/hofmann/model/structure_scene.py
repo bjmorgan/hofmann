@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -9,6 +8,7 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from pymatgen.core import Structure
 
 
-@dataclass
 class StructureScene:
     """Top-level scene holding atoms, frames, styles, bond rules, and view.
 
@@ -42,22 +41,56 @@ class StructureScene:
             this and ``colour_by`` on the render methods to visualise it.
     """
 
-    species: list[str]
-    frames: list[Frame]
-    atom_styles: dict[str, AtomStyle] = field(default_factory=dict)
-    bond_specs: list[BondSpec] = field(default_factory=list)
-    polyhedra: list[PolyhedronSpec] = field(default_factory=list)
-    view: ViewState = field(default_factory=ViewState)
-    title: str = ""
-    atom_data: dict[str, np.ndarray] = field(default_factory=dict)
+    def __init__(
+        self,
+        species: list[str],
+        frames: list[Frame],
+        atom_styles: dict[str, AtomStyle] | None = None,
+        bond_specs: list[BondSpec] | None = None,
+        polyhedra: list[PolyhedronSpec] | None = None,
+        view: ViewState | None = None,
+        title: str = "",
+        atom_data: dict[str, np.ndarray] | None = None,
+    ) -> None:
+        self.species = species
+        self.frames = frames
+        self.atom_styles = atom_styles if atom_styles is not None else {}
+        self.bond_specs = bond_specs if bond_specs is not None else []
+        self.polyhedra = polyhedra if polyhedra is not None else []
+        self._view = view if view is not None else ViewState()
+        self.title = title
 
-    def __setattr__(self, name: str, value: object) -> None:
-        if name == "lattice":
-            raise AttributeError(
-                "lattice is a read-only property; "
-                "set lattice on individual frames instead"
-            )
-        if name == "view" and not isinstance(value, ViewState):
+        # Validate frames.
+        n_atoms = len(species)
+        for i, frame in enumerate(frames):
+            if frame.coords.shape[0] != n_atoms:
+                raise ValueError(
+                    f"species has {n_atoms} atoms but frame {i} has "
+                    f"{frame.coords.shape[0]}"
+                )
+        if frames:
+            has_lattice = [f.lattice is not None for f in frames]
+            if any(has_lattice) and not all(has_lattice):
+                raise ValueError(
+                    "all frames must have a lattice or none must"
+                )
+
+        # Build validated AtomData container.
+        self.atom_data = AtomData(
+            n_atoms=n_atoms, n_frames=len(frames),
+        )
+        if atom_data:
+            for key, arr in atom_data.items():
+                self.atom_data[key] = arr
+
+    @property
+    def view(self) -> ViewState:
+        """Camera / projection state."""
+        return self._view
+
+    @view.setter
+    def view(self, value: ViewState) -> None:
+        if not isinstance(value, ViewState):
             hint = ""
             if isinstance(value, tuple):
                 hint = (
@@ -69,7 +102,7 @@ class StructureScene:
                 f"view must be a ViewState, got {type(value).__name__}"
                 + hint
             )
-        super().__setattr__(name, value)
+        self._view = value
 
     @property
     def lattice(self) -> np.ndarray | None:
@@ -83,35 +116,12 @@ class StructureScene:
             return None
         return self.frames[0].lattice
 
-    def __post_init__(self) -> None:
-        n_atoms = len(self.species)
-        for i, frame in enumerate(self.frames):
-            if frame.coords.shape[0] != n_atoms:
-                raise ValueError(
-                    f"species has {n_atoms} atoms but frame {i} has "
-                    f"{frame.coords.shape[0]}"
-                )
-        if self.frames:
-            has_lattice = [f.lattice is not None for f in self.frames]
-            if any(has_lattice) and not all(has_lattice):
-                raise ValueError(
-                    "all frames must have a lattice or none must"
-                )
-        for key, arr in self.atom_data.items():
-            arr = np.asarray(arr)
-            if arr.ndim == 2:
-                n_frames = len(self.frames)
-                if arr.shape[0] != n_frames or arr.shape[1] != n_atoms:
-                    raise ValueError(
-                        f"atom_data[{key!r}] has shape {arr.shape} but "
-                        f"expected ({n_frames}, {n_atoms})"
-                    )
-            elif arr.ndim != 1 or len(arr) != n_atoms:
-                raise ValueError(
-                    f"atom_data[{key!r}] must have length {n_atoms}, "
-                    f"got shape {arr.shape}"
-                )
-            self.atom_data[key] = arr
+    @lattice.setter
+    def lattice(self, value: object) -> None:
+        raise AttributeError(
+            "lattice is a read-only property; "
+            "set lattice on individual frames instead"
+        )
 
     @classmethod
     def from_xbs(
@@ -385,23 +395,6 @@ class StructureScene:
                     arr[idx] = val
         else:
             arr = np.asarray(values)
-            n_frames = len(self.frames)
-            if arr.ndim == 2:
-                if arr.shape[0] != n_frames:
-                    raise ValueError(
-                        f"atom_data[{key!r}] has {arr.shape[0]} rows but "
-                        f"scene has {n_frames} frames"
-                    )
-                if arr.shape[1] != n_atoms:
-                    raise ValueError(
-                        f"atom_data[{key!r}] must have {n_atoms} columns "
-                        f"(one per atom), got {arr.shape[1]}"
-                    )
-            elif arr.ndim != 1 or len(arr) != n_atoms:
-                raise ValueError(
-                    f"atom_data[{key!r}] must have length {n_atoms}, "
-                    f"got shape {arr.shape}"
-                )
 
         self.atom_data[key] = arr
 
