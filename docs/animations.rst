@@ -146,57 +146,26 @@ vary per frame.  This is useful for visualising properties that
 evolve over a trajectory, such as local order parameters, coordination
 environments, or spatial orientation.
 
-Numeric data is automatically scaled using the global range across all
-frames so that colours are consistent throughout the animation.
-Categorical (string) data uses a global label set so that the same
-label always maps to the same colour.
-
 .. code-block:: python
 
-   import numpy as np
-   from hofmann import AtomStyle, BondSpec, Frame, StructureScene
-
-   # Build a ring of 16 atoms rotating around the x-axis.
-   n = 16
-   ring_angles = np.linspace(0, 2 * np.pi, n, endpoint=False)
-   r = 3.0
-   ring_xy = np.column_stack([r * np.cos(ring_angles), r * np.sin(ring_angles)])
-
-   n_frames = 60
-   frames = []
-   angle_data = np.empty((n_frames, n))
-   for f in range(n_frames):
-       theta = 2 * np.pi * f / n_frames
-       a = ring_angles + theta
-       coords = np.column_stack([r * np.cos(a), r * np.sin(a), np.zeros(n)])
-       frames.append(Frame(coords=coords))
-       angle_data[f] = np.degrees(a) % 360
-
-   chord = 2 * r * np.sin(np.pi / n)
-   scene = StructureScene(
-       species=["X"] * n, frames=frames,
-       atom_styles={"X": AtomStyle(0.7, "grey")},
-       bond_specs=[BondSpec(
-           species=("X", "X"), max_length=chord + 0.1,
-           radius=0.08, colour=0.5,
-       )],
-   )
+   # angle_data has shape (n_frames, n_atoms)
    scene.set_atom_data("angle", angle_data)
    scene.render_animation(
-       "per_frame_colour.gif",
+       "output.gif",
        colour_by="angle", cmap="twilight",
        colour_range=(0, 360),
-       fps=15,
    )
-
-The cyclic ``twilight`` colourmap maps 0 and 360 degrees to the same
-colour, so the colour wheel stays fixed in space while the ring
-rotates through it.
 
 .. image:: _static/per_frame_colour.gif
    :width: 300px
    :align: center
    :alt: Rotating ring coloured by azimuthal angle
+
+Numeric data is automatically scaled using the global range across all
+frames so that colours are consistent throughout the animation.  Use
+``colour_range`` to fix the limits explicitly.  Categorical (string)
+data uses a global label set so that the same label always maps to the
+same colour.
 
 
 Style keyword arguments

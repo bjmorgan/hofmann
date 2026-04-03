@@ -1094,11 +1094,13 @@ def generate_animation_gifs() -> None:
     ])
     chord = 2 * r_ring * np.sin(np.pi / n_ring)
 
-    n_rot_frames = 60
+    # Rotate by one atom spacing so the GIF loops seamlessly.
+    n_rot_frames = 30
+    total_rotation = 2 * np.pi / n_ring
     rot_frames = []
     angle_data = np.empty((n_rot_frames, n_ring))
     for f in range(n_rot_frames):
-        theta = 2 * np.pi * f / n_rot_frames
+        theta = -total_rotation * f / n_rot_frames
         a = ring_angles + theta
         coords = np.column_stack([
             r_ring * np.cos(a),
@@ -1122,7 +1124,7 @@ def generate_animation_gifs() -> None:
         OUT / "per_frame_colour.gif",
         colour_by="angle", cmap="twilight",
         colour_range=(0, 360),
-        fps=15, dpi=100, figsize=(3, 3),
+        fps=30, dpi=100, figsize=(3, 3),
         half_bonds=False,
     )
     print(f"  wrote {OUT / 'per_frame_colour.gif'}")
