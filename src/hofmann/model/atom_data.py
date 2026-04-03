@@ -23,7 +23,9 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
     The frame count is read live from the *frames* list so that arrays
     added after appending frames are validated against the current
-    trajectory length.
+    trajectory length.  However, existing 2-D arrays are not
+    re-validated when frames are appended — re-assign them after
+    changing the trajectory length.
 
     Args:
         n_atoms: Number of atoms in the scene.
