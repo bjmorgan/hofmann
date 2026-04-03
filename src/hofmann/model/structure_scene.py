@@ -36,9 +36,10 @@ class StructureScene:
         view: Camera / projection state.
         title: Scene title for display.
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
-            must be a 1-D array of length ``n_atoms``.  Use
-            :meth:`set_atom_data` to populate this and ``colour_by``
-            on the render methods to visualise it.
+            is either a 1-D array of length ``n_atoms`` (same every
+            frame) or a 2-D array of shape ``(n_frames, n_atoms)``
+            (per-frame values).  Use :meth:`set_atom_data` to populate
+            this and ``colour_by`` on the render methods to visualise it.
     """
 
     species: list[str]
@@ -98,7 +99,14 @@ class StructureScene:
                 )
         for key, arr in self.atom_data.items():
             arr = np.asarray(arr)
-            if arr.ndim != 1 or len(arr) != n_atoms:
+            if arr.ndim == 2:
+                n_frames = len(self.frames)
+                if arr.shape[0] != n_frames or arr.shape[1] != n_atoms:
+                    raise ValueError(
+                        f"atom_data[{key!r}] has shape {arr.shape} but "
+                        f"expected ({n_frames}, {n_atoms})"
+                    )
+            elif arr.ndim != 1 or len(arr) != n_atoms:
                 raise ValueError(
                     f"atom_data[{key!r}] must have length {n_atoms}, "
                     f"got shape {arr.shape}"

@@ -152,6 +152,33 @@ class TestStructureScene:
         )
         assert len(scene.frames) == 2
 
+    def test_atom_data_2d_constructor_accepted(self):
+        coords = np.zeros((2, 3))
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=coords), Frame(coords=coords + 1)],
+            atom_data={"q": np.array([[1.0, 2.0], [3.0, 4.0]])},
+        )
+        assert scene.atom_data["q"].shape == (2, 2)
+
+    def test_atom_data_2d_wrong_frames_raises(self):
+        coords = np.zeros((2, 3))
+        with pytest.raises(ValueError, match="atom_data"):
+            StructureScene(
+                species=["A", "B"],
+                frames=[Frame(coords=coords)],
+                atom_data={"q": np.array([[1.0, 2.0], [3.0, 4.0]])},
+            )
+
+    def test_atom_data_2d_wrong_atoms_raises(self):
+        coords = np.zeros((2, 3))
+        with pytest.raises(ValueError, match="atom_data"):
+            StructureScene(
+                species=["A", "B"],
+                frames=[Frame(coords=coords), Frame(coords=coords)],
+                atom_data={"q": np.array([[1.0], [2.0]])},
+            )
+
 
 class TestSetAtomData:
     """Tests for StructureScene.set_atom_data."""
