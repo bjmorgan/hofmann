@@ -1088,10 +1088,6 @@ def generate_animation_gifs() -> None:
     n_ring = 16
     ring_angles = np.linspace(0, 2 * np.pi, n_ring, endpoint=False)
     r_ring = 3.0
-    ring_xy = np.column_stack([
-        r_ring * np.cos(ring_angles),
-        r_ring * np.sin(ring_angles),
-    ])
     chord = 2 * r_ring * np.sin(np.pi / n_ring)
 
     # Rotate by one atom spacing so the GIF loops seamlessly.

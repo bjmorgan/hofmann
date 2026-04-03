@@ -111,10 +111,13 @@ class AtomData(MutableMapping[str, np.ndarray]):
         if arr.ndim != 2 or arr.dtype.kind in ("U", "O"):
             self._range_cache[key] = None
             return None
-        if np.all(np.isnan(arr)):
+        with np.errstate(all="ignore"):
+            lo = float(np.nanmin(arr))
+            hi = float(np.nanmax(arr))
+        if np.isnan(lo):
             self._range_cache[key] = None
             return None
-        result = (float(np.nanmin(arr)), float(np.nanmax(arr)))
+        result = (lo, hi)
         self._range_cache[key] = result
         return result
 
