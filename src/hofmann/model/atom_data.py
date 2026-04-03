@@ -20,7 +20,8 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
        Arrays are returned by reference.  In-place mutation (e.g.
        ``ad["charge"][0] = 99``) bypasses validation and does not
-       invalidate the :meth:`global_range` cache.  Re-assign the key
+       invalidate the :meth:`global_range` or :meth:`global_labels`
+       caches.  Re-assign the key
        to trigger re-validation and cache invalidation.
 
     The frame count is read live from the *frames* list so that arrays
