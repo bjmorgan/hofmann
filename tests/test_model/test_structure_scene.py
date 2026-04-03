@@ -232,3 +232,41 @@ class TestSetAtomData:
         scene = self._scene()
         with pytest.raises(TypeError, match="same type"):
             scene.set_atom_data("bad", {0: 1, 2: "text"})
+
+    def test_2d_numeric_array(self):
+        """A (n_frames, n_atoms) numeric array is accepted."""
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        values = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        scene.set_atom_data("charge", values)
+        np.testing.assert_array_equal(scene.atom_data["charge"], values)
+
+    def test_2d_wrong_n_frames_raises(self):
+        """A 2D array with wrong frame count is rejected."""
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2 frames"):
+            scene.set_atom_data("charge", np.array([[1.0, 2.0, 3.0]]))
+
+    def test_2d_wrong_n_atoms_raises(self):
+        """A 2D array with wrong atom count is rejected."""
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="3"):
+            scene.set_atom_data("charge", np.array([[1.0, 2.0], [3.0, 4.0]]))
+
+    def test_2d_single_frame_accepted(self):
+        """A (1, n_atoms) array on a 1-frame scene is accepted."""
+        scene = self._scene()  # 1 frame, 3 atoms
+        values = np.array([[1.0, 2.0, 3.0]])
+        scene.set_atom_data("charge", values)
+        assert scene.atom_data["charge"].shape == (1, 3)

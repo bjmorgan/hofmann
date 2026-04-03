@@ -324,23 +324,26 @@ class StructureScene:
     def set_atom_data(
         self,
         key: str,
-        values: np.ndarray | Sequence[float] | Sequence[str] | dict[int, object],
+        values: np.ndarray | Sequence[float] | Sequence[str] | Sequence[Sequence[float]] | dict[int, object],
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
-            values: Either an array-like of length ``n_atoms``, or a
-                dict mapping atom indices to values.  When a dict is
-                given, the fill value for missing atoms is inferred
-                from the first entry: ``NaN`` for numeric values or
-                ``""`` for string values.  All values in a dict must
-                be of compatible types (all numeric or all strings).
+            values: Either a 1-D array-like of length ``n_atoms`` (same
+                value every frame), a 2-D array-like of shape
+                ``(n_frames, n_atoms)`` (per-frame values), or a dict
+                mapping atom indices to values (always 1-D).  When a
+                dict is given, the fill value for missing atoms is
+                inferred from the first entry: ``NaN`` for numeric
+                values or ``""`` for string values.  All values in a
+                dict must be of compatible types (all numeric or all
+                strings).
 
         Raises:
-            ValueError: If an array-like has the wrong length, or a
-                dict contains indices outside the valid range.
+            ValueError: If an array-like has the wrong length or shape,
+                or a dict contains indices outside the valid range.
             TypeError: If a dict contains a mixture of string and
                 numeric values.
         """
@@ -374,7 +377,19 @@ class StructureScene:
                     arr[idx] = val
         else:
             arr = np.asarray(values)
-            if arr.ndim != 1 or len(arr) != n_atoms:
+            n_frames = len(self.frames)
+            if arr.ndim == 2:
+                if arr.shape[0] != n_frames:
+                    raise ValueError(
+                        f"atom_data[{key!r}] has {arr.shape[0]} rows but "
+                        f"scene has {n_frames} frames"
+                    )
+                if arr.shape[1] != n_atoms:
+                    raise ValueError(
+                        f"atom_data[{key!r}] must have {n_atoms} columns "
+                        f"(one per atom), got {arr.shape[1]}"
+                    )
+            elif arr.ndim != 1 or len(arr) != n_atoms:
                 raise ValueError(
                     f"atom_data[{key!r}] must have length {n_atoms}, "
                     f"got shape {arr.shape}"
