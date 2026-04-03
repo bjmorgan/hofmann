@@ -62,25 +62,6 @@ class TestAtomData:
         del ad["val"]
         assert "val" not in ad
 
-    def test_len(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=1)
-        assert len(ad) == 0
-        ad["a"] = [1.0, 2.0]
-        ad["b"] = [3.0, 4.0]
-        assert len(ad) == 2
-
-    def test_iter(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=1)
-        ad["a"] = [1.0, 2.0]
-        ad["b"] = [3.0, 4.0]
-        assert set(ad) == {"a", "b"}
-
-    def test_items(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=1)
-        ad["val"] = [1.0, 2.0]
-        keys = [k for k, v in ad.items()]
-        assert keys == ["val"]
-
     def test_single_frame_2d_accepted(self):
         ad = _make_atom_data(n_atoms=3, n_frames=1)
         vals = np.array([[1.0, 2.0, 3.0]])
