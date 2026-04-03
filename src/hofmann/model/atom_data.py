@@ -14,14 +14,19 @@ class AtomData(MutableMapping[str, np.ndarray]):
     or ``(n_frames, n_atoms)`` (per-frame).  Arrays are validated on
     assignment and array-likes are converted via :func:`numpy.asarray`.
 
+    The frame count is read live from the *frames* list so that arrays
+    added after appending frames are validated against the current
+    trajectory length.
+
     Args:
         n_atoms: Number of atoms in the scene.
-        n_frames: Number of frames in the trajectory.
+        frames: The scene's live frame list.  The length of this list
+            is used for 2-D array validation.
     """
 
-    def __init__(self, *, n_atoms: int, n_frames: int) -> None:
+    def __init__(self, *, n_atoms: int, frames: list) -> None:
         self._n_atoms = n_atoms
-        self._n_frames = n_frames
+        self._frames = frames
         self._data: dict[str, np.ndarray] = {}
 
     @property
@@ -30,7 +35,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
     @property
     def n_frames(self) -> int:
-        return self._n_frames
+        return len(self._frames)
 
     def __setitem__(self, key: str, value: object) -> None:
         arr = np.asarray(value)
@@ -41,10 +46,10 @@ class AtomData(MutableMapping[str, np.ndarray]):
                     f"{self._n_atoms}, got {len(arr)}"
                 )
         elif arr.ndim == 2:
-            if arr.shape[0] != self._n_frames:
+            if arr.shape[0] != self.n_frames:
                 raise ValueError(
                     f"atom_data[{key!r}] has {arr.shape[0]} rows but "
-                    f"scene has {self._n_frames} frames"
+                    f"scene has {self.n_frames} frames"
                 )
             if arr.shape[1] != self._n_atoms:
                 raise ValueError(

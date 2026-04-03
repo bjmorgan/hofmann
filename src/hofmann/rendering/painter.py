@@ -143,10 +143,10 @@ def _precompute_scene(
     n_atoms = len(species)
 
     # Map atom_data through source_indices for expanded set.
-    atom_data = {
-        key: arr[source_indices]
-        for key, arr in scene.atom_data.items()
-    }
+    atom_data = {}
+    for key, arr in scene.atom_data.items():
+        row = arr[frame_index] if arr.ndim == 2 else arr
+        atom_data[key] = row[source_indices]
 
     radii_3d = np.empty(n_atoms)
     for i in range(n_atoms):

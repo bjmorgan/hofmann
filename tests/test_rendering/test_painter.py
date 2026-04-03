@@ -1157,6 +1157,20 @@ class TestColourBy:
         assert prd.edge_colour == pytest.approx((0.4, 0.5, 0.6))
         assert prd.edge_width == 2.5
 
+    def test_per_frame_colour_by(self):
+        """2D atom_data produces different colours for different frames."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        scene.set_atom_data(
+            "val", np.array([[0.0, 1.0], [1.0, 0.0]]),
+        )
+        p0 = _precompute_scene(scene, 0, colour_by="val", cmap="viridis")
+        p1 = _precompute_scene(scene, 1, colour_by="val", cmap="viridis")
+        assert p0.atom_colours[0] == p1.atom_colours[1]
+        assert p0.atom_colours[1] == p1.atom_colours[0]
+
 
 class TestLegendWidget:
     """Tests for the species legend widget."""

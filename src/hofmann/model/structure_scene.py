@@ -77,7 +77,7 @@ class StructureScene:
 
         # Build validated AtomData container.
         self.atom_data = AtomData(
-            n_atoms=n_atoms, n_frames=len(frames),
+            n_atoms=n_atoms, frames=self.frames,
         )
         if atom_data:
             for key, arr in atom_data.items():
