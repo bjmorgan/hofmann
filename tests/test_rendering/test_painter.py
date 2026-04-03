@@ -1235,6 +1235,27 @@ class TestColourBy:
         assert p0.atom_colours[0] == p1.atom_colours[0]
         assert p0.atom_colours[1] != p1.atom_colours[1]
 
+    def test_polyhedra_inherit_per_frame_colour_by(self):
+        """Polyhedra inherit the centre atom's per-frame colour."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _octahedron_scene()
+        n_atoms = len(scene.species)
+        n_frames = 2
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        data = np.full((n_frames, n_atoms), np.nan)
+        data[0, 0] = 0.0
+        data[1, 0] = 1.0
+        scene.set_atom_data("val", data)
+
+        def ramp(v: float) -> tuple[float, float, float]:
+            return (v, 0.0, 0.0)
+
+        p0 = _precompute_scene(scene, 0, colour_by="val", cmap=ramp)
+        p1 = _precompute_scene(scene, 1, colour_by="val", cmap=ramp)
+        assert p0.poly_render_data[0].base_colour == (0.0, 0.0, 0.0)
+        assert p1.poly_render_data[0].base_colour == (1.0, 0.0, 0.0)
+
 
 class TestLegendWidget:
     """Tests for the species legend widget."""
