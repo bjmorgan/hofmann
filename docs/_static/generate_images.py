@@ -1084,6 +1084,47 @@ def generate_animation_gifs() -> None:
     )
     print(f"  wrote {OUT / 'srtio3_md.gif'}")
 
+    # Per-frame colouring: rotating ring coloured by azimuthal angle.
+    n_ring = 16
+    ring_angles = np.linspace(0, 2 * np.pi, n_ring, endpoint=False)
+    r_ring = 3.0
+    ring_xy = np.column_stack([
+        r_ring * np.cos(ring_angles),
+        r_ring * np.sin(ring_angles),
+    ])
+    chord = 2 * r_ring * np.sin(np.pi / n_ring)
+
+    n_rot_frames = 60
+    rot_frames = []
+    angle_data = np.empty((n_rot_frames, n_ring))
+    for f in range(n_rot_frames):
+        theta = 2 * np.pi * f / n_rot_frames
+        y = ring_xy[:, 1] * np.cos(theta)
+        z = ring_xy[:, 1] * np.sin(theta)
+        coords = np.column_stack([ring_xy[:, 0], y, z])
+        rot_frames.append(Frame(coords=coords))
+        angle_data[f] = np.degrees(np.arctan2(z, y)) % 360
+
+    rot_scene = StructureScene(
+        species=["X"] * n_ring,
+        frames=rot_frames,
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[BondSpec(
+            species=("X", "X"), min_length=0.0,
+            max_length=chord + 0.1, radius=0.08, colour=0.5,
+        )],
+    )
+    rot_scene.set_atom_data("angle", angle_data)
+    rot_scene.view.look_along([0.3, 0.8, 0.5])
+    rot_scene.render_animation(
+        OUT / "per_frame_colour.gif",
+        colour_by="angle", cmap="twilight",
+        colour_range=(0, 360),
+        fps=15, dpi=100, figsize=(3, 3),
+        half_bonds=False,
+    )
+    print(f"  wrote {OUT / 'per_frame_colour.gif'}")
+
 
 def main() -> None:
     """Generate all images (docs figures and project logo)."""
