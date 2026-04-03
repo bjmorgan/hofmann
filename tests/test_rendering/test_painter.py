@@ -1157,6 +1157,121 @@ class TestColourBy:
         assert prd.edge_colour == pytest.approx((0.4, 0.5, 0.6))
         assert prd.edge_width == 2.5
 
+    def test_per_frame_colour_by(self):
+        """2D atom_data produces different colours for different frames."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        scene.set_atom_data(
+            "val", np.array([[0.0, 1.0], [1.0, 0.0]]),
+        )
+        p0 = _precompute_scene(scene, 0, colour_by="val", cmap="viridis")
+        p1 = _precompute_scene(scene, 1, colour_by="val", cmap="viridis")
+        assert p0.atom_colours[0] == p1.atom_colours[1]
+        assert p0.atom_colours[1] == p1.atom_colours[0]
+
+    def test_per_frame_categorical_colour_by(self):
+        """2D categorical atom_data gives consistent colours across frames."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        # Labels are swapped between frames.  With global labels,
+        # "alpha" should get the same colour in both frames.
+        labels = np.array([["alpha", "beta"], ["beta", "alpha"]], dtype=object)
+        scene.set_atom_data("phase", labels)
+        p0 = _precompute_scene(scene, 0, colour_by="phase", cmap="Set2")
+        p1 = _precompute_scene(scene, 1, colour_by="phase", cmap="Set2")
+        # Same label → same colour regardless of frame.
+        assert p0.atom_colours[0] == p1.atom_colours[1]  # both "alpha"
+        assert p0.atom_colours[1] == p1.atom_colours[0]  # both "beta"
+
+    def test_per_frame_global_colour_range(self):
+        """Without explicit colour_range, 2D data uses global min/max."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        scene.set_atom_data(
+            "val", np.array([[0.0, 1.0], [0.4, 0.6]]),
+        )
+
+        def identity_cmap(v: float) -> tuple[float, float, float]:
+            return (v, v, v)
+
+        p1 = _precompute_scene(
+            scene, 1, colour_by="val", cmap=identity_cmap,
+        )
+        assert p1.atom_colours[0] == pytest.approx((0.4, 0.4, 0.4))
+        assert p1.atom_colours[1] == pytest.approx((0.6, 0.6, 0.6))
+
+    def test_per_frame_explicit_colour_range_honoured(self):
+        """An explicit colour_range overrides global auto-range."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        scene.set_atom_data(
+            "val", np.array([[0.0, 1.0], [0.4, 0.6]]),
+        )
+
+        def identity_cmap(v: float) -> tuple[float, float, float]:
+            return (v, v, v)
+
+        p1 = _precompute_scene(
+            scene, 1, colour_by="val", cmap=identity_cmap,
+            colour_range=(0.0, 2.0),
+        )
+        assert p1.atom_colours[0] == pytest.approx((0.2, 0.2, 0.2))
+        assert p1.atom_colours[1] == pytest.approx((0.3, 0.3, 0.3))
+
+    def test_per_frame_list_colour_by(self):
+        """Layered colour_by with mixed 1D and 2D atom_data works."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        scene.set_atom_data("static", {0: 1.0})
+        scene.set_atom_data(
+            "dynamic", np.array([[np.nan, 0.0], [np.nan, 1.0]]),
+        )
+
+        def identity_cmap(v: float) -> tuple[float, float, float]:
+            return (v, v, v)
+
+        p0 = _precompute_scene(
+            scene, 0, colour_by=["static", "dynamic"],
+            cmap=[identity_cmap, identity_cmap],
+        )
+        p1 = _precompute_scene(
+            scene, 1, colour_by=["static", "dynamic"],
+            cmap=[identity_cmap, identity_cmap],
+        )
+        assert p0.atom_colours[0] == p1.atom_colours[0]
+        assert p0.atom_colours[1] != p1.atom_colours[1]
+
+    def test_polyhedra_inherit_per_frame_colour_by(self):
+        """Polyhedra inherit the centre atom's per-frame colour."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _octahedron_scene()
+        n_atoms = len(scene.species)
+        n_frames = 2
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        data = np.full((n_frames, n_atoms), np.nan)
+        data[0, 0] = 0.0
+        data[1, 0] = 1.0
+        scene.set_atom_data("val", data)
+
+        def ramp(v: float) -> tuple[float, float, float]:
+            return (v, 0.0, 0.0)
+
+        p0 = _precompute_scene(scene, 0, colour_by="val", cmap=ramp)
+        p1 = _precompute_scene(scene, 1, colour_by="val", cmap=ramp)
+        assert p0.poly_render_data[0].base_colour == (0.0, 0.0, 0.0)
+        assert p1.poly_render_data[0].base_colour == (1.0, 0.0, 0.0)
+
 
 class TestLegendWidget:
     """Tests for the species legend widget."""

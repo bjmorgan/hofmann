@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 from hofmann.construction.defaults import default_atom_style, default_bond_specs
 from hofmann.model import (
@@ -64,7 +65,7 @@ def from_ase(
     atom_styles: dict[str, AtomStyle] | None = None,
     title: str = "",
     view: ViewState | None = None,
-    atom_data: dict[str, np.ndarray] | None = None,
+    atom_data: dict[str, ArrayLike] | None = None,
 ) -> StructureScene:
     """Create a StructureScene from ASE ``Atoms`` object(s).
 
@@ -226,7 +227,7 @@ def from_pymatgen(
     atom_styles: dict[str, AtomStyle] | None = None,
     title: str = "",
     view: ViewState | None = None,
-    atom_data: dict[str, np.ndarray] | None = None,
+    atom_data: dict[str, ArrayLike] | None = None,
 ) -> StructureScene:
     """Create a StructureScene from pymatgen Structure(s).
 

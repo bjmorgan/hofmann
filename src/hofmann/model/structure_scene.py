@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import ArrayLike
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
+from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
@@ -22,7 +23,6 @@ if TYPE_CHECKING:
     from pymatgen.core import Structure
 
 
-@dataclass
 class StructureScene:
     """Top-level scene holding atoms, frames, styles, bond rules, and view.
 
@@ -36,27 +36,62 @@ class StructureScene:
         view: Camera / projection state.
         title: Scene title for display.
         atom_data: Per-atom metadata arrays, keyed by name.  Each value
-            must be a 1-D array of length ``n_atoms``.  Use
-            :meth:`set_atom_data` to populate this and ``colour_by``
-            on the render methods to visualise it.
+            is either a 1-D array of length ``n_atoms`` (same every
+            frame) or a 2-D array of shape ``(n_frames, n_atoms)``
+            (per-frame values).  Use :meth:`set_atom_data` to populate
+            this and ``colour_by`` on the render methods to visualise it.
     """
 
-    species: list[str]
-    frames: list[Frame]
-    atom_styles: dict[str, AtomStyle] = field(default_factory=dict)
-    bond_specs: list[BondSpec] = field(default_factory=list)
-    polyhedra: list[PolyhedronSpec] = field(default_factory=list)
-    view: ViewState = field(default_factory=ViewState)
-    title: str = ""
-    atom_data: dict[str, np.ndarray] = field(default_factory=dict)
+    def __init__(
+        self,
+        species: list[str],
+        frames: list[Frame],
+        atom_styles: dict[str, AtomStyle] | None = None,
+        bond_specs: list[BondSpec] | None = None,
+        polyhedra: list[PolyhedronSpec] | None = None,
+        view: ViewState | None = None,
+        title: str = "",
+        atom_data: dict[str, ArrayLike] | None = None,
+    ) -> None:
+        self.species = species
+        self.frames = frames
+        self.atom_styles = atom_styles if atom_styles is not None else {}
+        self.bond_specs = bond_specs if bond_specs is not None else []
+        self.polyhedra = polyhedra if polyhedra is not None else []
+        self.view = view if view is not None else ViewState()
+        self.title = title
 
-    def __setattr__(self, name: str, value: object) -> None:
-        if name == "lattice":
-            raise AttributeError(
-                "lattice is a read-only property; "
-                "set lattice on individual frames instead"
-            )
-        if name == "view" and not isinstance(value, ViewState):
+        # Validate frames.
+        n_atoms = len(species)
+        for i, frame in enumerate(frames):
+            if frame.coords.shape[0] != n_atoms:
+                raise ValueError(
+                    f"species has {n_atoms} atoms but frame {i} has "
+                    f"{frame.coords.shape[0]}"
+                )
+        if frames:
+            has_lattice = [f.lattice is not None for f in frames]
+            if any(has_lattice) and not all(has_lattice):
+                raise ValueError(
+                    "all frames must have a lattice or none must"
+                )
+
+        # Build validated AtomData container.
+        self._atom_data = AtomData(
+            n_atoms=n_atoms, frames=self.frames,
+        )
+        if atom_data is not None:
+            for key, arr in atom_data.items():
+                self._atom_data[key] = arr
+
+    @property
+    def view(self) -> ViewState:
+        """Camera / projection state."""
+        return self._view
+
+    @view.setter
+    def view(self, value: ViewState) -> None:
+        if not isinstance(value, ViewState):
             hint = ""
             if isinstance(value, tuple):
                 hint = (
@@ -68,7 +103,7 @@ class StructureScene:
                 f"view must be a ViewState, got {type(value).__name__}"
                 + hint
             )
-        super().__setattr__(name, value)
+        self._view = value
 
     @property
     def lattice(self) -> np.ndarray | None:
@@ -82,28 +117,26 @@ class StructureScene:
             return None
         return self.frames[0].lattice
 
-    def __post_init__(self) -> None:
-        n_atoms = len(self.species)
-        for i, frame in enumerate(self.frames):
-            if frame.coords.shape[0] != n_atoms:
-                raise ValueError(
-                    f"species has {n_atoms} atoms but frame {i} has "
-                    f"{frame.coords.shape[0]}"
-                )
-        if self.frames:
-            has_lattice = [f.lattice is not None for f in self.frames]
-            if any(has_lattice) and not all(has_lattice):
-                raise ValueError(
-                    "all frames must have a lattice or none must"
-                )
-        for key, arr in self.atom_data.items():
-            arr = np.asarray(arr)
-            if arr.ndim != 1 or len(arr) != n_atoms:
-                raise ValueError(
-                    f"atom_data[{key!r}] must have length {n_atoms}, "
-                    f"got shape {arr.shape}"
-                )
-            self.atom_data[key] = arr
+    @lattice.setter
+    def lattice(self, value: object) -> None:
+        raise AttributeError(
+            "lattice is a read-only property; "
+            "set lattice on individual frames instead"
+        )
+
+    @property
+    def atom_data(self) -> AtomData:
+        """Per-atom metadata container."""
+        return self._atom_data
+
+    @atom_data.setter
+    def atom_data(self, value: object) -> None:
+        if not isinstance(value, AtomData):
+            raise TypeError(
+                f"atom_data must be an AtomData instance, "
+                f"got {type(value).__name__}"
+            )
+        self._atom_data = value
 
     @classmethod
     def from_xbs(
@@ -140,7 +173,7 @@ class StructureScene:
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
-        atom_data: dict[str, np.ndarray] | None = None,
+        atom_data: dict[str, ArrayLike] | None = None,
     ) -> StructureScene:
         """Create a StructureScene from ASE ``Atoms`` object(s).
 
@@ -173,6 +206,9 @@ class StructureScene:
                 default), the view is auto-centred on the centre atom
                 (if set) or the centroid of all atoms.
             atom_data: Per-atom metadata arrays, keyed by name.
+                Each value is a 1-D array of length ``n_atoms``
+                (same every frame) or a 2-D array of shape
+                ``(n_frames, n_atoms)`` (per-frame values).
 
         Returns:
             A StructureScene with default element styles.
@@ -208,7 +244,7 @@ class StructureScene:
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
-        atom_data: dict[str, np.ndarray] | None = None,
+        atom_data: dict[str, ArrayLike] | None = None,
     ) -> StructureScene:
         """Create a StructureScene from pymatgen ``Structure`` object(s).
 
@@ -238,6 +274,9 @@ class StructureScene:
             view: Camera / projection state.  When ``None`` (the
                 default), the view is auto-centred on the structure.
             atom_data: Per-atom metadata arrays, keyed by name.
+                Each value is a 1-D array of length ``n_atoms``
+                (same every frame) or a 2-D array of shape
+                ``(n_frames, n_atoms)`` (per-frame values).
 
         Returns:
             A StructureScene with default element styles.
@@ -324,23 +363,26 @@ class StructureScene:
     def set_atom_data(
         self,
         key: str,
-        values: np.ndarray | Sequence[float] | Sequence[str] | dict[int, object],
+        values: ArrayLike | dict[int, object],
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
-            values: Either an array-like of length ``n_atoms``, or a
-                dict mapping atom indices to values.  When a dict is
-                given, the fill value for missing atoms is inferred
-                from the first entry: ``NaN`` for numeric values or
-                ``""`` for string values.  All values in a dict must
-                be of compatible types (all numeric or all strings).
+            values: Either a 1-D array-like of length ``n_atoms`` (same
+                value every frame), a 2-D array-like of shape
+                ``(n_frames, n_atoms)`` (per-frame values), or a dict
+                mapping atom indices to values (always 1-D).  When a
+                dict is given, the fill value for missing atoms is
+                inferred from the first entry: ``NaN`` for numeric
+                values or ``""`` for string values.  All values in a
+                dict must be of compatible types (all numeric or all
+                strings).
 
         Raises:
-            ValueError: If an array-like has the wrong length, or a
-                dict contains indices outside the valid range.
+            ValueError: If an array-like has the wrong length or shape,
+                or a dict contains indices outside the valid range.
             TypeError: If a dict contains a mixture of string and
                 numeric values.
         """
@@ -374,11 +416,6 @@ class StructureScene:
                     arr[idx] = val
         else:
             arr = np.asarray(values)
-            if arr.ndim != 1 or len(arr) != n_atoms:
-                raise ValueError(
-                    f"atom_data[{key!r}] must have length {n_atoms}, "
-                    f"got shape {arr.shape}"
-                )
 
         self.atom_data[key] = arr
 

@@ -1084,6 +1084,103 @@ def generate_animation_gifs() -> None:
     )
     print(f"  wrote {OUT / 'srtio3_md.gif'}")
 
+    # Per-frame colouring: rotating ring coloured by azimuthal angle.
+    n_ring = 16
+    ring_angles = np.linspace(0, 2 * np.pi, n_ring, endpoint=False)
+    r_ring = 3.0
+    chord = 2 * r_ring * np.sin(np.pi / n_ring)
+
+    # Rotate by one atom spacing so the GIF loops seamlessly.
+    n_rot_frames = 30
+    total_rotation = 2 * np.pi / n_ring
+    rot_frames = []
+    angle_data = np.empty((n_rot_frames, n_ring))
+    for f in range(n_rot_frames):
+        theta = -total_rotation * f / n_rot_frames
+        a = ring_angles + theta
+        coords = np.column_stack([
+            r_ring * np.cos(a),
+            r_ring * np.sin(a),
+            np.zeros(n_ring),
+        ])
+        rot_frames.append(Frame(coords=coords))
+        angle_data[f] = np.degrees(a) % 360
+
+    rot_scene = StructureScene(
+        species=["X"] * n_ring,
+        frames=rot_frames,
+        atom_styles={"X": AtomStyle(0.7, "grey")},
+        bond_specs=[BondSpec(
+            species=("X", "X"), min_length=0.0,
+            max_length=chord + 0.1, radius=0.08, colour=0.5,
+        )],
+    )
+    rot_scene.set_atom_data("angle", angle_data)
+    rot_scene.render_animation(
+        OUT / "per_frame_colour.gif",
+        colour_by="angle", cmap="twilight",
+        colour_range=(0, 360),
+        fps=30, dpi=100, figsize=(3, 3),
+        half_bonds=False,
+    )
+    print(f"  wrote {OUT / 'per_frame_colour.gif'}")
+
+    # Per-frame colouring: SrTiO3 polyhedra coloured by tilt angle.
+    # Requires the filtered trajectory from:
+    #   python examples/srtio3_tilt_colouring.py
+    #   cp examples/srtio3_hot_filtered.traj docs/_static/
+    from pymatgen.io.ase import AseAtomsAdaptor
+    from polyhedral_analysis.polyhedra_recipe import PolyhedraRecipe
+    from polyhedral_analysis.trajectory import Trajectory as PATrajectory
+    from polyhedral_analysis.octahedral_analysis import trans_vertex_vectors
+    from polyhedral_analysis.orientation_parameters import cos_theta
+
+    hot_traj = read(str(OUT / "srtio3_hot_filtered.traj"), index=":")
+    n_hot_frames = len(hot_traj)
+
+    adaptor = AseAtomsAdaptor()
+    structures = [adaptor.get_structure(frame) for frame in hot_traj]
+
+    recipe = PolyhedraRecipe(
+        method="distance cutoff",
+        central_atoms="Ti",
+        vertex_atoms="O",
+        coordination_cutoff=2.5,
+    )
+    pa_traj = PATrajectory.from_structures(structures, [recipe])
+
+    cartesian_axes = np.eye(3)
+    n_hot_atoms = len(hot_traj[0])
+    tilt_data = np.full((n_hot_frames, n_hot_atoms), np.nan)
+    for f, config in enumerate(pa_traj.configurations):
+        for poly in config.polyhedra:
+            ti_idx = poly.central_atom.index
+            vectors = trans_vertex_vectors(poly, check=False)
+            max_tilt = 0.0
+            for vec in vectors:
+                best_cos = max(abs(cos_theta(vec, ax)) for ax in cartesian_axes)
+                angle_deg = np.degrees(np.arccos(np.clip(best_cos, -1, 1)))
+                max_tilt = max(max_tilt, angle_deg)
+            tilt_data[f, ti_idx] = max_tilt
+
+    tilt_scene = StructureScene.from_ase(
+        hot_traj,
+        bond_specs=[BondSpec(species=("Ti", "O"), max_length=2.5)],
+        polyhedra=[PolyhedronSpec(
+            centre="Ti", alpha=0.4,
+            hide_centre=True, hide_bonds=True, hide_vertices=True,
+        )],
+        atom_styles={"Sr": AtomStyle(radius=1.2, colour="forestgreen")},
+    )
+    tilt_scene.set_atom_data("tilt", tilt_data)
+    tilt_scene.render_animation(
+        OUT / "srtio3_tilt.gif", fps=10, dpi=100, figsize=(6, 6),
+        colour_by="tilt", cmap="Reds",
+        colour_range=(0, float(np.nanmax(tilt_data))),
+        show_axes=False, show_cell=False, pbc_padding=1.0,
+    )
+    print(f"  wrote {OUT / 'srtio3_tilt.gif'}")
+
 
 def main() -> None:
     """Generate all images (docs figures and project logo)."""

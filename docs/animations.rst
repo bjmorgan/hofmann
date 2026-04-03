@@ -137,6 +137,60 @@ network:
    :alt: SrTiO3 perovskite MD animation
 
 
+Per-frame colouring
+-------------------
+
+:meth:`~hofmann.StructureScene.set_atom_data` accepts 2-D arrays of
+shape ``(n_frames, n_atoms)`` so that colourmap-based colouring can
+vary per frame.  This is useful for visualising properties that
+evolve over a trajectory, such as local order parameters, coordination
+environments, or spatial orientation.
+
+.. code-block:: python
+
+   # angle_data has shape (n_frames, n_atoms)
+   scene.set_atom_data("angle", angle_data)
+   scene.render_animation(
+       "output.gif",
+       colour_by="angle", cmap="twilight",
+       colour_range=(0, 360),
+   )
+
+.. image:: _static/per_frame_colour.gif
+   :width: 300px
+   :align: center
+   :alt: Rotating ring coloured by azimuthal angle
+
+Numeric data is automatically scaled using the global range across all
+frames so that colours are consistent throughout the animation.  Use
+``colour_range`` to fix the limits explicitly.  Categorical (string)
+data uses a global label set so that the same label always maps to the
+same colour.
+
+Polyhedra inherit ``colour_by`` colouring from their centre atom, so
+per-frame data on the centre atoms flows through to the polyhedra
+automatically.  Here, the octahedral tilt angle of each TiO\ :sub:`6`
+polyhedron in an SrTiO\ :sub:`3` MD trajectory (computed using
+`polyhedral_analysis <https://github.com/bjmorgan/polyhedral-analysis>`_)
+is mapped through the ``Reds`` colourmap — white for untilted, red for
+maximum tilt:
+
+.. code-block:: python
+
+   # tilt_data has shape (n_frames, n_atoms); NaN for non-Ti atoms.
+   scene.set_atom_data("tilt", tilt_data)
+   scene.render_animation(
+       "srtio3_tilt.gif",
+       colour_by="tilt", cmap="Reds",
+       colour_range=(0, max_tilt),
+   )
+
+.. image:: _static/srtio3_tilt.gif
+   :width: 450px
+   :align: center
+   :alt: SrTiO3 polyhedra coloured by octahedral tilt angle
+
+
 Style keyword arguments
 -----------------------
 
