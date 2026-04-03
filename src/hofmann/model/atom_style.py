@@ -48,7 +48,7 @@ class AtomStyle:
 
     @property
     def radius(self) -> float | None:
-        """Display radius in angstroms, or ``None`` for hidden atoms."""
+        """Display radius in angstroms, or ``None`` when not set."""
         return self._radius
 
     @radius.setter
@@ -61,7 +61,7 @@ class AtomStyle:
 
     @property
     def colour(self) -> Colour | None:
-        """Fill colour, or ``None`` for hidden atoms."""
+        """Fill colour, or ``None`` when not set."""
         return self._colour
 
     @colour.setter
