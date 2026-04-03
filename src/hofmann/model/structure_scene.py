@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
+from numpy.typing import ArrayLike
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
@@ -50,7 +51,7 @@ class StructureScene:
         polyhedra: list[PolyhedronSpec] | None = None,
         view: ViewState | None = None,
         title: str = "",
-        atom_data: dict[str, np.ndarray] | None = None,
+        atom_data: dict[str, ArrayLike] | None = None,
     ) -> None:
         self.species = species
         self.frames = frames
@@ -172,7 +173,7 @@ class StructureScene:
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
-        atom_data: dict[str, np.ndarray] | None = None,
+        atom_data: dict[str, ArrayLike] | None = None,
     ) -> StructureScene:
         """Create a StructureScene from ASE ``Atoms`` object(s).
 
@@ -243,7 +244,7 @@ class StructureScene:
         atom_styles: dict[str, AtomStyle] | None = None,
         title: str = "",
         view: ViewState | None = None,
-        atom_data: dict[str, np.ndarray] | None = None,
+        atom_data: dict[str, ArrayLike] | None = None,
     ) -> StructureScene:
         """Create a StructureScene from pymatgen ``Structure`` object(s).
 
@@ -362,7 +363,7 @@ class StructureScene:
     def set_atom_data(
         self,
         key: str,
-        values: np.ndarray | Sequence[float] | Sequence[str] | Sequence[Sequence[object]] | dict[int, object],
+        values: ArrayLike | dict[int, object],
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 

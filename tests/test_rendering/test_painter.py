@@ -1171,6 +1171,21 @@ class TestColourBy:
         assert p0.atom_colours[0] == p1.atom_colours[1]
         assert p0.atom_colours[1] == p1.atom_colours[0]
 
+    def test_per_frame_categorical_colour_by(self):
+        """2D categorical atom_data uses the per-frame slice."""
+        from hofmann.rendering.painter import _precompute_scene
+
+        scene = _minimal_scene()
+        scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
+        # Frame 0: both atoms same label → same colour.
+        # Frame 1: different labels → different colours.
+        labels = np.array([["alpha", "alpha"], ["alpha", "beta"]], dtype=object)
+        scene.set_atom_data("phase", labels)
+        p0 = _precompute_scene(scene, 0, colour_by="phase", cmap="Set2")
+        p1 = _precompute_scene(scene, 1, colour_by="phase", cmap="Set2")
+        assert p0.atom_colours[0] == p0.atom_colours[1]
+        assert p1.atom_colours[0] != p1.atom_colours[1]
+
     def test_per_frame_global_colour_range(self):
         """Without explicit colour_range, 2D data uses global min/max."""
         from hofmann.rendering.painter import _precompute_scene
