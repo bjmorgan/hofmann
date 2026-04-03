@@ -1,9 +1,15 @@
 """Sphinx configuration for hofmann documentation."""
 
+import tomllib
+from pathlib import Path
+
 project = "hofmann"
 copyright = "2025, hofmann contributors"
 author = "hofmann contributors"
-release = "0.13.1"
+
+_pyproject = Path(__file__).resolve().parent.parent / "pyproject.toml"
+with _pyproject.open("rb") as f:
+    release = tomllib.load(f)["project"]["version"]
 
 extensions = [
     "sphinx.ext.autodoc",
@@ -68,9 +74,10 @@ def _generate_figures(app):
     static_dir = os.path.join(os.path.dirname(__file__), "_static")
     sys.path.insert(0, static_dir)
     try:
-        from generate_images import generate_docs_images
+        from generate_images import generate_animation_gifs, generate_docs_images
 
         generate_docs_images()
+        generate_animation_gifs()
     finally:
         sys.path.pop(0)
 

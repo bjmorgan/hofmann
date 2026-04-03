@@ -1029,10 +1029,68 @@ def generate_docs_images() -> None:
     print(f"  wrote {OUT / 'legend_spacing.svg'}")
 
 
+def generate_animation_gifs() -> None:
+    """Generate animation GIFs from pre-computed trajectories."""
+    from ase.io import read
+
+    # CH4 vibration.
+    ch4_traj = read(str(OUT / "ch4_md.traj"), index=":")
+    ch4_scene = StructureScene.from_ase(
+        ch4_traj,
+        bond_specs=[
+            BondSpec(
+                species=("C", "H"), max_length=1.5,
+                radius=0.055, colour=1.0,
+            ),
+        ],
+        atom_styles={
+            "C": AtomStyle(radius=0.5, colour=0.7),
+            "H": AtomStyle(radius=0.35, colour=1.0),
+        },
+    )
+    ch4_scene.render_animation(
+        OUT / "ch4_md.gif", fps=15, dpi=100, figsize=(4, 4),
+    )
+    print(f"  wrote {OUT / 'ch4_md.gif'}")
+
+    # SrTiO3 perovskite MD — trajectory pre-filtered to one octahedral
+    # layer (see examples/render_srtio3_animation.py for the filtering).
+    srtio3_traj = read(str(OUT / "srtio3_md.traj"), index=":")
+    srtio3_scene = StructureScene.from_ase(
+        srtio3_traj,
+        bond_specs=[
+            BondSpec(species=("Ti", "O"), max_length=2.5),
+        ],
+        polyhedra=[
+            PolyhedronSpec(
+                centre="Ti",
+                colour="steelblue",
+                alpha=0.4,
+                hide_centre=True,
+                hide_bonds=True,
+                hide_vertices=True,
+            ),
+        ],
+        atom_styles={
+            "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
+            "Ti": AtomStyle(radius=0.8, colour="steelblue"),
+            "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
+        },
+    )
+    srtio3_scene.render_animation(
+        OUT / "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
+        show_axes=False, show_cell=False,
+        slab_clip_mode="include_whole",
+        pbc_padding=1.0,
+    )
+    print(f"  wrote {OUT / 'srtio3_md.gif'}")
+
+
 def main() -> None:
     """Generate all images (docs figures and project logo)."""
     generate_logo()
     generate_docs_images()
+    generate_animation_gifs()
 
 
 if __name__ == "__main__":
