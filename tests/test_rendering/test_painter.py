@@ -269,6 +269,21 @@ class TestRenderMpl:
         n_visible = sum(len(c.get_paths()) for c in ax_visible.collections)
         assert n_hidden < n_visible
 
+    def test_hidden_only_style_renders(self):
+        """AtomStyle(visible=False) with no radius/colour renders cleanly."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0],
+                                           [2.0, 0.0, 0.0]]))],
+            atom_styles={
+                "A": AtomStyle(1.0, "grey"),
+                "B": AtomStyle(visible=False),
+            },
+        )
+        fig = render_mpl(scene, show=False)
+        assert isinstance(fig, Figure)
+        plt.close(fig)
+
     def test_empty_scene(self):
         """An empty scene (zero atoms) should render without crashing."""
         scene = StructureScene(

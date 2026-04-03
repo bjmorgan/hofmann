@@ -63,3 +63,37 @@ class TestAtomStyleConstruction:
 
     def test_repr_hidden(self):
         assert "visible=False" in repr(AtomStyle(visible=False))
+
+    def test_toggle_via_setters(self):
+        """Create hidden, set style via setters, then make visible."""
+        style = AtomStyle(visible=False)
+        style.radius = 0.5
+        style.colour = "red"
+        style.visible = True
+        assert style.radius == 0.5
+
+    def test_eq(self):
+        assert AtomStyle(0.5, "red") == AtomStyle(0.5, "red")
+        assert AtomStyle(visible=False) == AtomStyle(visible=False)
+        assert AtomStyle(0.5, "red") != AtomStyle(0.5, "blue")
+
+    def test_not_hashable(self):
+        with pytest.raises(TypeError):
+            hash(AtomStyle(0.5, "red"))
+
+
+class TestAtomStyleSetters:
+    def test_radius_setter_positive_check(self):
+        style = AtomStyle(radius=1.0, colour="red")
+        with pytest.raises(ValueError, match="positive"):
+            style.radius = -0.5
+
+    def test_radius_setter_rejects_none(self):
+        style = AtomStyle(radius=1.0, colour="red")
+        with pytest.raises(TypeError, match="number"):
+            style.radius = None
+
+    def test_colour_setter_rejects_none(self):
+        style = AtomStyle(radius=1.0, colour="red")
+        with pytest.raises(TypeError, match="None"):
+            style.colour = None

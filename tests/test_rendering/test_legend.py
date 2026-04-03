@@ -103,6 +103,22 @@ class TestBuildLegendItems:
         items = self._build(scene)
         assert [item.key for item in items] == ["A"]
 
+    def test_explicit_hidden_only_species(self):
+        """Explicitly listed hidden-only species gets fallback styling."""
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "A": AtomStyle(1.0, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(visible=False),
+            },
+        )
+        items = self._build(scene, LegendStyle(species=("A", "B")))
+        assert [item.key for item in items] == ["A", "B"]
+
     def test_custom_labels(self):
         """Labels from style are attached to items."""
         scene = _minimal_scene()

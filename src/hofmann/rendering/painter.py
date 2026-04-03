@@ -162,7 +162,11 @@ def _precompute_scene(
             continue
         sp = species[i]
         style = scene.atom_styles.get(sp)
-        radii_3d[i] = style.radius if style is not None else 0.5
+        radii_3d[i] = (
+            style.radius
+            if style is not None and style.radius is not None
+            else 0.5
+        )
 
     atom_colours = resolve_atom_colours(
         species, scene.atom_styles, atom_data,

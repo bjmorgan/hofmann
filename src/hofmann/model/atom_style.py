@@ -53,6 +53,8 @@ class AtomStyle:
 
     @radius.setter
     def radius(self, value: float) -> None:
+        if not isinstance(value, (int, float)):
+            raise TypeError(f"radius must be a number, got {type(value).__name__}")
         if value <= 0:
             raise ValueError(f"radius must be positive, got {value}")
         self._radius = value
@@ -64,6 +66,8 @@ class AtomStyle:
 
     @colour.setter
     def colour(self, value: Colour) -> None:
+        if value is None:
+            raise TypeError("colour cannot be set to None")
         self._colour = value
 
     @property
@@ -108,6 +112,17 @@ class AtomStyle:
             colour=d.get("colour"),
             visible=d.get("visible", True),
         )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, AtomStyle):
+            return NotImplemented
+        return (
+            self._radius == other._radius
+            and self._colour == other._colour
+            and self._visible == other._visible
+        )
+
+    __hash__ = None  # type: ignore[assignment]  # mutable
 
     def __repr__(self) -> str:
         parts: list[str] = []
