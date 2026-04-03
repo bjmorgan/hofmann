@@ -1,45 +1,98 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from hofmann.model.colour import Colour, normalise_colour
 
 
-@dataclass
 class AtomStyle:
     """Visual style for an atomic species.
 
-    Attributes:
-        radius: Display radius in angstroms.  Typical values range
-            from about 0.5 (hydrogen) to 2.0 (heavy metals).
-            See :data:`COVALENT_RADII` for physically motivated
-            starting points.
+    For visible atoms, *radius* and *colour* are required.  For hidden
+    atoms (``visible=False``), they may be omitted — or provided to
+    preserve styling when toggling visibility later.
+
+    Args:
+        radius: Display radius in angstroms.  Required when
+            ``visible=True``.
         colour: Fill colour specification (CSS name, hex string, grey
-            float, or RGB tuple/list).  See :data:`Colour`.
+            float, or RGB tuple/list).  Required when ``visible=True``.
         visible: Whether atoms of this species are drawn.  Set to
             ``False`` to hide atoms without removing them from the
             scene.  Bonds to hidden atoms are also suppressed.
+
+    Raises:
+        ValueError: If ``visible=True`` and *radius* or *colour* is
+            not provided, or if *radius* is not positive.
     """
 
-    radius: float
-    colour: Colour
-    visible: bool = True
+    def __init__(
+        self,
+        radius: float | None = None,
+        colour: Colour | None = None,
+        *,
+        visible: bool = True,
+    ) -> None:
+        if visible:
+            if radius is None:
+                raise ValueError(
+                    "radius is required for visible atoms"
+                )
+            if colour is None:
+                raise ValueError(
+                    "colour is required for visible atoms"
+                )
+        if radius is not None and radius <= 0:
+            raise ValueError(f"radius must be positive, got {radius}")
+        self._radius = radius
+        self._colour = colour
+        self._visible = visible
 
-    def __post_init__(self) -> None:
-        if self.radius <= 0:
-            raise ValueError(f"radius must be positive, got {self.radius}")
+    @property
+    def radius(self) -> float | None:
+        """Display radius in angstroms, or ``None`` for hidden atoms."""
+        return self._radius
+
+    @radius.setter
+    def radius(self, value: float) -> None:
+        if value <= 0:
+            raise ValueError(f"radius must be positive, got {value}")
+        self._radius = value
+
+    @property
+    def colour(self) -> Colour | None:
+        """Fill colour, or ``None`` for hidden atoms."""
+        return self._colour
+
+    @colour.setter
+    def colour(self, value: Colour) -> None:
+        self._colour = value
+
+    @property
+    def visible(self) -> bool:
+        """Whether atoms of this species are drawn."""
+        return self._visible
+
+    @visible.setter
+    def visible(self, value: bool) -> None:
+        if value and (self._radius is None or self._colour is None):
+            raise ValueError(
+                "cannot make atom visible without radius and colour; "
+                "set radius and colour first"
+            )
+        self._visible = value
 
     def to_dict(self) -> dict:
         """Serialise to a JSON-compatible dictionary.
 
-        Colours are normalised to ``[r, g, b]`` lists.  The
-        ``visible`` field is omitted when ``True`` (the default).
+        Colours are normalised to ``[r, g, b]`` lists.  Fields that
+        are ``None`` (hidden atoms without explicit style) are omitted.
+        The ``visible`` field is omitted when ``True`` (the default).
         """
-        d: dict = {
-            "radius": self.radius,
-            "colour": list(normalise_colour(self.colour)),
-        }
-        if not self.visible:
+        d: dict = {}
+        if self._radius is not None:
+            d["radius"] = self._radius
+        if self._colour is not None:
+            d["colour"] = list(normalise_colour(self._colour))
+        if not self._visible:
             d["visible"] = False
         return d
 
@@ -51,7 +104,17 @@ class AtomStyle:
         :func:`normalise_colour`.
         """
         return cls(
-            radius=d["radius"],
-            colour=d["colour"],
+            radius=d.get("radius"),
+            colour=d.get("colour"),
             visible=d.get("visible", True),
         )
+
+    def __repr__(self) -> str:
+        parts: list[str] = []
+        if self._radius is not None:
+            parts.append(f"radius={self._radius!r}")
+        if self._colour is not None:
+            parts.append(f"colour={self._colour!r}")
+        if not self._visible:
+            parts.append("visible=False")
+        return f"AtomStyle({', '.join(parts)})"
