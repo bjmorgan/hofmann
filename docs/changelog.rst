@@ -10,6 +10,12 @@ Changelog
 - New :meth:`~hofmann.StructureScene.render_animation` method for
   exporting trajectories as GIF or MP4 animations.
 
+- :attr:`~hofmann.StructureScene.atom_data` is now a validated
+  :class:`~hofmann.AtomData` container that checks array shapes on
+  assignment.  It also accepts 2-D arrays of shape
+  ``(n_frames, n_atoms)`` so that colourmap-based colouring can vary
+  per frame in animations and the interactive viewer.
+
 0.14.2
 ------
 
