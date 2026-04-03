@@ -76,12 +76,12 @@ class StructureScene:
                 )
 
         # Build validated AtomData container.
-        self.atom_data = AtomData(
+        self._atom_data = AtomData(
             n_atoms=n_atoms, frames=self.frames,
         )
-        if atom_data:
+        if atom_data is not None:
             for key, arr in atom_data.items():
-                self.atom_data[key] = arr
+                self._atom_data[key] = arr
 
     @property
     def view(self) -> ViewState:
@@ -122,6 +122,20 @@ class StructureScene:
             "lattice is a read-only property; "
             "set lattice on individual frames instead"
         )
+
+    @property
+    def atom_data(self) -> AtomData:
+        """Per-atom metadata container."""
+        return self._atom_data
+
+    @atom_data.setter
+    def atom_data(self, value: object) -> None:
+        if not isinstance(value, AtomData):
+            raise TypeError(
+                f"atom_data must be an AtomData instance, "
+                f"got {type(value).__name__}"
+            )
+        self._atom_data = value
 
     @classmethod
     def from_xbs(

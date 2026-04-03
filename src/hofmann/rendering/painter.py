@@ -152,13 +152,13 @@ def _precompute_scene(
     # colour_range is None, so colourmap scaling is consistent
     # across frames.  Uses the cached AtomData.global_range().
     if colour_by is not None:
-        keys = [colour_by] if isinstance(colour_by, str) else list(colour_by)
         if isinstance(colour_by, str):
             if colour_range is None:
                 gr = scene.atom_data.global_range(colour_by)
                 if gr is not None:
                     colour_range = gr
         else:
+            keys = list(colour_by)
             if isinstance(colour_range, list):
                 ranges = list(colour_range)
             else:

@@ -126,6 +126,23 @@ class TestAtomData:
         ad["val"] = np.array([[10.0, 20.0], [30.0, 40.0]])
         assert ad.global_range("val") == (10.0, 40.0)
 
+    def test_global_range_invalidated_on_delete(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        assert ad.global_range("val") == (0.0, 3.0)
+        del ad["val"]
+        ad["val"] = np.array([[10.0, 20.0], [30.0, 40.0]])
+        assert ad.global_range("val") == (10.0, 40.0)
+
+    def test_global_range_partial_nan(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=2)
+        ad["val"] = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, np.nan]])
+        assert ad.global_range("val") == (1.0, 5.0)
+
+    def test_negative_n_atoms_raises(self):
+        with pytest.raises(ValueError, match="non-negative"):
+            _make_atom_data(n_atoms=-1, n_frames=1)
+
     def test_dynamic_frame_count(self):
         """AtomData tracks the live frame list length."""
         frames: list = [None]  # type: ignore[list-item]

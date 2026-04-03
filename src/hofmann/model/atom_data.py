@@ -14,6 +14,13 @@ class AtomData(MutableMapping[str, np.ndarray]):
     or ``(n_frames, n_atoms)`` (per-frame).  Arrays are validated on
     assignment and array-likes are converted via :func:`numpy.asarray`.
 
+    .. note::
+
+       Arrays are returned by reference.  In-place mutation (e.g.
+       ``ad["charge"][0] = 99``) bypasses validation and does not
+       invalidate the :meth:`global_range` cache.  Re-assign the key
+       to trigger re-validation and cache invalidation.
+
     The frame count is read live from the *frames* list so that arrays
     added after appending frames are validated against the current
     trajectory length.
@@ -25,6 +32,8 @@ class AtomData(MutableMapping[str, np.ndarray]):
     """
 
     def __init__(self, *, n_atoms: int, frames: list) -> None:
+        if n_atoms < 0:
+            raise ValueError(f"n_atoms must be non-negative, got {n_atoms}")
         self._n_atoms = n_atoms
         self._frames = frames
         self._data: dict[str, np.ndarray] = {}

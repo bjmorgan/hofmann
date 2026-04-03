@@ -152,6 +152,14 @@ class TestStructureScene:
         )
         assert len(scene.frames) == 2
 
+    def test_atom_data_rejects_non_atomdata(self):
+        coords = np.zeros((2, 3))
+        scene = StructureScene(
+            species=["A", "B"], frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(TypeError, match="AtomData"):
+            scene.atom_data = {}
+
     def test_atom_data_2d_constructor_accepted(self):
         coords = np.zeros((2, 3))
         scene = StructureScene(
