@@ -1099,11 +1099,14 @@ def generate_animation_gifs() -> None:
     angle_data = np.empty((n_rot_frames, n_ring))
     for f in range(n_rot_frames):
         theta = 2 * np.pi * f / n_rot_frames
-        y = ring_xy[:, 1] * np.cos(theta)
-        z = ring_xy[:, 1] * np.sin(theta)
-        coords = np.column_stack([ring_xy[:, 0], y, z])
+        a = ring_angles + theta
+        coords = np.column_stack([
+            r_ring * np.cos(a),
+            r_ring * np.sin(a),
+            np.zeros(n_ring),
+        ])
         rot_frames.append(Frame(coords=coords))
-        angle_data[f] = np.degrees(np.arctan2(z, y)) % 360
+        angle_data[f] = np.degrees(a) % 360
 
     rot_scene = StructureScene(
         species=["X"] * n_ring,
@@ -1115,7 +1118,6 @@ def generate_animation_gifs() -> None:
         )],
     )
     rot_scene.set_atom_data("angle", angle_data)
-    rot_scene.view.look_along([0.3, 0.8, 0.5])
     rot_scene.render_animation(
         OUT / "per_frame_colour.gif",
         colour_by="angle", cmap="twilight",

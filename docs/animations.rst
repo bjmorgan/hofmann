@@ -167,10 +167,10 @@ label always maps to the same colour.
    angle_data = np.empty((n_frames, n))
    for f in range(n_frames):
        theta = 2 * np.pi * f / n_frames
-       y = ring_xy[:, 1] * np.cos(theta)
-       z = ring_xy[:, 1] * np.sin(theta)
-       frames.append(Frame(coords=np.column_stack([ring_xy[:, 0], y, z])))
-       angle_data[f] = np.degrees(np.arctan2(z, y)) % 360
+       a = ring_angles + theta
+       coords = np.column_stack([r * np.cos(a), r * np.sin(a), np.zeros(n)])
+       frames.append(Frame(coords=coords))
+       angle_data[f] = np.degrees(a) % 360
 
    chord = 2 * r * np.sin(np.pi / n)
    scene = StructureScene(
