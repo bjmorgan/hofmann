@@ -1053,7 +1053,8 @@ def generate_animation_gifs() -> None:
     )
     print(f"  wrote {OUT / 'ch4_md.gif'}")
 
-    # SrTiO3 perovskite MD — pre-filtered single octahedral layer.
+    # SrTiO3 perovskite MD — trajectory pre-filtered to one octahedral
+    # layer (see examples/render_srtio3_animation.py for the filtering).
     srtio3_traj = read(str(OUT / "srtio3_md.traj"), index=":")
     srtio3_scene = StructureScene.from_ase(
         srtio3_traj,

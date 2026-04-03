@@ -160,5 +160,5 @@ Interactive trajectory viewing
 
 Multi-frame scenes can also be explored interactively.  See
 :doc:`interactive` for keyboard controls including frame navigation
-(``[`` / ``]``), frame indicator (``f``), go-to-frame (``g``), and
-step size (``s``).
+(``[`` / ``]``, ``{`` / ``}``), frame indicator (``f``),
+go-to-frame (``g``), and step size (``s``).
