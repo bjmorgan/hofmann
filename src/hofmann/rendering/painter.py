@@ -163,8 +163,8 @@ def _precompute_scene(
                 ranges = list(colour_range)
             else:
                 ranges = [colour_range] * len(keys)
-            for i, key in enumerate(keys):
-                if ranges[i] is None:
+            for i, (key, rng) in enumerate(zip(keys, ranges)):
+                if rng is None:
                     gr = scene.atom_data.global_range(key)
                     if gr is not None:
                         ranges[i] = gr
