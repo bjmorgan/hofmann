@@ -123,13 +123,11 @@ def _build_legend_items(
     radii: dict[str, float | None] = {}
     if isinstance(style.circle_radius, tuple):
         r_min_pts, r_max_pts = style.circle_radius
-        atom_radii = {
-            sp: scene.atom_styles[sp].radius
-            if sp in scene.atom_styles
-            and scene.atom_styles[sp].radius is not None
-            else 1.0
-            for sp in species_list
-        }
+        atom_radii: dict[str, float] = {}
+        for sp in species_list:
+            asp = scene.atom_styles.get(sp)
+            r = asp.radius if asp is not None else None
+            atom_radii[sp] = r if r is not None else 1.0
         lo = min(atom_radii.values())
         hi = max(atom_radii.values())
         if hi == lo:
