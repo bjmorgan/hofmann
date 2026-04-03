@@ -4,6 +4,11 @@ Changelog
 0.15.0
 ------
 
+- ``AtomStyle(visible=False)`` no longer requires ``radius`` and
+  ``colour``.  Hidden atoms can be created without specifying visual
+  properties, and toggling ``visible`` back to ``True`` preserves
+  any previously set style.
+
 - Interactive viewer: frame indicator (``f``), go-to-frame (``g``),
   set-step (``s``), and step-aware frame navigation.
 

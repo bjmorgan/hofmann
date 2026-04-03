@@ -1074,7 +1074,7 @@ def generate_animation_gifs() -> None:
         atom_styles={
             "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
             "Ti": AtomStyle(radius=0.8, colour="steelblue"),
-            "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
+            "O": AtomStyle(visible=False),
         },
     )
     srtio3_scene.render_animation(
