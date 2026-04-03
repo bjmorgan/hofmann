@@ -270,3 +270,15 @@ class TestSetAtomData:
         values = np.array([[1.0, 2.0, 3.0]])
         scene.set_atom_data("charge", values)
         assert scene.atom_data["charge"].shape == (1, 3)
+
+    def test_2d_categorical_array(self):
+        """A (n_frames, n_atoms) object-dtype array is accepted."""
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        values = np.array([["4a", "8b", "4a"], ["8b", "4a", "8b"]], dtype=object)
+        scene.set_atom_data("site", values)
+        assert scene.atom_data["site"].shape == (2, 3)
+        assert scene.atom_data["site"][0, 1] == "8b"
