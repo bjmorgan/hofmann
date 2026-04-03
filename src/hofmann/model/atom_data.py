@@ -6,6 +6,8 @@ from collections.abc import Iterator, MutableMapping
 
 import numpy as np
 
+from hofmann.model.colour import _is_categorical_missing
+
 
 class AtomData(MutableMapping[str, np.ndarray]):
     """Validated mapping of named per-atom arrays.
@@ -75,6 +77,10 @@ class AtomData(MutableMapping[str, np.ndarray]):
                 f"got {arr.ndim}-D"
             )
         self._data[key] = arr
+        self._invalidate(key)
+
+    def _invalidate(self, key: str) -> None:
+        """Clear cached global_range / global_labels for *key*."""
         self._range_cache.pop(key, None)
         self._labels_cache.pop(key, None)
 
@@ -83,8 +89,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]
-        self._range_cache.pop(key, None)
-        self._labels_cache.pop(key, None)
+        self._invalidate(key)
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
@@ -128,9 +133,9 @@ class AtomData(MutableMapping[str, np.ndarray]):
             return None
         seen: dict[str, None] = {}
         for v in arr.ravel():
-            s = str(v)
-            if v is None or s == "" or s == "nan":
+            if _is_categorical_missing(v):
                 continue
+            s = str(v)
             if s not in seen:
                 seen[s] = None
         if not seen:

@@ -161,10 +161,9 @@ def _resolve_single_layer(
         if scene_atom_data is not None:
             labels = scene_atom_data.global_labels(key)
         return _resolve_categorical(values, fallback, cmap_fn, labels)
-    effective_range = colour_range
-    if effective_range is None and scene_atom_data is not None:
-        effective_range = scene_atom_data.global_range(key)
-    return _resolve_numerical(values, fallback, cmap_fn, effective_range)
+    if colour_range is None and scene_atom_data is not None:
+        colour_range = scene_atom_data.global_range(key)
+    return _resolve_numerical(values, fallback, cmap_fn, colour_range)
 
 
 def resolve_atom_colours(
@@ -366,8 +365,9 @@ def _resolve_categorical(
     Args:
         global_labels: When provided, these labels define the
             colourmap positions (consistent across animation frames).
-            Labels in *values* that are not in *global_labels* are
-            appended to maintain a stable ordering.
+            Typically computed by :meth:`AtomData.global_labels`,
+            which scans all frames so every per-frame label is
+            included.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *missing_mask* is
