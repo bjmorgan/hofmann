@@ -97,8 +97,9 @@ Example: SrTiO\ :sub:`3` perovskite MD
 
 A single octahedral layer from a 4x4x4 SrTiO\ :sub:`3` supercell at 1000 K.
 The trajectory has been pre-filtered to one Sr plane, one Ti plane,
-and their coordinating O.  Oxygen atoms are hidden to emphasise the
-polyhedral network:
+and their coordinating O.  The ``hide_vertices`` option on the
+polyhedron spec hides the oxygen atoms to emphasise the polyhedral
+network:
 
 .. code-block:: python
 
@@ -118,8 +119,6 @@ polyhedral network:
    ]
    atom_styles = {
        "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
-       "Ti": AtomStyle(radius=0.8, colour="steelblue"),
-       "O": AtomStyle(radius=0.6, colour="firebrick", visible=False),
    }
 
    scene = StructureScene.from_ase(
@@ -129,7 +128,6 @@ polyhedral network:
    scene.render_animation(
        "srtio3_md.gif", fps=10, dpi=100, figsize=(6, 6),
        show_axes=False, show_cell=False,
-       slab_clip_mode="include_whole",
        pbc_padding=1.0,
    )
 
