@@ -148,6 +148,31 @@ def _precompute_scene(
         row = arr[frame_index] if arr.ndim == 2 else arr
         atom_data[key] = row[source_indices]
 
+    # Compute global colour ranges for 2D numeric data so that
+    # colourmap scaling is consistent across all frames.
+    if colour_by is not None:
+        keys = [colour_by] if isinstance(colour_by, str) else list(colour_by)
+        if isinstance(colour_range, list):
+            ranges = list(colour_range)
+        else:
+            ranges = [colour_range] * len(keys)
+        for i, key in enumerate(keys):
+            if ranges[i] is not None:
+                continue
+            src = scene.atom_data.get(key)
+            if src is None or src.ndim != 2:
+                continue
+            if src.dtype.kind in ("U", "O"):
+                continue
+            flat = src.astype(float, copy=False).ravel()
+            valid = flat[~np.isnan(flat)]
+            if len(valid) > 0:
+                ranges[i] = (float(np.min(valid)), float(np.max(valid)))
+        if isinstance(colour_by, str):
+            colour_range = ranges[0]
+        else:
+            colour_range = ranges
+
     radii_3d = np.empty(n_atoms)
     for i in range(n_atoms):
         sp = species[i]
