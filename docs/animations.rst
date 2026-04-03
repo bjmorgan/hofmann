@@ -167,6 +167,29 @@ frames so that colours are consistent throughout the animation.  Use
 data uses a global label set so that the same label always maps to the
 same colour.
 
+Polyhedra inherit ``colour_by`` colouring from their centre atom, so
+per-frame data on the centre atoms flows through to the polyhedra
+automatically.  Here, the octahedral tilt angle of each TiO\ :sub:`6`
+polyhedron in an SrTiO\ :sub:`3` MD trajectory (computed using
+`polyhedral_analysis <https://github.com/bjmorgan/polyhedral-analysis>`_)
+is mapped through the ``Reds`` colourmap — white for untilted, red for
+maximum tilt:
+
+.. code-block:: python
+
+   # tilt_data has shape (n_frames, n_atoms); NaN for non-Ti atoms.
+   scene.set_atom_data("tilt", tilt_data)
+   scene.render_animation(
+       "srtio3_tilt.gif",
+       colour_by="tilt", cmap="Reds",
+       colour_range=(0, max_tilt),
+   )
+
+.. image:: _static/srtio3_tilt.gif
+   :width: 450px
+   :align: center
+   :alt: SrTiO3 polyhedra coloured by octahedral tilt angle
+
 
 Style keyword arguments
 -----------------------
