@@ -191,6 +191,9 @@ class StructureScene:
                 default), the view is auto-centred on the centre atom
                 (if set) or the centroid of all atoms.
             atom_data: Per-atom metadata arrays, keyed by name.
+                Each value is a 1-D array of length ``n_atoms``
+                (same every frame) or a 2-D array of shape
+                ``(n_frames, n_atoms)`` (per-frame values).
 
         Returns:
             A StructureScene with default element styles.
@@ -256,6 +259,9 @@ class StructureScene:
             view: Camera / projection state.  When ``None`` (the
                 default), the view is auto-centred on the structure.
             atom_data: Per-atom metadata arrays, keyed by name.
+                Each value is a 1-D array of length ``n_atoms``
+                (same every frame) or a 2-D array of shape
+                ``(n_frames, n_atoms)`` (per-frame values).
 
         Returns:
             A StructureScene with default element styles.
