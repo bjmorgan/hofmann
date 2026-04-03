@@ -28,6 +28,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
         self._n_atoms = n_atoms
         self._frames = frames
         self._data: dict[str, np.ndarray] = {}
+        self._range_cache: dict[str, tuple[float, float] | None] = {}
 
     @property
     def n_atoms(self) -> int:
@@ -62,18 +63,42 @@ class AtomData(MutableMapping[str, np.ndarray]):
                 f"got {arr.ndim}-D"
             )
         self._data[key] = arr
+        self._range_cache.pop(key, None)
 
     def __getitem__(self, key: str) -> np.ndarray:
         return self._data[key]
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]
+        self._range_cache.pop(key, None)
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
 
     def __len__(self) -> int:
         return len(self._data)
+
+    def global_range(self, key: str) -> tuple[float, float] | None:
+        """Return the global ``(min, max)`` for a 2-D numeric array.
+
+        The result is cached and invalidated when the key is reassigned
+        or deleted.  Returns ``None`` for 1-D arrays, categorical
+        (string/object) arrays, or arrays where every value is NaN.
+        """
+        if key in self._range_cache:
+            return self._range_cache[key]
+        arr = self._data[key]
+        if arr.ndim != 2 or arr.dtype.kind in ("U", "O"):
+            self._range_cache[key] = None
+            return None
+        flat = arr.astype(float, copy=False).ravel()
+        valid = flat[~np.isnan(flat)]
+        if len(valid) == 0:
+            self._range_cache[key] = None
+            return None
+        result = (float(np.min(valid)), float(np.max(valid)))
+        self._range_cache[key] = result
+        return result
 
     def __repr__(self) -> str:
         keys = ", ".join(repr(k) for k in self._data)

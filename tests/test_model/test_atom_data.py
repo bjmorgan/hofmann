@@ -92,6 +92,40 @@ class TestAtomData:
         with pytest.raises(ValueError):
             ad["bad"] = np.ones((2, 2, 2))
 
+    def test_global_range_2d_numeric(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [0.4, 0.6]])
+        assert ad.global_range("val") == (0.0, 1.0)
+
+    def test_global_range_1d_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=1)
+        ad["val"] = np.array([0.0, 1.0])
+        assert ad.global_range("val") is None
+
+    def test_global_range_categorical_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
+        assert ad.global_range("site") is None
+
+    def test_global_range_all_nan_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.full((2, 2), np.nan)
+        assert ad.global_range("val") is None
+
+    def test_global_range_cached(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        r1 = ad.global_range("val")
+        r2 = ad.global_range("val")
+        assert r1 is r2  # same object from cache
+
+    def test_global_range_invalidated_on_set(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        assert ad.global_range("val") == (0.0, 3.0)
+        ad["val"] = np.array([[10.0, 20.0], [30.0, 40.0]])
+        assert ad.global_range("val") == (10.0, 40.0)
+
     def test_dynamic_frame_count(self):
         """AtomData tracks the live frame list length."""
         frames: list = [None]  # type: ignore[list-item]

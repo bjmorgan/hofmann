@@ -57,7 +57,7 @@ class StructureScene:
         self.atom_styles = atom_styles if atom_styles is not None else {}
         self.bond_specs = bond_specs if bond_specs is not None else []
         self.polyhedra = polyhedra if polyhedra is not None else []
-        self._view = view if view is not None else ViewState()
+        self.view = view if view is not None else ViewState()
         self.title = title
 
         # Validate frames.
@@ -348,7 +348,7 @@ class StructureScene:
     def set_atom_data(
         self,
         key: str,
-        values: np.ndarray | Sequence[float] | Sequence[str] | Sequence[Sequence[float]] | dict[int, object],
+        values: np.ndarray | Sequence[float] | Sequence[str] | Sequence[Sequence[object]] | dict[int, object],
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
