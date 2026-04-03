@@ -11,7 +11,7 @@ Requires: ase, imageio
 from pathlib import Path
 
 import numpy as np
-from ase.io import read
+from ase.io import read, write
 
 from hofmann import AtomStyle, BondSpec, PolyhedronSpec, StructureScene
 
@@ -45,6 +45,10 @@ print(f"Selected {len(indices)} atoms for rendering")
 
 traj = [frame[indices] for frame in full_traj]
 
+FILTERED_TRAJ = EXAMPLES_DIR / "srtio3_md_filtered.traj"
+write(str(FILTERED_TRAJ), traj)
+print(f"Filtered trajectory saved to {FILTERED_TRAJ}")
+
 bonds = [
     BondSpec(species=("Ti", "O"), max_length=2.5),
 ]
@@ -60,7 +64,6 @@ polyhedra = [
 ]
 atom_styles = {
     "Sr": AtomStyle(radius=1.2, colour="forestgreen"),
-    "Ti": AtomStyle(radius=0.8, colour="steelblue"),
 }
 
 # Build the scene and render.
@@ -70,6 +73,6 @@ scene = StructureScene.from_ase(
 scene.render_animation(
     OUTPUT, fps=10, dpi=100, figsize=(6, 6),
     show_axes=False, show_cell=False,
-    slab_clip_mode="include_whole",
+    pbc_padding=1.0,
 )
 print(f"Animation saved to {OUTPUT}")
