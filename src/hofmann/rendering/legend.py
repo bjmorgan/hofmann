@@ -112,7 +112,7 @@ def _build_legend_items(
     colours: dict[str, tuple[float, float, float]] = {}
     for sp in species_list:
         atom_style = scene.atom_styles.get(sp)
-        if atom_style is not None:
+        if atom_style is not None and atom_style.colour is not None:
             colours[sp] = normalise_colour(atom_style.colour)
         else:
             colours[sp] = _GREY_FALLBACK
@@ -125,7 +125,9 @@ def _build_legend_items(
         r_min_pts, r_max_pts = style.circle_radius
         atom_radii = {
             sp: scene.atom_styles[sp].radius
-            if sp in scene.atom_styles else 1.0
+            if sp in scene.atom_styles
+            and scene.atom_styles[sp].radius is not None
+            else 1.0
             for sp in species_list
         }
         lo = min(atom_radii.values())

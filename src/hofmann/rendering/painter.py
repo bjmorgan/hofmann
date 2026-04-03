@@ -148,8 +148,18 @@ def _precompute_scene(
         for key, arr in scene.atom_data.items()
     }
 
+    # Identify atoms hidden by AtomStyle.visible=False.
+    style_hidden_atoms: set[int] = set()
+    for i, sp in enumerate(species):
+        style = scene.atom_styles.get(sp)
+        if style is not None and not style.visible:
+            style_hidden_atoms.add(i)
+
     radii_3d = np.empty(n_atoms)
     for i in range(n_atoms):
+        if i in style_hidden_atoms:
+            radii_3d[i] = 0.0
+            continue
         sp = species[i]
         style = scene.atom_styles.get(sp)
         radii_3d[i] = style.radius if style is not None else 0.5
@@ -182,14 +192,8 @@ def _precompute_scene(
         species, coords, bonds, scene.polyhedra,
     )
 
-    # Atoms hidden by AtomStyle.visible=False — always applied,
-    # regardless of show_polyhedra.
-    style_hidden_atoms: set[int] = set()
+    # Hidden bonds (from style-hidden atoms) — always applied.
     style_hidden_bond_ids: set[int] = set()
-    for i, sp in enumerate(species):
-        style = scene.atom_styles.get(sp)
-        if style is not None and not style.visible:
-            style_hidden_atoms.add(i)
     if style_hidden_atoms:
         for bond in bonds:
             if bond.index_a in style_hidden_atoms or bond.index_b in style_hidden_atoms:

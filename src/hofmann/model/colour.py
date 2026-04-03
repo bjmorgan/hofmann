@@ -95,7 +95,7 @@ def _species_colours(
     for sp in species:
         if sp not in cache:
             style = atom_styles.get(sp)
-            if style is not None:
+            if style is not None and style.colour is not None:
                 cache[sp] = normalise_colour(style.colour)
             else:
                 cache[sp] = (0.5, 0.5, 0.5)

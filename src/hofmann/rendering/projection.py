@@ -80,7 +80,11 @@ def _scene_extent(
         radii_3d = np.empty(len(scene.species))
         for i, sp in enumerate(scene.species):
             style = scene.atom_styles.get(sp)
-            radii_3d[i] = style.radius if style is not None else 0.5
+            radii_3d[i] = (
+                style.radius
+                if style is not None and style.radius is not None
+                else 0.5
+            )
         max_extent = float(np.max(dists + radii_3d * atom_scale))
     else:
         max_extent = 0.0
