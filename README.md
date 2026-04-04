@@ -15,6 +15,7 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 ## Features
 
 - Static publication-quality output (SVG, PDF, PNG) via matplotlib
+- Trajectory animations (GIF, MP4) with per-frame colouring
 - XBS `.bs` and `.mv` (trajectory) file formats
 - Optional ASE `Atoms` and pymatgen `Structure` interoperability
 - Periodic boundary conditions with automatic image expansion
@@ -39,6 +40,12 @@ For pymatgen interoperability:
 
 ```bash
 pip install "hofmann[pymatgen]"
+```
+
+For animation export (GIF/MP4):
+
+```bash
+pip install "hofmann[animation]"
 ```
 
 ### Requirements
@@ -120,6 +127,7 @@ Full documentation is available at [hofmann.readthedocs.io](https://hofmann.read
 - [Scenes and structures](https://hofmann.readthedocs.io/en/latest/scenes.html) -- scenes, frames, bonds, polyhedra
 - [Rendering](https://hofmann.readthedocs.io/en/latest/rendering.html) -- views, render styles, unit cells, axes
 - [Colouring](https://hofmann.readthedocs.io/en/latest/colouring.html) -- per-atom data colouring, custom functions, multiple layers
+- [Animations](https://hofmann.readthedocs.io/en/latest/animations.html) -- trajectory animations, per-frame colouring
 - [Interactive viewer](https://hofmann.readthedocs.io/en/latest/interactive.html) -- mouse and keyboard controls
 - [XBS file format](https://hofmann.readthedocs.io/en/latest/xbs-format.html) -- `.bs` and `.mv` format reference
 - [API reference](https://hofmann.readthedocs.io/en/latest/api.html) -- full autodoc API
