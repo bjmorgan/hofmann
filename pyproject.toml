@@ -48,6 +48,7 @@ docs = [
     "pymatgen>=2024.1.1",
     "ase>=3.22",
     "imageio>=2.30",
+    "polyhedral-analysis>=0.3",
 ]
 all = ["hofmann[animation,ase,pymatgen,dev,docs]"]
 
