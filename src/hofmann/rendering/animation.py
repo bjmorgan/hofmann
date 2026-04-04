@@ -17,7 +17,8 @@ from hofmann.model import (
     StructureScene,
     normalise_colour,
 )
-from hofmann.rendering.painter import _draw_scene, _precompute_scene
+from hofmann.rendering.painter import _draw_scene
+from hofmann.rendering.precompute import _precompute_scene
 from hofmann.rendering.static import _resolve_style
 
 _SUPPORTED_EXTENSIONS = frozenset({".gif", ".mp4"})
