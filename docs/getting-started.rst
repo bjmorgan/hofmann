@@ -22,6 +22,12 @@ For pymatgen interoperability (optional):
 
    pip install "hofmann[pymatgen]"
 
+For animation export (GIF/MP4):
+
+.. code-block:: bash
+
+   pip install "hofmann[animation]"
+
 For development (tests + docs):
 
 .. code-block:: bash
