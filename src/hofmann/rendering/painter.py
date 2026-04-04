@@ -1,8 +1,7 @@
 """Painter's algorithm scene drawing.
 
-Projects atoms, bonds, polyhedra faces, and cell edges into depth-sorted
-order, then draws everything into a matplotlib Axes via a single
-PolyCollection.
+Draws atoms, bonds, polyhedra faces, and cell edges in depth-sorted
+order into a matplotlib Axes via a single PolyCollection.
 """
 
 from __future__ import annotations
@@ -75,7 +74,7 @@ def _draw_scene(
             Avoids the "view distance changing" artefact during
             interactive rotation.
         precomputed: Pre-computed scene data from
-            :func:`_precompute_scene`.  If ``None``, computed on the
+            ``_precompute_scene()``.  If ``None``, computed on the
             fly.
         colour_by: Key (or list of keys) into ``scene.atom_data``
             for colourmap-based colouring.

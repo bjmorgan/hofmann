@@ -1,7 +1,8 @@
-"""Scene pre-computation for the painter's algorithm renderer.
+"""Scene pre-computation and polyhedra helpers for the painter's algorithm.
 
-Assembles view-independent render data (radii, colours, bonds, polyhedra)
-from a :class:`~hofmann.model.StructureScene` and frame index.
+Contains view-independent scene assembly (``_precompute_scene``) and
+polyhedra-related helpers (slab clipping, face collection) used by
+the drawing loop in ``painter.py``.
 """
 
 from __future__ import annotations

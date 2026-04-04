@@ -37,9 +37,9 @@ def _draw_axes_widget(
     ``ax.set_xlim`` / ``ax.set_ylim`` must be called before this
     function.
 
-    This function adds ``Line2D`` artists and text labels.  These are
-    cleaned up on the next call to :func:`_draw_scene` via the
-    ``ax.lines[:]`` and ``ax.texts[:]`` removal.
+    This function adds ``Line2D`` artists and text labels.  The caller
+    is responsible for clearing ``ax.lines`` and ``ax.texts`` before
+    the next redraw.
 
     Args:
         ax: A matplotlib ``Axes`` to draw into.
