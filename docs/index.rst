@@ -6,8 +6,8 @@ viewer (1995), named after `August Wilhelm von Hofmann`_ who built the first
 ball-and-stick molecular models in 1865.
 
 hofmann renders crystal and molecular structures as depth-sorted
-ball-and-stick images with static, publication-quality output via
-matplotlib (vector SVG/PDF).
+ball-and-stick images, producing publication-quality static output
+(SVG, PDF, PNG) and trajectory animations (GIF, MP4) via matplotlib.
 
 .. image:: _static/llzo.svg
    :width: 480px

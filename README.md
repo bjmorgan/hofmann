@@ -6,7 +6,7 @@
 
 A modern Python reimagining of Methfessel's [XBS](https://www.ccl.net/cca/software/X-WINDOW/xbs/) ball-and-stick viewer (1995), named after [August Wilhelm von Hofmann](https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann) who built the first ball-and-stick molecular models in 1865.
 
-hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images with static, publication-quality vector output (SVG, PDF) via matplotlib.
+hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images, producing publication-quality static output (SVG, PDF, PNG) and trajectory animations (GIF, MP4) via matplotlib.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/bjmorgan/hofmann/main/docs/_static/llzo.png" width="480" alt="LLZO garnet with ZrO6 polyhedra rendered with hofmann">
@@ -15,6 +15,7 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 ## Features
 
 - Static publication-quality output (SVG, PDF, PNG) via matplotlib
+- Trajectory animations (GIF, MP4) with per-frame colouring
 - XBS `.bs` and `.mv` (trajectory) file formats
 - Optional ASE `Atoms` and pymatgen `Structure` interoperability
 - Periodic boundary conditions with automatic image expansion
@@ -41,6 +42,12 @@ For pymatgen interoperability:
 pip install "hofmann[pymatgen]"
 ```
 
+For animation export (GIF/MP4):
+
+```bash
+pip install "hofmann[animation]"
+```
+
 ### Requirements
 
 - Python 3.11+
@@ -49,6 +56,8 @@ pip install "hofmann[pymatgen]"
 - scipy >= 1.10
 - ase >= 3.22 (optional)
 - pymatgen >= 2024.1.1 (optional)
+- imageio >= 2.30 (optional, for GIF animation export)
+- imageio-ffmpeg >= 0.5 (optional, for MP4 animation export)
 
 ## Quick start
 
@@ -120,6 +129,7 @@ Full documentation is available at [hofmann.readthedocs.io](https://hofmann.read
 - [Scenes and structures](https://hofmann.readthedocs.io/en/latest/scenes.html) -- scenes, frames, bonds, polyhedra
 - [Rendering](https://hofmann.readthedocs.io/en/latest/rendering.html) -- views, render styles, unit cells, axes
 - [Colouring](https://hofmann.readthedocs.io/en/latest/colouring.html) -- per-atom data colouring, custom functions, multiple layers
+- [Animations](https://hofmann.readthedocs.io/en/latest/animations.html) -- trajectory animations, per-frame colouring
 - [Interactive viewer](https://hofmann.readthedocs.io/en/latest/interactive.html) -- mouse and keyboard controls
 - [XBS file format](https://hofmann.readthedocs.io/en/latest/xbs-format.html) -- `.bs` and `.mv` format reference
 - [API reference](https://hofmann.readthedocs.io/en/latest/api.html) -- full autodoc API
