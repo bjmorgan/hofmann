@@ -16,7 +16,8 @@ from hofmann.model import (
     ViewState,
     normalise_colour,
 )
-from hofmann.rendering.painter import _draw_scene, _precompute_scene
+from hofmann.rendering.painter import _draw_scene
+from hofmann.rendering.precompute import _precompute_scene
 from hofmann.rendering.projection import _scene_extent
 from hofmann.rendering.static import _resolve_style
 

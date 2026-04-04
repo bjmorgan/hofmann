@@ -856,7 +856,7 @@ class TestPolyhedraDepthOrdering:
 
     def test_faces_sorted_within_depth_slot(self):
         """Faces within the same depth slot are sorted back-to-front."""
-        from hofmann.rendering.painter import _precompute_scene, _collect_polyhedra_faces
+        from hofmann.rendering.precompute import _precompute_scene, _collect_polyhedra_faces
 
         scene = _two_octahedra_scene()
         view = scene.view
@@ -906,7 +906,7 @@ class TestImageAtomPolyhedra:
 
     def test_all_matching_atoms_are_centres(self):
         """Both Ti atoms should generate polyhedra regardless of index."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         # Two Ti atoms, each with its own octahedral O shell.
         species = ["Ti"] + ["O"] * 6 + ["Ti"] + ["O"] * 6
@@ -1104,7 +1104,7 @@ class TestColourBy:
 
     def test_polyhedra_inherit_colour_by(self):
         """Polyhedra inherit the centre atom's resolved colour_by colour."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _octahedron_scene()
         # Ti is atom 0; give it a numerical value so it gets a cmap colour.
@@ -1124,7 +1124,7 @@ class TestColourBy:
 
     def test_polyhedra_spec_colour_overrides_colour_by(self):
         """PolyhedronSpec.colour still wins over colour_by."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _octahedron_scene(colour=(0.0, 0.0, 1.0))
         n_atoms = len(scene.species)
@@ -1141,7 +1141,7 @@ class TestColourBy:
 
     def test_poly_render_data_groups_all_fields(self):
         """_PolyhedronRenderData bundles colour, alpha, edge style."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _octahedron_scene(
             colour=(0.1, 0.2, 0.3),
@@ -1159,7 +1159,7 @@ class TestColourBy:
 
     def test_per_frame_colour_by(self):
         """2D atom_data produces different colours for different frames."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _minimal_scene()
         scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
@@ -1173,7 +1173,7 @@ class TestColourBy:
 
     def test_per_frame_categorical_colour_by(self):
         """2D categorical atom_data gives consistent colours across frames."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _minimal_scene()
         scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
@@ -1189,7 +1189,7 @@ class TestColourBy:
 
     def test_per_frame_global_colour_range(self):
         """Without explicit colour_range, 2D data uses global min/max."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _minimal_scene()
         scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
@@ -1208,7 +1208,7 @@ class TestColourBy:
 
     def test_per_frame_explicit_colour_range_honoured(self):
         """An explicit colour_range overrides global auto-range."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _minimal_scene()
         scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
@@ -1228,7 +1228,7 @@ class TestColourBy:
 
     def test_per_frame_list_colour_by(self):
         """Layered colour_by with mixed 1D and 2D atom_data works."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _minimal_scene()
         scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
@@ -1253,7 +1253,7 @@ class TestColourBy:
 
     def test_polyhedra_inherit_per_frame_colour_by(self):
         """Polyhedra inherit the centre atom's per-frame colour."""
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _octahedron_scene()
         n_atoms = len(scene.species)

@@ -121,7 +121,7 @@ class TestRenderAnimation:
         from unittest.mock import patch
 
         from hofmann.rendering.animation import render_animation
-        from hofmann.rendering.painter import _precompute_scene
+        from hofmann.rendering.precompute import _precompute_scene
 
         scene = _make_scene(n_frames=3)
         output = tmp_path / "fail.gif"
