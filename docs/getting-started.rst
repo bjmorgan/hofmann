@@ -22,7 +22,7 @@ For pymatgen interoperability (optional):
 
    pip install "hofmann[pymatgen]"
 
-For animation export (GIF/MP4):
+For animation export (optional):
 
 .. code-block:: bash
 
@@ -43,7 +43,8 @@ Requirements
 - scipy >= 1.10
 - ase >= 3.22 (optional, for :func:`~hofmann.from_ase`)
 - pymatgen >= 2024.1.1 (optional, for :func:`~hofmann.from_pymatgen`)
-- imageio >= 2.30 (optional, for GIF/MP4 animation export)
+- imageio >= 2.30 (optional, for :meth:`~hofmann.StructureScene.render_animation`)
+- imageio-ffmpeg >= 0.5 (optional, for MP4 output via :meth:`~hofmann.StructureScene.render_animation`)
 
 
 Rendering from an XBS file

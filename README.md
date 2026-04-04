@@ -6,7 +6,7 @@
 
 A modern Python reimagining of Methfessel's [XBS](https://www.ccl.net/cca/software/X-WINDOW/xbs/) ball-and-stick viewer (1995), named after [August Wilhelm von Hofmann](https://en.wikipedia.org/wiki/August_Wilhelm_von_Hofmann) who built the first ball-and-stick molecular models in 1865.
 
-hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images with static, publication-quality vector output (SVG, PDF) via matplotlib.
+hofmann renders crystal and molecular structures as depth-sorted ball-and-stick images, producing publication-quality static output (SVG, PDF, PNG) and trajectory animations (GIF, MP4) via matplotlib.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/bjmorgan/hofmann/main/docs/_static/llzo.png" width="480" alt="LLZO garnet with ZrO6 polyhedra rendered with hofmann">
@@ -56,7 +56,8 @@ pip install "hofmann[animation]"
 - scipy >= 1.10
 - ase >= 3.22 (optional)
 - pymatgen >= 2024.1.1 (optional)
-- imageio >= 2.30 (optional, for GIF/MP4 animation export)
+- imageio >= 2.30 (optional, for GIF animation export)
+- imageio-ffmpeg >= 0.5 (optional, for MP4 animation export)
 
 ## Quick start
 
