@@ -56,6 +56,7 @@ pip install "hofmann[animation]"
 - scipy >= 1.10
 - ase >= 3.22 (optional)
 - pymatgen >= 2024.1.1 (optional)
+- imageio >= 2.30 (optional, for GIF/MP4 animation export)
 
 ## Quick start
 

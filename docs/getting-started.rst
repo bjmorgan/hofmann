@@ -43,6 +43,7 @@ Requirements
 - scipy >= 1.10
 - ase >= 3.22 (optional, for :func:`~hofmann.from_ase`)
 - pymatgen >= 2024.1.1 (optional, for :func:`~hofmann.from_pymatgen`)
+- imageio >= 2.30 (optional, for GIF/MP4 animation export)
 
 
 Rendering from an XBS file
