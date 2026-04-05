@@ -7,3 +7,7 @@ VALID_POLYHEDRA: frozenset[str] = frozenset({
 
 POLYHEDRON_RADIUS_SCALE: float = 2.0
 """Polyhedron icons default to this multiple of the flat-marker radius."""
+
+
+DEFAULT_ATOM_RADIUS: float = 0.5
+"""Fallback display radius for atoms whose species has no ``AtomStyle``."""
