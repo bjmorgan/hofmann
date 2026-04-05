@@ -10,4 +10,4 @@ POLYHEDRON_RADIUS_SCALE: float = 2.0
 
 
 DEFAULT_ATOM_RADIUS: float = 0.5
-"""Fallback display radius for atoms whose species has no :class:`AtomStyle`."""
+"""Fallback display radius for atoms whose species has no ``AtomStyle``."""
