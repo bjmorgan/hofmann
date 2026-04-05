@@ -267,11 +267,6 @@ class TestAxesStyle:
         assert style.arrow_length == 0.1
         assert style.corner is WidgetCorner.TOP_RIGHT
 
-    def test_is_frozen(self):
-        style = AxesStyle()
-        with pytest.raises(AttributeError):
-            style.font_size = 14.0
-
     def test_corner_string_coercion(self):
         style = AxesStyle(corner="bottom_right")
         assert style.corner is WidgetCorner.BOTTOM_RIGHT
@@ -1007,11 +1002,6 @@ class TestLegendStyle:
         assert style.circle_radius == 8.0
         assert style.spacing == 4.0
         assert style.species == ("Na", "Cl")
-
-    def test_is_frozen(self):
-        style = LegendStyle()
-        with pytest.raises(AttributeError):
-            style.font_size = 14.0
 
     def test_corner_string_coercion(self):
         style = LegendStyle(corner="top_left")

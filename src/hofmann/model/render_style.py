@@ -113,7 +113,7 @@ class CellEdgeStyle:
         return cls(**kwargs)
 
 
-@dataclass(frozen=True)
+@dataclass
 class AxesStyle:
     """Visual style for the crystallographic axes orientation widget.
 
@@ -164,7 +164,7 @@ class AxesStyle:
                     f"corner tuple must have 2 elements, got {len(self.corner)}"
                 )
         elif isinstance(self.corner, str):
-            object.__setattr__(self, "corner", WidgetCorner(self.corner))
+            self.corner = WidgetCorner(self.corner)
         if self.font_size <= 0:
             raise ValueError(
                 f"font_size must be positive, got {self.font_size}"
@@ -946,7 +946,7 @@ class PolyhedronLegendItem(LegendItem):
         )
 
 
-@dataclass(frozen=True)
+@dataclass
 class LegendStyle:
     """Visual style for the species legend widget.
 
@@ -1021,7 +1021,7 @@ class LegendStyle:
                     f"corner tuple must have 2 elements, got {len(self.corner)}"
                 )
         elif isinstance(self.corner, str):
-            object.__setattr__(self, "corner", WidgetCorner(self.corner))
+            self.corner = WidgetCorner(self.corner)
         if self.font_size <= 0:
             raise ValueError(
                 f"font_size must be positive, got {self.font_size}"
