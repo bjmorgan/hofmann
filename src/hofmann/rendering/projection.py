@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from hofmann.model import StructureScene, ViewState
+from hofmann.rendering.precompute import _compute_atom_radii
 
 # Default unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
@@ -77,10 +78,7 @@ def _scene_extent(
     dists = np.linalg.norm(coords - view.centre, axis=1)
 
     if len(dists) > 0:
-        radii_3d = np.empty(len(scene.species))
-        for i, sp in enumerate(scene.species):
-            style = scene.atom_styles.get(sp)
-            radii_3d[i] = style.radius if style is not None else 0.5
+        radii_3d = _compute_atom_radii(scene.species, scene.atom_styles)
         max_extent = float(np.max(dists + radii_3d * atom_scale))
     else:
         max_extent = 0.0

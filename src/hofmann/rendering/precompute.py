@@ -8,6 +8,7 @@ the drawing loop in ``painter.py``.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -19,6 +20,7 @@ from hofmann.construction.rendering_set import (
     deduplicate_molecules,
 )
 from hofmann.model import (
+    AtomStyle,
     Bond,
     CmapSpec,
     RenderStyle,
@@ -27,6 +29,7 @@ from hofmann.model import (
     normalise_colour,
     resolve_atom_colours,
 )
+from hofmann._constants import DEFAULT_ATOM_RADIUS
 
 
 @dataclass(frozen=True)
@@ -73,6 +76,32 @@ class _PrecomputedScene:
     hidden_atoms: set[int]
     hidden_bond_ids: set[int]
     poly_render_data: list[_PolyhedronRenderData]
+
+
+def _compute_atom_radii(
+    species: Sequence[str],
+    atom_styles: Mapping[str, AtomStyle],
+) -> np.ndarray:
+    """Compute per-atom display radii from a species list and style map.
+
+    Atoms whose species is not present in *atom_styles* fall back to
+    :data:`DEFAULT_ATOM_RADIUS`.
+
+    Args:
+        species: Per-atom species names, one entry per atom.
+        atom_styles: Mapping from species name to :class:`AtomStyle`.
+            Species missing from the map trigger the default fallback.
+
+    Returns:
+        A ``(n_atoms,)`` array of ``float`` display radii.
+    """
+    species_arr = np.asarray(species)
+    radii = np.full(len(species), DEFAULT_ATOM_RADIUS)
+    for sp in set(species):
+        style = atom_styles.get(sp)
+        if style is not None:
+            radii[species_arr == sp] = style.radius
+    return radii
 
 
 def _precompute_scene(
@@ -128,11 +157,7 @@ def _precompute_scene(
         row = arr[frame_index] if arr.ndim == 2 else arr
         atom_data[key] = row[source_indices]
 
-    radii_3d = np.empty(n_atoms)
-    for i in range(n_atoms):
-        sp = species[i]
-        style = scene.atom_styles.get(sp)
-        radii_3d[i] = style.radius if style is not None else 0.5
+    radii_3d = _compute_atom_radii(species, scene.atom_styles)
 
     atom_colours = resolve_atom_colours(
         species, scene.atom_styles, atom_data,
