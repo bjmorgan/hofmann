@@ -378,6 +378,7 @@ def _collect_polyhedra_faces(
     slab_visible: np.ndarray,
     show_polyhedra: bool,
     polyhedra_shading: float,
+    light_direction: np.ndarray,
     rotated: np.ndarray,
     depth: np.ndarray,
     xy: np.ndarray,
@@ -431,7 +432,7 @@ def _collect_polyhedra_faces(
             )
             norm_len = np.linalg.norm(normal)
             if norm_len > 1e-12:
-                cos_angle = abs(normal[2] / norm_len)
+                cos_angle = abs(np.dot(normal, light_direction) / norm_len)
             else:
                 cos_angle = 0.0
             shading = 1.0 - polyhedra_shading * 0.6 * (1.0 - cos_angle)

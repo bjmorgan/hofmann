@@ -102,6 +102,34 @@ class TestRenderStyle:
         )
         RenderStyle(polyhedra_shading=1.0)
 
+    def test_light_direction_default(self):
+        """Default light direction is along the viewing axis."""
+        style = RenderStyle()
+        assert style.light_direction == (0.0, 0.0, 1.0)
+
+    def test_light_direction_custom(self):
+        """Custom light direction is accepted."""
+        style = RenderStyle(light_direction=(0.0, 0.0, 1.0))
+        assert style.light_direction == (0.0, 0.0, 1.0)
+
+    def test_light_direction_zero_vector_raises(self):
+        """Zero vector is rejected."""
+        with pytest.raises(ValueError, match="light_direction must not be the zero vector"):
+            RenderStyle(light_direction=(0.0, 0.0, 0.0))
+
+    def test_light_direction_serialisation_round_trip(self):
+        """light_direction survives to_dict / from_dict."""
+        style = RenderStyle(light_direction=(1.0, 0.0, 0.0))
+        d = style.to_dict()
+        restored = RenderStyle.from_dict(d)
+        assert restored.light_direction == (1.0, 0.0, 0.0)
+
+    def test_light_direction_omitted_when_default(self):
+        """Default light_direction is omitted from to_dict output."""
+        style = RenderStyle()
+        d = style.to_dict()
+        assert "light_direction" not in d
+
     def test_show_cell_default_none(self):
         style = RenderStyle()
         assert style.show_cell is None

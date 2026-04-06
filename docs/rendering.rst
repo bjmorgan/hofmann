@@ -129,8 +129,11 @@ Polyhedra shading
 
 The ``polyhedra_shading`` setting controls diffuse (Lambertian) shading
 on polyhedra faces.  At ``0.0`` all faces are flat; at ``1.0`` (the
-default) faces pointing towards the viewer are bright and edge-on faces
-are dimmed.
+default) faces facing the light source are bright and oblique faces are
+dimmed.  The light direction defaults to the viewing axis; set
+``light_direction`` on :class:`~hofmann.RenderStyle` to an off-axis
+direction such as ``(-0.3, 0.5, 1.0)`` for visible shading from
+top-down viewing angles.
 
 .. list-table::
    :widths: 50 50

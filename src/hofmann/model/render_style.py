@@ -1203,6 +1203,10 @@ class RenderStyle:
             ``1.0`` (the default) gives full Lambertian-style shading
             where faces pointing at the viewer are bright and edge-on
             faces are dimmed.
+        light_direction: Direction of the virtual light source for
+            polyhedra face shading, in screen space (x = right,
+            y = up, z = towards viewer).  Normalised internally
+            before use.  The zero vector is rejected.
         polyhedra_outline_width: Global override for polyhedra outline
             line width (points).  When ``None`` (the default), each
             polyhedron uses its own ``PolyhedronSpec.edge_width``.
@@ -1253,8 +1257,10 @@ class RenderStyle:
             *atom_outline_width* or *bond_outline_width* are negative,
             *circle_segments* or *interactive_circle_segments* < 3,
             *arc_segments* or *interactive_arc_segments* < 2,
-            *polyhedra_shading* is outside ``[0, 1]``, or
-            *polyhedra_outline_width* is negative.
+            *polyhedra_shading* is outside ``[0, 1]``,
+            *light_direction* does not have exactly 3 components or
+            is the zero vector, or *polyhedra_outline_width* is
+            negative.
     """
 
     atom_scale: float = 0.5
@@ -1273,6 +1279,7 @@ class RenderStyle:
     interactive_circle_segments: int = 24
     interactive_arc_segments: int = 5
     polyhedra_shading: float = 1.0
+    light_direction: tuple[float, float, float] = (0.0, 0.0, 1.0)
     polyhedra_outline_width: float | None = None
     show_cell: bool | None = None
     cell_style: CellEdgeStyle = field(default_factory=CellEdgeStyle)
@@ -1323,6 +1330,20 @@ class RenderStyle:
                 f"polyhedra_shading must be between 0.0 and 1.0, "
                 f"got {self.polyhedra_shading}"
             )
+        try:
+            _ld = [float(c) for c in self.light_direction]
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "light_direction must be an iterable of numeric components"
+            ) from exc
+        if len(_ld) != 3:
+            raise ValueError(
+                f"light_direction must have exactly 3 components, "
+                f"got {len(_ld)}"
+            )
+        self.light_direction = (_ld[0], _ld[1], _ld[2])
+        if sum(c * c for c in self.light_direction) < 1e-24:
+            raise ValueError("light_direction must not be the zero vector")
         if self.polyhedra_outline_width is not None and self.polyhedra_outline_width < 0:
             raise ValueError(
                 f"polyhedra_outline_width must be non-negative, "
@@ -1360,6 +1381,9 @@ class RenderStyle:
             elif field_name == "slab_clip_mode":
                 if val != default:
                     d[field_name] = val.value
+            elif field_name == "light_direction":
+                if val != default:
+                    d[field_name] = list(val)
             else:
                 if val != default:
                     d[field_name] = val
@@ -1393,6 +1417,8 @@ class RenderStyle:
                 elif field_name == "bond_colour" and isinstance(val, list):
                     val = tuple(val)
                 elif field_name == "outline_colour" and isinstance(val, list):
+                    val = tuple(val)
+                elif field_name == "light_direction" and isinstance(val, list):
                     val = tuple(val)
                 kwargs[field_name] = val
         if "cell_style" in d:

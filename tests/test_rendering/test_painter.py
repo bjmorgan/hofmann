@@ -869,6 +869,8 @@ class TestPolyhedraDepthOrdering:
         order = np.argsort(depth)
         slab_visible = np.ones(len(coords), dtype=bool)
 
+        light_dir = np.asarray(style.light_direction, dtype=float)
+        light_dir = light_dir / np.linalg.norm(light_dir)
         face_by_depth_slot, _ = _collect_polyhedra_faces(
             precomputed=precomputed,
             polyhedra_list=precomputed.polyhedra,
@@ -876,6 +878,7 @@ class TestPolyhedraDepthOrdering:
             slab_visible=slab_visible,
             show_polyhedra=True,
             polyhedra_shading=style.polyhedra_shading,
+            light_direction=light_dir,
             rotated=rotated,
             depth=depth,
             xy=xy,
