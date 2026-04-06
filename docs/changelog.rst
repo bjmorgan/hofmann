@@ -1,6 +1,17 @@
 Changelog
 =========
 
+0.16.0
+------
+
+- New ``light_direction`` parameter on :class:`~hofmann.RenderStyle`
+  controls the direction of the virtual light source for polyhedra
+  face shading, specified in screen space (x = right, y = up,
+  z = towards viewer).  The default ``(0, 0, 1)`` preserves the
+  existing behaviour; set an off-axis direction such as
+  ``(-0.3, 0.5, 1.0)`` for visible face shading from top-down
+  viewing angles.
+
 0.15.1
 ------
 

@@ -106,19 +106,22 @@ def shade_face(
     face_vertices_rotated: np.ndarray,
     base_rgb: tuple[float, float, float],
     polyhedra_shading: float,
+    light_direction: np.ndarray,
 ) -> tuple[float, float, float]:
     """Compute shaded colour for a single polyhedron face.
 
     Uses the same Lambertian-style formula as the main painter:
     ``shading = 1.0 - polyhedra_shading * 0.6 * (1.0 - cos_angle)``
     where *cos_angle* is the absolute cosine between the face normal
-    and the viewer direction (positive z).
+    and the light direction.
 
     Args:
         face_vertices_rotated: Rotated vertex coordinates for the
             face, shape ``(n, 3)``.
         base_rgb: Base face colour before shading.
         polyhedra_shading: Shading strength (0 = flat, 1 = full).
+        light_direction: Normalised light direction vector in screen
+            space, shape ``(3,)``.
 
     Returns:
         Shaded ``(R, G, B)`` tuple, each channel clamped to [0, 1].
@@ -129,7 +132,7 @@ def shade_face(
     )
     norm_len = np.linalg.norm(normal)
     if norm_len > 1e-12:
-        cos_angle = abs(normal[2] / norm_len)
+        cos_angle = abs(np.dot(normal, light_direction) / norm_len)
     else:
         cos_angle = 0.0
     shading = 1.0 - polyhedra_shading * 0.6 * (1.0 - cos_angle)

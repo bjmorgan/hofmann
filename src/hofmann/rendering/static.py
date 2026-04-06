@@ -230,6 +230,7 @@ def render_legend(
     outline_colour: Colour = (0.15, 0.15, 0.15),
     outline_width: float = 1.0,
     polyhedra_shading: float = 1.0,
+    light_direction: tuple[float, float, float] = (0.0, 0.0, 1.0),
     dpi: int = 150,
     background: Colour = "white",
     transparent: bool = False,
@@ -257,6 +258,11 @@ def render_legend(
         outline_width: Line width for circle outlines in points.
         polyhedra_shading: Shading strength for 3D polyhedron legend
             icons (0 = flat, 1 = full).
+        light_direction: Direction of the virtual light source for
+            polyhedra face shading, in screen space (x = right,
+            y = up, z = towards viewer).  Must have exactly 3
+            components.  Normalised internally before use.  The
+            zero vector raises :class:`ValueError`.
         dpi: Resolution for raster output formats.
         background: Figure background colour.
         transparent: If ``True``, save with a transparent background.
@@ -294,6 +300,16 @@ def render_legend(
             f"polyhedra_shading must be between 0.0 and 1.0, "
             f"got {polyhedra_shading}"
         )
+    light_dir = np.asarray(light_direction, dtype=float)
+    if light_dir.shape != (3,):
+        raise ValueError(
+            f"light_direction must have exactly 3 components, "
+            f"got shape {light_dir.shape}"
+        )
+    light_norm = np.linalg.norm(light_dir)
+    if light_norm < 1e-12:
+        raise ValueError("light_direction must not be the zero vector")
+    light_dir = light_dir / light_norm
 
     bg_rgb = normalise_colour(background)
 
@@ -318,6 +334,7 @@ def render_legend(
         outline_colour=ol_rgb,
         outline_width=outline_width,
         polyhedra_shading=polyhedra_shading,
+        light_direction=light_dir,
     )
 
     # Materialise artist positions so get_window_extent returns

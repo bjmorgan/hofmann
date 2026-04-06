@@ -33,13 +33,7 @@ class StructureScene:
         atom_styles: Mapping from species label to visual style.
         bond_specs: Declarative bond detection rules.
         polyhedra: Declarative polyhedron rendering rules.
-        view: Camera / projection state.
         title: Scene title for display.
-        atom_data: Per-atom metadata arrays, keyed by name.  Each value
-            is either a 1-D array of length ``n_atoms`` (same every
-            frame) or a 2-D array of shape ``(n_frames, n_atoms)``
-            (per-frame values).  Use :meth:`set_atom_data` to populate
-            this and ``colour_by`` on the render methods to visualise it.
     """
 
     def __init__(
@@ -126,7 +120,13 @@ class StructureScene:
 
     @property
     def atom_data(self) -> AtomData:
-        """Per-atom metadata container."""
+        """Per-atom metadata container.
+
+        Each value is either a 1-D array of length ``n_atoms`` (same
+        every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
+        (per-frame values).  Use :meth:`set_atom_data` to populate
+        this and ``colour_by`` on the render methods to visualise it.
+        """
         return self._atom_data
 
     @atom_data.setter

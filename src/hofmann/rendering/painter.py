@@ -106,6 +106,8 @@ def _draw_scene(
     arc = _make_arc(style.arc_segments)
     n_arc = len(arc)
     polyhedra_shading = style.polyhedra_shading
+    light_dir = np.asarray(style.light_direction, dtype=float)
+    light_dir = light_dir / np.linalg.norm(light_dir)
     # Remove previous draw's collection(s) and leftover artists.
     while ax.collections:
         ax.collections[0].remove()
@@ -190,7 +192,7 @@ def _draw_scene(
 
     face_by_depth_slot, vertex_max_face_slot = _collect_polyhedra_faces(
         precomputed, polyhedra_list, poly_skip, slab_visible,
-        show_polyhedra, polyhedra_shading, rotated, depth, xy, order,
+        show_polyhedra, polyhedra_shading, light_dir, rotated, depth, xy, order,
     )
 
     # Defer vertex atoms so they paint after all their connected
@@ -504,6 +506,7 @@ def _draw_scene(
             outline_colour=outline_rgb if show_outlines else None,
             outline_width=atom_outline_width,
             polyhedra_shading=polyhedra_shading,
+            light_direction=light_dir,
         )
 
 

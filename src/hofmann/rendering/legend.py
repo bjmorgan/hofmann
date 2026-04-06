@@ -198,7 +198,8 @@ def _draw_legend_polyhedron(
     radius_data: float,
     base_rgb: tuple[float, float, float],
     alpha: float,
-    polyhedra_shading: float = 1.0,
+    polyhedra_shading: float,
+    light_direction: np.ndarray,
     edge_colour: tuple[float, float, float] | None = None,
     edge_width: float = 0.0,
     rotation: np.ndarray | None = None,
@@ -219,6 +220,8 @@ def _draw_legend_polyhedron(
         base_rgb: Base face colour before shading.
         alpha: Face opacity (0--1).
         polyhedra_shading: Shading strength (0 = flat, 1 = full).
+        light_direction: Normalised light direction vector in screen
+            space, shape ``(3,)``.
         edge_colour: Pre-resolved edge colour, or ``None`` to
             disable edges.
         edge_width: Pre-resolved edge width in points.
@@ -252,7 +255,7 @@ def _draw_legend_polyhedron(
     for fi in face_order:
         face = faces[fi]
         face_verts_rotated = rotated[face]
-        shaded = shade_face(face_verts_rotated, base_rgb, polyhedra_shading)
+        shaded = shade_face(face_verts_rotated, base_rgb, polyhedra_shading, light_direction)
 
         verts_2d = translated[face]
         fc = (*shaded, alpha)
@@ -277,9 +280,11 @@ def _draw_legend_widget(
     ax: Axes,
     scene: StructureScene,
     style: LegendStyle,
+    *,
     outline_colour: tuple[float, float, float] | None = None,
     outline_width: float = 1.0,
-    polyhedra_shading: float = 1.0,
+    polyhedra_shading: float,
+    light_direction: np.ndarray,
 ) -> None:
     """Draw a legend widget on *ax*.
 
@@ -309,6 +314,8 @@ def _draw_legend_widget(
         outline_width: Line width for marker outlines in points.
         polyhedra_shading: Shading strength for 3D polyhedron icons
             (0 = flat, 1 = full Lambertian-style shading).
+        light_direction: Normalised light direction vector in screen
+            space, shape ``(3,)``.
     """
     if style.items is not None:
         items = list(style.items)
@@ -433,6 +440,7 @@ def _draw_legend_widget(
                 base_rgb=rgb,
                 alpha=item.alpha,
                 polyhedra_shading=polyhedra_shading,
+                light_direction=light_direction,
                 edge_colour=resolved_ec,
                 edge_width=resolved_ew,
                 rotation=item.rotation,
