@@ -1,6 +1,13 @@
 Changelog
 =========
 
+0.15.1
+------
+
+- Rendering now warns when a species has no
+  :class:`~hofmann.AtomStyle`.  The warning lists all affected
+  species.
+
 0.15.0
 ------
 

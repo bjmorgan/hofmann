@@ -10,6 +10,8 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+import sys
+import warnings
 
 import numpy as np
 
@@ -104,6 +106,50 @@ def _compute_atom_radii(
     return radii
 
 
+def _warn_missing_atom_styles(
+    species: Sequence[str],
+    atom_styles: Mapping[str, AtomStyle],
+) -> None:
+    """Emit a single warning listing all species that lack an ``AtomStyle``.
+
+    Called at the start of each :func:`_precompute_scene` invocation
+    (which runs once per frame during animation and on each frame
+    change in the interactive viewer).  Python's default warning
+    filter deduplicates identical messages from the same call site,
+    so the warning typically appears once per process.
+
+    Covers the radius fallback (:data:`DEFAULT_ATOM_RADIUS`) and,
+    when no colourmap overrides species colours, the colour fallback
+    (grey).
+
+    Does nothing if all species have styles or the species list is empty.
+
+    Args:
+        species: Per-atom species names, one entry per atom.
+        atom_styles: Mapping from species name to :class:`AtomStyle`.
+    """
+    missing = sorted(frozenset(species) - atom_styles.keys())
+    if not missing:
+        return
+    species_list = ", ".join(f"'{sp}'" for sp in missing)
+    # Walk the stack to the first frame outside the hofmann package
+    # so the warning points at user code, not library internals.
+    depth = 1
+    frame = sys._getframe(0)
+    while frame.f_back is not None:
+        frame = frame.f_back
+        depth += 1
+        mod = frame.f_globals.get("__name__", "")
+        if mod != "hofmann" and not mod.startswith("hofmann."):
+            break
+    warnings.warn(
+        f"No AtomStyle defined for species: {species_list}. "
+        f"Using default radius and colour.",
+        UserWarning,
+        stacklevel=depth,
+    )
+
+
 def _precompute_scene(
     scene: StructureScene,
     frame_index: int,
@@ -148,6 +194,8 @@ def _precompute_scene(
         species = scene.species
         bonds = periodic_bonds
         source_indices = np.arange(len(scene.species))
+
+    _warn_missing_atom_styles(species, scene.atom_styles)
 
     n_atoms = len(species)
 
