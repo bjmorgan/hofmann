@@ -391,6 +391,10 @@ def _collect_polyhedra_faces(
 
     Each face is slotted at its mean vertex depth.
 
+    Args:
+        light_direction: Normalised light direction vector in screen
+            space, shape ``(3,)``.
+
     Returns:
         Tuple of ``(face_by_depth_slot, vertex_max_face_slot)`` where
         *face_by_depth_slot* maps depth-slot index to a list of

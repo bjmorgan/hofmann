@@ -33,7 +33,9 @@ class StructureScene:
         atom_styles: Mapping from species label to visual style.
         bond_specs: Declarative bond detection rules.
         polyhedra: Declarative polyhedron rendering rules.
+        view: Camera / projection state.
         title: Scene title for display.
+        atom_data: Per-atom scalar data arrays keyed by name.
     """
 
     def __init__(
