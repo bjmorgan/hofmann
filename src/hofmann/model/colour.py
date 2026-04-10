@@ -143,10 +143,10 @@ def _resolve_single_layer(
 
     Args:
         scene_atom_data: The scene's :class:`AtomData` container.
-            When provided, cached global metadata is used for 2-D
+            When provided, derived global metadata is used for 2-D
             data so that colouring is consistent across animation
-            frames: :meth:`AtomData.global_range` for numeric data
-            and :meth:`AtomData.global_labels` for categorical data.
+            frames: :attr:`AtomData.ranges` for numeric data and
+            :attr:`AtomData.labels` for categorical data.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *colours* is a
@@ -159,10 +159,10 @@ def _resolve_single_layer(
     if values.dtype.kind in ("U", "O"):
         labels = None
         if scene_atom_data is not None:
-            labels = scene_atom_data.global_labels(key)
+            labels = scene_atom_data.labels[key]
         return _resolve_categorical(values, fallback, cmap_fn, labels)
     if colour_range is None and scene_atom_data is not None:
-        colour_range = scene_atom_data.global_range(key)
+        colour_range = scene_atom_data.ranges[key]
     return _resolve_numerical(values, fallback, cmap_fn, colour_range)
 
 
@@ -365,9 +365,8 @@ def _resolve_categorical(
     Args:
         global_labels: When provided, these labels define the
             colourmap positions (consistent across animation frames).
-            Typically computed by :meth:`AtomData.global_labels`,
-            which scans all frames so every per-frame label is
-            included.
+            Typically looked up via :attr:`AtomData.labels`, which
+            holds unique labels across all frames.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *missing_mask* is

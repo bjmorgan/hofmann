@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, MutableMapping
+from collections.abc import Iterator, Mapping, MutableMapping
+from types import MappingProxyType
 
 import numpy as np
 
@@ -62,16 +63,29 @@ class AtomData(MutableMapping[str, np.ndarray]):
        ``ad["charge"][0] = 99``) raises
        ``ValueError: assignment destination is read-only``.  To update
        values, build a new array and reassign the key; reassignment
-       re-validates the shape and invalidates the
-       :meth:`global_range` and :meth:`global_labels` caches.  Only
-       the array buffer is frozen — for ``object``-dtype arrays, any
-       mutable objects stored inside remain mutable.
+       re-validates the shape and recomputes the :attr:`ranges` and
+       :attr:`labels` entries.  Only the array buffer is frozen — for
+       ``object``-dtype arrays, any mutable objects stored inside
+       remain mutable.
 
     The frame count is read live from the *frames* list so that arrays
     added after appending frames are validated against the current
     trajectory length.  However, existing 2-D arrays are not
     re-validated when frames are appended — re-assign them after
     changing the trajectory length.
+
+    Attributes:
+        ranges: Read-only mapping of keys to ``(min, max)`` tuples
+            for 2-D numeric arrays, or ``None`` for keys that do not
+            have a meaningful numeric range (1-D arrays, categorical
+            dtypes, all-NaN numeric arrays).  Populated eagerly on
+            assignment and updated on reassignment or deletion.
+        labels: Read-only mapping of keys to lists of unique
+            non-missing categorical labels across all frames, or
+            ``None`` for keys without a meaningful label set (1-D
+            arrays, numeric dtypes, categorical arrays with no
+            non-missing values).  Populated eagerly on assignment
+            and updated on reassignment or deletion.
 
     Args:
         n_atoms: Number of atoms in the scene.
@@ -87,6 +101,12 @@ class AtomData(MutableMapping[str, np.ndarray]):
         self._data: dict[str, np.ndarray] = {}
         self._ranges: dict[str, tuple[float, float] | None] = {}
         self._labels: dict[str, list[str] | None] = {}
+        self.ranges: Mapping[str, tuple[float, float] | None] = (
+            MappingProxyType(self._ranges)
+        )
+        self.labels: Mapping[str, list[str] | None] = (
+            MappingProxyType(self._labels)
+        )
 
     @property
     def n_atoms(self) -> int:
@@ -138,23 +158,6 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
     def __len__(self) -> int:
         return len(self._data)
-
-    def global_range(self, key: str) -> tuple[float, float] | None:
-        """Return the global ``(min, max)`` for a 2-D numeric array.
-
-        Returns ``None`` for 1-D arrays, categorical (string/object)
-        arrays, or arrays where every value is NaN.
-        """
-        return self._ranges[key]
-
-    def global_labels(self, key: str) -> list[str] | None:
-        """Return the unique non-missing labels across all frames.
-
-        Returns ``None`` for 1-D arrays or non-categorical (numeric)
-        arrays.  Missing values (``None``, ``""``, ``NaN``) are
-        excluded.
-        """
-        return self._labels[key]
 
     def __repr__(self) -> str:
         keys = ", ".join(repr(k) for k in self._data)
