@@ -18,11 +18,12 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
     .. note::
 
-       Arrays are returned by reference.  In-place mutation (e.g.
-       ``ad["charge"][0] = 99``) bypasses validation and does not
-       invalidate the :meth:`global_range` or :meth:`global_labels`
-       caches.  Re-assign the key
-       to trigger re-validation and cache invalidation.
+       Stored arrays are returned read-only.  In-place mutation (e.g.
+       ``ad["charge"][0] = 99``) raises
+       ``ValueError: assignment destination is read-only``.  To update
+       values, build a new array and reassign the key; reassignment
+       re-validates the shape and invalidates the
+       :meth:`global_range` and :meth:`global_labels` caches.
 
     The frame count is read live from the *frames* list so that arrays
     added after appending frames are validated against the current
