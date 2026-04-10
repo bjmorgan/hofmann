@@ -169,3 +169,71 @@ class TestAtomData:
         # 2-D array with 2 rows now valid.
         ad["val"] = np.array([[1.0, 2.0], [3.0, 4.0]])
         assert ad["val"].shape == (2, 2)
+
+    def test_setitem_1d_stored_array_is_read_only(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="read-only"):
+            ad["charge"][0] = 99.0
+
+    def test_setitem_2d_stored_array_is_read_only(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=2)
+        ad["charge"] = np.array([[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]])
+        with pytest.raises(ValueError, match="read-only"):
+            ad["charge"][0, 0] = 99.0
+
+    def test_setitem_local_reference_is_read_only(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        arr = ad["charge"]
+        with pytest.raises(ValueError, match="read-only"):
+            arr[...] = 0.0
+
+    def test_setitem_does_not_freeze_caller_source(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        src = np.array([1.0, 2.0, 3.0])
+        ad["charge"] = src
+        # Source is still writable.
+        assert src.flags.writeable is True
+        # Mutating the source does not affect the stored array.
+        src[0] = 99.0
+        assert ad["charge"][0] == 1.0
+
+    def test_setitem_reassignment_replaces_values(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        ad["charge"] = np.array([4.0, 5.0, 6.0])
+        np.testing.assert_array_equal(ad["charge"], [4.0, 5.0, 6.0])
+
+    def test_setitem_accepts_already_read_only_ndarray(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        src = np.array([1.0, 2.0, 3.0])
+        src.flags.writeable = False
+        ad["charge"] = src
+        assert ad["charge"].flags.writeable is False
+        np.testing.assert_array_equal(ad["charge"], [1.0, 2.0, 3.0])
+
+    def test_setitem_object_dtype_stored_array_is_read_only(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=1)
+        ad["site"] = np.array(["alpha", "beta"], dtype=object)
+        with pytest.raises(ValueError, match="read-only"):
+            ad["site"][0] = "gamma"
+
+    def test_setitem_list_input_stored_read_only(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=1)
+        ad["val"] = [1.0, 2.0]
+        with pytest.raises(ValueError, match="read-only"):
+            ad["val"][0] = 99.0
+
+    def test_setitem_augmented_assign_raises(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="read-only"):
+            ad["charge"] += 1.0
+
+    def test_setitem_view_of_stored_array_is_read_only(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        view = ad["charge"][1:]
+        with pytest.raises(ValueError, match="read-only"):
+            view[0] = 99.0

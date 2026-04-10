@@ -13,16 +13,21 @@ class AtomData(MutableMapping[str, np.ndarray]):
     """Validated mapping of named per-atom arrays.
 
     Every value must be a numpy array of shape ``(n_atoms,)`` (static)
-    or ``(n_frames, n_atoms)`` (per-frame).  Arrays are validated on
-    assignment and array-likes are converted via :func:`numpy.asarray`.
+    or ``(n_frames, n_atoms)`` (per-frame).  Assigned values are always
+    copied via :func:`numpy.array` — including existing numpy arrays —
+    so the container owns the buffer and the caller's source array is
+    left untouched.
 
     .. note::
 
-       Arrays are returned by reference.  In-place mutation (e.g.
-       ``ad["charge"][0] = 99``) bypasses validation and does not
-       invalidate the :meth:`global_range` or :meth:`global_labels`
-       caches.  Re-assign the key
-       to trigger re-validation and cache invalidation.
+       Stored arrays are returned read-only.  In-place mutation (e.g.
+       ``ad["charge"][0] = 99``) raises
+       ``ValueError: assignment destination is read-only``.  To update
+       values, build a new array and reassign the key; reassignment
+       re-validates the shape and invalidates the
+       :meth:`global_range` and :meth:`global_labels` caches.  Only
+       the array buffer is frozen — for ``object``-dtype arrays, any
+       mutable objects stored inside remain mutable.
 
     The frame count is read live from the *frames* list so that arrays
     added after appending frames are validated against the current
@@ -54,7 +59,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
         return len(self._frames)
 
     def __setitem__(self, key: str, value: object) -> None:
-        arr = np.asarray(value)
+        arr = np.array(value)
         if arr.ndim == 1:
             if len(arr) != self._n_atoms:
                 raise ValueError(
@@ -77,6 +82,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
                 f"atom_data[{key!r}] must be 1-D or 2-D, "
                 f"got {arr.ndim}-D"
             )
+        arr.flags.writeable = False
         self._data[key] = arr
         self._invalidate(key)
 

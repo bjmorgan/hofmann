@@ -1,6 +1,15 @@
 Changelog
 =========
 
+0.17.0
+------
+
+- :class:`~hofmann.StructureScene` ``atom_data`` arrays are now stored
+  read-only.  In-place mutation of a returned array raises
+  ``ValueError: assignment destination is read-only`` instead of
+  silently bypassing shape validation and cache invalidation.  Update
+  values by building a new array and reassigning the key.
+
 0.16.0
 ------
 
