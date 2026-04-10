@@ -1,7 +1,7 @@
 Changelog
 =========
 
-0.16.1
+0.17.0
 ------
 
 - :class:`~hofmann.StructureScene` ``atom_data`` arrays are now stored
