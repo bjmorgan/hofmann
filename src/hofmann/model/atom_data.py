@@ -54,7 +54,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
         return len(self._frames)
 
     def __setitem__(self, key: str, value: object) -> None:
-        arr = np.asarray(value)
+        arr = np.array(value)
         if arr.ndim == 1:
             if len(arr) != self._n_atoms:
                 raise ValueError(
@@ -77,6 +77,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
                 f"atom_data[{key!r}] must be 1-D or 2-D, "
                 f"got {arr.ndim}-D"
             )
+        arr.flags.writeable = False
         self._data[key] = arr
         self._invalidate(key)
 
