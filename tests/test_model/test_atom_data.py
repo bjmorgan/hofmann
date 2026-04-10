@@ -190,7 +190,6 @@ class TestAtomData:
             arr[...] = 0.0
 
     def test_setitem_does_not_freeze_caller_source(self):
-        """Caller's array is neither aliased nor frozen by assignment."""
         ad = _make_atom_data(n_atoms=3, n_frames=1)
         src = np.array([1.0, 2.0, 3.0])
         ad["charge"] = src

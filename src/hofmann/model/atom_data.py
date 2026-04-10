@@ -14,7 +14,8 @@ class AtomData(MutableMapping[str, np.ndarray]):
 
     Every value must be a numpy array of shape ``(n_atoms,)`` (static)
     or ``(n_frames, n_atoms)`` (per-frame).  Arrays are validated on
-    assignment and array-likes are converted via :func:`numpy.asarray`.
+    assignment and array-likes are copied via :func:`numpy.array`
+    so the container owns the buffer.
 
     .. note::
 
