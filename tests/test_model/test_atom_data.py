@@ -161,6 +161,8 @@ class TestAtomData:
         ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
         ad["flat"] = np.array([0.0, 1.0])
         assert set(ad.ranges) == set(ad)
+        del ad["site"]
+        assert set(ad.ranges) == set(ad)
 
     def test_labels_is_read_only(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
@@ -181,6 +183,8 @@ class TestAtomData:
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
         ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
         ad["flat"] = np.array([0.0, 1.0])
+        assert set(ad.labels) == set(ad)
+        del ad["val"]
         assert set(ad.labels) == set(ad)
 
     def test_negative_n_atoms_raises(self):

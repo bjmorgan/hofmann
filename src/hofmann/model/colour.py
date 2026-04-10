@@ -212,8 +212,9 @@ def resolve_atom_colours(
             list, may also be a list of the same length.
         scene_atom_data: The scene's :class:`AtomData` container.
             When provided and a key's *colour_range* is ``None``,
-            the cached global range is used for 2-D numeric data
-            so that colourmap scaling is consistent across frames.
+            the derived global range from :attr:`AtomData.ranges`
+            is used for 2-D numeric data so that colourmap scaling
+            is consistent across frames.
 
     Returns:
         List of ``(r, g, b)`` tuples, one per atom.
