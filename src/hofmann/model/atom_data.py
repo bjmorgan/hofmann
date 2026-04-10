@@ -9,6 +9,44 @@ import numpy as np
 from hofmann.model.colour import _is_categorical_missing
 
 
+def _compute_global_range(
+    arr: np.ndarray,
+) -> tuple[float, float] | None:
+    """Compute the global ``(min, max)`` for a 2-D numeric array.
+
+    Returns ``None`` for 1-D arrays, categorical (string/object)
+    dtypes, or arrays where every value is NaN.
+    """
+    if arr.ndim != 2 or arr.dtype.kind in ("U", "O"):
+        return None
+    with np.errstate(all="ignore"):
+        lo = float(np.nanmin(arr))
+        hi = float(np.nanmax(arr))
+    if np.isnan(lo):
+        return None
+    return (lo, hi)
+
+
+def _compute_global_labels(arr: np.ndarray) -> list[str] | None:
+    """Return the unique non-missing labels across all frames.
+
+    Returns ``None`` for 1-D arrays or non-categorical (numeric)
+    dtypes.  Missing values (``None``, ``""``, NaN) are excluded.
+    """
+    if arr.ndim != 2 or arr.dtype.kind not in ("U", "O"):
+        return None
+    seen: dict[str, None] = {}
+    for v in arr.ravel():
+        if _is_categorical_missing(v):
+            continue
+        s = str(v)
+        if s not in seen:
+            seen[s] = None
+    if not seen:
+        return None
+    return list(seen)
+
+
 class AtomData(MutableMapping[str, np.ndarray]):
     """Validated mapping of named per-atom arrays.
 
@@ -47,8 +85,8 @@ class AtomData(MutableMapping[str, np.ndarray]):
         self._n_atoms = n_atoms
         self._frames = frames
         self._data: dict[str, np.ndarray] = {}
-        self._range_cache: dict[str, tuple[float, float] | None] = {}
-        self._labels_cache: dict[str, list[str] | None] = {}
+        self._ranges: dict[str, tuple[float, float] | None] = {}
+        self._labels: dict[str, list[str] | None] = {}
 
     @property
     def n_atoms(self) -> int:
@@ -84,19 +122,16 @@ class AtomData(MutableMapping[str, np.ndarray]):
             )
         arr.flags.writeable = False
         self._data[key] = arr
-        self._invalidate(key)
-
-    def _invalidate(self, key: str) -> None:
-        """Clear cached global_range / global_labels for *key*."""
-        self._range_cache.pop(key, None)
-        self._labels_cache.pop(key, None)
+        self._ranges[key] = _compute_global_range(arr)
+        self._labels[key] = _compute_global_labels(arr)
 
     def __getitem__(self, key: str) -> np.ndarray:
         return self._data[key]
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]
-        self._invalidate(key)
+        del self._ranges[key]
+        del self._labels[key]
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
@@ -107,53 +142,19 @@ class AtomData(MutableMapping[str, np.ndarray]):
     def global_range(self, key: str) -> tuple[float, float] | None:
         """Return the global ``(min, max)`` for a 2-D numeric array.
 
-        The result is cached and invalidated when the key is reassigned
-        or deleted.  Returns ``None`` for 1-D arrays, categorical
-        (string/object) arrays, or arrays where every value is NaN.
+        Returns ``None`` for 1-D arrays, categorical (string/object)
+        arrays, or arrays where every value is NaN.
         """
-        if key in self._range_cache:
-            return self._range_cache[key]
-        arr = self._data[key]
-        if arr.ndim != 2 or arr.dtype.kind in ("U", "O"):
-            self._range_cache[key] = None
-            return None
-        with np.errstate(all="ignore"):
-            lo = float(np.nanmin(arr))
-            hi = float(np.nanmax(arr))
-        if np.isnan(lo):
-            self._range_cache[key] = None
-            return None
-        result = (lo, hi)
-        self._range_cache[key] = result
-        return result
+        return self._ranges[key]
 
     def global_labels(self, key: str) -> list[str] | None:
         """Return the unique non-missing labels across all frames.
 
-        The result is cached and invalidated when the key is reassigned
-        or deleted.  Returns ``None`` for 1-D arrays or non-categorical
-        (numeric) arrays.  Missing values (``None``, ``""``, ``NaN``)
-        are excluded.
+        Returns ``None`` for 1-D arrays or non-categorical (numeric)
+        arrays.  Missing values (``None``, ``""``, ``NaN``) are
+        excluded.
         """
-        if key in self._labels_cache:
-            return self._labels_cache[key]
-        arr = self._data[key]
-        if arr.ndim != 2 or arr.dtype.kind not in ("U", "O"):
-            self._labels_cache[key] = None
-            return None
-        seen: dict[str, None] = {}
-        for v in arr.ravel():
-            if _is_categorical_missing(v):
-                continue
-            s = str(v)
-            if s not in seen:
-                seen[s] = None
-        if not seen:
-            self._labels_cache[key] = None
-            return None
-        result = list(seen)
-        self._labels_cache[key] = result
-        return result
+        return self._labels[key]
 
     def __repr__(self) -> str:
         keys = ", ".join(repr(k) for k in self._data)
