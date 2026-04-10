@@ -29,7 +29,6 @@ class TestAtomData:
         ad = _make_atom_data(n_atoms=2, n_frames=1)
         ad["val"] = [1.0, 2.0]
         assert isinstance(ad["val"], np.ndarray)
-        assert ad["val"].flags.writeable is False
 
     def test_setitem_wrong_length_raises(self):
         ad = _make_atom_data(n_atoms=3, n_frames=1)
@@ -219,3 +218,22 @@ class TestAtomData:
         ad["site"] = np.array(["alpha", "beta"], dtype=object)
         with pytest.raises(ValueError, match="read-only"):
             ad["site"][0] = "gamma"
+
+    def test_setitem_list_input_stored_read_only(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=1)
+        ad["val"] = [1.0, 2.0]
+        with pytest.raises(ValueError, match="read-only"):
+            ad["val"][0] = 99.0
+
+    def test_setitem_augmented_assign_raises(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        with pytest.raises(ValueError, match="read-only"):
+            ad["charge"] += 1.0
+
+    def test_setitem_view_of_stored_array_is_read_only(self):
+        ad = _make_atom_data(n_atoms=3, n_frames=1)
+        ad["charge"] = np.array([1.0, 2.0, 3.0])
+        view = ad["charge"][1:]
+        with pytest.raises(ValueError, match="read-only"):
+            view[0] = 99.0
