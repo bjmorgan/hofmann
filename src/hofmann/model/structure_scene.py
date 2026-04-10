@@ -129,6 +129,8 @@ class StructureScene:
         every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
         (per-frame values).  Use :meth:`set_atom_data` to populate
         this and ``colour_by`` on the render methods to visualise it.
+        Stored arrays are returned read-only; see :class:`AtomData`
+        for how to update values.
         """
         return self._atom_data
 

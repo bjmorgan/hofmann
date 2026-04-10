@@ -13,9 +13,10 @@ class AtomData(MutableMapping[str, np.ndarray]):
     """Validated mapping of named per-atom arrays.
 
     Every value must be a numpy array of shape ``(n_atoms,)`` (static)
-    or ``(n_frames, n_atoms)`` (per-frame).  Arrays are validated on
-    assignment and array-likes are copied via :func:`numpy.array`
-    so the container owns the buffer.
+    or ``(n_frames, n_atoms)`` (per-frame).  Assigned values are always
+    copied via :func:`numpy.array` — including existing numpy arrays —
+    so the container owns the buffer and the caller's source array is
+    left untouched.
 
     .. note::
 
@@ -24,7 +25,9 @@ class AtomData(MutableMapping[str, np.ndarray]):
        ``ValueError: assignment destination is read-only``.  To update
        values, build a new array and reassign the key; reassignment
        re-validates the shape and invalidates the
-       :meth:`global_range` and :meth:`global_labels` caches.
+       :meth:`global_range` and :meth:`global_labels` caches.  Only
+       the array buffer is frozen — for ``object``-dtype arrays, any
+       mutable objects stored inside remain mutable.
 
     The frame count is read live from the *frames* list so that arrays
     added after appending frames are validated against the current
