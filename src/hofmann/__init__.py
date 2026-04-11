@@ -20,7 +20,6 @@ from hofmann.construction.defaults import (
     default_bond_specs,
 )
 from hofmann.model import (
-    AtomData,
     AtomLegendItem,
     AtomStyle,
     AxesStyle,
@@ -47,7 +46,6 @@ from hofmann.construction.scene_builders import from_ase, from_pymatgen, from_xb
 from hofmann.construction.styles import StyleSet, load_styles, save_styles
 
 __all__ = [
-    "AtomData",
     "AtomLegendItem",
     "AtomStyle",
     "AxesStyle",

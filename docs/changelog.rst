@@ -1,22 +1,105 @@
 Changelog
 =========
 
+0.19.0
+------
+
+- The ``AtomData`` container is no longer re-exported from
+  ``hofmann`` or ``hofmann.model``.  The only supported way to
+  obtain an instance is to read the
+  :attr:`~hofmann.StructureScene.atom_data` property of a scene;
+  direct construction is considered an internal implementation
+  detail.  Users who imported ``AtomData`` from ``hofmann`` should
+  migrate to the :class:`~hofmann.StructureScene` write methods:
+  :meth:`~hofmann.StructureScene.set_atom_data` for assignment,
+  :meth:`~hofmann.StructureScene.del_atom_data` for targeted
+  removal, and :meth:`~hofmann.StructureScene.clear_2d_atom_data`
+  for dropping all per-frame entries at once.  The class itself
+  is documented in the API reference for inspection of instances
+  obtained via ``scene.atom_data``.
+
+- The per-atom metadata container no longer takes a ``frames``
+  argument at construction and no longer exposes an ``n_frames``
+  property.  Each write declares its expected frame count at the
+  call site; the container no longer stores any reference to the
+  scene's trajectory list.
+
+- :class:`~hofmann.StructureScene` gains
+  :meth:`~hofmann.StructureScene.del_atom_data` for targeted
+  removal of a single entry and
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data` for dropping
+  every per-frame (2-D) entry in one go while preserving static
+  per-atom (1-D) entries.
+
+- :meth:`~hofmann.StructureScene.set_atom_data` now validates the
+  prospective post-write state of the container in a single walk.
+  A 2-D input's ``shape[0]`` must equal ``len(scene.frames)``, and
+  any already-stored 2-D entry not being overridden by this write
+  must agree with the same frame count.  Mismatches raise
+  :class:`ValueError` naming the offending key and, for the
+  stale-stored case, pointing at
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data` for recovery.
+
+- A single 2-D per-atom metadata entry can now be reassigned in
+  place at a new shape after extending the trajectory::
+
+     scene.frames.append(new_frame)
+     scene.set_atom_data("energy", new_energy_at_new_shape)
+
+  The stored version of the key is treated as overridden by the
+  pending write and replaced atomically.  For scenes holding two
+  or more 2-D entries,
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data` is still
+  required before the first reassignment because the other 2-D
+  entries are now stale.  The resulting error names the stale key
+  so the user knows what to drop.
+
+- Appending to ``scene.frames`` after assigning 2-D per-atom
+  metadata used to silently leave the container holding a stale
+  array.  Rendering now raises a clear error at the start of every
+  ``render_*`` call, identifying the mismatch rather than failing
+  later with a confusing numpy ``IndexError``.
+
+- The :attr:`~hofmann.StructureScene.atom_data` property now
+  returns a read-only mapping view.  The underlying container
+  inherits from :class:`collections.abc.Mapping`, so every
+  mutation entry point raises at the Python protocol level:
+  ``scene.atom_data[key] = arr`` and
+  ``del scene.atom_data[key]`` raise :class:`TypeError`, while
+  ``scene.atom_data.pop(...)``, ``.popitem()``, ``.setdefault()``,
+  ``.update(...)``, and ``.clear()`` raise :class:`AttributeError`
+  (none of those methods exist on a ``Mapping``).  Use the scene's
+  write methods instead.
+
+- The :attr:`~hofmann.StructureScene.atom_data` setter has been
+  removed.  ``scene.atom_data = ...`` raises
+  :class:`AttributeError`.
+
+- The ``repr`` of ``scene.atom_data`` now includes array shape
+  information::
+
+     >>> scene.atom_data
+     AtomData({'charge': (3,), 'energy': (5, 3)})
+
+  Previously only the keys were shown.
+
 0.18.0
 ------
 
-- :class:`~hofmann.AtomData` now exposes derived per-key metadata via
-  read-only mapping attributes ``ranges`` and ``labels``, replacing the
-  previous ``global_range()`` and ``global_labels()`` methods.  Callers
-  migrate with a direct substitution: ``ad.global_range(key)`` becomes
-  ``ad.ranges[key]``, and ``ad.global_labels(key)`` becomes
-  ``ad.labels[key]``.  The results are computed eagerly on assignment,
-  so every access is a simple dictionary lookup.
+- The ``AtomData`` container now exposes derived per-key metadata
+  via read-only mapping attributes ``ranges`` and ``labels``,
+  replacing the previous ``global_range()`` and ``global_labels()``
+  methods.  Callers migrate with a direct substitution:
+  ``ad.global_range(key)`` becomes ``ad.ranges[key]``, and
+  ``ad.global_labels(key)`` becomes ``ad.labels[key]``.  The
+  results are computed eagerly on assignment, so every access is a
+  simple dictionary lookup.
 
-- :class:`~hofmann.AtomData` rejects unsupported dtypes at assignment
-  time with a clear error message.  Supported dtypes are bool,
-  integer, float, string, and object; complex, datetime, bytes, and
-  other dtypes now raise :class:`ValueError` at assignment rather
-  than failing later in the rendering pipeline.
+- The ``AtomData`` container rejects unsupported dtypes at
+  assignment time with a clear error message.  Supported dtypes
+  are bool, integer, float, string, and object; complex, datetime,
+  bytes, and other dtypes now raise :class:`ValueError` at
+  assignment rather than failing later in the rendering pipeline.
 
 - ``resolve_atom_colours`` is no longer part of the public API.
   Colour resolution goes through the :class:`~hofmann.StructureScene`
@@ -29,7 +112,8 @@ Changelog
   read-only.  In-place mutation of a returned array raises
   ``ValueError: assignment destination is read-only`` instead of
   silently bypassing shape validation and cache invalidation.  Update
-  values by building a new array and reassigning the key.
+  values by building a new array and passing it through
+  :meth:`~hofmann.StructureScene.set_atom_data`.
 
 0.16.0
 ------
@@ -59,10 +143,10 @@ Changelog
   exporting trajectories as GIF or MP4 animations.
 
 - :attr:`~hofmann.StructureScene.atom_data` is now a validated
-  :class:`~hofmann.AtomData` container that checks array shapes on
-  assignment.  It also accepts 2-D arrays of shape
-  ``(n_frames, n_atoms)`` so that colourmap-based colouring can vary
-  per frame in animations and the interactive viewer.
+  ``AtomData`` container that checks array shapes on assignment.
+  It also accepts 2-D arrays of shape ``(n_frames, n_atoms)`` so
+  that colourmap-based colouring can vary per frame in animations
+  and the interactive viewer.
 
 0.14.2
 ------

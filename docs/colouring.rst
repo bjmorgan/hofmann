@@ -11,6 +11,41 @@ Use :meth:`~hofmann.StructureScene.set_atom_data` to attach a named
 array and the ``colour_by`` parameter on
 :meth:`~hofmann.StructureScene.render_mpl` to activate it.
 
+The scene exposes three methods for managing per-atom metadata:
+
+- :meth:`~hofmann.StructureScene.set_atom_data` adds or replaces a
+  named entry.  1-D arrays of length ``n_atoms`` are stored as
+  static values; 2-D arrays of shape ``(n_frames, n_atoms)`` give
+  per-frame values for trajectories and animations.
+- :meth:`~hofmann.StructureScene.del_atom_data` removes a single
+  entry by key.
+- :meth:`~hofmann.StructureScene.clear_2d_atom_data` drops every
+  per-frame (2-D) entry in one go while leaving static per-atom
+  (1-D) entries untouched.  It is required when two or more 2-D
+  entries exist and the trajectory has been extended, because
+  every stored 2-D entry is now stale and each must be
+  replaced.
+
+After extending the trajectory with a single 2-D entry stored,
+:meth:`~hofmann.StructureScene.set_atom_data` can be called
+directly with the new shape -- the stored version of the key is
+replaced atomically::
+
+   scene.frames.append(new_frame)
+   scene.set_atom_data("energy", new_energy_2d)  # in-place replace
+
+When two or more 2-D entries are stored, drop them all first::
+
+   scene.frames.append(new_frame)
+   scene.clear_2d_atom_data()
+   scene.set_atom_data("energy", new_energy_2d)
+   scene.set_atom_data("forces", new_forces_2d)
+
+The container itself is a read-only mapping: direct assignment
+(``scene.atom_data[key] = ...``) and ``del scene.atom_data[key]``
+are not supported -- always go through the three scene methods
+above.
+
 Continuous data
 ---------------
 

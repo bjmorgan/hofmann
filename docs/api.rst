@@ -40,6 +40,9 @@ Data model
 .. autoclass:: ViewState
    :members:
 
+.. autoclass:: hofmann.model.atom_data.AtomData
+   :members: n_atoms, ranges, labels
+
 
 Rendering
 ---------

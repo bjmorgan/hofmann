@@ -5,7 +5,6 @@ Everything is re-exported here so that ``from hofmann.model import
 BondSpec`` continues to work.
 """
 
-from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import Bond, BondSpec
 from hofmann.model.colour import (
@@ -33,7 +32,6 @@ from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
 
 __all__ = [
-    "AtomData",
     "AtomLegendItem",
     "AtomStyle",
     "AxesStyle",

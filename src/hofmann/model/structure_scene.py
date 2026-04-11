@@ -35,8 +35,10 @@ class StructureScene:
         polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
-        atom_data: :class:`AtomData` container for per-atom metadata
-            arrays keyed by name.
+        atom_data: Per-atom metadata container: read-only view with a
+            Mapping-style interface.  See :meth:`set_atom_data`,
+            :meth:`del_atom_data`, and :meth:`clear_2d_atom_data` for
+            modifications.
     """
 
     def __init__(
@@ -74,12 +76,13 @@ class StructureScene:
                 )
 
         # Build validated AtomData container.
-        self._atom_data = AtomData(
-            n_atoms=n_atoms, frames=self.frames,
-        )
+        self._atom_data = AtomData(n_atoms=n_atoms)
         if atom_data is not None:
-            for key, arr in atom_data.items():
-                self._atom_data[key] = arr
+            for key, arr_like in atom_data.items():
+                arr = np.asarray(arr_like)
+                self._atom_data._set(
+                    key, arr, expected_frames=len(self.frames)
+                )
 
     @property
     def view(self) -> ViewState:
@@ -93,7 +96,7 @@ class StructureScene:
             if isinstance(value, tuple):
                 hint = (
                     " (hint: render_mpl_interactive() returns a"
-                    " (ViewState, RenderStyle) tuple — did you forget"
+                    " (ViewState, RenderStyle) tuple; did you forget"
                     " to unpack it?)"
                 )
             raise TypeError(
@@ -123,25 +126,32 @@ class StructureScene:
 
     @property
     def atom_data(self) -> AtomData:
-        """Per-atom metadata container.
+        """Return a read-only mapping view of per-atom metadata.
 
-        Each value is either a 1-D array of length ``n_atoms`` (same
-        every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
-        (per-frame values).  Use :meth:`set_atom_data` to populate
-        this and ``colour_by`` on the render methods to visualise it.
-        Stored arrays are returned read-only; see :class:`AtomData`
-        for how to update values.
+        Each stored value is either a 1-D array of length ``n_atoms``
+        (static across the trajectory) or a 2-D array of shape
+        ``(len(self.frames), n_atoms)`` (per-frame values).  The 2-D
+        shape is checked against the trajectory length at two
+        points: by :meth:`set_atom_data` at assignment time, and by
+        the private ``_validate_for_render`` helper at the start of
+        every public ``render_*`` call.  Mutating ``self.frames``
+        after a 2-D assignment leaves the container temporarily out
+        of sync until the next render call raises, or until a
+        :meth:`set_atom_data` call (with
+        :meth:`clear_2d_atom_data` first if more than one 2-D entry
+        is stored) restores consistency.
+
+        Stored arrays are returned read-only.  The property has no
+        setter; ``scene.atom_data = ...`` raises ``AttributeError``.
+        The container itself exposes only
+        :class:`~collections.abc.Mapping` reads, so
+        ``scene.atom_data[key] = ...`` raises ``TypeError`` and
+        ``scene.atom_data.pop(...)`` raises ``AttributeError``.  Use
+        ``colour_by`` on the render methods to visualise a key, and
+        see :meth:`set_atom_data`, :meth:`del_atom_data`, and
+        :meth:`clear_2d_atom_data` for all modifications.
         """
         return self._atom_data
-
-    @atom_data.setter
-    def atom_data(self, value: object) -> None:
-        if not isinstance(value, AtomData):
-            raise TypeError(
-                f"atom_data must be an AtomData instance, "
-                f"got {type(value).__name__}"
-            )
-        self._atom_data = value
 
     @classmethod
     def from_xbs(
@@ -326,7 +336,7 @@ class StructureScene:
         Atom styles are merged (existing species keep their styles
         unless overridden).  Bond specs and polyhedra are replaced
         entirely.  The ``render_style`` section, if present in the
-        file, is ignored — pass it to the render call instead.
+        file, is ignored; pass it to the render call instead.
 
         Args:
             path: Source file path.
@@ -372,6 +382,22 @@ class StructureScene:
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
+        Canonical write entry point for per-atom metadata.  The
+        container is otherwise read-only: to remove a single entry
+        use :meth:`del_atom_data`, and to bulk-drop all 2-D entries
+        (for example after extending the trajectory) use
+        :meth:`clear_2d_atom_data`.
+
+        A 2-D *values* array is validated in a single walk against
+        the container's prospective post-write state: the new array
+        must have ``shape[0] == len(self.frames)``, and any other
+        stored 2-D entry not being overridden must agree.  For the
+        common single-2-D-entry case, this means an in-place
+        reassignment at a new shape after ``scene.frames.append(...)``
+        just works -- the stored version of *key* is treated as
+        overridden and skipped.  Multi-entry scenes still need
+        :meth:`clear_2d_atom_data` to drop the other stale entries.
+
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
@@ -386,10 +412,22 @@ class StructureScene:
                 strings).
 
         Raises:
-            ValueError: If an array-like has the wrong length or shape,
-                or a dict contains indices outside the valid range.
+            ValueError: If an array-like has the wrong length or
+                shape for *n_atoms*, if a 2-D array's leading
+                dimension does not match ``len(self.frames)``, if a
+                non-overridden stored 2-D entry is stale relative to
+                ``len(self.frames)`` (the error names the stale key
+                and points at :meth:`clear_2d_atom_data` for
+                recovery), if the coerced array has an unsupported
+                dtype (only bool, integer, float, string, and object
+                are accepted), or if a dict contains indices outside
+                the valid range.
             TypeError: If a dict contains a mixture of string and
                 numeric values.
+
+        See Also:
+            :meth:`del_atom_data`: Remove a single entry.
+            :meth:`clear_2d_atom_data`: Remove all 2-D entries.
         """
         n_atoms = len(self.species)
 
@@ -422,7 +460,60 @@ class StructureScene:
         else:
             arr = np.asarray(values)
 
-        self.atom_data[key] = arr
+        self._atom_data._set(
+            key, arr, expected_frames=len(self.frames)
+        )
+
+    def del_atom_data(self, key: str) -> None:
+        """Remove a per-atom metadata entry.
+
+        Args:
+            key: The metadata key to remove.
+
+        Raises:
+            KeyError: If *key* is not present in :attr:`atom_data`.
+
+        See Also:
+            :meth:`set_atom_data`: Canonical write entry point.
+            :meth:`clear_2d_atom_data`: Remove all 2-D entries at once.
+        """
+        self._atom_data._del(key)
+
+    def clear_2d_atom_data(self) -> None:
+        """Remove all 2-D per-atom metadata entries, preserving 1-D.
+
+        Required when two or more 2-D entries are stored and the
+        trajectory has been extended: every stored 2-D entry is now
+        stale relative to ``len(self.frames)``, so each must be
+        replaced before the next render.  For scenes with a single
+        2-D entry, :meth:`set_atom_data` can reassign the key
+        directly at the new shape -- the stored version is treated
+        as overridden by the pending write -- and this method is
+        unnecessary.
+
+        Multi-entry recovery workflow::
+
+            scene.frames.append(new_frame)
+            scene.clear_2d_atom_data()
+            scene.set_atom_data("energy", new_energy_2d)
+            scene.set_atom_data("forces", new_forces_2d)
+            scene.render_mpl(...)
+
+        See Also:
+            :meth:`set_atom_data`: Canonical write entry point; also
+                handles single-entry in-place reassignment.
+            :meth:`del_atom_data`: Remove a single entry.
+        """
+        self._atom_data._clear_2d()
+
+    def _validate_for_render(self) -> None:
+        """Raise if atom_data is incompatible with ``len(self.frames)``.
+
+        Called as the first action of every public ``render_*``
+        method.  Backstop for the specific case where ``self.frames``
+        is mutated after the last :meth:`set_atom_data`.
+        """
+        self._atom_data._check_2d_consistency(len(self.frames))
 
     def render_mpl(
         self,
@@ -466,7 +557,7 @@ class StructureScene:
                 species-based colouring is used.  When a list, layers
                 are tried in priority order and the first non-missing
                 value determines the atom's colour.
-            cmap: A :type:`CmapSpec` — matplotlib colourmap name
+            cmap: A :type:`CmapSpec`: matplotlib colourmap name
                 (e.g. ``"viridis"``), ``Colormap`` object, or callable
                 mapping a float in ``[0, 1]`` to an ``(r, g, b)``
                 tuple.  When *colour_by* is a list, *cmap* may also
@@ -484,6 +575,8 @@ class StructureScene:
         See Also:
             :func:`hofmann.rendering.static.render_mpl`
         """
+        self._validate_for_render()
+
         from hofmann.rendering.static import render_mpl
 
         return render_mpl(
@@ -531,7 +624,7 @@ class StructureScene:
             colour_by: Key (or list of keys) into :attr:`atom_data`
                 to colour atoms by.  When a list, layers are tried in
                 priority order.
-            cmap: A :type:`CmapSpec` — colourmap name, object, or
+            cmap: A :type:`CmapSpec`: colourmap name, object, or
                 callable.  When *colour_by* is a list, may also be a
                 list of the same length.
             colour_range: Explicit ``(vmin, vmax)`` for numerical
@@ -547,6 +640,8 @@ class StructureScene:
         See Also:
             :func:`hofmann.rendering.interactive.render_mpl_interactive`
         """
+        self._validate_for_render()
+
         from hofmann.rendering.interactive import render_mpl_interactive
 
         return render_mpl_interactive(
@@ -595,7 +690,7 @@ class StructureScene:
             background: Background colour.
             colour_by: Key (or list of keys) into :attr:`atom_data`
                 to colour atoms by.
-            cmap: A :type:`CmapSpec` — colourmap name, object, or
+            cmap: A :type:`CmapSpec`: colourmap name, object, or
                 callable.
             colour_range: Explicit ``(vmin, vmax)`` for numerical
                 data.
@@ -615,6 +710,8 @@ class StructureScene:
         See Also:
             :func:`hofmann.rendering.animation.render_animation`
         """
+        self._validate_for_render()
+
         from hofmann.rendering.animation import render_animation
 
         return render_animation(

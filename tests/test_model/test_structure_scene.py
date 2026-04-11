@@ -3,9 +3,28 @@
 import numpy as np
 import pytest
 
+from hofmann.construction.defaults import default_atom_style
 from hofmann.model.frame import Frame
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
+
+
+def _make_scene(
+    *,
+    n_atoms: int = 3,
+    n_frames: int = 3,
+) -> StructureScene:
+    """Build a minimal scene with *n_atoms* carbons across *n_frames* frames."""
+    species = ["C"] * n_atoms
+    frames = [
+        Frame(coords=np.zeros((n_atoms, 3)))
+        for _ in range(n_frames)
+    ]
+    return StructureScene(
+        species=species,
+        frames=frames,
+        atom_styles={"C": default_atom_style("C")},
+    )
 
 
 class TestStructureScene:
@@ -151,14 +170,6 @@ class TestStructureScene:
             ],
         )
         assert len(scene.frames) == 2
-
-    def test_atom_data_rejects_non_atomdata(self):
-        coords = np.zeros((2, 3))
-        scene = StructureScene(
-            species=["A", "B"], frames=[Frame(coords=coords)],
-        )
-        with pytest.raises(TypeError, match="AtomData"):
-            scene.atom_data = {}
 
     def test_atom_data_2d_constructor_accepted(self):
         coords = np.zeros((2, 3))
@@ -317,3 +328,129 @@ class TestSetAtomData:
         scene.set_atom_data("site", values)
         assert scene.atom_data["site"].shape == (2, 3)
         assert scene.atom_data["site"][0, 1] == "8b"
+
+
+class TestAtomDataWriteMethods:
+    """Tests for del_atom_data, clear_2d_atom_data, setter removal."""
+
+    # del_atom_data
+
+    def test_del_atom_data_removes_entry(self):
+        scene = _make_scene()
+        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
+        scene.del_atom_data("charge")
+        assert "charge" not in scene.atom_data
+
+    def test_del_atom_data_missing_key_raises(self):
+        scene = _make_scene()
+        with pytest.raises(KeyError):
+            scene.del_atom_data("missing")
+
+    # clear_2d_atom_data
+
+    def test_clear_2d_atom_data(self):
+        scene = _make_scene(n_frames=5)
+        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
+        scene.set_atom_data("energy", np.zeros((5, 3)))
+        scene.set_atom_data("forces", np.ones((5, 3)))
+        scene.clear_2d_atom_data()
+        # 2-D entries gone
+        assert "energy" not in scene.atom_data
+        assert "forces" not in scene.atom_data
+        # 1-D entry preserved
+        np.testing.assert_array_equal(
+            scene.atom_data["charge"], [1.0, 2.0, 3.0]
+        )
+
+    # Setter removal
+
+    def test_atom_data_setter_removed(self):
+        scene = _make_scene()
+        with pytest.raises(AttributeError, match="has no setter"):
+            scene.atom_data = None  # type: ignore[misc]
+
+
+class TestValidateForRender:
+    """Unit and integration tests for scene-level render-time validation."""
+
+    def _stale_scene(self) -> StructureScene:
+        scene = _make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        return scene
+
+    # --- Unit test directly on the helper ---
+
+    def test_validate_for_render_raises_on_stale_2d(self):
+        """Direct unit test on the helper, bypassing the render
+        stack.  Faster and narrower than the end-to-end integration
+        tests, and guards against a refactor that reshuffles how
+        ``render_*`` call the helper without changing the helper
+        itself."""
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
+        ):
+            scene._validate_for_render()
+
+    # --- End-to-end integration tests, one per render method ---
+
+    def test_render_mpl_raises_on_stale_2d(self, tmp_path):
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
+        ):
+            scene.render_mpl(output=tmp_path / "out.svg")
+
+    def test_render_mpl_interactive_raises_on_stale_2d(self):
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
+        ):
+            scene.render_mpl_interactive()
+
+    def test_render_animation_raises_on_stale_2d(self, tmp_path):
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
+        ):
+            scene.render_animation(output=tmp_path / "out.gif")
+
+    # --- Recovery workflow end-to-end test ---
+
+    def test_render_mpl_succeeds_after_recovery(self, tmp_path):
+        scene = self._stale_scene()
+        scene.clear_2d_atom_data()
+        scene.set_atom_data("energy", np.zeros((4, 3)))
+        scene.render_mpl(output=tmp_path / "out.svg")
+
+    def test_render_mpl_succeeds_after_in_place_reassign(self, tmp_path):
+        """End-to-end: single 2-D entry can be re-set in place at a
+        new shape after extending scene.frames, without
+        clear_2d_atom_data."""
+        scene = _make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        # No clear_2d_atom_data -- the single entry is overridden by
+        # the pending write and replaced atomically.
+        scene.set_atom_data("energy", np.ones((4, 3)))
+        scene.render_mpl(output=tmp_path / "out.svg")
+        assert scene.atom_data["energy"].shape == (4, 3)
+
+    def test_in_place_reassign_names_other_stale_key(self):
+        """When a second 2-D entry is stale, the error names that
+        entry -- not the one being reassigned -- so the user knows
+        which key still needs attention."""
+        scene = _make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.set_atom_data("forces", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'forces'.*3 frames.*4 frames were expected",
+        ):
+            scene.set_atom_data("energy", np.ones((4, 3)))

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, MutableMapping
+from collections.abc import Iterator, Mapping
 from types import MappingProxyType
 
 import numpy as np
@@ -22,11 +22,10 @@ def _compute_global_range(
         return None
     if arr.size == 0:
         return None
-    with np.errstate(all="ignore"):
-        lo = float(np.nanmin(arr))
-        hi = float(np.nanmax(arr))
-    if np.isnan(lo):
+    if np.all(np.isnan(arr)):
         return None
+    lo = float(np.nanmin(arr))
+    hi = float(np.nanmax(arr))
     return (lo, hi)
 
 
@@ -58,47 +57,83 @@ def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
     return tuple(seen)
 
 
-class AtomData(MutableMapping[str, np.ndarray]):
-    """Validated mapping of named per-atom arrays.
+class AtomData(Mapping[str, np.ndarray]):
+    """Per-atom metadata container.
 
-    Every value must be a numpy array of shape ``(n_atoms,)`` (static)
-    or ``(n_frames, n_atoms)`` (per-frame).  Assigned values are always
-    copied via :func:`numpy.array` — including existing numpy arrays —
-    so the container owns the buffer and the caller's source array is
+    The supported way to obtain an ``AtomData`` is via
+    :attr:`~hofmann.StructureScene.atom_data`; the class is not
+    re-exported from ``hofmann`` or ``hofmann.model``, and direct
+    construction is considered an internal implementation detail.
+    User-facing access goes through
+    :attr:`~hofmann.StructureScene.atom_data` for reads,
+    :meth:`~hofmann.StructureScene.set_atom_data`,
+    :meth:`~hofmann.StructureScene.del_atom_data`, and
+    :meth:`~hofmann.StructureScene.clear_2d_atom_data` for writes.
+
+    Stores named per-atom arrays.  Each value is either a 1-D array
+    of shape ``(n_atoms,)`` (static across the trajectory) or a 2-D
+    array of shape ``(m, n_atoms)`` where ``m`` is the trajectory
+    length the caller declares at write time via the
+    ``expected_frames`` kwarg on ``_set``.  All stored 2-D entries
+    in a single container must share the same ``m``; this cross-
+    entry invariant is enforced at assignment.
+
+    The container holds no cached frame count between calls; each
+    ``_set`` is told ``expected_frames`` by the caller, and the
+    invariant is re-derived from the stored data on every call.
+    Frame consistency is enforced at two sites:
+
+    - At assignment, via ``_set`` calling ``_check_2d_consistency``
+      with ``pending={key: arr}``, validating the prospective
+      post-write state against ``expected_frames``.  Both the
+      incoming array and any already-stored 2-D entries not being
+      overridden are checked.
+    - At render, via
+      :meth:`~hofmann.StructureScene.render_mpl` (and friends)
+      calling the scene's private ``_validate_for_render`` helper,
+      which in turn calls ``_check_2d_consistency`` with no
+      ``pending``.  This validates the current stored state against
+      ``len(scene.frames)`` as a backstop that catches the specific
+      case where ``scene.frames`` is mutated after the last write
+      but before the next render.
+
+    Inherits from :class:`collections.abc.Mapping` (not
+    :class:`~collections.abc.MutableMapping`).  Mutation goes
+    through the private ``_set``, ``_del``, and ``_clear_2d``
+    methods; no ``ad[key] = value`` or ``del ad[key]`` shortcut
+    exists.  Assigned values are always copied via
+    :func:`numpy.array` -- including existing numpy arrays -- so
+    the container owns the buffer and the caller's source array is
     left untouched.
 
     .. note::
 
-       Stored arrays are returned read-only.  In-place mutation (e.g.
-       ``ad["charge"][0] = 99``) raises
-       ``ValueError: assignment destination is read-only``.  To update
-       values, build a new array and reassign the key; reassignment
-       re-validates the shape and recomputes the :attr:`ranges` and
-       :attr:`labels` entries.  Only the array buffer is frozen — for
-       ``object``-dtype arrays, any mutable objects stored inside
-       remain mutable.
-
-    The frame count is read live from the *frames* list so that arrays
-    added after appending frames are validated against the current
-    trajectory length.  However, existing 2-D arrays are not
-    re-validated when frames are appended — re-assign them after
-    changing the trajectory length.
+       Stored arrays are returned read-only.  In-place mutation
+       (e.g. ``ad["charge"][0] = 99``) raises
+       ``ValueError: assignment destination is read-only``.  To
+       update values, pass a fresh array through
+       :meth:`~hofmann.StructureScene.set_atom_data`, which
+       re-validates the shape and recomputes the :attr:`ranges`
+       and :attr:`labels` entries for the key.  Only the array
+       buffer is frozen -- for ``object``-dtype arrays, any
+       mutable objects stored inside remain mutable.
 
     Attributes:
+        n_atoms: The number of atoms the container was built for.
+            Fixed at construction and not mutable.
         ranges: Read-only mapping of keys to ``(min, max)`` tuples
-            for 2-D numeric arrays, or ``None`` for keys that do not
-            have a meaningful numeric range (1-D arrays, categorical
-            arrays, empty arrays, all-NaN numeric arrays).  Entries
-            are added on assignment, replaced on reassignment, and
-            removed on deletion.
+            for 2-D numeric arrays, or ``None`` for keys that do
+            not have a meaningful numeric range (1-D arrays,
+            categorical arrays, empty arrays, all-NaN numeric
+            arrays).  Entries are added on assignment, replaced on
+            reassignment, and removed on deletion.
         labels: Read-only mapping of keys to tuples of unique
-            non-missing categorical labels across all frames, or
-            ``None`` for keys without a meaningful label set (1-D
-            arrays, numeric dtypes, categorical arrays with no
-            non-missing values).  Missing values (``None``, ``""``,
-            NaN) are excluded from the label set.  Entries are added
-            on assignment, replaced on reassignment, and removed on
-            deletion.
+            non-missing categorical labels, or ``None`` for keys
+            without a meaningful label set (1-D arrays, numeric
+            dtypes, categorical arrays with no non-missing values).
+            Missing values (``None``, ``""``, NaN) are excluded
+            from the label set.  Entries are added on assignment,
+            replaced on reassignment, and removed on deletion.
 
     For 2-D arrays, ``ranges`` is populated for numeric dtypes and
     ``labels`` for categorical dtypes; the other side is always
@@ -107,16 +142,16 @@ class AtomData(MutableMapping[str, np.ndarray]):
     are ``None``.
 
     Args:
-        n_atoms: Number of atoms in the scene.
-        frames: The scene's live frame list.  The length of this list
-            is used for 2-D array validation.
+        n_atoms: Number of atoms in the scene.  Non-negative.
+
+    Raises:
+        ValueError: If *n_atoms* is negative.
     """
 
-    def __init__(self, *, n_atoms: int, frames: list) -> None:
+    def __init__(self, *, n_atoms: int) -> None:
         if n_atoms < 0:
             raise ValueError(f"n_atoms must be non-negative, got {n_atoms}")
         self._n_atoms = n_atoms
-        self._frames = frames
         self._data: dict[str, np.ndarray] = {}
         self._ranges: dict[str, tuple[float, float] | None] = {}
         self._labels: dict[str, tuple[str, ...] | None] = {}
@@ -132,10 +167,6 @@ class AtomData(MutableMapping[str, np.ndarray]):
         return self._n_atoms
 
     @property
-    def n_frames(self) -> int:
-        return len(self._frames)
-
-    @property
     def ranges(self) -> Mapping[str, tuple[float, float] | None]:
         return self._ranges_view
 
@@ -143,8 +174,124 @@ class AtomData(MutableMapping[str, np.ndarray]):
     def labels(self) -> Mapping[str, tuple[str, ...] | None]:
         return self._labels_view
 
-    def __setitem__(self, key: str, value: object) -> None:
+    def _check_2d_consistency(
+        self,
+        expected: int,
+        *,
+        pending: Mapping[str, np.ndarray] | None = None,
+    ) -> None:
+        """Check the 2-D shape invariant against *expected* for the
+        prospective post-operation state.
+
+        The prospective state is the current stored state with any
+        keys in *pending* treated as overrides: a pending entry
+        replaces the stored entry of the same key (for reassignment)
+        or adds a new entry (for a first write).  Stored entries
+        whose keys appear in *pending* are skipped during validation
+        because they will no longer exist in the post-operation
+        state.
+
+        Called at two sites, both with ``expected=len(scene.frames)``:
+
+        - ``_set`` with ``pending={key: arr}`` to validate the state
+          that would result from storing *arr* under *key*.
+        - ``StructureScene._validate_for_render`` with no *pending*
+          (current stored state is the prospective state) at the
+          start of every public ``render_*`` method.
+
+        Pending entries are checked before stored entries so that a
+        user passing a wrong-shape array gets an actionable
+        call-site error, not a confusing stale-stored error.
+
+        Stored entries form an equivalence class under the cross-
+        entry invariant (all 2-D share the same ``shape[0]``), so
+        once the walk finds a non-overridden 2-D entry that passes,
+        it short-circuits -- any other non-overridden 2-D entries
+        would report the same shape.
+
+        Args:
+            expected: The ``shape[0]`` value to check against.
+            pending: Optional mapping of keys to arrays being
+                written.  Pending arrays with ``ndim != 2`` are
+                ignored for this check.
+
+        Raises:
+            ValueError: If any pending or non-overridden stored 2-D
+                entry has ``shape[0] != expected``.
+        """
+        pending = pending or {}
+        # Check pending entries first: errors on these are caused by
+        # the user's current call, so their messages are the most
+        # actionable.
+        for pending_key, arr in pending.items():
+            if arr.ndim == 2 and arr.shape[0] != expected:
+                raise ValueError(
+                    f"atom_data[{pending_key!r}] has {arr.shape[0]} "
+                    f"rows but {expected} frames were expected"
+                )
+        # Then check stored entries, skipping any overridden by
+        # pending: those stored entries will be replaced by the
+        # operation that is about to complete.
+        for stored_key, arr in self._data.items():
+            if stored_key in pending:
+                continue
+            if arr.ndim == 2:
+                if arr.shape[0] != expected:
+                    raise ValueError(
+                        f"atom_data has stale 2-D entry "
+                        f"{stored_key!r} sized for {arr.shape[0]} "
+                        f"frames, but {expected} frames were "
+                        f"expected; call "
+                        f"scene.clear_2d_atom_data() to recover "
+                        f"before reassigning"
+                    )
+                return
+
+    def _set(
+        self,
+        key: str,
+        value: object,
+        *,
+        expected_frames: int,
+    ) -> None:
+        """Store *value* under *key* with full validation.
+
+        Private internal write method called from ``StructureScene``
+        plumbing (``set_atom_data``, ``__init__``), not part of any
+        public protocol.  The container inherits from
+        :class:`~collections.abc.Mapping` (not
+        :class:`~collections.abc.MutableMapping`), so there is no
+        ``ad[key] = value`` shortcut for users.
+
+        For 2-D values, the post-operation state (the current stored
+        state with *key* replaced by *value*) must have every 2-D
+        entry sized for *expected_frames*.  This catches both
+        user-supplied arrays that do not match the scene's
+        trajectory and stale stored entries left over from an
+        earlier ``scene.frames`` mutation.  Reassigning a single 2-D
+        entry with a new shape is allowed when it is the only 2-D
+        entry, because the stored entry for *key* is treated as
+        overridden by the pending write and skipped during the walk.
+
+        Args:
+            key: Entry key.
+            value: Array-like input.
+            expected_frames: The scene's current ``len(frames)``;
+                required on every call because the container exists
+                only to back a scene.
+
+        Raises:
+            ValueError: If *value* does not coerce to a 1-D array of
+                length ``n_atoms`` or a 2-D array of shape
+                ``(expected_frames, n_atoms)``, if a non-overridden
+                stored 2-D entry is stale relative to
+                *expected_frames*, or if the value has an
+                unsupported dtype (only bool, integer, float,
+                string, and object are accepted).
+        """
         arr = np.array(value)
+        # Input validation: ndim and per-atom shape.  Pure function of
+        # *value*; no dependence on stored state.
         if arr.ndim == 1:
             if len(arr) != self._n_atoms:
                 raise ValueError(
@@ -152,11 +299,6 @@ class AtomData(MutableMapping[str, np.ndarray]):
                     f"{self._n_atoms}, got {len(arr)}"
                 )
         elif arr.ndim == 2:
-            if arr.shape[0] != self.n_frames:
-                raise ValueError(
-                    f"atom_data[{key!r}] has {arr.shape[0]} rows but "
-                    f"scene has {self.n_frames} frames"
-                )
             if arr.shape[1] != self._n_atoms:
                 raise ValueError(
                     f"atom_data[{key!r}] must have {self._n_atoms} "
@@ -167,11 +309,24 @@ class AtomData(MutableMapping[str, np.ndarray]):
                 f"atom_data[{key!r}] must be 1-D or 2-D, "
                 f"got {arr.ndim}-D"
             )
+        # Input validation: dtype whitelist.  Also a pure function of
+        # *value*.  Must fire before any state-dependent check so a
+        # user passing a bad-dtype array is told about the dtype
+        # directly, rather than being sent on an unnecessary
+        # ``clear_2d_atom_data()`` recovery for a write that was
+        # never going to land.
         if arr.dtype.kind not in ("b", "i", "u", "f", "U", "O"):
             raise ValueError(
                 f"atom_data[{key!r}] has unsupported dtype "
                 f"{arr.dtype}; supported dtypes are bool, integer, "
                 f"float, string, and object"
+            )
+        # State-dependent invariant: pending shape against expected
+        # frames, and any non-overridden stored 2-D entries.  Runs
+        # after all input checks so input errors take priority.
+        if arr.ndim == 2:
+            self._check_2d_consistency(
+                expected_frames, pending={key: arr}
             )
         arr.flags.writeable = False
         new_range = _compute_global_range(arr)
@@ -183,10 +338,41 @@ class AtomData(MutableMapping[str, np.ndarray]):
     def __getitem__(self, key: str) -> np.ndarray:
         return self._data[key]
 
-    def __delitem__(self, key: str) -> None:
+    def _del(self, key: str) -> None:
+        """Remove an entry by key.
+
+        Private internal delete method called from ``StructureScene``
+        plumbing (``del_atom_data`` and ``clear_2d_atom_data``), not
+        part of any public protocol.  The container inherits from
+        :class:`~collections.abc.Mapping` (not
+        :class:`~collections.abc.MutableMapping`), so there is no
+        ``del ad[key]`` shortcut for users.
+
+        Raises:
+            KeyError: If *key* is not present.
+        """
         del self._data[key]
         del self._ranges[key]
         del self._labels[key]
+
+    def _clear_2d(self) -> None:
+        """Remove all 2-D entries, leaving 1-D entries untouched.
+
+        Private helper called from
+        :meth:`~hofmann.StructureScene.clear_2d_atom_data`.  After this method
+        runs, the cross-entry 2-D shape constraint is released, so a
+        subsequent ``_set`` with a 2-D array of any ``shape[0]``
+        will succeed.  1-D entries and their derived ``ranges`` /
+        ``labels`` metadata are preserved.
+
+        Uses ``_del`` internally so all bookkeeping for removed
+        entries stays in one place.
+        """
+        keys_to_delete = [
+            k for k, v in self._data.items() if v.ndim == 2
+        ]
+        for key in keys_to_delete:
+            self._del(key)
 
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
@@ -195,5 +381,10 @@ class AtomData(MutableMapping[str, np.ndarray]):
         return len(self._data)
 
     def __repr__(self) -> str:
-        keys = ", ".join(repr(k) for k in self._data)
-        return f"AtomData({{{keys}}})"
+        if not self._data:
+            return "AtomData()"
+        items = [
+            f"{key!r}: {arr.shape}"
+            for key, arr in self._data.items()
+        ]
+        return f"AtomData({{{', '.join(items)}}})"
