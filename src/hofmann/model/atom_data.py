@@ -144,6 +144,22 @@ class _AtomData(Mapping[str, np.ndarray]):
         return self._labels_view
 
     def _set(self, key: str, value: object) -> None:
+        """Store *value* under *key* with full validation.
+
+        Private internal write method called from ``StructureScene``
+        plumbing (``set_atom_data``, ``del_atom_data``,
+        ``clear_2d_atom_data``), not part of any public protocol.  The
+        container inherits from :class:`~collections.abc.Mapping` (not
+        :class:`~collections.abc.MutableMapping`), so there is no
+        ``ad[key] = value`` shortcut for users.
+
+        Raises:
+            ValueError: If *value* does not coerce to a 1-D array of
+                length ``n_atoms`` or a 2-D array of shape
+                ``(n_frames, n_atoms)``, or has an unsupported dtype
+                (only bool, integer, float, string, and object are
+                accepted).
+        """
         arr = np.array(value)
         if arr.ndim == 1:
             if len(arr) != self._n_atoms:
@@ -184,6 +200,18 @@ class _AtomData(Mapping[str, np.ndarray]):
         return self._data[key]
 
     def _del(self, key: str) -> None:
+        """Remove an entry by key.
+
+        Private internal delete method called from ``StructureScene``
+        plumbing (``del_atom_data`` and ``clear_2d_atom_data``), not
+        part of any public protocol.  The container inherits from
+        :class:`~collections.abc.Mapping` (not
+        :class:`~collections.abc.MutableMapping`), so there is no
+        ``del ad[key]`` shortcut for users.
+
+        Raises:
+            KeyError: If *key* is not present.
+        """
         del self._data[key]
         del self._ranges[key]
         del self._labels[key]

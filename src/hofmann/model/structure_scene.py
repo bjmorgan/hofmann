@@ -35,8 +35,10 @@ class StructureScene:
         polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
-        atom_data: :class:`_AtomData` container for per-atom metadata
-            arrays keyed by name.
+        atom_data: Per-atom metadata container: read-only view with a
+            Mapping-style interface.  See :meth:`set_atom_data`,
+            :meth:`del_atom_data`, and :meth:`clear_2d_atom_data` for
+            modifications.
     """
 
     def __init__(
@@ -123,14 +125,14 @@ class StructureScene:
 
     @property
     def atom_data(self) -> _AtomData:
-        """Per-atom metadata container.
+        """Per-atom metadata container: read-only view with a Mapping-style interface.
 
         Each value is either a 1-D array of length ``n_atoms`` (same
         every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
-        (per-frame values).  Use :meth:`set_atom_data` to populate
-        this and ``colour_by`` on the render methods to visualise it.
-        Stored arrays are returned read-only; see :class:`_AtomData`
-        for how to update values.
+        (per-frame values).  Stored arrays are returned read-only.
+        Use ``colour_by`` on the render methods to visualise a key.
+        See :meth:`set_atom_data`, :meth:`del_atom_data`, and
+        :meth:`clear_2d_atom_data` for modifications.
         """
         return self._atom_data
 

@@ -342,7 +342,7 @@ class TestAtomData:
     def test_bracket_delete_raises(self):
         ad = _make_atom_data(n_atoms=3, n_frames=1)
         ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="does not support item deletion"):
             del ad["charge"]  # type: ignore[attr-defined]
 
     def test_pop_not_available(self):
@@ -369,3 +369,17 @@ class TestAtomData:
         ad = _make_atom_data(n_atoms=3, n_frames=1)
         with pytest.raises(AttributeError):
             ad.clear()  # type: ignore[attr-defined]
+
+    def test_inherits_from_mapping_not_mutable_mapping(self):
+        """Pin the base-class switch directly.
+
+        The whole point of inheriting from :class:`Mapping` (not
+        :class:`MutableMapping`) is that the container has no public
+        mutation interface. Individual ``__setitem__`` / ``__delitem__``
+        / ``pop`` / etc. absence tests cover specific names; this test
+        pins the structural decision.
+        """
+        from collections.abc import Mapping, MutableMapping
+        ad = _AtomData(n_atoms=3, frames=[])
+        assert isinstance(ad, Mapping)
+        assert not isinstance(ad, MutableMapping)
