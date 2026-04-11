@@ -18,44 +18,57 @@ Changelog
   is documented in the API reference for inspection of instances
   obtained via ``scene.atom_data``.
 
-- The per-atom metadata container is now frame-agnostic.  It no
-  longer takes a ``frames`` argument at construction and no longer
-  exposes an ``n_frames`` property.  Frame consistency between
-  stored 2-D data and the scene's trajectory length is enforced at
-  the start of every public ``render_*`` method on
-  :class:`~hofmann.StructureScene`, rather than inside the
-  container.
+- The per-atom metadata container no longer takes a ``frames``
+  argument at construction and no longer exposes an ``n_frames``
+  property.  Each write declares its expected frame count at the
+  call site; the container no longer stores any reference to the
+  scene's trajectory list.
 
 - :class:`~hofmann.StructureScene` gains
   :meth:`~hofmann.StructureScene.del_atom_data` for targeted
   removal of a single entry and
   :meth:`~hofmann.StructureScene.clear_2d_atom_data` for dropping
   every per-frame (2-D) entry in one go while preserving static
-  per-atom (1-D) entries.  Use the latter after extending the
-  trajectory with ``scene.frames.append(...)`` and before
-  reassigning 2-D arrays at the new shape.
+  per-atom (1-D) entries.
 
-- :meth:`~hofmann.StructureScene.set_atom_data` now performs an
-  explicit ``shape[0] == len(scene.frames)`` check on 2-D array
-  inputs before storing them.  Mismatches raise
-  :class:`ValueError` naming the key, the input shape, and the
-  current frame count.
+- :meth:`~hofmann.StructureScene.set_atom_data` now validates the
+  prospective post-write state of the container in a single walk.
+  A 2-D input's ``shape[0]`` must equal ``len(scene.frames)``, and
+  any already-stored 2-D entry not being overridden by this write
+  must agree with the same frame count.  Mismatches raise
+  :class:`ValueError` naming the offending key and, for the
+  stale-stored case, pointing at
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data` for recovery.
+
+- A single 2-D per-atom metadata entry can now be reassigned in
+  place at a new shape after extending the trajectory::
+
+     scene.frames.append(new_frame)
+     scene.set_atom_data("energy", new_energy_at_new_shape)
+
+  The stored version of the key is treated as overridden by the
+  pending write and replaced atomically.  For scenes holding two
+  or more 2-D entries,
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data` is still
+  required before the first reassignment because the other 2-D
+  entries are now stale.  The resulting error names the stale key
+  so the user knows what to drop.
 
 - Appending to ``scene.frames`` after assigning 2-D per-atom
   metadata used to silently leave the container holding a stale
   array.  Rendering now raises a clear error at the start of every
   ``render_*`` call, identifying the mismatch rather than failing
-  later with a confusing numpy ``IndexError``.  The recovery
-  workflow is
-  :meth:`~hofmann.StructureScene.clear_2d_atom_data` followed by
-  :meth:`~hofmann.StructureScene.set_atom_data` at the new shape.
+  later with a confusing numpy ``IndexError``.
 
 - The :attr:`~hofmann.StructureScene.atom_data` property now
   returns a read-only mapping view.  The underlying container
-  inherits from :class:`collections.abc.Mapping`, so direct
-  mutation (``scene.atom_data[key] = arr``,
-  ``del scene.atom_data[key]``, ``scene.atom_data.pop(...)``,
-  etc.) raises at the Python protocol level.  Use the scene's
+  inherits from :class:`collections.abc.Mapping`, so every
+  mutation entry point raises at the Python protocol level:
+  ``scene.atom_data[key] = arr`` and
+  ``del scene.atom_data[key]`` raise :class:`TypeError`, while
+  ``scene.atom_data.pop(...)``, ``.popitem()``, ``.setdefault()``,
+  ``.update(...)``, and ``.clear()`` raise :class:`AttributeError`
+  (none of those methods exist on a ``Mapping``).  Use the scene's
   write methods instead.
 
 - The :attr:`~hofmann.StructureScene.atom_data` setter has been
@@ -99,7 +112,8 @@ Changelog
   read-only.  In-place mutation of a returned array raises
   ``ValueError: assignment destination is read-only`` instead of
   silently bypassing shape validation and cache invalidation.  Update
-  values by building a new array and reassigning the key.
+  values by building a new array and passing it through
+  :meth:`~hofmann.StructureScene.set_atom_data`.
 
 0.16.0
 ------

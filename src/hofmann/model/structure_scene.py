@@ -129,22 +129,24 @@ class StructureScene:
         """Return a read-only mapping view of per-atom metadata.
 
         Each stored value is either a 1-D array of length ``n_atoms``
-        (static across the trajectory) or a 2-D array whose first
-        dimension is expected to match ``len(self.frames)``.  The 2-D
-        shape match is validated at assignment time against the
-        trajectory length at that moment, and re-verified at the
-        start of every public ``render_*`` call; appending to
-        ``self.frames`` after a 2-D assignment leaves the container
-        temporarily out of sync until the next render call catches it
-        and raises, or until :meth:`clear_2d_atom_data` followed by a
-        fresh :meth:`set_atom_data` at the new shape restores
-        consistency.
+        (static across the trajectory) or a 2-D array of shape
+        ``(len(self.frames), n_atoms)`` (per-frame values).  The 2-D
+        shape is checked against the trajectory length at two
+        points: by :meth:`set_atom_data` at assignment time, and by
+        the private ``_validate_for_render`` helper at the start of
+        every public ``render_*`` call.  Mutating ``self.frames``
+        after a 2-D assignment leaves the container temporarily out
+        of sync until the next render call raises, or until a
+        :meth:`set_atom_data` call (with
+        :meth:`clear_2d_atom_data` first if more than one 2-D entry
+        is stored) restores consistency.
 
         Stored arrays are returned read-only.  The property has no
         setter; ``scene.atom_data = ...`` raises ``AttributeError``.
         The container itself exposes only
         :class:`~collections.abc.Mapping` reads, so
-        ``scene.atom_data[key] = ...`` is not supported either.  Use
+        ``scene.atom_data[key] = ...`` raises ``TypeError`` and
+        ``scene.atom_data.pop(...)`` raises ``AttributeError``.  Use
         ``colour_by`` on the render methods to visualise a key, and
         see :meth:`set_atom_data`, :meth:`del_atom_data`, and
         :meth:`clear_2d_atom_data` for all modifications.
@@ -381,14 +383,20 @@ class StructureScene:
         """Set per-atom metadata for colourmap-based rendering.
 
         Canonical write entry point for per-atom metadata.  The
-        container is otherwise read-only: to remove a single entry use
-        :meth:`del_atom_data`, and to bulk-drop all 2-D entries (e.g.
-        after extending the trajectory) use
+        container is otherwise read-only: to remove a single entry
+        use :meth:`del_atom_data`, and to bulk-drop all 2-D entries
+        (for example after extending the trajectory) use
         :meth:`clear_2d_atom_data`.
 
-        A 2-D *values* array is validated against ``len(self.frames)``
-        before storage, in addition to the cross-entry 2-D consistency
-        check performed by the underlying container.
+        A 2-D *values* array is validated in a single walk against
+        the container's prospective post-write state: the new array
+        must have ``shape[0] == len(self.frames)``, and any other
+        stored 2-D entry not being overridden must agree.  For the
+        common single-2-D-entry case, this means an in-place
+        reassignment at a new shape after ``scene.frames.append(...)``
+        just works -- the stored version of *key* is treated as
+        overridden and skipped.  Multi-entry scenes still need
+        :meth:`clear_2d_atom_data` to drop the other stale entries.
 
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
@@ -404,10 +412,16 @@ class StructureScene:
                 strings).
 
         Raises:
-            ValueError: If an array-like has the wrong length or shape,
-                if a 2-D array's leading dimension does not match
-                ``len(self.frames)``, or if a dict contains indices
-                outside the valid range.
+            ValueError: If an array-like has the wrong length or
+                shape for *n_atoms*, if a 2-D array's leading
+                dimension does not match ``len(self.frames)``, if a
+                non-overridden stored 2-D entry is stale relative to
+                ``len(self.frames)`` (the error names the stale key
+                and points at :meth:`clear_2d_atom_data` for
+                recovery), if the coerced array has an unsupported
+                dtype (only bool, integer, float, string, and object
+                are accepted), or if a dict contains indices outside
+                the valid range.
             TypeError: If a dict contains a mixture of string and
                 numeric values.
 
@@ -480,23 +494,14 @@ class StructureScene:
             :meth:`set_atom_data`: Canonical write entry point.
             :meth:`del_atom_data`: Remove a single entry.
         """
-        self._atom_data.clear_2d()
+        self._atom_data._clear_2d()
 
     def _validate_for_render(self) -> None:
-        """Raise if atom_data is incompatible with the current trajectory.
+        """Raise if atom_data is incompatible with ``len(self.frames)``.
 
         Called as the first action of every public ``render_*``
-        method.  Delegates to the container's
-        ``_check_2d_consistency`` with ``len(self.frames)`` as the
-        expected frame count and no *pending* overrides, so the
-        current stored state is validated as-is.  Fires exactly once
-        per user-facing render invocation, before any per-frame work
-        begins, so a stale scene fails fast without partially
-        initialising figures or animation writers.
-
-        Raises:
-            ValueError: If the container has a 2-D entry whose
-                ``shape[0]`` does not equal ``len(self.frames)``.
+        method.  Backstop for the specific case where ``self.frames``
+        is mutated after the last :meth:`set_atom_data`.
         """
         self._atom_data._check_2d_consistency(len(self.frames))
 

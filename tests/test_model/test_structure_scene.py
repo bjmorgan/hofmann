@@ -414,3 +414,30 @@ class TestValidateForRender:
         scene.clear_2d_atom_data()
         scene.set_atom_data("energy", np.zeros((4, 3)))
         scene.render_mpl(output=tmp_path / "out.svg")
+
+    def test_render_mpl_succeeds_after_in_place_reassign(self, tmp_path):
+        """End-to-end: single 2-D entry can be re-set in place at a
+        new shape after extending scene.frames, without
+        clear_2d_atom_data."""
+        scene = _make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        # No clear_2d_atom_data -- the single entry is overridden by
+        # the pending write and replaced atomically.
+        scene.set_atom_data("energy", np.ones((4, 3)))
+        scene.render_mpl(output=tmp_path / "out.svg")
+        assert scene.atom_data["energy"].shape == (4, 3)
+
+    def test_in_place_reassign_names_other_stale_key(self):
+        """When a second 2-D entry is stale, the error names that
+        entry -- not the one being reassigned -- so the user knows
+        which key still needs attention."""
+        scene = _make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.set_atom_data("forces", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'forces'.*3 frames.*4 frames were expected",
+        ):
+            scene.set_atom_data("energy", np.ones((4, 3)))

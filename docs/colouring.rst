@@ -21,13 +21,25 @@ The scene exposes three methods for managing per-atom metadata:
   entry by key.
 - :meth:`~hofmann.StructureScene.clear_2d_atom_data` drops every
   per-frame (2-D) entry in one go while leaving static per-atom
-  (1-D) entries untouched.  Use this after extending the
-  trajectory, when stored 2-D arrays no longer match the new
-  frame count::
+  (1-D) entries untouched.  It is required when two or more 2-D
+  entries exist and the trajectory has been extended, because
+  every stored 2-D entry is now stale and each must be
+  replaced.
 
-     scene.frames.append(new_frame)
-     scene.clear_2d_atom_data()
-     scene.set_atom_data("energy", new_energy_2d)
+After extending the trajectory with a single 2-D entry stored,
+:meth:`~hofmann.StructureScene.set_atom_data` can be called
+directly with the new shape -- the stored version of the key is
+replaced atomically::
+
+   scene.frames.append(new_frame)
+   scene.set_atom_data("energy", new_energy_2d)  # in-place replace
+
+When two or more 2-D entries are stored, drop them all first::
+
+   scene.frames.append(new_frame)
+   scene.clear_2d_atom_data()
+   scene.set_atom_data("energy", new_energy_2d)
+   scene.set_atom_data("forces", new_forces_2d)
 
 The container itself is a read-only mapping: direct assignment
 (``scene.atom_data[key] = ...``) and ``del scene.atom_data[key]``

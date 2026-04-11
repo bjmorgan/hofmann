@@ -403,18 +403,39 @@ class TestAtomData:
         assert repr(ad) == "AtomData({'charge': (3,), 'energy': (5, 3)})"
 
     def test_bracket_assignment_raises(self):
+        """``ad[key] = value`` raises TypeError at the bytecode
+        level because ``Mapping`` defines no ``__setitem__``."""
         ad = _make_atom_data(n_atoms=3)
         with pytest.raises(TypeError, match="does not support item assignment"):
             ad["charge"] = np.array([1.0, 2.0, 3.0])  # type: ignore[index]
 
-    def test_inherits_from_mapping_not_mutable_mapping(self):
-        """Pin the base-class switch directly.
+    def test_bracket_del_raises(self):
+        """``del ad[key]`` raises TypeError at the bytecode level
+        because ``Mapping`` defines no ``__delitem__``."""
+        ad = _make_atom_data(n_atoms=3)
+        ad._set("charge", np.array([1.0, 2.0, 3.0]), expected_frames=1)
+        with pytest.raises(TypeError, match="does not support item deletion"):
+            del ad["charge"]  # type: ignore[attr-defined]
 
-        The whole point of inheriting from :class:`Mapping` (not
-        :class:`MutableMapping`) is that the container has no public
-        mutation interface. Individual ``__setitem__`` / ``__delitem__``
-        / ``pop`` / etc. absence tests cover specific names; this test
-        pins the structural decision.
+    @pytest.mark.parametrize(
+        "method_name",
+        ["__setitem__", "__delitem__", "pop", "popitem",
+         "setdefault", "update", "clear"],
+    )
+    def test_mutable_mapping_methods_absent(self, method_name):
+        """Pin the concrete absence of each ``MutableMapping`` entry
+        point.  A future refactor that accidentally added any of
+        these would silently reopen the mutation surface; the
+        ``isinstance(_, MutableMapping)`` check alone would not
+        catch an ad-hoc method added without inheriting the mixin.
+        """
+        ad = _make_atom_data(n_atoms=3)
+        assert not hasattr(ad, method_name)
+
+    def test_inherits_from_mapping_not_mutable_mapping(self):
+        """Pin the base-class switch directly.  Per-method absence
+        is covered by ``test_mutable_mapping_methods_absent``; this
+        pins the structural decision at the isinstance level.
         """
         from collections.abc import Mapping, MutableMapping
         ad = AtomData(n_atoms=3)
@@ -425,6 +446,19 @@ class TestAtomData:
         """Passing frames= raises TypeError (API removed)."""
         with pytest.raises(TypeError):
             AtomData(n_atoms=3, frames=[])  # type: ignore[call-arg]
+
+    def test_atom_data_not_importable_from_top_level(self):
+        """The class is deliberately kept out of ``hofmann.__all__``
+        and ``hofmann.model.__all__`` so users cannot construct one
+        at the top-level import path; the supported way to obtain an
+        instance is via :attr:`StructureScene.atom_data`.
+        """
+        import hofmann
+        import hofmann.model
+        assert "AtomData" not in getattr(hofmann, "__all__", [])
+        assert "AtomData" not in getattr(hofmann.model, "__all__", [])
+        assert not hasattr(hofmann, "AtomData")
+        assert not hasattr(hofmann.model, "AtomData")
 
     def test_set_rejects_2d_wrong_new_shape(self):
         """New 2-D array with shape[0] != expected_frames raises."""
@@ -448,18 +482,20 @@ class TestAtomData:
         Exercises the cross-entry branch of ``_set``: the new array
         matches *expected_frames*, but an already-stored 2-D entry
         does not.  This is the post-``scene.frames.append(...)``
-        scenario from #69.
+        scenario from #69.  The error message pins the key name,
+        both frame counts, and the recovery-advice tail pointing at
+        ``clear_2d_atom_data`` so a future reword does not silently
+        drop the user-actionable part of the message.
         """
         ad = AtomData(n_atoms=3)
         ad._set("foo", np.zeros((3, 3)), expected_frames=3)
-        with pytest.raises(
-            ValueError,
-            match=(
-                r"stale 2-D entry 'foo' sized for 3 frames, but 4 "
-                r"frames were expected"
-            ),
-        ):
+        with pytest.raises(ValueError) as exc_info:
             ad._set("bar", np.ones((4, 3)), expected_frames=4)
+        message = str(exc_info.value)
+        assert "stale 2-D entry 'foo'" in message
+        assert "3 frames" in message
+        assert "4 frames were expected" in message
+        assert "clear_2d_atom_data" in message
 
     def test_del_last_2d_releases_shape_constraint(self):
         """After deleting the only 2-D entry, a new 2-D with any
@@ -469,6 +505,34 @@ class TestAtomData:
         ad._del("foo")
         ad._set("foo", np.ones((4, 3)), expected_frames=4)
         assert ad["foo"].shape == (4, 3)
+
+    def test_del_2d_preserves_constraint_when_others_remain(self):
+        """Deleting one 2-D entry does not release the cross-entry
+        constraint when others remain; a subsequent 2-D set with a
+        non-matching ``expected_frames`` still raises."""
+        ad = AtomData(n_atoms=3)
+        ad._set("energy", np.zeros((5, 3)), expected_frames=5)
+        ad._set("forces", np.zeros((5, 3)), expected_frames=5)
+        ad._del("energy")
+        # "forces" still stored at shape (5, 3); a new 2-D at a
+        # different expected_frames must fail on the stored entry.
+        with pytest.raises(
+            ValueError, match=r"stale 2-D entry 'forces'"
+        ):
+            ad._set("new", np.ones((4, 3)), expected_frames=4)
+
+    def test_set_2d_nested_list_coerced(self):
+        """2-D nested-list input is coerced to an ndarray before
+        shape inspection.  Catches refactors that move shape checks
+        ahead of the ``np.array(value)`` coercion."""
+        ad = AtomData(n_atoms=3)
+        ad._set(
+            "val", [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]], expected_frames=2
+        )
+        assert ad["val"].shape == (2, 3)
+        np.testing.assert_array_equal(
+            ad["val"], [[1.0, 2.0, 3.0], [4.0, 5.0, 6.0]]
+        )
 
     def test_in_place_reassign_same_key_new_shape_succeeds(self):
         """Reassigning a 2-D entry in place with a new shape is
@@ -529,7 +593,7 @@ class TestAtomData:
         )  # 1-D
         ad._set("energy", np.zeros((5, 3)), expected_frames=5)  # 2-D
         ad._set("forces", np.ones((5, 3)), expected_frames=5)  # 2-D
-        ad.clear_2d()
+        ad._clear_2d()
         # 2-D entries gone
         assert "energy" not in ad
         assert "forces" not in ad
@@ -539,7 +603,7 @@ class TestAtomData:
     def test_clear_2d_allows_new_shape(self):
         ad = AtomData(n_atoms=3)
         ad._set("energy", np.zeros((5, 3)), expected_frames=5)
-        ad.clear_2d()
+        ad._clear_2d()
         # Constraint released; a differently-shaped 2-D is now accepted
         ad._set("forces", np.ones((7, 3)), expected_frames=7)
         assert ad["forces"].shape == (7, 3)

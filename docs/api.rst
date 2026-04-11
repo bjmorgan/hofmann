@@ -41,7 +41,7 @@ Data model
    :members:
 
 .. autoclass:: hofmann.model.atom_data.AtomData
-   :members:
+   :members: n_atoms, ranges, labels
 
 
 Rendering

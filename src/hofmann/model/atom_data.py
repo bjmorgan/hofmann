@@ -60,13 +60,10 @@ def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
 class AtomData(Mapping[str, np.ndarray]):
     """Per-atom metadata container.
 
-    Obtained via :attr:`~hofmann.StructureScene.atom_data`; do not
-    instantiate directly.  Construction is considered an internal
-    implementation detail and the class is not exported from
-    ``hofmann`` or ``hofmann.model`` -- the only supported way to
-    obtain an ``AtomData`` is to read the ``atom_data`` property of a
-    scene.
-
+    The supported way to obtain an ``AtomData`` is via
+    :attr:`~hofmann.StructureScene.atom_data`; the class is not
+    re-exported from ``hofmann`` or ``hofmann.model``, and direct
+    construction is considered an internal implementation detail.
     User-facing access goes through
     :attr:`~hofmann.StructureScene.atom_data` for reads,
     :meth:`~hofmann.StructureScene.set_atom_data`,
@@ -75,37 +72,55 @@ class AtomData(Mapping[str, np.ndarray]):
 
     Stores named per-atom arrays.  Each value is either a 1-D array
     of shape ``(n_atoms,)`` (static across the trajectory) or a 2-D
-    array of shape ``(m, n_atoms)`` where ``m`` matches the
-    trajectory length at assignment time.  All stored 2-D entries in
-    a single container must share the same ``m``; this cross-entry
-    invariant is enforced on assignment by walking the stored data
-    via ``_check_2d_consistency``.  No cached frame count
-    is kept.  The container itself does not know about the scene's
-    trajectory -- frame consistency between stored 2-D data and the
-    scene's current ``len(scene.frames)`` is enforced at the scene's
-    public ``render_*`` methods via
-    ``StructureScene._validate_for_render``, not here.
+    array of shape ``(m, n_atoms)`` where ``m`` is the trajectory
+    length the caller declares at write time via the
+    ``expected_frames`` kwarg on ``_set``.  All stored 2-D entries
+    in a single container must share the same ``m``; this cross-
+    entry invariant is enforced at assignment.
+
+    The container holds no cached frame count between calls; each
+    ``_set`` is told ``expected_frames`` by the caller, and the
+    invariant is re-derived from the stored data on every call.
+    Frame consistency is enforced at two sites:
+
+    - At assignment, via ``_set`` calling ``_check_2d_consistency``
+      with ``pending={key: arr}``, validating the prospective
+      post-write state against ``expected_frames``.  Both the
+      incoming array and any already-stored 2-D entries not being
+      overridden are checked.
+    - At render, via
+      :meth:`~hofmann.StructureScene.render_mpl` (and friends)
+      calling the scene's private ``_validate_for_render`` helper,
+      which in turn calls ``_check_2d_consistency`` with no
+      ``pending``.  This validates the current stored state against
+      ``len(scene.frames)`` as a backstop that catches the specific
+      case where ``scene.frames`` is mutated after the last write
+      but before the next render.
 
     Inherits from :class:`collections.abc.Mapping` (not
     :class:`~collections.abc.MutableMapping`).  Mutation goes
-    through the private ``_set`` and ``_del`` methods;
-    there is no ``ad[key] = value`` or ``del ad[key]`` shortcut.
-    Assigned values are always copied via :func:`numpy.array` --
-    including existing numpy arrays -- so the container owns the
-    buffer and the caller's source array is left untouched.
+    through the private ``_set``, ``_del``, and ``_clear_2d``
+    methods; no ``ad[key] = value`` or ``del ad[key]`` shortcut
+    exists.  Assigned values are always copied via
+    :func:`numpy.array` -- including existing numpy arrays -- so
+    the container owns the buffer and the caller's source array is
+    left untouched.
 
     .. note::
 
        Stored arrays are returned read-only.  In-place mutation
        (e.g. ``ad["charge"][0] = 99``) raises
        ``ValueError: assignment destination is read-only``.  To
-       update values, build a new array and reassign the key via
-       ``_set``; reassignment re-validates the shape and
-       recomputes the :attr:`ranges` and :attr:`labels` entries.
-       Only the array buffer is frozen -- for ``object``-dtype
-       arrays, any mutable objects stored inside remain mutable.
+       update values, pass a fresh array through
+       :meth:`~hofmann.StructureScene.set_atom_data`, which
+       re-validates the shape and recomputes the :attr:`ranges`
+       and :attr:`labels` entries for the key.  Only the array
+       buffer is frozen -- for ``object``-dtype arrays, any
+       mutable objects stored inside remain mutable.
 
     Attributes:
+        n_atoms: The number of atoms the container was built for.
+            Fixed at construction and not mutable.
         ranges: Read-only mapping of keys to ``(min, max)`` tuples
             for 2-D numeric arrays, or ``None`` for keys that do
             not have a meaningful numeric range (1-D arrays,
@@ -340,7 +355,7 @@ class AtomData(Mapping[str, np.ndarray]):
         del self._ranges[key]
         del self._labels[key]
 
-    def clear_2d(self) -> None:
+    def _clear_2d(self) -> None:
         """Remove all 2-D entries, leaving 1-D entries untouched.
 
         Private helper called from
