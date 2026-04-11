@@ -12,6 +12,12 @@ Changelog
   ``ad.labels[key]``.  The results are computed eagerly on assignment,
   so every access is a simple dictionary lookup.
 
+- :class:`~hofmann.AtomData` rejects unsupported dtypes at assignment
+  time with a clear error message.  Supported dtypes are bool,
+  integer, float, string, and object; complex, datetime, bytes, and
+  other dtypes now raise :class:`ValueError` at assignment rather
+  than failing later in the rendering pipeline.
+
 0.17.0
 ------
 

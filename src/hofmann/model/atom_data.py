@@ -15,11 +15,10 @@ def _compute_global_range(
 ) -> tuple[float, float] | None:
     """Compute the global ``(min, max)`` for a 2-D numeric array.
 
-    Returns ``None`` for 1-D arrays, non-numeric dtypes (anything
-    other than bool, int, or float), empty arrays, or arrays where
-    every value is NaN.
+    Returns ``None`` for 1-D arrays, categorical (string/object)
+    dtypes, empty arrays, or arrays where every value is NaN.
     """
-    if arr.ndim != 2 or arr.dtype.kind not in ("b", "i", "u", "f"):
+    if arr.ndim != 2 or arr.dtype.kind in ("U", "O"):
         return None
     if arr.size == 0:
         return None
@@ -80,12 +79,10 @@ class AtomData(MutableMapping[str, np.ndarray]):
     Attributes:
         ranges: Read-only mapping of keys to ``(min, max)`` tuples
             for 2-D numeric arrays, or ``None`` for keys that do not
-            have a meaningful numeric range (1-D arrays, non-numeric
-            dtypes, empty arrays, all-NaN numeric arrays).  "Numeric"
-            here means bool, integer, or floating-point; complex,
-            datetime, bytes, and other dtypes are stored without a
-            computed range.  Entries are added on assignment,
-            replaced on reassignment, and removed on deletion.
+            have a meaningful numeric range (1-D arrays, categorical
+            arrays, empty arrays, all-NaN numeric arrays).  Entries
+            are added on assignment, replaced on reassignment, and
+            removed on deletion.
         labels: Read-only mapping of keys to tuples of unique
             non-missing categorical labels across all frames, or
             ``None`` for keys without a meaningful label set (1-D
@@ -155,6 +152,12 @@ class AtomData(MutableMapping[str, np.ndarray]):
             raise ValueError(
                 f"atom_data[{key!r}] must be 1-D or 2-D, "
                 f"got {arr.ndim}-D"
+            )
+        if arr.dtype.kind not in ("b", "i", "u", "f", "U", "O"):
+            raise ValueError(
+                f"atom_data[{key!r}] has unsupported dtype "
+                f"{arr.dtype}; supported dtypes are bool, integer, "
+                f"float, string, and object"
             )
         arr.flags.writeable = False
         new_range = _compute_global_range(arr)
