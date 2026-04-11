@@ -80,8 +80,9 @@ class StructureScene:
         if atom_data is not None:
             for key, arr_like in atom_data.items():
                 arr = np.asarray(arr_like)
-                self._check_2d_atom_data_shape(key, arr)
-                self._atom_data._set(key, arr)
+                self._atom_data._set(
+                    key, arr, expected_frames=len(self.frames)
+                )
 
     @property
     def view(self) -> ViewState:
@@ -445,9 +446,9 @@ class StructureScene:
         else:
             arr = np.asarray(values)
 
-        self._check_2d_atom_data_shape(key, arr)
-
-        self._atom_data._set(key, arr)
+        self._atom_data._set(
+            key, arr, expected_frames=len(self.frames)
+        )
 
     def del_atom_data(self, key: str) -> None:
         """Remove a per-atom metadata entry.
@@ -481,39 +482,23 @@ class StructureScene:
         """
         self._atom_data.clear_2d()
 
-    def _check_2d_atom_data_shape(
-        self, key: str, arr: np.ndarray
-    ) -> None:
-        """Raise if *arr* is a 2-D array whose first dimension does
-        not match ``len(self.frames)``.
-
-        Called from :meth:`set_atom_data` and from the atom_data
-        dict loop in :meth:`__init__`, both of which need to reject
-        mismatched 2-D arrays before they reach the container's
-        ``_set`` method.  1-D arrays are always accepted here.
-        """
-        if arr.ndim == 2 and arr.shape[0] != len(self.frames):
-            raise ValueError(
-                f"atom_data[{key!r}] has {arr.shape[0]} rows but "
-                f"scene has {len(self.frames)} frames"
-            )
-
     def _validate_for_render(self) -> None:
         """Raise if atom_data is incompatible with the current trajectory.
 
         Called as the first action of every public ``render_*``
         method.  Delegates to the container's
-        ``_check_frames_compatibility`` with ``len(self.frames)`` as
-        the expected frame count.  Fires exactly once per user-facing
-        render invocation, before any per-frame work begins, so a
-        stale scene fails fast without partially initialising figures
-        or animation writers.
+        ``_check_2d_consistency`` with ``len(self.frames)`` as the
+        expected frame count and no *pending* overrides, so the
+        current stored state is validated as-is.  Fires exactly once
+        per user-facing render invocation, before any per-frame work
+        begins, so a stale scene fails fast without partially
+        initialising figures or animation writers.
 
         Raises:
             ValueError: If the container has a 2-D entry whose
                 ``shape[0]`` does not equal ``len(self.frames)``.
         """
-        self._atom_data._check_frames_compatibility(len(self.frames))
+        self._atom_data._check_2d_consistency(len(self.frames))
 
     def render_mpl(
         self,

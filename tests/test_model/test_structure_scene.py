@@ -386,21 +386,24 @@ class TestValidateForRender:
     def test_render_mpl_raises_on_stale_2d(self, tmp_path):
         scene = self._stale_scene()
         with pytest.raises(
-            ValueError, match="sized for 3 frames, not 4"
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
         ):
             scene.render_mpl(output=tmp_path / "out.svg")
 
     def test_render_mpl_interactive_raises_on_stale_2d(self):
         scene = self._stale_scene()
         with pytest.raises(
-            ValueError, match="sized for 3 frames, not 4"
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
         ):
             scene.render_mpl_interactive()
 
     def test_render_animation_raises_on_stale_2d(self, tmp_path):
         scene = self._stale_scene()
         with pytest.raises(
-            ValueError, match="sized for 3 frames, not 4"
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
         ):
             scene.render_animation(output=tmp_path / "out.gif")
 

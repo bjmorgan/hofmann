@@ -79,7 +79,7 @@ class AtomData(Mapping[str, np.ndarray]):
     trajectory length at assignment time.  All stored 2-D entries in
     a single container must share the same ``m``; this cross-entry
     invariant is enforced on assignment by walking the stored data
-    via ``_check_frames_compatibility``.  No cached frame count
+    via ``_check_2d_consistency``.  No cached frame count
     is kept.  The container itself does not know about the scene's
     trajectory -- frame consistency between stored 2-D data and the
     scene's current ``len(scene.frames)`` is enforced at the scene's
@@ -159,60 +159,120 @@ class AtomData(Mapping[str, np.ndarray]):
     def labels(self) -> Mapping[str, tuple[str, ...] | None]:
         return self._labels_view
 
-    def _check_frames_compatibility(self, expected: int) -> None:
-        """Raise if any stored 2-D entry has ``shape[0] != expected``.
+    def _check_2d_consistency(
+        self,
+        expected: int,
+        *,
+        pending: Mapping[str, np.ndarray] | None = None,
+    ) -> None:
+        """Check the 2-D shape invariant against *expected* for the
+        prospective post-operation state.
 
-        Called at two sites:
+        The prospective state is the current stored state with any
+        keys in *pending* treated as overrides: a pending entry
+        replaces the stored entry of the same key (for reassignment)
+        or adds a new entry (for a first write).  Stored entries
+        whose keys appear in *pending* are skipped during validation
+        because they will no longer exist in the post-operation
+        state.
 
-        - ``_set`` with ``expected=new_arr.shape[0]`` when a 2-D
-          array is being assigned, to verify consistency with existing
-          2-D entries.
-        - ``StructureScene._validate_for_render`` with
-          ``expected=len(scene.frames)`` at the start of every public
-          ``render_*`` method, to verify the trajectory matches the
-          stored data.
+        Called at two sites, both with ``expected=len(scene.frames)``:
 
-        A no-op when the container holds no 2-D entries (the walk
-        finds nothing and returns without raising).  Because every
-        prior ``_set`` with a 2-D array has already enforced
-        cross-entry consistency, any representative 2-D entry reports
-        the correct ``shape[0]``; the walk short-circuits at the
-        first 2-D entry it finds.
+        - ``_set`` with ``pending={key: arr}`` to validate the state
+          that would result from storing *arr* under *key*.
+        - ``StructureScene._validate_for_render`` with no *pending*
+          (current stored state is the prospective state) at the
+          start of every public ``render_*`` method.
+
+        Pending entries are checked before stored entries so that a
+        user passing a wrong-shape array gets an actionable
+        call-site error, not a confusing stale-stored error.
+
+        Stored entries form an equivalence class under the cross-
+        entry invariant (all 2-D share the same ``shape[0]``), so
+        once the walk finds a non-overridden 2-D entry that passes,
+        it short-circuits -- any other non-overridden 2-D entries
+        would report the same shape.
 
         Args:
-            expected: The ``shape[0]`` value to check against stored
-                2-D entries.
+            expected: The ``shape[0]`` value to check against.
+            pending: Optional mapping of keys to arrays being
+                written.  Pending arrays with ``ndim != 2`` are
+                ignored for this check.
 
         Raises:
-            ValueError: If a stored 2-D entry has ``shape[0]`` that
-                differs from *expected*.
+            ValueError: If any pending or non-overridden stored 2-D
+                entry has ``shape[0] != expected``.
         """
-        for arr in self._data.values():
+        pending = pending or {}
+        # Check pending entries first: errors on these are caused by
+        # the user's current call, so their messages are the most
+        # actionable.
+        for pending_key, arr in pending.items():
+            if arr.ndim == 2 and arr.shape[0] != expected:
+                raise ValueError(
+                    f"atom_data[{pending_key!r}] has {arr.shape[0]} "
+                    f"rows but {expected} frames were expected"
+                )
+        # Then check stored entries, skipping any overridden by
+        # pending: those stored entries will be replaced by the
+        # operation that is about to complete.
+        for stored_key, arr in self._data.items():
+            if stored_key in pending:
+                continue
             if arr.ndim == 2:
                 if arr.shape[0] != expected:
                     raise ValueError(
-                        f"atom_data has 2-D entries sized for "
-                        f"{arr.shape[0]} frames, not {expected}"
+                        f"atom_data has stale 2-D entry "
+                        f"{stored_key!r} sized for {arr.shape[0]} "
+                        f"frames, but {expected} frames were "
+                        f"expected; call "
+                        f"StructureScene.clear_2d_atom_data() to "
+                        f"recover before reassigning"
                     )
                 return
 
-    def _set(self, key: str, value: object) -> None:
+    def _set(
+        self,
+        key: str,
+        value: object,
+        *,
+        expected_frames: int,
+    ) -> None:
         """Store *value* under *key* with full validation.
 
         Private internal write method called from ``StructureScene``
-        plumbing (``set_atom_data``, ``del_atom_data``,
-        ``clear_2d_atom_data``), not part of any public protocol.  The
-        container inherits from :class:`~collections.abc.Mapping` (not
+        plumbing (``set_atom_data``, ``__init__``), not part of any
+        public protocol.  The container inherits from
+        :class:`~collections.abc.Mapping` (not
         :class:`~collections.abc.MutableMapping`), so there is no
         ``ad[key] = value`` shortcut for users.
+
+        For 2-D values, the post-operation state (the current stored
+        state with *key* replaced by *value*) must have every 2-D
+        entry sized for *expected_frames*.  This catches both
+        user-supplied arrays that do not match the scene's
+        trajectory and stale stored entries left over from an
+        earlier ``scene.frames`` mutation.  Reassigning a single 2-D
+        entry with a new shape is allowed when it is the only 2-D
+        entry, because the stored entry for *key* is treated as
+        overridden by the pending write and skipped during the walk.
+
+        Args:
+            key: Entry key.
+            value: Array-like input.
+            expected_frames: The scene's current ``len(frames)``;
+                required on every call because the container exists
+                only to back a scene.
 
         Raises:
             ValueError: If *value* does not coerce to a 1-D array of
                 length ``n_atoms`` or a 2-D array of shape
-                ``(m, n_atoms)`` where ``m`` matches the row count of
-                any other stored 2-D entry (cross-entry compatibility
-                invariant), or has an unsupported dtype (only bool,
-                integer, float, string, and object are accepted).
+                ``(expected_frames, n_atoms)``, if a non-overridden
+                stored 2-D entry is stale relative to
+                *expected_frames*, or if the value has an
+                unsupported dtype (only bool, integer, float,
+                string, and object are accepted).
         """
         arr = np.array(value)
         if arr.ndim == 1:
@@ -227,7 +287,9 @@ class AtomData(Mapping[str, np.ndarray]):
                     f"atom_data[{key!r}] must have {self._n_atoms} "
                     f"columns (one per atom), got {arr.shape[1]}"
                 )
-            self._check_frames_compatibility(arr.shape[0])
+            self._check_2d_consistency(
+                expected_frames, pending={key: arr}
+            )
         else:
             raise ValueError(
                 f"atom_data[{key!r}] must be 1-D or 2-D, "
