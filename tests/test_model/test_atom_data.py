@@ -180,6 +180,21 @@ class TestAtomData:
         ad["val"] = np.empty((2, 0))
         assert ad.ranges["val"] is None
 
+    def test_ranges_complex_dtype_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["z"] = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])
+        assert ad.ranges["z"] is None
+
+    def test_ranges_datetime_dtype_returns_none(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["t"] = np.array(
+            [
+                [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
+                [np.datetime64("2024-01-03"), np.datetime64("2024-01-04")],
+            ]
+        )
+        assert ad.ranges["t"] is None
+
     def test_ranges_contains_every_stored_key(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
