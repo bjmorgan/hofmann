@@ -59,47 +59,61 @@ def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
 
 
 class _AtomData(Mapping[str, np.ndarray]):
-    """Validated mapping of named per-atom arrays.
+    """Internal per-atom metadata container.
 
-    Every value must be a numpy array of shape ``(n_atoms,)`` (static)
-    or ``(n_frames, n_atoms)`` (per-frame).  Assigned values are always
-    copied via :func:`numpy.array` — including existing numpy arrays —
-    so the container owns the buffer and the caller's source array is
-    left untouched.
+    Not part of the public API; constructed and owned by
+    :class:`~hofmann.StructureScene`.  User-facing access goes
+    through :attr:`StructureScene.atom_data` for reads and
+    :meth:`StructureScene.set_atom_data`,
+    :meth:`StructureScene.del_atom_data`, and
+    :meth:`StructureScene.clear_2d_atom_data` for writes.
+
+    Stores named per-atom arrays.  Each value is either a 1-D array
+    of shape ``(n_atoms,)`` (static across the trajectory) or a 2-D
+    array of shape ``(m, n_atoms)`` where ``m`` matches the
+    trajectory length at assignment time.  All stored 2-D entries in
+    a single container must share the same ``m``; this cross-entry
+    invariant is enforced on assignment by walking the stored data
+    via :meth:`_check_frames_compatibility`.  No cached frame count
+    is kept.  The container itself does not know about the scene's
+    trajectory -- frame consistency between stored 2-D data and the
+    scene's current ``len(scene.frames)`` is enforced at the scene's
+    public ``render_*`` methods via
+    :meth:`StructureScene._validate_for_render`, not here.
+
+    Inherits from :class:`collections.abc.Mapping` (not
+    :class:`~collections.abc.MutableMapping`).  Mutation goes
+    through the private :meth:`_set` and :meth:`_del` methods;
+    there is no ``ad[key] = value`` or ``del ad[key]`` shortcut.
+    Assigned values are always copied via :func:`numpy.array` --
+    including existing numpy arrays -- so the container owns the
+    buffer and the caller's source array is left untouched.
 
     .. note::
 
-       Stored arrays are returned read-only.  In-place mutation (e.g.
-       ``ad["charge"][0] = 99``) raises
-       ``ValueError: assignment destination is read-only``.  To update
-       values, build a new array and reassign the key; reassignment
-       re-validates the shape and recomputes the :attr:`ranges` and
-       :attr:`labels` entries.  Only the array buffer is frozen — for
-       ``object``-dtype arrays, any mutable objects stored inside
-       remain mutable.
-
-    The container is frame-agnostic: it stores arrays keyed by name
-    but knows only about ``n_atoms``.  The invariant that all stored
-    2-D entries share the same ``shape[0]`` is enforced on demand in
-    :meth:`_set` by walking the existing entries — no cached frame
-    count is kept.  Compatibility with a specific trajectory length is
-    checked separately by the owning scene.
+       Stored arrays are returned read-only.  In-place mutation
+       (e.g. ``ad["charge"][0] = 99``) raises
+       ``ValueError: assignment destination is read-only``.  To
+       update values, build a new array and reassign the key via
+       :meth:`_set`; reassignment re-validates the shape and
+       recomputes the :attr:`ranges` and :attr:`labels` entries.
+       Only the array buffer is frozen -- for ``object``-dtype
+       arrays, any mutable objects stored inside remain mutable.
 
     Attributes:
         ranges: Read-only mapping of keys to ``(min, max)`` tuples
-            for 2-D numeric arrays, or ``None`` for keys that do not
-            have a meaningful numeric range (1-D arrays, categorical
-            arrays, empty arrays, all-NaN numeric arrays).  Entries
-            are added on assignment, replaced on reassignment, and
-            removed on deletion.
+            for 2-D numeric arrays, or ``None`` for keys that do
+            not have a meaningful numeric range (1-D arrays,
+            categorical arrays, empty arrays, all-NaN numeric
+            arrays).  Entries are added on assignment, replaced on
+            reassignment, and removed on deletion.
         labels: Read-only mapping of keys to tuples of unique
-            non-missing categorical labels across all frames, or
-            ``None`` for keys without a meaningful label set (1-D
-            arrays, numeric dtypes, categorical arrays with no
-            non-missing values).  Missing values (``None``, ``""``,
-            NaN) are excluded from the label set.  Entries are added
-            on assignment, replaced on reassignment, and removed on
-            deletion.
+            non-missing categorical labels, or ``None`` for keys
+            without a meaningful label set (1-D arrays, numeric
+            dtypes, categorical arrays with no non-missing values).
+            Missing values (``None``, ``""``, NaN) are excluded
+            from the label set.  Entries are added on assignment,
+            replaced on reassignment, and removed on deletion.
 
     For 2-D arrays, ``ranges`` is populated for numeric dtypes and
     ``labels`` for categorical dtypes; the other side is always
@@ -108,7 +122,7 @@ class _AtomData(Mapping[str, np.ndarray]):
     are ``None``.
 
     Args:
-        n_atoms: Number of atoms in the scene.
+        n_atoms: Number of atoms in the scene.  Non-negative.
     """
 
     def __init__(self, *, n_atoms: int) -> None:
