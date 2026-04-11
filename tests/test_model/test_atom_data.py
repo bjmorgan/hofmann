@@ -319,16 +319,12 @@ class TestAtomData:
 
     def test_bracket_assignment_raises(self):
         ad = _make_atom_data(n_atoms=3)
-        # Message is CPython's default for a Mapping subclass without
-        # __setitem__; stable across versions but owned by CPython.
         with pytest.raises(TypeError, match="does not support item assignment"):
             ad["charge"] = np.array([1.0, 2.0, 3.0])  # type: ignore[index]
 
     def test_bracket_delete_raises(self):
         ad = _make_atom_data(n_atoms=3)
         ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        # Message is CPython's default for a Mapping subclass without
-        # __delitem__; stable across versions but owned by CPython.
         with pytest.raises(TypeError, match="does not support item deletion"):
             del ad["charge"]  # type: ignore[attr-defined]
 

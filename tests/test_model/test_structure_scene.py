@@ -3,6 +3,7 @@
 import numpy as np
 import pytest
 
+from hofmann.construction.defaults import default_atom_style
 from hofmann.model.frame import Frame
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
@@ -19,7 +20,11 @@ def _make_scene(
         Frame(coords=np.zeros((n_atoms, 3)))
         for _ in range(n_frames)
     ]
-    return StructureScene(species=species, frames=frames)
+    return StructureScene(
+        species=species,
+        frames=frames,
+        atom_styles={"C": default_atom_style("C")},
+    )
 
 
 class TestStructureScene:

@@ -22,11 +22,10 @@ def _compute_global_range(
         return None
     if arr.size == 0:
         return None
-    with np.errstate(all="ignore"):
-        lo = float(np.nanmin(arr))
-        hi = float(np.nanmax(arr))
-    if np.isnan(lo):
+    if np.all(np.isnan(arr)):
         return None
+    lo = float(np.nanmin(arr))
+    hi = float(np.nanmax(arr))
     return (lo, hi)
 
 
