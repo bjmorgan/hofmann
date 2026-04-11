@@ -18,10 +18,9 @@ Changelog
   other dtypes now raise :class:`ValueError` at assignment rather
   than failing later in the rendering pipeline.
 
-- ``resolve_atom_colours`` is no longer part of the public API.  It
-  was exposed before :class:`~hofmann.StructureScene` matured and
-  never developed a documented workflow; colour resolution should
-  go through the scene rendering methods.
+- ``resolve_atom_colours`` is no longer part of the public API.
+  Colour resolution goes through the :class:`~hofmann.StructureScene`
+  rendering methods.
 
 0.17.0
 ------
