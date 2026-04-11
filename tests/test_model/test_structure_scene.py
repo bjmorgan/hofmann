@@ -366,7 +366,7 @@ class TestAtomDataWriteMethods:
 
     def test_atom_data_setter_removed(self):
         scene = _make_scene()
-        with pytest.raises(AttributeError):
+        with pytest.raises(AttributeError, match="has no setter"):
             scene.atom_data = None  # type: ignore[misc]
 
 

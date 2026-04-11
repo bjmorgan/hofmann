@@ -74,16 +74,16 @@ class _AtomData(Mapping[str, np.ndarray]):
     trajectory length at assignment time.  All stored 2-D entries in
     a single container must share the same ``m``; this cross-entry
     invariant is enforced on assignment by walking the stored data
-    via :meth:`_check_frames_compatibility`.  No cached frame count
+    via ``_check_frames_compatibility``.  No cached frame count
     is kept.  The container itself does not know about the scene's
     trajectory -- frame consistency between stored 2-D data and the
     scene's current ``len(scene.frames)`` is enforced at the scene's
     public ``render_*`` methods via
-    :meth:`StructureScene._validate_for_render`, not here.
+    ``StructureScene._validate_for_render``, not here.
 
     Inherits from :class:`collections.abc.Mapping` (not
     :class:`~collections.abc.MutableMapping`).  Mutation goes
-    through the private :meth:`_set` and :meth:`_del` methods;
+    through the private ``_set`` and ``_del`` methods;
     there is no ``ad[key] = value`` or ``del ad[key]`` shortcut.
     Assigned values are always copied via :func:`numpy.array` --
     including existing numpy arrays -- so the container owns the
@@ -95,7 +95,7 @@ class _AtomData(Mapping[str, np.ndarray]):
        (e.g. ``ad["charge"][0] = 99``) raises
        ``ValueError: assignment destination is read-only``.  To
        update values, build a new array and reassign the key via
-       :meth:`_set`; reassignment re-validates the shape and
+       ``_set``; reassignment re-validates the shape and
        recomputes the :attr:`ranges` and :attr:`labels` entries.
        Only the array buffer is frozen -- for ``object``-dtype
        arrays, any mutable objects stored inside remain mutable.
@@ -159,17 +159,17 @@ class _AtomData(Mapping[str, np.ndarray]):
 
         Called at two sites:
 
-        - :meth:`_set` with ``expected=new_arr.shape[0]`` when a 2-D
+        - ``_set`` with ``expected=new_arr.shape[0]`` when a 2-D
           array is being assigned, to verify consistency with existing
           2-D entries.
-        - :meth:`StructureScene._validate_for_render` with
+        - ``StructureScene._validate_for_render`` with
           ``expected=len(scene.frames)`` at the start of every public
           ``render_*`` method, to verify the trajectory matches the
           stored data.
 
         A no-op when the container holds no 2-D entries (the walk
         finds nothing and returns without raising).  Because every
-        prior :meth:`_set` with a 2-D array has already enforced
+        prior ``_set`` with a 2-D array has already enforced
         cross-entry consistency, any representative 2-D entry reports
         the correct ``shape[0]``; the walk short-circuits at the
         first 2-D entry it finds.
@@ -267,11 +267,11 @@ class _AtomData(Mapping[str, np.ndarray]):
         Private helper called from
         :meth:`StructureScene.clear_2d_atom_data`.  After this method
         runs, the cross-entry 2-D shape constraint is released, so a
-        subsequent :meth:`_set` with a 2-D array of any ``shape[0]``
+        subsequent ``_set`` with a 2-D array of any ``shape[0]``
         will succeed.  1-D entries and their derived ``ranges`` /
         ``labels`` metadata are preserved.
 
-        Uses :meth:`_del` internally so all bookkeeping for removed
+        Uses ``_del`` internally so all bookkeeping for removed
         entries stays in one place.
         """
         keys_to_delete = [
@@ -287,6 +287,11 @@ class _AtomData(Mapping[str, np.ndarray]):
         return len(self._data)
 
     def __repr__(self) -> str:
+        # Display as "AtomData" (no underscore) even though the
+        # class is _AtomData; following stdlib precedent such as
+        # MappingProxyType displaying as "mappingproxy". Users of
+        # the StructureScene.atom_data property do not need to
+        # know the internal class name.
         if not self._data:
             return "AtomData()"
         items = [

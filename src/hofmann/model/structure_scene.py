@@ -80,11 +80,7 @@ class StructureScene:
         if atom_data is not None:
             for key, arr_like in atom_data.items():
                 arr = np.asarray(arr_like)
-                if arr.ndim == 2 and arr.shape[0] != len(self.frames):
-                    raise ValueError(
-                        f"atom_data[{key!r}] has {arr.shape[0]} rows "
-                        f"but scene has {len(self.frames)} frames"
-                    )
+                self._check_2d_atom_data_shape(key, arr)
                 self._atom_data._set(key, arr)
 
     @property
@@ -439,11 +435,7 @@ class StructureScene:
         else:
             arr = np.asarray(values)
 
-        if arr.ndim == 2 and arr.shape[0] != len(self.frames):
-            raise ValueError(
-                f"atom_data[{key!r}] has {arr.shape[0]} rows but "
-                f"scene has {len(self.frames)} frames"
-            )
+        self._check_2d_atom_data_shape(key, arr)
 
         self._atom_data._set(key, arr)
 
@@ -478,6 +470,23 @@ class StructureScene:
             :meth:`del_atom_data`: Remove a single entry.
         """
         self._atom_data.clear_2d()
+
+    def _check_2d_atom_data_shape(
+        self, key: str, arr: np.ndarray
+    ) -> None:
+        """Raise if *arr* is a 2-D array whose first dimension does
+        not match ``len(self.frames)``.
+
+        Called from :meth:`set_atom_data` and from the atom_data
+        dict loop in :meth:`__init__`, both of which need to reject
+        mismatched 2-D arrays before they reach the container's
+        ``_set`` method.  1-D arrays are always accepted here.
+        """
+        if arr.ndim == 2 and arr.shape[0] != len(self.frames):
+            raise ValueError(
+                f"atom_data[{key!r}] has {arr.shape[0]} rows but "
+                f"scene has {len(self.frames)} frames"
+            )
 
     def _validate_for_render(self) -> None:
         """Raise if atom_data is incompatible with the current trajectory.
