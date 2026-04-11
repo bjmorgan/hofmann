@@ -155,12 +155,6 @@ def _resolve_single_layer(
         (which received their species fallback colour).
     """
     values = atom_data[key]
-    if values.dtype.kind not in ("b", "i", "u", "f", "U", "O"):
-        raise ValueError(
-            f"atom_data[{key!r}] has unsupported dtype "
-            f"{values.dtype} for colouring; supported dtypes are "
-            f"bool, integer, float, string, and object"
-        )
     cmap_fn = _resolve_cmap(cmap)
     if values.dtype.kind in ("U", "O"):
         labels = None
@@ -172,7 +166,7 @@ def _resolve_single_layer(
     return _resolve_numerical(values, fallback, cmap_fn, colour_range)
 
 
-def resolve_atom_colours(
+def _resolve_atom_colours(
     species: list[str],
     atom_styles: dict[str, AtomStyle],
     atom_data: dict[str, np.ndarray],

@@ -42,7 +42,6 @@ from hofmann.model import (
     ViewState,
     WidgetCorner,
     normalise_colour,
-    resolve_atom_colours,
 )
 from hofmann.construction.scene_builders import from_ase, from_pymatgen, from_xbs
 from hofmann.construction.styles import StyleSet, load_styles, save_styles
@@ -81,6 +80,5 @@ __all__ = [
     "from_xbs",
     "load_styles",
     "normalise_colour",
-    "resolve_atom_colours",
     "save_styles",
 ]

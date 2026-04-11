@@ -12,7 +12,6 @@ from hofmann.model.colour import (
     CmapSpec,
     Colour,
     normalise_colour,
-    resolve_atom_colours,
 )
 from hofmann.model.frame import Frame
 from hofmann.model.polyhedron_spec import Polyhedron, PolyhedronSpec
@@ -56,5 +55,4 @@ __all__ = [
     "ViewState",
     "WidgetCorner",
     "normalise_colour",
-    "resolve_atom_colours",
 ]

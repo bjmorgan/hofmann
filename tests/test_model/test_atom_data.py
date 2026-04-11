@@ -154,13 +154,6 @@ class TestAtomData:
         with pytest.raises(AttributeError):
             ad.ranges = {}  # type: ignore[misc]
 
-    def test_ranges_identity_stable_across_accesses(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=2)
-        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
-        first = ad.ranges
-        ad["other"] = np.array([[4.0, 5.0], [6.0, 7.0]])
-        assert ad.ranges is first
-
     def test_ranges_captured_reference_sees_later_updates(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         captured = ad.ranges

@@ -29,8 +29,8 @@ from hofmann.model import (
     SlabClipMode,
     StructureScene,
     normalise_colour,
-    resolve_atom_colours,
 )
+from hofmann.model.colour import _resolve_atom_colours
 from hofmann._constants import DEFAULT_ATOM_RADIUS
 
 
@@ -207,7 +207,7 @@ def _precompute_scene(
 
     radii_3d = _compute_atom_radii(species, scene.atom_styles)
 
-    atom_colours = resolve_atom_colours(
+    atom_colours = _resolve_atom_colours(
         species, scene.atom_styles, atom_data,
         colour_by=colour_by, cmap=cmap, colour_range=colour_range,
         scene_atom_data=scene.atom_data,

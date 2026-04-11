@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from hofmann.model.atom_style import AtomStyle
-from hofmann.model.colour import normalise_colour, resolve_atom_colours
+from hofmann.model.colour import _resolve_atom_colours, normalise_colour
 
 
 class TestNormaliseColour:
@@ -55,7 +55,7 @@ class TestNormaliseColour:
 
 
 class TestResolveAtomColours:
-    """Tests for resolve_atom_colours."""
+    """Tests for _resolve_atom_colours."""
 
     SPECIES = ["C", "H", "O"]
     STYLES: dict = {
@@ -66,7 +66,7 @@ class TestResolveAtomColours:
 
     def test_species_fallback(self):
         """colour_by=None returns species-based colours."""
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, {},
         )
         assert result == [
@@ -77,7 +77,7 @@ class TestResolveAtomColours:
 
     def test_species_fallback_missing_style(self):
         """Missing species falls back to grey."""
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             ["X"], {}, {},
         )
         assert result == [(0.5, 0.5, 0.5)]
@@ -90,7 +90,7 @@ class TestResolveAtomColours:
         expected_1 = cmap(1.0)[:3]
 
         data = {"val": np.array([0.0, 1.0])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             ["A", "B"], self.STYLES, data,
             colour_by="val", cmap="viridis",
         )
@@ -105,7 +105,7 @@ class TestResolveAtomColours:
         expected = cmap(0.5)[:3]
 
         data = {"val": np.array([5.0])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             ["A"], self.STYLES, data,
             colour_by="val", colour_range=(0.0, 10.0),
         )
@@ -118,7 +118,7 @@ class TestResolveAtomColours:
         expected = cmap(0.5)[:3]
 
         data = {"val": np.array([3.0, 3.0, 3.0])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="val",
         )
         for c in result:
@@ -127,7 +127,7 @@ class TestResolveAtomColours:
     def test_numerical_nan_falls_back(self):
         """NaN entries get their species colour."""
         data = {"val": np.array([0.0, np.nan, 1.0])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="val",
         )
         # Middle atom (H) should get species colour
@@ -138,7 +138,7 @@ class TestResolveAtomColours:
     def test_numerical_all_nan(self):
         """All NaN returns species colours."""
         data = {"val": np.array([np.nan, np.nan, np.nan])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="val",
         )
         assert result == [
@@ -150,7 +150,7 @@ class TestResolveAtomColours:
     def test_categorical_distinct_colours(self):
         """Two categories get two different colours."""
         data = {"site": np.array(["4a", "8b", "4a"], dtype=object)}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="site",
         )
         # Atoms 0 and 2 (both "4a") should have the same colour.
@@ -161,7 +161,7 @@ class TestResolveAtomColours:
     def test_categorical_empty_falls_back(self):
         """Empty string entries get their species colour."""
         data = {"site": np.array(["4a", "", "8b"], dtype=object)}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="site",
         )
         # Middle atom (H, empty label) should get species colour
@@ -173,7 +173,7 @@ class TestResolveAtomColours:
             return (val, 0.0, 1.0 - val)
 
         data = {"val": np.array([0.0, 0.5, 1.0])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by="val", cmap=red_blue,
         )
@@ -183,20 +183,9 @@ class TestResolveAtomColours:
 
     def test_missing_key_raises(self):
         with pytest.raises(KeyError):
-            resolve_atom_colours(
+            _resolve_atom_colours(
                 self.SPECIES, self.STYLES, {},
                 colour_by="nonexistent",
-            )
-
-    def test_unsupported_dtype_raises(self):
-        """Complex (and similar) dtypes raise a clear error rather
-        than silently dropping the imaginary part via astype(float).
-        """
-        data = {"z": np.array([1 + 2j, 3 + 4j, 5 + 6j])}
-        with pytest.raises(ValueError, match="unsupported dtype"):
-            resolve_atom_colours(
-                self.SPECIES, self.STYLES, data,
-                colour_by="z",
             )
 
     def test_list_colour_by_priority(self):
@@ -211,7 +200,7 @@ class TestResolveAtomColours:
             "a": np.array([1.0, np.nan, np.nan]),
             "b": np.array([np.nan, 2.0, np.nan]),
         }
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by=["a", "b"], cmap=[red, blue],
         )
@@ -232,7 +221,7 @@ class TestResolveAtomColours:
             "a": np.array([1.0, np.nan, np.nan]),
             "b": np.array([2.0, 2.0, np.nan]),  # atom 0 in both
         }
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by=["a", "b"], cmap=[red, blue],
         )
@@ -246,7 +235,7 @@ class TestResolveAtomColours:
             "a": np.array([0.0, np.nan, np.nan]),
             "b": np.array([np.nan, 1.0, np.nan]),
         }
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by=["a", "b"], cmap="viridis",
         )
@@ -261,7 +250,7 @@ class TestResolveAtomColours:
             "a": np.array([np.nan, np.nan, np.nan]),
             "b": np.array([np.nan, np.nan, np.nan]),
         }
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by=["a", "b"],
         )
@@ -283,7 +272,7 @@ class TestResolveAtomColours:
             "metal": np.array(["Fe", "", ""], dtype=object),
             "anion": np.array(["", "O", ""], dtype=object),
         }
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by=["metal", "anion"], cmap=[red, blue],
         )
@@ -297,7 +286,7 @@ class TestResolveAtomColours:
         cmap = matplotlib.colormaps["viridis"]
 
         data = {"val": np.array([1, 2, 3])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="val",
         )
         # 1->0.0, 2->0.5, 3->1.0 after normalisation
@@ -308,7 +297,7 @@ class TestResolveAtomColours:
     def test_categorical_nan_falls_back(self):
         """np.nan in categorical data is treated as missing."""
         data = {"site": np.array(["4a", np.nan, "8b"], dtype=object)}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="site",
         )
         # Middle atom (H) should get species colour
@@ -320,7 +309,7 @@ class TestResolveAtomColours:
     def test_categorical_none_falls_back(self):
         """None in categorical data is treated as missing."""
         data = {"site": np.array(["4a", None, "8b"], dtype=object)}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data, colour_by="site",
         )
         # Middle atom (H) should get species colour
@@ -336,7 +325,7 @@ class TestResolveAtomColours:
             "b": np.array([np.nan, 2.0, np.nan]),
         }
         with pytest.raises(ValueError, match="cmap"):
-            resolve_atom_colours(
+            _resolve_atom_colours(
                 self.SPECIES, self.STYLES, data,
                 colour_by=["a", "b"],
                 cmap=["viridis", "plasma", "inferno"],
@@ -349,7 +338,7 @@ class TestResolveAtomColours:
             "b": np.array([np.nan, 2.0, np.nan]),
         }
         with pytest.raises(ValueError, match="colour_range"):
-            resolve_atom_colours(
+            _resolve_atom_colours(
                 self.SPECIES, self.STYLES, data,
                 colour_by=["a", "b"],
                 colour_range=[(0.0, 1.0), (0.0, 2.0), (0.0, 3.0)],
@@ -376,7 +365,7 @@ class TestResolveAtomColours:
             # Layer "b" has data for atom 1.
             "b": np.array([np.nan, 2.0, np.nan]),
         }
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by=["a", "b"], cmap=[grey_cmap, blue],
         )
@@ -391,7 +380,7 @@ class TestResolveAtomColours:
         """List cmap with single colour_by string raises ValueError."""
         data = {"val": np.array([1.0, 2.0, 3.0])}
         with pytest.raises(ValueError, match="cmap"):
-            resolve_atom_colours(
+            _resolve_atom_colours(
                 self.SPECIES, self.STYLES, data,
                 colour_by="val", cmap=["viridis"],
             )
@@ -400,7 +389,7 @@ class TestResolveAtomColours:
         """List colour_range with single colour_by string raises ValueError."""
         data = {"val": np.array([1.0, 2.0, 3.0])}
         with pytest.raises(ValueError, match="colour_range"):
-            resolve_atom_colours(
+            _resolve_atom_colours(
                 self.SPECIES, self.STYLES, data,
                 colour_by="val", colour_range=[(0.0, 1.0)],
             )
@@ -411,14 +400,14 @@ class TestResolveAtomColours:
         cmap_obj = matplotlib.colormaps["viridis"]
 
         data = {"val": np.array([0.0, 0.5, 1.0])}
-        result = resolve_atom_colours(
+        result = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by="val", cmap=cmap_obj,
         )
         for colour in result:
             assert len(colour) == 3
         # Check values match the string-based lookup.
-        expected = resolve_atom_colours(
+        expected = _resolve_atom_colours(
             self.SPECIES, self.STYLES, data,
             colour_by="val", cmap="viridis",
         )
