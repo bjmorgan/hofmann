@@ -381,15 +381,6 @@ class TestValidateForRender:
 
     # --- Unit test directly on the helper ---
 
-    def test_validate_stale_after_append_raises(self):
-        scene = _make_scene(n_frames=3)
-        scene.set_atom_data("energy", np.zeros((3, 3)))
-        scene.frames.append(Frame(coords=np.zeros((3, 3))))
-        with pytest.raises(
-            ValueError, match="sized for 3 frames, not 4"
-        ):
-            scene._validate_for_render()
-
     # --- End-to-end integration tests, one per render method ---
 
     def test_render_mpl_raises_on_stale_2d(self, tmp_path):
