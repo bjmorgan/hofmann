@@ -76,11 +76,15 @@ class StructureScene:
                 )
 
         # Build validated _AtomData container.
-        self._atom_data = _AtomData(
-            n_atoms=n_atoms, frames=self.frames,
-        )
+        self._atom_data = _AtomData(n_atoms=n_atoms)
         if atom_data is not None:
-            for key, arr in atom_data.items():
+            for key, arr_like in atom_data.items():
+                arr = np.asarray(arr_like)
+                if arr.ndim == 2 and arr.shape[0] != len(self.frames):
+                    raise ValueError(
+                        f"atom_data[{key!r}] has {arr.shape[0]} rows "
+                        f"but scene has {len(self.frames)} frames"
+                    )
                 self._atom_data._set(key, arr)
 
     @property
@@ -423,6 +427,12 @@ class StructureScene:
                     arr[idx] = val
         else:
             arr = np.asarray(values)
+
+        if arr.ndim == 2 and arr.shape[0] != len(self.frames):
+            raise ValueError(
+                f"atom_data[{key!r}] has {arr.shape[0]} rows but "
+                f"scene has {len(self.frames)} frames"
+            )
 
         self._atom_data._set(key, arr)
 

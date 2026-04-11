@@ -78,11 +78,12 @@ class _AtomData(Mapping[str, np.ndarray]):
        ``object``-dtype arrays, any mutable objects stored inside
        remain mutable.
 
-    The frame count is read live from the *frames* list so that arrays
-    added after appending frames are validated against the current
-    trajectory length.  However, existing 2-D arrays are not
-    re-validated when frames are appended — re-assign them after
-    changing the trajectory length.
+    The container is frame-agnostic: it stores arrays keyed by name
+    but knows only about ``n_atoms``.  The invariant that all stored
+    2-D entries share the same ``shape[0]`` is enforced on demand in
+    :meth:`_set` by walking the existing entries — no cached frame
+    count is kept.  Compatibility with a specific trajectory length is
+    checked separately by the owning scene.
 
     Attributes:
         ranges: Read-only mapping of keys to ``(min, max)`` tuples
@@ -108,15 +109,12 @@ class _AtomData(Mapping[str, np.ndarray]):
 
     Args:
         n_atoms: Number of atoms in the scene.
-        frames: The scene's live frame list.  The length of this list
-            is used for 2-D array validation.
     """
 
-    def __init__(self, *, n_atoms: int, frames: list) -> None:
+    def __init__(self, *, n_atoms: int) -> None:
         if n_atoms < 0:
             raise ValueError(f"n_atoms must be non-negative, got {n_atoms}")
         self._n_atoms = n_atoms
-        self._frames = frames
         self._data: dict[str, np.ndarray] = {}
         self._ranges: dict[str, tuple[float, float] | None] = {}
         self._labels: dict[str, tuple[str, ...] | None] = {}
@@ -132,16 +130,50 @@ class _AtomData(Mapping[str, np.ndarray]):
         return self._n_atoms
 
     @property
-    def n_frames(self) -> int:
-        return len(self._frames)
-
-    @property
     def ranges(self) -> Mapping[str, tuple[float, float] | None]:
         return self._ranges_view
 
     @property
     def labels(self) -> Mapping[str, tuple[str, ...] | None]:
         return self._labels_view
+
+    def _check_frames_compatibility(self, expected: int) -> None:
+        """Raise if any stored 2-D entry has ``shape[0] != expected``.
+
+        Called at two sites:
+
+        - :meth:`_set` with ``expected=new_arr.shape[0]`` when a 2-D
+          array is being assigned, to verify consistency with existing
+          2-D entries.
+        - :meth:`StructureScene._validate_for_render` with
+          ``expected=len(scene.frames)`` at the start of every public
+          ``render_*`` method, to verify the trajectory matches the
+          stored data.
+
+        A no-op when the container holds no 2-D entries (the walk
+        finds nothing and returns without raising).  Because every
+        prior :meth:`_set` with a 2-D array has already enforced
+        cross-entry consistency, any representative 2-D entry reports
+        the correct ``shape[0]``; the walk short-circuits at the
+        first 2-D entry it finds.
+
+        Args:
+            expected: The ``shape[0]`` value to check against stored
+                2-D entries.
+
+        Raises:
+            ValueError: If a stored 2-D entry has ``shape[0]`` that
+                differs from *expected*.
+        """
+        for arr in self._data.values():
+            if arr.ndim == 2:
+                if arr.shape[0] != expected:
+                    raise ValueError(
+                        f"atom_data is shape-compatible with "
+                        f"{arr.shape[0]} frames but {expected} were "
+                        f"requested"
+                    )
+                return
 
     def _set(self, key: str, value: object) -> None:
         """Store *value* under *key* with full validation.
@@ -168,16 +200,12 @@ class _AtomData(Mapping[str, np.ndarray]):
                     f"{self._n_atoms}, got {len(arr)}"
                 )
         elif arr.ndim == 2:
-            if arr.shape[0] != self.n_frames:
-                raise ValueError(
-                    f"atom_data[{key!r}] has {arr.shape[0]} rows but "
-                    f"scene has {self.n_frames} frames"
-                )
             if arr.shape[1] != self._n_atoms:
                 raise ValueError(
                     f"atom_data[{key!r}] must have {self._n_atoms} "
                     f"columns (one per atom), got {arr.shape[1]}"
                 )
+            self._check_frames_compatibility(arr.shape[0])
         else:
             raise ValueError(
                 f"atom_data[{key!r}] must be 1-D or 2-D, "

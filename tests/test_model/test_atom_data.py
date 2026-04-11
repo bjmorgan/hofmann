@@ -6,10 +6,14 @@ import pytest
 from hofmann.model.atom_data import _AtomData
 
 
-def _make_atom_data(*, n_atoms: int, n_frames: int) -> _AtomData:
-    """Build an _AtomData with a dummy frames list of the given length."""
-    frames = [None] * n_frames  # type: ignore[list-item]
-    return _AtomData(n_atoms=n_atoms, frames=frames)
+def _make_atom_data(*, n_atoms: int, n_frames: int = 1) -> _AtomData:
+    """Build an _AtomData.
+
+    The ``n_frames`` kwarg is retained for test compatibility but is
+    no longer passed to the constructor — the container is
+    frame-agnostic.
+    """
+    return _AtomData(n_atoms=n_atoms)
 
 
 class TestAtomData:
@@ -34,11 +38,6 @@ class TestAtomData:
         ad = _make_atom_data(n_atoms=3, n_frames=1)
         with pytest.raises(ValueError, match="3"):
             ad._set("charge", np.array([1.0, 2.0]))
-
-    def test_setitem_2d_wrong_frames_raises(self):
-        ad = _make_atom_data(n_atoms=3, n_frames=2)
-        with pytest.raises(ValueError, match="2 frames"):
-            ad._set("charge", np.array([[1.0, 2.0, 3.0]]))
 
     def test_setitem_2d_wrong_atoms_raises(self):
         ad = _make_atom_data(n_atoms=3, n_frames=2)
@@ -234,17 +233,6 @@ class TestAtomData:
         with pytest.raises(ValueError, match="non-negative"):
             _make_atom_data(n_atoms=-1, n_frames=1)
 
-    def test_dynamic_frame_count(self):
-        """_AtomData tracks the live frame list length."""
-        frames: list = [None]  # type: ignore[list-item]
-        ad = _AtomData(n_atoms=2, frames=frames)
-        assert ad.n_frames == 1
-        frames.append(None)
-        assert ad.n_frames == 2
-        # 2-D array with 2 rows now valid.
-        ad._set("val", np.array([[1.0, 2.0], [3.0, 4.0]]))
-        assert ad["val"].shape == (2, 2)
-
     def test_setitem_1d_stored_array_is_read_only(self):
         ad = _make_atom_data(n_atoms=3, n_frames=1)
         ad._set("charge", np.array([1.0, 2.0, 3.0]))
@@ -301,7 +289,7 @@ class TestAtomData:
             ad["val"][0] = 99.0
 
     def test_stored_array_in_place_mutation_raises(self):
-        ad = _AtomData(n_atoms=3, frames=[None])  # type: ignore[list-item]
+        ad = _AtomData(n_atoms=3)
         ad._set("charge", np.array([1.0, 2.0, 3.0]))
         arr = ad["charge"]
         with pytest.raises(ValueError, match="read-only"):
@@ -380,6 +368,84 @@ class TestAtomData:
         pins the structural decision.
         """
         from collections.abc import Mapping, MutableMapping
-        ad = _AtomData(n_atoms=3, frames=[])
+        ad = _AtomData(n_atoms=3)
         assert isinstance(ad, Mapping)
         assert not isinstance(ad, MutableMapping)
+
+    def test_init_requires_only_n_atoms(self):
+        """_AtomData takes n_atoms as the sole required kwarg."""
+        ad = _AtomData(n_atoms=3)
+        assert ad.n_atoms == 3
+
+    def test_init_rejects_frames_kwarg(self):
+        """Passing frames= raises TypeError (API removed)."""
+        with pytest.raises(TypeError):
+            _AtomData(n_atoms=3, frames=[])  # type: ignore[call-arg]
+
+    def test_init_has_no_n_frames_property(self):
+        """n_frames property is removed; accessing it raises."""
+        ad = _AtomData(n_atoms=3)
+        with pytest.raises(AttributeError):
+            ad.n_frames  # type: ignore[attr-defined]
+
+    def test_first_2d_accepted_any_shape(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        np.testing.assert_array_equal(ad["foo"], np.zeros((5, 3)))
+
+    def test_second_2d_matching_shape_accepted(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        ad._set("bar", np.ones((5, 3)))
+        assert ad["bar"].shape == (5, 3)
+
+    def test_second_2d_mismatching_shape_raises(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        with pytest.raises(ValueError, match="shape-compatible with 5 frames"):
+            ad._set("bar", np.ones((4, 3)))
+
+    def test_reassigning_only_2d_to_new_shape_raises(self):
+        """Uniform rule: shape change requires first removing all 2-D entries."""
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        with pytest.raises(ValueError):
+            ad._set("foo", np.ones((4, 3)))
+
+    def test_del_last_2d_allows_new_shape(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        ad._del("foo")
+        ad._set("foo", np.ones((4, 3)))
+        assert ad["foo"].shape == (4, 3)
+
+    def test_del_2d_preserves_constraint_when_others_remain(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        ad._set("bar", np.ones((5, 3)))
+        ad._del("foo")
+        with pytest.raises(ValueError):
+            ad._set("baz", np.full((4, 3), 2.0))
+
+    def test_replacing_2d_with_1d_allows_new_shape_when_last(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        ad._set("foo", np.array([1.0, 2.0, 3.0]))
+        ad._set("bar", np.ones((2, 3)))
+        assert ad["bar"].shape == (2, 3)
+
+    def test_replacing_2d_with_1d_preserves_constraint_when_others_remain(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("foo", np.zeros((5, 3)))
+        ad._set("bar", np.ones((5, 3)))
+        ad._set("foo", np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError):
+            ad._set("baz", np.full((4, 3), 2.0))
+
+    def test_1d_operations_never_affect_2d_constraint(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("a", np.array([1.0, 2.0, 3.0]))
+        ad._set("b", np.array([4.0, 5.0, 6.0]))
+        ad._del("a")
+        ad._set("foo", np.zeros((7, 3)))
+        assert ad["foo"].shape == (7, 3)
