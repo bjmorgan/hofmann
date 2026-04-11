@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from hofmann.model.atom_data import AtomData
+    from hofmann.model.atom_data import _AtomData
     from hofmann.model.atom_style import AtomStyle
 
 #: A colour specification accepted throughout hofmann.
@@ -137,16 +137,16 @@ def _resolve_single_layer(
     fallback: list[tuple[float, float, float]],
     cmap: CmapSpec,
     colour_range: tuple[float, float] | None,
-    scene_atom_data: AtomData | None = None,
+    scene_atom_data: _AtomData | None = None,
 ) -> tuple[list[tuple[float, float, float]], np.ndarray]:
     """Resolve colours for a single colour_by key.
 
     Args:
-        scene_atom_data: The scene's :class:`AtomData` container.
+        scene_atom_data: The scene's :class:`_AtomData` container.
             When provided, derived global metadata is used for 2-D
             data so that colouring is consistent across animation
-            frames: :attr:`AtomData.ranges` for numeric data and
-            :attr:`AtomData.labels` for categorical data.
+            frames: :attr:`_AtomData.ranges` for numeric data and
+            :attr:`_AtomData.labels` for categorical data.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *colours* is a
@@ -173,7 +173,7 @@ def _resolve_atom_colours(
     colour_by: str | list[str] | None = None,
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
-    scene_atom_data: AtomData | None = None,
+    scene_atom_data: _AtomData | None = None,
 ) -> list[tuple[float, float, float]]:
     """Resolve per-atom RGB colours, optionally using a colourmap.
 
@@ -210,9 +210,9 @@ def _resolve_atom_colours(
             numerical data.  ``None`` auto-ranges from the data.
             Ignored for categorical data.  When *colour_by* is a
             list, may also be a list of the same length.
-        scene_atom_data: The scene's :class:`AtomData` container.
+        scene_atom_data: The scene's :class:`_AtomData` container.
             When provided and a key's *colour_range* is ``None``,
-            the derived global range from :attr:`AtomData.ranges`
+            the derived global range from :attr:`_AtomData.ranges`
             is used for 2-D numeric data so that colourmap scaling
             is consistent across frames.
 
@@ -371,7 +371,7 @@ def _resolve_categorical(
     Args:
         global_labels: When provided, these labels define the
             colourmap positions (consistent across animation frames).
-            Typically looked up via :attr:`AtomData.labels`, which
+            Typically looked up via :attr:`_AtomData.labels`, which
             holds unique labels across all frames.
 
     Returns:

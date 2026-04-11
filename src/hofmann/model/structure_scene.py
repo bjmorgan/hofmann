@@ -9,7 +9,7 @@ from numpy.typing import ArrayLike
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from hofmann.model.atom_data import AtomData
+from hofmann.model.atom_data import _AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
@@ -35,7 +35,7 @@ class StructureScene:
         polyhedra: Declarative polyhedron rendering rules.
         view: Camera / projection state.
         title: Scene title for display.
-        atom_data: :class:`AtomData` container for per-atom metadata
+        atom_data: :class:`_AtomData` container for per-atom metadata
             arrays keyed by name.
     """
 
@@ -73,13 +73,13 @@ class StructureScene:
                     "all frames must have a lattice or none must"
                 )
 
-        # Build validated AtomData container.
-        self._atom_data = AtomData(
+        # Build validated _AtomData container.
+        self._atom_data = _AtomData(
             n_atoms=n_atoms, frames=self.frames,
         )
         if atom_data is not None:
             for key, arr in atom_data.items():
-                self._atom_data[key] = arr
+                self._atom_data._set(key, arr)
 
     @property
     def view(self) -> ViewState:
@@ -122,23 +122,23 @@ class StructureScene:
         )
 
     @property
-    def atom_data(self) -> AtomData:
+    def atom_data(self) -> _AtomData:
         """Per-atom metadata container.
 
         Each value is either a 1-D array of length ``n_atoms`` (same
         every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
         (per-frame values).  Use :meth:`set_atom_data` to populate
         this and ``colour_by`` on the render methods to visualise it.
-        Stored arrays are returned read-only; see :class:`AtomData`
+        Stored arrays are returned read-only; see :class:`_AtomData`
         for how to update values.
         """
         return self._atom_data
 
     @atom_data.setter
     def atom_data(self, value: object) -> None:
-        if not isinstance(value, AtomData):
+        if not isinstance(value, _AtomData):
             raise TypeError(
-                f"atom_data must be an AtomData instance, "
+                f"atom_data must be an _AtomData instance, "
                 f"got {type(value).__name__}"
             )
         self._atom_data = value
@@ -422,7 +422,7 @@ class StructureScene:
         else:
             arr = np.asarray(values)
 
-        self.atom_data[key] = arr
+        self._atom_data._set(key, arr)
 
     def render_mpl(
         self,

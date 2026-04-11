@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Mapping, MutableMapping
+from collections.abc import Iterator, Mapping
 from types import MappingProxyType
 
 import numpy as np
@@ -58,7 +58,7 @@ def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
     return tuple(seen)
 
 
-class AtomData(MutableMapping[str, np.ndarray]):
+class _AtomData(Mapping[str, np.ndarray]):
     """Validated mapping of named per-atom arrays.
 
     Every value must be a numpy array of shape ``(n_atoms,)`` (static)
@@ -143,7 +143,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
     def labels(self) -> Mapping[str, tuple[str, ...] | None]:
         return self._labels_view
 
-    def __setitem__(self, key: str, value: object) -> None:
+    def _set(self, key: str, value: object) -> None:
         arr = np.array(value)
         if arr.ndim == 1:
             if len(arr) != self._n_atoms:
@@ -183,7 +183,7 @@ class AtomData(MutableMapping[str, np.ndarray]):
     def __getitem__(self, key: str) -> np.ndarray:
         return self._data[key]
 
-    def __delitem__(self, key: str) -> None:
+    def _del(self, key: str) -> None:
         del self._data[key]
         del self._ranges[key]
         del self._labels[key]
@@ -195,5 +195,10 @@ class AtomData(MutableMapping[str, np.ndarray]):
         return len(self._data)
 
     def __repr__(self) -> str:
-        keys = ", ".join(repr(k) for k in self._data)
-        return f"AtomData({{{keys}}})"
+        if not self._data:
+            return "AtomData()"
+        items = [
+            f"{key!r}: {arr.shape}"
+            for key, arr in self._data.items()
+        ]
+        return f"AtomData({{{', '.join(items)}}})"
