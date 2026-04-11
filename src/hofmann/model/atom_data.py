@@ -244,6 +244,25 @@ class _AtomData(Mapping[str, np.ndarray]):
         del self._ranges[key]
         del self._labels[key]
 
+    def clear_2d(self) -> None:
+        """Remove all 2-D entries, leaving 1-D entries untouched.
+
+        Private helper called from
+        :meth:`StructureScene.clear_2d_atom_data`.  After this method
+        runs, the cross-entry 2-D shape constraint is released, so a
+        subsequent :meth:`_set` with a 2-D array of any ``shape[0]``
+        will succeed.  1-D entries and their derived ``ranges`` /
+        ``labels`` metadata are preserved.
+
+        Uses :meth:`_del` internally so all bookkeeping for removed
+        entries stays in one place.
+        """
+        keys_to_delete = [
+            k for k, v in self._data.items() if v.ndim == 2
+        ]
+        for key in keys_to_delete:
+            self._del(key)
+
     def __iter__(self) -> Iterator[str]:
         return iter(self._data)
 

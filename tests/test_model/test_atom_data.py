@@ -449,3 +449,51 @@ class TestAtomData:
         ad._del("a")
         ad._set("foo", np.zeros((7, 3)))
         assert ad["foo"].shape == (7, 3)
+
+    def test_clear_2d_removes_all_2d_entries(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("charge", np.array([1.0, 2.0, 3.0]))   # 1-D
+        ad._set("energy", np.zeros((5, 3)))            # 2-D
+        ad._set("forces", np.ones((5, 3)))             # 2-D
+        ad.clear_2d()
+        assert "energy" not in ad
+        assert "forces" not in ad
+
+    def test_clear_2d_preserves_1d_entries(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("charge", np.array([1.0, 2.0, 3.0]))
+        ad._set("energy", np.zeros((5, 3)))
+        ad.clear_2d()
+        np.testing.assert_array_equal(ad["charge"], [1.0, 2.0, 3.0])
+
+    def test_clear_2d_allows_new_shape(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("energy", np.zeros((5, 3)))
+        ad.clear_2d()
+        # Constraint released; a differently-shaped 2-D is now accepted
+        ad._set("forces", np.ones((7, 3)))
+        assert ad["forces"].shape == (7, 3)
+
+    def test_clear_2d_preserves_1d_metadata(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("charge", np.array([1.0, 2.0, 3.0]))
+        ad._set("energy", np.zeros((5, 3)))
+        ad.clear_2d()
+        # 1-D ranges / labels stay populated
+        assert "charge" in ad.ranges
+        assert "charge" in ad.labels
+        # 2-D metadata removed
+        assert "energy" not in ad.ranges
+        assert "energy" not in ad.labels
+
+    def test_clear_2d_is_idempotent(self):
+        ad = _AtomData(n_atoms=3)
+        ad._set("charge", np.array([1.0, 2.0, 3.0]))
+        ad.clear_2d()  # no 2-D to clear
+        ad.clear_2d()  # still no-op
+        assert "charge" in ad
+
+    def test_clear_2d_on_empty_container_is_noop(self):
+        ad = _AtomData(n_atoms=3)
+        ad.clear_2d()
+        assert len(ad) == 0
