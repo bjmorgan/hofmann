@@ -57,15 +57,21 @@ def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
     return tuple(seen)
 
 
-class _AtomData(Mapping[str, np.ndarray]):
-    """Internal per-atom metadata container.
+class AtomData(Mapping[str, np.ndarray]):
+    """Per-atom metadata container.
 
-    Not part of the public API; constructed and owned by
-    :class:`~hofmann.StructureScene`.  User-facing access goes
-    through :attr:`StructureScene.atom_data` for reads and
-    :meth:`StructureScene.set_atom_data`,
-    :meth:`StructureScene.del_atom_data`, and
-    :meth:`StructureScene.clear_2d_atom_data` for writes.
+    Obtained via :attr:`~hofmann.StructureScene.atom_data`; do not
+    instantiate directly.  Construction is considered an internal
+    implementation detail and the class is not exported from
+    ``hofmann`` or ``hofmann.model`` -- the only supported way to
+    obtain an ``AtomData`` is to read the ``atom_data`` property of a
+    scene.
+
+    User-facing access goes through
+    :attr:`~hofmann.StructureScene.atom_data` for reads,
+    :meth:`~hofmann.StructureScene.set_atom_data`,
+    :meth:`~hofmann.StructureScene.del_atom_data`, and
+    :meth:`~hofmann.StructureScene.clear_2d_atom_data` for writes.
 
     Stores named per-atom arrays.  Each value is either a 1-D array
     of shape ``(n_atoms,)`` (static across the trajectory) or a 2-D
@@ -264,7 +270,7 @@ class _AtomData(Mapping[str, np.ndarray]):
         """Remove all 2-D entries, leaving 1-D entries untouched.
 
         Private helper called from
-        :meth:`StructureScene.clear_2d_atom_data`.  After this method
+        :meth:`~hofmann.StructureScene.clear_2d_atom_data`.  After this method
         runs, the cross-entry 2-D shape constraint is released, so a
         subsequent ``_set`` with a 2-D array of any ``shape[0]``
         will succeed.  1-D entries and their derived ``ranges`` /
@@ -286,11 +292,6 @@ class _AtomData(Mapping[str, np.ndarray]):
         return len(self._data)
 
     def __repr__(self) -> str:
-        # Display as "AtomData" (no underscore) even though the
-        # class is _AtomData; following stdlib precedent such as
-        # MappingProxyType displaying as "mappingproxy". Users of
-        # the StructureScene.atom_data property do not need to
-        # know the internal class name.
         if not self._data:
             return "AtomData()"
         items = [

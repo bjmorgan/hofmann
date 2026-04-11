@@ -4,15 +4,19 @@ Changelog
 0.19.0
 ------
 
-- The ``AtomData`` container is no longer part of the public API.
-  It has been renamed internally to ``_AtomData`` and removed from
-  ``hofmann.__all__``.  The class was never documented in the API
-  reference, but users who imported it directly should migrate to
-  the :class:`~hofmann.StructureScene` write methods:
+- The ``AtomData`` container is no longer re-exported from
+  ``hofmann`` or ``hofmann.model``.  The only supported way to
+  obtain an instance is to read the
+  :attr:`~hofmann.StructureScene.atom_data` property of a scene;
+  direct construction is considered an internal implementation
+  detail.  Users who imported ``AtomData`` from ``hofmann`` should
+  migrate to the :class:`~hofmann.StructureScene` write methods:
   :meth:`~hofmann.StructureScene.set_atom_data` for assignment,
   :meth:`~hofmann.StructureScene.del_atom_data` for targeted
   removal, and :meth:`~hofmann.StructureScene.clear_2d_atom_data`
-  for dropping all per-frame entries at once.
+  for dropping all per-frame entries at once.  The class itself
+  is documented in the API reference for inspection of instances
+  obtained via ``scene.atom_data``.
 
 - The per-atom metadata container is now frame-agnostic.  It no
   longer takes a ``frames`` argument at construction and no longer
@@ -64,9 +68,7 @@ Changelog
      >>> scene.atom_data
      AtomData({'charge': (3,), 'energy': (5, 3)})
 
-  Previously only the keys were shown.  The display name is
-  ``AtomData`` (no leading underscore) even though the class is
-  ``_AtomData``, following stdlib precedent.
+  Previously only the keys were shown.
 
 0.18.0
 ------

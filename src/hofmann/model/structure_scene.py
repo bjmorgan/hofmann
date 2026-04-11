@@ -9,7 +9,7 @@ from numpy.typing import ArrayLike
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 
-from hofmann.model.atom_data import _AtomData
+from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
@@ -75,8 +75,8 @@ class StructureScene:
                     "all frames must have a lattice or none must"
                 )
 
-        # Build validated _AtomData container.
-        self._atom_data = _AtomData(n_atoms=n_atoms)
+        # Build validated AtomData container.
+        self._atom_data = AtomData(n_atoms=n_atoms)
         if atom_data is not None:
             for key, arr_like in atom_data.items():
                 arr = np.asarray(arr_like)
@@ -124,14 +124,24 @@ class StructureScene:
         )
 
     @property
-    def atom_data(self) -> _AtomData:
-        """Per-atom metadata container: read-only Mapping-style view.
+    def atom_data(self) -> AtomData:
+        """Return a read-only mapping view of per-atom metadata.
 
-        Each value is either a 1-D array of length ``n_atoms`` (same
-        every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
-        (per-frame values).  Stored arrays are returned read-only.
-        The property has no setter; ``scene.atom_data = ...`` raises
-        ``AttributeError``.  The container itself exposes only
+        Each stored value is either a 1-D array of length ``n_atoms``
+        (static across the trajectory) or a 2-D array whose first
+        dimension is expected to match ``len(self.frames)``.  The 2-D
+        shape match is validated at assignment time against the
+        trajectory length at that moment, and re-verified at the
+        start of every public ``render_*`` call; appending to
+        ``self.frames`` after a 2-D assignment leaves the container
+        temporarily out of sync until the next render call catches it
+        and raises, or until :meth:`clear_2d_atom_data` followed by a
+        fresh :meth:`set_atom_data` at the new shape restores
+        consistency.
+
+        Stored arrays are returned read-only.  The property has no
+        setter; ``scene.atom_data = ...`` raises ``AttributeError``.
+        The container itself exposes only
         :class:`~collections.abc.Mapping` reads, so
         ``scene.atom_data[key] = ...`` is not supported either.  Use
         ``colour_by`` on the render methods to visualise a key, and
