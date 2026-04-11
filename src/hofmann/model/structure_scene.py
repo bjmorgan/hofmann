@@ -99,7 +99,7 @@ class StructureScene:
             if isinstance(value, tuple):
                 hint = (
                     " (hint: render_mpl_interactive() returns a"
-                    " (ViewState, RenderStyle) tuple — did you forget"
+                    " (ViewState, RenderStyle) tuple; did you forget"
                     " to unpack it?)"
                 )
             raise TypeError(
@@ -133,13 +133,14 @@ class StructureScene:
 
         Each value is either a 1-D array of length ``n_atoms`` (same
         every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
-        (per-frame values).  Stored arrays are returned read-only,
-        and the container itself supports Mapping reads only — there
-        is no ``scene.atom_data = ...`` setter and no
-        ``scene.atom_data[key] = ...`` shortcut.  Use ``colour_by``
-        on the render methods to visualise a key.  See
-        :meth:`set_atom_data`, :meth:`del_atom_data`, and
-        :meth:`clear_2d_atom_data` for modifications.
+        (per-frame values).  Stored arrays are returned read-only.
+        The property has no setter; ``scene.atom_data = ...`` raises
+        ``AttributeError``.  The container itself exposes only
+        :class:`~collections.abc.Mapping` reads, so
+        ``scene.atom_data[key] = ...`` is not supported either.  Use
+        ``colour_by`` on the render methods to visualise a key, and
+        see :meth:`set_atom_data`, :meth:`del_atom_data`, and
+        :meth:`clear_2d_atom_data` for all modifications.
         """
         return self._atom_data
 
@@ -326,7 +327,7 @@ class StructureScene:
         Atom styles are merged (existing species keep their styles
         unless overridden).  Bond specs and polyhedra are replaced
         entirely.  The ``render_style`` section, if present in the
-        file, is ignored — pass it to the render call instead.
+        file, is ignored; pass it to the render call instead.
 
         Args:
             path: Source file path.
@@ -520,7 +521,7 @@ class StructureScene:
                 species-based colouring is used.  When a list, layers
                 are tried in priority order and the first non-missing
                 value determines the atom's colour.
-            cmap: A :type:`CmapSpec` — matplotlib colourmap name
+            cmap: A :type:`CmapSpec`: matplotlib colourmap name
                 (e.g. ``"viridis"``), ``Colormap`` object, or callable
                 mapping a float in ``[0, 1]`` to an ``(r, g, b)``
                 tuple.  When *colour_by* is a list, *cmap* may also
@@ -585,7 +586,7 @@ class StructureScene:
             colour_by: Key (or list of keys) into :attr:`atom_data`
                 to colour atoms by.  When a list, layers are tried in
                 priority order.
-            cmap: A :type:`CmapSpec` — colourmap name, object, or
+            cmap: A :type:`CmapSpec`: colourmap name, object, or
                 callable.  When *colour_by* is a list, may also be a
                 list of the same length.
             colour_range: Explicit ``(vmin, vmax)`` for numerical
@@ -649,7 +650,7 @@ class StructureScene:
             background: Background colour.
             colour_by: Key (or list of keys) into :attr:`atom_data`
                 to colour atoms by.
-            cmap: A :type:`CmapSpec` — colourmap name, object, or
+            cmap: A :type:`CmapSpec`: colourmap name, object, or
                 callable.
             colour_range: Explicit ``(vmin, vmax)`` for numerical
                 data.

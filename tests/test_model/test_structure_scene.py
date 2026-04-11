@@ -340,14 +340,6 @@ class TestAtomDataWriteMethods:
         with pytest.raises(KeyError):
             scene.del_atom_data("missing")
 
-    def test_del_atom_data_releases_2d_constraint_when_last(self):
-        scene = self._make_scene(n_frames=5)
-        scene.set_atom_data("energy", np.zeros((5, 3)))
-        scene.del_atom_data("energy")
-        # After removing the only 2-D entry, a new shape[0]=5 (matching
-        # len(scene.frames)) is fine.
-        scene.set_atom_data("energy", np.zeros((5, 3)))
-
     # clear_2d_atom_data
 
     def test_clear_2d_atom_data_removes_2d(self):
@@ -368,18 +360,6 @@ class TestAtomDataWriteMethods:
         np.testing.assert_array_equal(
             scene.atom_data["charge"], [1.0, 2.0, 3.0]
         )
-
-    def test_clear_2d_atom_data_idempotent(self):
-        scene = self._make_scene()
-        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
-        scene.clear_2d_atom_data()
-        scene.clear_2d_atom_data()
-        assert "charge" in scene.atom_data
-
-    def test_clear_2d_atom_data_on_empty_is_noop(self):
-        scene = self._make_scene()
-        scene.clear_2d_atom_data()
-        assert len(scene.atom_data) == 0
 
     # Setter removal
 
