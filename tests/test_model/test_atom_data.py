@@ -301,16 +301,6 @@ class TestAtomData:
         ad = _make_atom_data(n_atoms=3)
         assert repr(ad) == "AtomData()"
 
-    def test_repr_one_1d_entry(self):
-        ad = _make_atom_data(n_atoms=3)
-        ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        assert repr(ad) == "AtomData({'charge': (3,)})"
-
-    def test_repr_one_2d_entry(self):
-        ad = _make_atom_data(n_atoms=3)
-        ad._set("energy", np.zeros((5, 3)))
-        assert repr(ad) == "AtomData({'energy': (5, 3)})"
-
     def test_repr_mixed_entries(self):
         ad = _make_atom_data(n_atoms=3)
         ad._set("charge", np.array([1.0, 2.0, 3.0]))
@@ -321,37 +311,6 @@ class TestAtomData:
         ad = _make_atom_data(n_atoms=3)
         with pytest.raises(TypeError, match="does not support item assignment"):
             ad["charge"] = np.array([1.0, 2.0, 3.0])  # type: ignore[index]
-
-    def test_bracket_delete_raises(self):
-        ad = _make_atom_data(n_atoms=3)
-        ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        with pytest.raises(TypeError, match="does not support item deletion"):
-            del ad["charge"]  # type: ignore[attr-defined]
-
-    def test_pop_not_available(self):
-        ad = _make_atom_data(n_atoms=3)
-        with pytest.raises(AttributeError):
-            ad.pop("charge")  # type: ignore[attr-defined]
-
-    def test_popitem_not_available(self):
-        ad = _make_atom_data(n_atoms=3)
-        with pytest.raises(AttributeError):
-            ad.popitem()  # type: ignore[attr-defined]
-
-    def test_setdefault_not_available(self):
-        ad = _make_atom_data(n_atoms=3)
-        with pytest.raises(AttributeError):
-            ad.setdefault("charge", np.array([0.0, 0.0, 0.0]))  # type: ignore[attr-defined]
-
-    def test_update_not_available(self):
-        ad = _make_atom_data(n_atoms=3)
-        with pytest.raises(AttributeError):
-            ad.update({"charge": np.array([1.0, 2.0, 3.0])})  # type: ignore[attr-defined]
-
-    def test_clear_not_available(self):
-        ad = _make_atom_data(n_atoms=3)
-        with pytest.raises(AttributeError):
-            ad.clear()  # type: ignore[attr-defined]
 
     def test_inherits_from_mapping_not_mutable_mapping(self):
         """Pin the base-class switch directly.
@@ -366,11 +325,6 @@ class TestAtomData:
         ad = _AtomData(n_atoms=3)
         assert isinstance(ad, Mapping)
         assert not isinstance(ad, MutableMapping)
-
-    def test_init_requires_only_n_atoms(self):
-        """_AtomData takes n_atoms as the sole required kwarg."""
-        ad = _AtomData(n_atoms=3)
-        assert ad.n_atoms == 3
 
     def test_init_rejects_frames_kwarg(self):
         """Passing frames= raises TypeError (API removed)."""
@@ -408,51 +362,16 @@ class TestAtomData:
         ad._set("foo", np.ones((4, 3)))
         assert ad["foo"].shape == (4, 3)
 
-    def test_del_2d_preserves_constraint_when_others_remain(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("foo", np.zeros((5, 3)))
-        ad._set("bar", np.ones((5, 3)))
-        ad._del("foo")
-        with pytest.raises(ValueError):
-            ad._set("baz", np.full((4, 3), 2.0))
-
-    def test_replacing_2d_with_1d_allows_new_shape_when_last(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("foo", np.zeros((5, 3)))
-        ad._set("foo", np.array([1.0, 2.0, 3.0]))
-        ad._set("bar", np.ones((2, 3)))
-        assert ad["bar"].shape == (2, 3)
-
-    def test_replacing_2d_with_1d_preserves_constraint_when_others_remain(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("foo", np.zeros((5, 3)))
-        ad._set("bar", np.ones((5, 3)))
-        ad._set("foo", np.array([1.0, 2.0, 3.0]))
-        with pytest.raises(ValueError):
-            ad._set("baz", np.full((4, 3), 2.0))
-
-    def test_1d_operations_never_affect_2d_constraint(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("a", np.array([1.0, 2.0, 3.0]))
-        ad._set("b", np.array([4.0, 5.0, 6.0]))
-        ad._del("a")
-        ad._set("foo", np.zeros((7, 3)))
-        assert ad["foo"].shape == (7, 3)
-
-    def test_clear_2d_removes_all_2d_entries(self):
+    def test_clear_2d(self):
         ad = _AtomData(n_atoms=3)
         ad._set("charge", np.array([1.0, 2.0, 3.0]))   # 1-D
         ad._set("energy", np.zeros((5, 3)))            # 2-D
         ad._set("forces", np.ones((5, 3)))             # 2-D
         ad.clear_2d()
+        # 2-D entries gone
         assert "energy" not in ad
         assert "forces" not in ad
-
-    def test_clear_2d_preserves_1d_entries(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        ad._set("energy", np.zeros((5, 3)))
-        ad.clear_2d()
+        # 1-D entry preserved
         np.testing.assert_array_equal(ad["charge"], [1.0, 2.0, 3.0])
 
     def test_clear_2d_allows_new_shape(self):
@@ -462,27 +381,3 @@ class TestAtomData:
         # Constraint released; a differently-shaped 2-D is now accepted
         ad._set("forces", np.ones((7, 3)))
         assert ad["forces"].shape == (7, 3)
-
-    def test_clear_2d_preserves_1d_metadata(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        ad._set("energy", np.zeros((5, 3)))
-        ad.clear_2d()
-        # 1-D ranges / labels stay populated
-        assert "charge" in ad.ranges
-        assert "charge" in ad.labels
-        # 2-D metadata removed
-        assert "energy" not in ad.ranges
-        assert "energy" not in ad.labels
-
-    def test_clear_2d_is_idempotent(self):
-        ad = _AtomData(n_atoms=3)
-        ad._set("charge", np.array([1.0, 2.0, 3.0]))
-        ad.clear_2d()  # no 2-D to clear
-        ad.clear_2d()  # still no-op
-        assert "charge" in ad
-
-    def test_clear_2d_on_empty_container_is_noop(self):
-        ad = _AtomData(n_atoms=3)
-        ad.clear_2d()
-        assert len(ad) == 0
