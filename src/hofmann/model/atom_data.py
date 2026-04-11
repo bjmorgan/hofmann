@@ -275,6 +275,8 @@ class AtomData(Mapping[str, np.ndarray]):
                 string, and object are accepted).
         """
         arr = np.array(value)
+        # Input validation: ndim and per-atom shape.  Pure function of
+        # *value*; no dependence on stored state.
         if arr.ndim == 1:
             if len(arr) != self._n_atoms:
                 raise ValueError(
@@ -287,19 +289,29 @@ class AtomData(Mapping[str, np.ndarray]):
                     f"atom_data[{key!r}] must have {self._n_atoms} "
                     f"columns (one per atom), got {arr.shape[1]}"
                 )
-            self._check_2d_consistency(
-                expected_frames, pending={key: arr}
-            )
         else:
             raise ValueError(
                 f"atom_data[{key!r}] must be 1-D or 2-D, "
                 f"got {arr.ndim}-D"
             )
+        # Input validation: dtype whitelist.  Also a pure function of
+        # *value*.  Must fire before any state-dependent check so a
+        # user passing a bad-dtype array is told about the dtype
+        # directly, rather than being sent on an unnecessary
+        # ``clear_2d_atom_data()`` recovery for a write that was
+        # never going to land.
         if arr.dtype.kind not in ("b", "i", "u", "f", "U", "O"):
             raise ValueError(
                 f"atom_data[{key!r}] has unsupported dtype "
                 f"{arr.dtype}; supported dtypes are bool, integer, "
                 f"float, string, and object"
+            )
+        # State-dependent invariant: pending shape against expected
+        # frames, and any non-overridden stored 2-D entries.  Runs
+        # after all input checks so input errors take priority.
+        if arr.ndim == 2:
+            self._check_2d_consistency(
+                expected_frames, pending={key: arr}
             )
         arr.flags.writeable = False
         new_range = _compute_global_range(arr)

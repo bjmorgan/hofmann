@@ -486,6 +486,26 @@ class TestAtomData:
         assert ad["energy"].shape == (4, 3)
         np.testing.assert_array_equal(ad["energy"], np.ones((4, 3)))
 
+    def test_set_bad_dtype_fires_before_stale_stored_check(self):
+        """Input validation (dtype) runs before state validation.
+
+        A 2-D write with an unsupported dtype must raise the dtype
+        error immediately, even when the container holds a stored
+        entry stale relative to *expected_frames*.  Firing the
+        stale-stored check first would send the user on an
+        unnecessary ``clear_2d_atom_data()`` recovery for a write
+        that was never going to land regardless.
+        """
+        ad = AtomData(n_atoms=3)
+        ad._set("energy", np.zeros((3, 3)), expected_frames=3)
+        # Scene has been extended to 4 frames.  User tries to set a
+        # new 2-D entry with an unsupported (complex) dtype.  The
+        # stored "energy" is stale (3 vs 4), but the dtype is the
+        # actionable issue.
+        bad = np.ones((4, 3), dtype=np.complex64)
+        with pytest.raises(ValueError, match="unsupported dtype"):
+            ad._set("new_key", bad, expected_frames=4)
+
     def test_in_place_reassign_fails_when_other_2d_stale(self):
         """Reassigning one 2-D entry in place fails when an *other*
         stored 2-D entry is stale relative to the new frame count.
