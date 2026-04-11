@@ -73,87 +73,157 @@ class TestAtomData:
         with pytest.raises(ValueError):
             ad["bad"] = np.ones((2, 2, 2))
 
-    def test_global_range_2d_numeric(self):
+    def test_ranges_2d_numeric(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [0.4, 0.6]])
-        assert ad.global_range("val") == (0.0, 1.0)
+        assert ad.ranges["val"] == (0.0, 1.0)
 
-    def test_global_range_1d_returns_none(self):
+    def test_ranges_1d_returns_none(self):
         ad = _make_atom_data(n_atoms=2, n_frames=1)
         ad["val"] = np.array([0.0, 1.0])
-        assert ad.global_range("val") is None
+        assert ad.ranges["val"] is None
 
-    def test_global_range_categorical_returns_none(self):
+    def test_ranges_categorical_returns_none(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
-        assert ad.global_range("site") is None
+        assert ad.ranges["site"] is None
 
-    def test_global_range_all_nan_returns_none(self):
+    def test_ranges_all_nan_returns_none(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.full((2, 2), np.nan)
-        assert ad.global_range("val") is None
+        assert ad.ranges["val"] is None
 
-    def test_global_range_cached(self):
+    def test_ranges_updates_on_reassignment(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
-        r1 = ad.global_range("val")
-        r2 = ad.global_range("val")
-        assert r1 is r2  # same object from cache
-
-    def test_global_range_invalidated_on_set(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=2)
-        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
-        assert ad.global_range("val") == (0.0, 3.0)
+        assert ad.ranges["val"] == (0.0, 3.0)
         ad["val"] = np.array([[10.0, 20.0], [30.0, 40.0]])
-        assert ad.global_range("val") == (10.0, 40.0)
+        assert ad.ranges["val"] == (10.0, 40.0)
 
-    def test_global_range_invalidated_on_delete(self):
+    def test_ranges_recomputed_after_delete_and_reassign(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
-        assert ad.global_range("val") == (0.0, 3.0)
+        assert ad.ranges["val"] == (0.0, 3.0)
         del ad["val"]
         ad["val"] = np.array([[10.0, 20.0], [30.0, 40.0]])
-        assert ad.global_range("val") == (10.0, 40.0)
+        assert ad.ranges["val"] == (10.0, 40.0)
 
-    def test_global_labels_2d_categorical(self):
+    def test_labels_2d_categorical(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["alpha", "beta"], ["beta", "gamma"]], dtype=object)
-        assert ad.global_labels("site") == ["alpha", "beta", "gamma"]
+        assert ad.labels["site"] == ("alpha", "beta", "gamma")
 
-    def test_global_labels_1d_returns_none(self):
+    def test_labels_1d_returns_none(self):
         ad = _make_atom_data(n_atoms=2, n_frames=1)
         ad["site"] = np.array(["alpha", "beta"], dtype=object)
-        assert ad.global_labels("site") is None
+        assert ad.labels["site"] is None
 
-    def test_global_labels_numeric_returns_none(self):
+    def test_labels_numeric_returns_none(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[1.0, 2.0], [3.0, 4.0]])
-        assert ad.global_labels("val") is None
+        assert ad.labels["val"] is None
 
-    def test_global_labels_excludes_missing(self):
+    def test_labels_excludes_missing(self):
         ad = _make_atom_data(n_atoms=3, n_frames=2)
         ad["site"] = np.array([["alpha", None, "beta"],
                                 [None, "alpha", None]], dtype=object)
-        assert ad.global_labels("site") == ["alpha", "beta"]
+        assert ad.labels["site"] == ("alpha", "beta")
 
-    def test_global_labels_cached(self):
+    def test_labels_updates_on_reassignment(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["a", "b"], ["b", "a"]], dtype=object)
-        r1 = ad.global_labels("site")
-        r2 = ad.global_labels("site")
-        assert r1 is r2
-
-    def test_global_labels_invalidated_on_set(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=2)
-        ad["site"] = np.array([["a", "b"], ["b", "a"]], dtype=object)
-        assert ad.global_labels("site") == ["a", "b"]
+        assert ad.labels["site"] == ("a", "b")
         ad["site"] = np.array([["x", "y"], ["y", "x"]], dtype=object)
-        assert ad.global_labels("site") == ["x", "y"]
+        assert ad.labels["site"] == ("x", "y")
 
-    def test_global_range_partial_nan(self):
+    def test_ranges_partial_nan(self):
         ad = _make_atom_data(n_atoms=3, n_frames=2)
         ad["val"] = np.array([[1.0, np.nan, 3.0], [np.nan, 5.0, np.nan]])
-        assert ad.global_range("val") == (1.0, 5.0)
+        assert ad.ranges["val"] == (1.0, 5.0)
+
+    def test_ranges_is_read_only(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        with pytest.raises(TypeError):
+            ad.ranges["val"] = (0.0, 99.0)
+        with pytest.raises(TypeError):
+            del ad.ranges["val"]
+
+    def test_ranges_attribute_cannot_be_rebound(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        with pytest.raises(AttributeError):
+            ad.ranges = {}  # type: ignore[misc]
+
+    def test_ranges_captured_reference_sees_later_updates(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        captured = ad.ranges
+        ad["new"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        assert "new" in captured
+        assert captured["new"] == (0.0, 3.0)
+
+    def test_ranges_missing_key_raises(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        with pytest.raises(KeyError):
+            ad.ranges["nonexistent"]
+
+    def test_ranges_empty_2d_returns_none(self):
+        ad = _make_atom_data(n_atoms=0, n_frames=2)
+        ad["val"] = np.empty((2, 0))
+        assert ad.ranges["val"] is None
+
+    @pytest.mark.parametrize(
+        "array",
+        [
+            np.array([1 + 2j, 3 + 4j]),
+            np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")]),
+            np.array([np.timedelta64(1, "D"), np.timedelta64(2, "D")]),
+            np.array([b"foo", b"bar"]),
+            np.array([(1.0, "a"), (2.0, "b")], dtype=[("x", "f8"), ("y", "U5")]),
+        ],
+        ids=["complex", "datetime", "timedelta", "bytes", "void"],
+    )
+    def test_setitem_unsupported_dtype_raises(self, array):
+        ad = _make_atom_data(n_atoms=2, n_frames=1)
+        with pytest.raises(ValueError, match="unsupported dtype"):
+            ad["key"] = array
+
+    def test_ranges_contains_every_stored_key(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
+        ad["flat"] = np.array([0.0, 1.0])
+        assert set(ad.ranges) == set(ad)
+        del ad["site"]
+        assert set(ad.ranges) == set(ad)
+
+    def test_labels_is_read_only(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
+        with pytest.raises(TypeError):
+            ad.labels["site"] = ("x", "y")
+        with pytest.raises(TypeError):
+            del ad.labels["site"]
+
+    def test_labels_attribute_cannot_be_rebound(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        with pytest.raises(AttributeError):
+            ad.labels = {}  # type: ignore[misc]
+
+    def test_labels_missing_key_raises(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
+        with pytest.raises(KeyError):
+            ad.labels["nonexistent"]
+
+    def test_labels_contains_every_stored_key(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
+        ad["flat"] = np.array([0.0, 1.0])
+        assert set(ad.labels) == set(ad)
+        del ad["val"]
+        assert set(ad.labels) == set(ad)
 
     def test_negative_n_atoms_raises(self):
         with pytest.raises(ValueError, match="non-negative"):

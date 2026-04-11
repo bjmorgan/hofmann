@@ -143,10 +143,10 @@ def _resolve_single_layer(
 
     Args:
         scene_atom_data: The scene's :class:`AtomData` container.
-            When provided, cached global metadata is used for 2-D
+            When provided, derived global metadata is used for 2-D
             data so that colouring is consistent across animation
-            frames: :meth:`AtomData.global_range` for numeric data
-            and :meth:`AtomData.global_labels` for categorical data.
+            frames: :attr:`AtomData.ranges` for numeric data and
+            :attr:`AtomData.labels` for categorical data.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *colours* is a
@@ -159,14 +159,14 @@ def _resolve_single_layer(
     if values.dtype.kind in ("U", "O"):
         labels = None
         if scene_atom_data is not None:
-            labels = scene_atom_data.global_labels(key)
+            labels = scene_atom_data.labels[key]
         return _resolve_categorical(values, fallback, cmap_fn, labels)
     if colour_range is None and scene_atom_data is not None:
-        colour_range = scene_atom_data.global_range(key)
+        colour_range = scene_atom_data.ranges[key]
     return _resolve_numerical(values, fallback, cmap_fn, colour_range)
 
 
-def resolve_atom_colours(
+def _resolve_atom_colours(
     species: list[str],
     atom_styles: dict[str, AtomStyle],
     atom_data: dict[str, np.ndarray],
@@ -212,8 +212,9 @@ def resolve_atom_colours(
             list, may also be a list of the same length.
         scene_atom_data: The scene's :class:`AtomData` container.
             When provided and a key's *colour_range* is ``None``,
-            the cached global range is used for 2-D numeric data
-            so that colourmap scaling is consistent across frames.
+            the derived global range from :attr:`AtomData.ranges`
+            is used for 2-D numeric data so that colourmap scaling
+            is consistent across frames.
 
     Returns:
         List of ``(r, g, b)`` tuples, one per atom.
@@ -310,6 +311,11 @@ def _resolve_numerical(
         a boolean array that is ``True`` for atoms whose values are
         NaN.
     """
+    if values.dtype.kind not in ("b", "i", "u", "f"):
+        raise ValueError(
+            f"_resolve_numerical requires a numeric dtype "
+            f"(bool, integer, or float), got {values.dtype}"
+        )
     values = values.astype(float, copy=False)
     mask = np.isnan(values)
 
@@ -355,7 +361,7 @@ def _resolve_categorical(
     values: np.ndarray,
     fallback: list[tuple[float, float, float]],
     cmap_fn: Callable[[float], tuple[float, float, float]],
-    global_labels: list[str] | None = None,
+    global_labels: tuple[str, ...] | None = None,
 ) -> tuple[list[tuple[float, float, float]], np.ndarray]:
     """Map categorical labels through a colourmap.
 
@@ -365,9 +371,8 @@ def _resolve_categorical(
     Args:
         global_labels: When provided, these labels define the
             colourmap positions (consistent across animation frames).
-            Typically computed by :meth:`AtomData.global_labels`,
-            which scans all frames so every per-frame label is
-            included.
+            Typically looked up via :attr:`AtomData.labels`, which
+            holds unique labels across all frames.
 
     Returns:
         A tuple of ``(colours, missing_mask)`` where *missing_mask* is

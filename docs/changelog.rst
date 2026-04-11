@@ -1,6 +1,27 @@
 Changelog
 =========
 
+0.18.0
+------
+
+- :class:`~hofmann.AtomData` now exposes derived per-key metadata via
+  read-only mapping attributes ``ranges`` and ``labels``, replacing the
+  previous ``global_range()`` and ``global_labels()`` methods.  Callers
+  migrate with a direct substitution: ``ad.global_range(key)`` becomes
+  ``ad.ranges[key]``, and ``ad.global_labels(key)`` becomes
+  ``ad.labels[key]``.  The results are computed eagerly on assignment,
+  so every access is a simple dictionary lookup.
+
+- :class:`~hofmann.AtomData` rejects unsupported dtypes at assignment
+  time with a clear error message.  Supported dtypes are bool,
+  integer, float, string, and object; complex, datetime, bytes, and
+  other dtypes now raise :class:`ValueError` at assignment rather
+  than failing later in the rendering pipeline.
+
+- ``resolve_atom_colours`` is no longer part of the public API.
+  Colour resolution goes through the :class:`~hofmann.StructureScene`
+  rendering methods.
+
 0.17.0
 ------
 
@@ -455,9 +476,9 @@ Changelog
   subsets; the first non-missing value wins for each atom.
 - Polyhedra without an explicit colour now inherit the resolved
   ``colour_by`` colour of their centre atom.
-- New public API: :func:`~hofmann.resolve_atom_colours` for
-  programmatic colour resolution, and :data:`~hofmann.CmapSpec` type
-  alias for colourmap specifications.
+- New public API: ``resolve_atom_colours`` for programmatic colour
+  resolution, and :data:`~hofmann.CmapSpec` type alias for colourmap
+  specifications.
 
 0.1.0
 -----
