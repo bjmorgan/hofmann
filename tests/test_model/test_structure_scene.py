@@ -367,3 +367,106 @@ class TestAtomDataWriteMethods:
         scene = self._make_scene()
         with pytest.raises(AttributeError):
             scene.atom_data = None  # type: ignore[misc]
+
+
+class TestValidateForRender:
+    """Unit and integration tests for scene-level render-time validation."""
+
+    def _make_scene(
+        self,
+        *,
+        n_atoms: int = 3,
+        n_frames: int = 3,
+    ) -> StructureScene:
+        species = ["C"] * n_atoms
+        frames = [
+            Frame(coords=np.zeros((n_atoms, 3)))
+            for _ in range(n_frames)
+        ]
+        return StructureScene(species=species, frames=frames)
+
+    def _stale_scene(self) -> StructureScene:
+        scene = self._make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        return scene
+
+    # --- Unit tests directly on the helper ---
+
+    def test_validate_no_atom_data_is_noop(self):
+        scene = self._make_scene()
+        scene._validate_for_render()  # must not raise
+
+    def test_validate_only_1d_is_noop(self):
+        scene = self._make_scene()
+        scene.set_atom_data("charge", [1.0, 2.0, 3.0])
+        scene._validate_for_render()  # must not raise
+
+    def test_validate_matching_2d_is_noop(self):
+        scene = self._make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene._validate_for_render()  # must not raise
+
+    def test_validate_stale_after_append_raises(self):
+        scene = self._make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        with pytest.raises(
+            ValueError, match="sized for 3 frames, not 4"
+        ):
+            scene._validate_for_render()
+
+    def test_validate_stale_after_pop_raises(self):
+        scene = self._make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.frames.pop()
+        with pytest.raises(
+            ValueError, match="sized for 3 frames, not 2"
+        ):
+            scene._validate_for_render()
+
+    # --- End-to-end integration tests, one per render method ---
+
+    def test_render_mpl_raises_on_stale_2d(self, tmp_path):
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError, match="sized for 3 frames, not 4"
+        ):
+            scene.render_mpl(output=tmp_path / "out.svg")
+
+    def test_render_mpl_interactive_raises_on_stale_2d(self):
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError, match="sized for 3 frames, not 4"
+        ):
+            scene.render_mpl_interactive()
+
+    def test_render_animation_raises_on_stale_2d(self, tmp_path):
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError, match="sized for 3 frames, not 4"
+        ):
+            scene.render_animation(output=tmp_path / "out.gif")
+
+    # --- Recovery workflow end-to-end test ---
+
+    def test_render_mpl_succeeds_after_recovery(self, tmp_path):
+        scene = self._stale_scene()
+        scene.clear_2d_atom_data()
+        scene.set_atom_data("energy", np.zeros((4, 3)))
+        scene.render_mpl(output=tmp_path / "out.svg")
+
+    # --- Direct-container mutation is closed at protocol level ---
+
+    def test_direct_bracket_assignment_raises(self):
+        scene = self._make_scene()
+        with pytest.raises(
+            TypeError, match="does not support item assignment"
+        ):
+            scene.atom_data["energy"] = np.zeros((3, 3))  # type: ignore[index]
+
+    def test_direct_bracket_delete_raises(self):
+        scene = self._make_scene()
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        with pytest.raises(TypeError):
+            del scene.atom_data["energy"]  # type: ignore[attr-defined]

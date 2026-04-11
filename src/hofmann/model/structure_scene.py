@@ -479,6 +479,23 @@ class StructureScene:
         """
         self._atom_data.clear_2d()
 
+    def _validate_for_render(self) -> None:
+        """Raise if atom_data is incompatible with the current trajectory.
+
+        Called as the first action of every public ``render_*``
+        method.  Delegates to the container's
+        ``_check_frames_compatibility`` with ``len(self.frames)`` as
+        the expected frame count.  Fires exactly once per user-facing
+        render invocation, before any per-frame work begins, so a
+        stale scene fails fast without partially initialising figures
+        or animation writers.
+
+        Raises:
+            ValueError: If the container has a 2-D entry whose
+                ``shape[0]`` does not equal ``len(self.frames)``.
+        """
+        self._atom_data._check_frames_compatibility(len(self.frames))
+
     def render_mpl(
         self,
         output: str | Path | None = None,
@@ -539,6 +556,8 @@ class StructureScene:
         See Also:
             :func:`hofmann.rendering.static.render_mpl`
         """
+        self._validate_for_render()
+
         from hofmann.rendering.static import render_mpl
 
         return render_mpl(
@@ -602,6 +621,8 @@ class StructureScene:
         See Also:
             :func:`hofmann.rendering.interactive.render_mpl_interactive`
         """
+        self._validate_for_render()
+
         from hofmann.rendering.interactive import render_mpl_interactive
 
         return render_mpl_interactive(
@@ -670,6 +691,8 @@ class StructureScene:
         See Also:
             :func:`hofmann.rendering.animation.render_animation`
         """
+        self._validate_for_render()
+
         from hofmann.rendering.animation import render_animation
 
         return render_animation(
