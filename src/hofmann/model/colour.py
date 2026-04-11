@@ -311,6 +311,11 @@ def _resolve_numerical(
         a boolean array that is ``True`` for atoms whose values are
         NaN.
     """
+    if values.dtype.kind not in ("b", "i", "u", "f"):
+        raise ValueError(
+            f"_resolve_numerical requires a numeric dtype "
+            f"(bool, integer, or float), got {values.dtype}"
+        )
     values = values.astype(float, copy=False)
     mask = np.isnan(values)
 

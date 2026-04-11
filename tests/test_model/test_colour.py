@@ -188,6 +188,18 @@ class TestResolveAtomColours:
                 colour_by="nonexistent",
             )
 
+    def test_numerical_rejects_non_numeric_dtype(self):
+        """_resolve_numerical's precondition catches non-numeric
+        dtypes at the unsafe values.astype(float) site, even if the
+        upstream AtomData validation is bypassed.
+        """
+        data = {"z": np.array([1 + 2j, 3 + 4j, 5 + 6j])}
+        with pytest.raises(ValueError, match="numeric dtype"):
+            _resolve_atom_colours(
+                self.SPECIES, self.STYLES, data,
+                colour_by="z",
+            )
+
     def test_list_colour_by_priority(self):
         """Non-overlapping layers: each atom gets its layer's colour."""
         def red(_v: float) -> tuple[float, float, float]:
