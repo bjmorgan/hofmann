@@ -402,7 +402,7 @@ class TestAtomData:
     def test_second_2d_mismatching_shape_raises(self):
         ad = _AtomData(n_atoms=3)
         ad._set("foo", np.zeros((5, 3)))
-        with pytest.raises(ValueError, match="shape-compatible with 5 frames"):
+        with pytest.raises(ValueError, match="sized for 5 frames, not 4"):
             ad._set("bar", np.ones((4, 3)))
 
     def test_reassigning_only_2d_to_new_shape_raises(self):

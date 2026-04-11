@@ -169,9 +169,8 @@ class _AtomData(Mapping[str, np.ndarray]):
             if arr.ndim == 2:
                 if arr.shape[0] != expected:
                     raise ValueError(
-                        f"atom_data is shape-compatible with "
-                        f"{arr.shape[0]} frames but {expected} were "
-                        f"requested"
+                        f"atom_data has 2-D entries sized for "
+                        f"{arr.shape[0]} frames, not {expected}"
                     )
                 return
 
@@ -188,9 +187,10 @@ class _AtomData(Mapping[str, np.ndarray]):
         Raises:
             ValueError: If *value* does not coerce to a 1-D array of
                 length ``n_atoms`` or a 2-D array of shape
-                ``(n_frames, n_atoms)``, or has an unsupported dtype
-                (only bool, integer, float, string, and object are
-                accepted).
+                ``(m, n_atoms)`` where ``m`` matches the row count of
+                any other stored 2-D entry (cross-entry compatibility
+                invariant), or has an unsupported dtype (only bool,
+                integer, float, string, and object are accepted).
         """
         arr = np.array(value)
         if arr.ndim == 1:
