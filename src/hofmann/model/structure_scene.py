@@ -129,25 +129,19 @@ class StructureScene:
 
     @property
     def atom_data(self) -> _AtomData:
-        """Per-atom metadata container: read-only view with a Mapping-style interface.
+        """Per-atom metadata container: read-only Mapping-style view.
 
         Each value is either a 1-D array of length ``n_atoms`` (same
         every frame) or a 2-D array of shape ``(n_frames, n_atoms)``
-        (per-frame values).  Stored arrays are returned read-only.
-        Use ``colour_by`` on the render methods to visualise a key.
-        See :meth:`set_atom_data`, :meth:`del_atom_data`, and
+        (per-frame values).  Stored arrays are returned read-only,
+        and the container itself supports Mapping reads only — there
+        is no ``scene.atom_data = ...`` setter and no
+        ``scene.atom_data[key] = ...`` shortcut.  Use ``colour_by``
+        on the render methods to visualise a key.  See
+        :meth:`set_atom_data`, :meth:`del_atom_data`, and
         :meth:`clear_2d_atom_data` for modifications.
         """
         return self._atom_data
-
-    @atom_data.setter
-    def atom_data(self, value: object) -> None:
-        if not isinstance(value, _AtomData):
-            raise TypeError(
-                f"atom_data must be an _AtomData instance, "
-                f"got {type(value).__name__}"
-            )
-        self._atom_data = value
 
     @classmethod
     def from_xbs(
@@ -378,6 +372,16 @@ class StructureScene:
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
+        Canonical write entry point for per-atom metadata.  The
+        container is otherwise read-only: to remove a single entry use
+        :meth:`del_atom_data`, and to bulk-drop all 2-D entries (e.g.
+        after extending the trajectory) use
+        :meth:`clear_2d_atom_data`.
+
+        A 2-D *values* array is validated against ``len(self.frames)``
+        before storage, in addition to the cross-entry 2-D consistency
+        check performed by the underlying container.
+
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
@@ -393,9 +397,15 @@ class StructureScene:
 
         Raises:
             ValueError: If an array-like has the wrong length or shape,
-                or a dict contains indices outside the valid range.
+                if a 2-D array's leading dimension does not match
+                ``len(self.frames)``, or if a dict contains indices
+                outside the valid range.
             TypeError: If a dict contains a mixture of string and
                 numeric values.
+
+        See Also:
+            :meth:`del_atom_data`: Remove a single entry.
+            :meth:`clear_2d_atom_data`: Remove all 2-D entries.
         """
         n_atoms = len(self.species)
 
@@ -435,6 +445,38 @@ class StructureScene:
             )
 
         self._atom_data._set(key, arr)
+
+    def del_atom_data(self, key: str) -> None:
+        """Remove a per-atom metadata entry.
+
+        Args:
+            key: The metadata key to remove.
+
+        Raises:
+            KeyError: If *key* is not present in :attr:`atom_data`.
+
+        See Also:
+            :meth:`set_atom_data`: Canonical write entry point.
+            :meth:`clear_2d_atom_data`: Remove all 2-D entries at once.
+        """
+        self._atom_data._del(key)
+
+    def clear_2d_atom_data(self) -> None:
+        """Remove all 2-D per-atom metadata entries, preserving 1-D.
+
+        Typical use after extending the trajectory when stored 2-D
+        data no longer matches the frame count::
+
+            scene.frames.append(new_frame)
+            scene.clear_2d_atom_data()
+            scene.set_atom_data("energy", new_energy_2d)
+            scene.render_mpl(...)
+
+        See Also:
+            :meth:`set_atom_data`: Canonical write entry point.
+            :meth:`del_atom_data`: Remove a single entry.
+        """
+        self._atom_data.clear_2d()
 
     def render_mpl(
         self,
