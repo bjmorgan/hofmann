@@ -123,6 +123,9 @@ class _AtomData(Mapping[str, np.ndarray]):
 
     Args:
         n_atoms: Number of atoms in the scene.  Non-negative.
+
+    Raises:
+        ValueError: If *n_atoms* is negative.
     """
 
     def __init__(self, *, n_atoms: int) -> None:

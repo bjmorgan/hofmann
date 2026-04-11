@@ -8,6 +8,20 @@ from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
 
 
+def _make_scene(
+    *,
+    n_atoms: int = 3,
+    n_frames: int = 3,
+) -> StructureScene:
+    """Build a minimal scene with *n_atoms* carbons across *n_frames* frames."""
+    species = ["C"] * n_atoms
+    frames = [
+        Frame(coords=np.zeros((n_atoms, 3)))
+        for _ in range(n_frames)
+    ]
+    return StructureScene(species=species, frames=frames)
+
+
 class TestStructureScene:
     def test_defaults(self):
         coords = np.zeros((2, 3))
@@ -314,36 +328,23 @@ class TestSetAtomData:
 class TestAtomDataWriteMethods:
     """Tests for del_atom_data, clear_2d_atom_data, setter removal."""
 
-    def _make_scene(
-        self,
-        *,
-        n_atoms: int = 3,
-        n_frames: int = 3,
-    ) -> StructureScene:
-        species = ["C"] * n_atoms
-        frames = [
-            Frame(coords=np.zeros((n_atoms, 3)))
-            for _ in range(n_frames)
-        ]
-        return StructureScene(species=species, frames=frames)
-
     # del_atom_data
 
     def test_del_atom_data_removes_entry(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         scene.set_atom_data("charge", [1.0, 2.0, 3.0])
         scene.del_atom_data("charge")
         assert "charge" not in scene.atom_data
 
     def test_del_atom_data_missing_key_raises(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         with pytest.raises(KeyError):
             scene.del_atom_data("missing")
 
     # clear_2d_atom_data
 
     def test_clear_2d_atom_data_removes_2d(self):
-        scene = self._make_scene(n_frames=5)
+        scene = _make_scene(n_frames=5)
         scene.set_atom_data("charge", [1.0, 2.0, 3.0])  # 1-D
         scene.set_atom_data("energy", np.zeros((5, 3)))  # 2-D
         scene.set_atom_data("forces", np.ones((5, 3)))  # 2-D
@@ -352,7 +353,7 @@ class TestAtomDataWriteMethods:
         assert "forces" not in scene.atom_data
 
     def test_clear_2d_atom_data_preserves_1d(self):
-        scene = self._make_scene(n_frames=5)
+        scene = _make_scene(n_frames=5)
         scene.set_atom_data("charge", [1.0, 2.0, 3.0])
         scene.set_atom_data("energy", np.zeros((5, 3)))
         scene.clear_2d_atom_data()
@@ -364,7 +365,7 @@ class TestAtomDataWriteMethods:
     # Setter removal
 
     def test_atom_data_setter_removed(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         with pytest.raises(AttributeError):
             scene.atom_data = None  # type: ignore[misc]
 
@@ -372,21 +373,8 @@ class TestAtomDataWriteMethods:
 class TestValidateForRender:
     """Unit and integration tests for scene-level render-time validation."""
 
-    def _make_scene(
-        self,
-        *,
-        n_atoms: int = 3,
-        n_frames: int = 3,
-    ) -> StructureScene:
-        species = ["C"] * n_atoms
-        frames = [
-            Frame(coords=np.zeros((n_atoms, 3)))
-            for _ in range(n_frames)
-        ]
-        return StructureScene(species=species, frames=frames)
-
     def _stale_scene(self) -> StructureScene:
-        scene = self._make_scene(n_frames=3)
+        scene = _make_scene(n_frames=3)
         scene.set_atom_data("energy", np.zeros((3, 3)))
         scene.frames.append(Frame(coords=np.zeros((3, 3))))
         return scene
@@ -394,21 +382,21 @@ class TestValidateForRender:
     # --- Unit tests directly on the helper ---
 
     def test_validate_no_atom_data_is_noop(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         scene._validate_for_render()  # must not raise
 
     def test_validate_only_1d_is_noop(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         scene.set_atom_data("charge", [1.0, 2.0, 3.0])
         scene._validate_for_render()  # must not raise
 
     def test_validate_matching_2d_is_noop(self):
-        scene = self._make_scene(n_frames=3)
+        scene = _make_scene(n_frames=3)
         scene.set_atom_data("energy", np.zeros((3, 3)))
         scene._validate_for_render()  # must not raise
 
     def test_validate_stale_after_append_raises(self):
-        scene = self._make_scene(n_frames=3)
+        scene = _make_scene(n_frames=3)
         scene.set_atom_data("energy", np.zeros((3, 3)))
         scene.frames.append(Frame(coords=np.zeros((3, 3))))
         with pytest.raises(
@@ -417,11 +405,32 @@ class TestValidateForRender:
             scene._validate_for_render()
 
     def test_validate_stale_after_pop_raises(self):
-        scene = self._make_scene(n_frames=3)
+        scene = _make_scene(n_frames=3)
         scene.set_atom_data("energy", np.zeros((3, 3)))
         scene.frames.pop()
         with pytest.raises(
             ValueError, match="sized for 3 frames, not 2"
+        ):
+            scene._validate_for_render()
+
+    def test_validate_stale_with_multiple_2d_entries(self):
+        """When multiple 2-D entries are present and the trajectory
+        becomes stale, the check still raises and names the stored
+        shape correctly.
+
+        The container enforces cross-entry consistency at assignment
+        time, so all stored 2-D entries are guaranteed to agree on
+        shape[0]. The render-time check walks until it finds the
+        first 2-D entry and short-circuits; any representative entry
+        reports the correct stored shape. This test documents that
+        behaviour.
+        """
+        scene = _make_scene(n_frames=3)
+        scene.set_atom_data("energy", np.zeros((3, 3)))
+        scene.set_atom_data("forces", np.ones((3, 3)))
+        scene.frames.append(Frame(coords=np.zeros((3, 3))))
+        with pytest.raises(
+            ValueError, match="sized for 3 frames, not 4"
         ):
             scene._validate_for_render()
 
@@ -459,14 +468,14 @@ class TestValidateForRender:
     # --- Direct-container mutation is closed at protocol level ---
 
     def test_direct_bracket_assignment_raises(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         with pytest.raises(
             TypeError, match="does not support item assignment"
         ):
             scene.atom_data["energy"] = np.zeros((3, 3))  # type: ignore[index]
 
     def test_direct_bracket_delete_raises(self):
-        scene = self._make_scene()
+        scene = _make_scene()
         scene.set_atom_data("energy", np.zeros((3, 3)))
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="does not support item deletion"):
             del scene.atom_data["energy"]  # type: ignore[attr-defined]

@@ -39,6 +39,14 @@ autodoc_class_signature = "separated"
 always_document_param_types = True
 typehints_defaults = "braces"
 
+# -- Nitpick ignores ----------------------------------------------------------
+
+nitpick_ignore = [
+    # Private container type referenced by StructureScene.atom_data's
+    # annotation; not part of the public API so not documented.
+    ("py:class", "hofmann.model.atom_data._AtomData"),
+]
+
 # -- Plot directive settings --------------------------------------------------
 
 plot_include_source = True
