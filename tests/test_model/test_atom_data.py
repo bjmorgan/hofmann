@@ -144,9 +144,9 @@ class TestAtomData:
     def test_ranges_is_read_only(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
-        with pytest.raises(TypeError, match="mappingproxy"):
+        with pytest.raises(TypeError):
             ad.ranges["val"] = (0.0, 99.0)
-        with pytest.raises(TypeError, match="mappingproxy"):
+        with pytest.raises(TypeError):
             del ad.ranges["val"]
 
     def test_ranges_attribute_cannot_be_rebound(self):
@@ -175,8 +175,7 @@ class TestAtomData:
             ad.ranges["nonexistent"]
 
     def test_ranges_empty_2d_returns_none(self):
-        frames: list = [None, None]  # type: ignore[list-item]
-        ad = AtomData(n_atoms=0, frames=frames)
+        ad = _make_atom_data(n_atoms=0, n_frames=2)
         ad["val"] = np.empty((2, 0))
         assert ad.ranges["val"] is None
 
@@ -212,9 +211,9 @@ class TestAtomData:
     def test_labels_is_read_only(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
-        with pytest.raises(TypeError, match="mappingproxy"):
+        with pytest.raises(TypeError):
             ad.labels["site"] = ("x", "y")
-        with pytest.raises(TypeError, match="mappingproxy"):
+        with pytest.raises(TypeError):
             del ad.labels["site"]
 
     def test_labels_attribute_cannot_be_rebound(self):

@@ -35,6 +35,14 @@ def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
 
     Returns ``None`` for 1-D arrays or non-categorical (numeric)
     dtypes.  Missing values (``None``, ``""``, NaN) are excluded.
+
+    Labels are returned in first-encountered order across
+    ``arr.ravel()``.  This ordering is load-bearing: downstream
+    colourmap assignment (``_resolve_categorical``) indexes into this
+    tuple via :func:`enumerate`, so the order determines which label
+    gets which colour.  Preserve the insertion-order semantics;
+    sorting or otherwise reordering the result will silently change
+    per-atom colours.
     """
     if arr.ndim != 2 or arr.dtype.kind not in ("U", "O"):
         return None
