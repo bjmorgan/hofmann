@@ -381,6 +381,19 @@ class TestValidateForRender:
 
     # --- Unit test directly on the helper ---
 
+    def test_validate_for_render_raises_on_stale_2d(self):
+        """Direct unit test on the helper, bypassing the render
+        stack.  Faster and narrower than the end-to-end integration
+        tests, and guards against a refactor that reshuffles how
+        ``render_*`` call the helper without changing the helper
+        itself."""
+        scene = self._stale_scene()
+        with pytest.raises(
+            ValueError,
+            match=r"stale 2-D entry 'energy'.*3 frames.*4 frames were expected",
+        ):
+            scene._validate_for_render()
+
     # --- End-to-end integration tests, one per render method ---
 
     def test_render_mpl_raises_on_stale_2d(self, tmp_path):

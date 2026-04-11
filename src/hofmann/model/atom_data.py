@@ -242,8 +242,8 @@ class AtomData(Mapping[str, np.ndarray]):
                         f"{stored_key!r} sized for {arr.shape[0]} "
                         f"frames, but {expected} frames were "
                         f"expected; call "
-                        f"StructureScene.clear_2d_atom_data() to "
-                        f"recover before reassigning"
+                        f"scene.clear_2d_atom_data() to recover "
+                        f"before reassigning"
                     )
                 return
 
