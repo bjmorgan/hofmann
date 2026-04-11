@@ -179,25 +179,21 @@ class TestAtomData:
         ad["val"] = np.empty((2, 0))
         assert ad.ranges["val"] is None
 
-    def test_setitem_complex_dtype_raises(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=2)
-        with pytest.raises(ValueError, match="unsupported dtype"):
-            ad["z"] = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]])
-
-    def test_setitem_datetime_dtype_raises(self):
-        ad = _make_atom_data(n_atoms=2, n_frames=2)
-        with pytest.raises(ValueError, match="unsupported dtype"):
-            ad["t"] = np.array(
-                [
-                    [np.datetime64("2024-01-01"), np.datetime64("2024-01-02")],
-                    [np.datetime64("2024-01-03"), np.datetime64("2024-01-04")],
-                ]
-            )
-
-    def test_setitem_bytes_dtype_raises(self):
+    @pytest.mark.parametrize(
+        "array",
+        [
+            np.array([1 + 2j, 3 + 4j]),
+            np.array([np.datetime64("2024-01-01"), np.datetime64("2024-01-02")]),
+            np.array([np.timedelta64(1, "D"), np.timedelta64(2, "D")]),
+            np.array([b"foo", b"bar"]),
+            np.array([(1.0, "a"), (2.0, "b")], dtype=[("x", "f8"), ("y", "U5")]),
+        ],
+        ids=["complex", "datetime", "timedelta", "bytes", "void"],
+    )
+    def test_setitem_unsupported_dtype_raises(self, array):
         ad = _make_atom_data(n_atoms=2, n_frames=1)
         with pytest.raises(ValueError, match="unsupported dtype"):
-            ad["site"] = np.array([b"foo", b"bar"])
+            ad["key"] = array
 
     def test_ranges_contains_every_stored_key(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)

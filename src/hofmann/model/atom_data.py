@@ -100,6 +100,11 @@ class AtomData(MutableMapping[str, np.ndarray]):
             on assignment, replaced on reassignment, and removed on
             deletion.
 
+    For 2-D arrays, exactly one of ``ranges[key]`` and
+    ``labels[key]`` holds a value, depending on dtype: numeric
+    arrays populate ``ranges``, categorical arrays populate
+    ``labels``.  For 1-D arrays, both are ``None``.
+
     Args:
         n_atoms: Number of atoms in the scene.
         frames: The scene's live frame list.  The length of this list

@@ -188,6 +188,17 @@ class TestResolveAtomColours:
                 colour_by="nonexistent",
             )
 
+    def test_unsupported_dtype_raises(self):
+        """Complex (and similar) dtypes raise a clear error rather
+        than silently dropping the imaginary part via astype(float).
+        """
+        data = {"z": np.array([1 + 2j, 3 + 4j, 5 + 6j])}
+        with pytest.raises(ValueError, match="unsupported dtype"):
+            resolve_atom_colours(
+                self.SPECIES, self.STYLES, data,
+                colour_by="z",
+            )
+
     def test_list_colour_by_priority(self):
         """Non-overlapping layers: each atom gets its layer's colour."""
         def red(_v: float) -> tuple[float, float, float]:
