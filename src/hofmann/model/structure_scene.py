@@ -482,16 +482,26 @@ class StructureScene:
     def clear_2d_atom_data(self) -> None:
         """Remove all 2-D per-atom metadata entries, preserving 1-D.
 
-        Typical use after extending the trajectory when stored 2-D
-        data no longer matches the frame count::
+        Required when two or more 2-D entries are stored and the
+        trajectory has been extended: every stored 2-D entry is now
+        stale relative to ``len(self.frames)``, so each must be
+        replaced before the next render.  For scenes with a single
+        2-D entry, :meth:`set_atom_data` can reassign the key
+        directly at the new shape -- the stored version is treated
+        as overridden by the pending write -- and this method is
+        unnecessary.
+
+        Multi-entry recovery workflow::
 
             scene.frames.append(new_frame)
             scene.clear_2d_atom_data()
             scene.set_atom_data("energy", new_energy_2d)
+            scene.set_atom_data("forces", new_forces_2d)
             scene.render_mpl(...)
 
         See Also:
-            :meth:`set_atom_data`: Canonical write entry point.
+            :meth:`set_atom_data`: Canonical write entry point; also
+                handles single-entry in-place reassignment.
             :meth:`del_atom_data`: Remove a single entry.
         """
         self._atom_data._clear_2d()
