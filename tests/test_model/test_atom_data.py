@@ -111,7 +111,7 @@ class TestAtomData:
     def test_labels_2d_categorical(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["alpha", "beta"], ["beta", "gamma"]], dtype=object)
-        assert ad.labels["site"] == ["alpha", "beta", "gamma"]
+        assert ad.labels["site"] == ("alpha", "beta", "gamma")
 
     def test_labels_1d_returns_none(self):
         ad = _make_atom_data(n_atoms=2, n_frames=1)
@@ -127,14 +127,14 @@ class TestAtomData:
         ad = _make_atom_data(n_atoms=3, n_frames=2)
         ad["site"] = np.array([["alpha", None, "beta"],
                                 [None, "alpha", None]], dtype=object)
-        assert ad.labels["site"] == ["alpha", "beta"]
+        assert ad.labels["site"] == ("alpha", "beta")
 
     def test_labels_updates_on_reassignment(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["a", "b"], ["b", "a"]], dtype=object)
-        assert ad.labels["site"] == ["a", "b"]
+        assert ad.labels["site"] == ("a", "b")
         ad["site"] = np.array([["x", "y"], ["y", "x"]], dtype=object)
-        assert ad.labels["site"] == ["x", "y"]
+        assert ad.labels["site"] == ("x", "y")
 
     def test_ranges_partial_nan(self):
         ad = _make_atom_data(n_atoms=3, n_frames=2)
@@ -144,16 +144,41 @@ class TestAtomData:
     def test_ranges_is_read_only(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="mappingproxy"):
             ad.ranges["val"] = (0.0, 99.0)
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="mappingproxy"):
             del ad.ranges["val"]
+
+    def test_ranges_attribute_cannot_be_rebound(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        with pytest.raises(AttributeError):
+            ad.ranges = {}  # type: ignore[misc]
+
+    def test_ranges_identity_stable_across_accesses(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        first = ad.ranges
+        ad["other"] = np.array([[4.0, 5.0], [6.0, 7.0]])
+        assert ad.ranges is first
+
+    def test_ranges_captured_reference_sees_later_updates(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        captured = ad.ranges
+        ad["new"] = np.array([[0.0, 1.0], [2.0, 3.0]])
+        assert "new" in captured
+        assert captured["new"] == (0.0, 3.0)
 
     def test_ranges_missing_key_raises(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["val"] = np.array([[0.0, 1.0], [2.0, 3.0]])
         with pytest.raises(KeyError):
             ad.ranges["nonexistent"]
+
+    def test_ranges_empty_2d_returns_none(self):
+        frames: list = [None, None]  # type: ignore[list-item]
+        ad = AtomData(n_atoms=0, frames=frames)
+        ad["val"] = np.empty((2, 0))
+        assert ad.ranges["val"] is None
 
     def test_ranges_contains_every_stored_key(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
@@ -167,10 +192,15 @@ class TestAtomData:
     def test_labels_is_read_only(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)
         ad["site"] = np.array([["a", "b"], ["c", "d"]], dtype=object)
-        with pytest.raises(TypeError):
-            ad.labels["site"] = ["x", "y"]
-        with pytest.raises(TypeError):
+        with pytest.raises(TypeError, match="mappingproxy"):
+            ad.labels["site"] = ("x", "y")
+        with pytest.raises(TypeError, match="mappingproxy"):
             del ad.labels["site"]
+
+    def test_labels_attribute_cannot_be_rebound(self):
+        ad = _make_atom_data(n_atoms=2, n_frames=2)
+        with pytest.raises(AttributeError):
+            ad.labels = {}  # type: ignore[misc]
 
     def test_labels_missing_key_raises(self):
         ad = _make_atom_data(n_atoms=2, n_frames=2)

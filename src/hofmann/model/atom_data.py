@@ -16,9 +16,11 @@ def _compute_global_range(
     """Compute the global ``(min, max)`` for a 2-D numeric array.
 
     Returns ``None`` for 1-D arrays, categorical (string/object)
-    dtypes, or arrays where every value is NaN.
+    dtypes, empty arrays, or arrays where every value is NaN.
     """
     if arr.ndim != 2 or arr.dtype.kind in ("U", "O"):
+        return None
+    if arr.size == 0:
         return None
     with np.errstate(all="ignore"):
         lo = float(np.nanmin(arr))
@@ -28,8 +30,8 @@ def _compute_global_range(
     return (lo, hi)
 
 
-def _compute_global_labels(arr: np.ndarray) -> list[str] | None:
-    """Return the unique non-missing labels across all frames.
+def _compute_global_labels(arr: np.ndarray) -> tuple[str, ...] | None:
+    """Return the unique non-missing labels in a 2-D categorical array.
 
     Returns ``None`` for 1-D arrays or non-categorical (numeric)
     dtypes.  Missing values (``None``, ``""``, NaN) are excluded.
@@ -45,7 +47,7 @@ def _compute_global_labels(arr: np.ndarray) -> list[str] | None:
             seen[s] = None
     if not seen:
         return None
-    return list(seen)
+    return tuple(seen)
 
 
 class AtomData(MutableMapping[str, np.ndarray]):
@@ -78,14 +80,17 @@ class AtomData(MutableMapping[str, np.ndarray]):
         ranges: Read-only mapping of keys to ``(min, max)`` tuples
             for 2-D numeric arrays, or ``None`` for keys that do not
             have a meaningful numeric range (1-D arrays, categorical
-            dtypes, all-NaN numeric arrays).  Populated eagerly on
-            assignment and updated on reassignment or deletion.
-        labels: Read-only mapping of keys to lists of unique
+            dtypes, empty arrays, all-NaN numeric arrays).  Entries
+            are added on assignment, replaced on reassignment, and
+            removed on deletion.
+        labels: Read-only mapping of keys to tuples of unique
             non-missing categorical labels across all frames, or
             ``None`` for keys without a meaningful label set (1-D
             arrays, numeric dtypes, categorical arrays with no
-            non-missing values).  Populated eagerly on assignment
-            and updated on reassignment or deletion.
+            non-missing values).  Missing values (``None``, ``""``,
+            NaN) are excluded from the label set.  Entries are added
+            on assignment, replaced on reassignment, and removed on
+            deletion.
 
     Args:
         n_atoms: Number of atoms in the scene.
@@ -100,11 +105,11 @@ class AtomData(MutableMapping[str, np.ndarray]):
         self._frames = frames
         self._data: dict[str, np.ndarray] = {}
         self._ranges: dict[str, tuple[float, float] | None] = {}
-        self._labels: dict[str, list[str] | None] = {}
-        self.ranges: Mapping[str, tuple[float, float] | None] = (
+        self._labels: dict[str, tuple[str, ...] | None] = {}
+        self._ranges_view: Mapping[str, tuple[float, float] | None] = (
             MappingProxyType(self._ranges)
         )
-        self.labels: Mapping[str, list[str] | None] = (
+        self._labels_view: Mapping[str, tuple[str, ...] | None] = (
             MappingProxyType(self._labels)
         )
 
@@ -115,6 +120,14 @@ class AtomData(MutableMapping[str, np.ndarray]):
     @property
     def n_frames(self) -> int:
         return len(self._frames)
+
+    @property
+    def ranges(self) -> Mapping[str, tuple[float, float] | None]:
+        return self._ranges_view
+
+    @property
+    def labels(self) -> Mapping[str, tuple[str, ...] | None]:
+        return self._labels_view
 
     def __setitem__(self, key: str, value: object) -> None:
         arr = np.array(value)
@@ -141,9 +154,11 @@ class AtomData(MutableMapping[str, np.ndarray]):
                 f"got {arr.ndim}-D"
             )
         arr.flags.writeable = False
+        new_range = _compute_global_range(arr)
+        new_labels = _compute_global_labels(arr)
         self._data[key] = arr
-        self._ranges[key] = _compute_global_range(arr)
-        self._labels[key] = _compute_global_labels(arr)
+        self._ranges[key] = new_range
+        self._labels[key] = new_labels
 
     def __getitem__(self, key: str) -> np.ndarray:
         return self._data[key]

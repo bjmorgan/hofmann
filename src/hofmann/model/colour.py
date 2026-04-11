@@ -356,7 +356,7 @@ def _resolve_categorical(
     values: np.ndarray,
     fallback: list[tuple[float, float, float]],
     cmap_fn: Callable[[float], tuple[float, float, float]],
-    global_labels: list[str] | None = None,
+    global_labels: tuple[str, ...] | None = None,
 ) -> tuple[list[tuple[float, float, float]], np.ndarray]:
     """Map categorical labels through a colourmap.
 
