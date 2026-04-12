@@ -1080,7 +1080,7 @@ class TestColourBy:
     def test_colour_by_with_nan(self):
         """Atoms with NaN data fall back to species colour."""
         scene = _minimal_scene()
-        scene.set_atom_data("charge", {0: 1.0})  # atom 1 gets NaN
+        scene.set_atom_data("charge", by_index={0: 1.0})  # atom 1 gets NaN
         fig = render_mpl(scene, colour_by="charge", show=False)
         assert isinstance(fig, Figure)
         plt.close(fig)
@@ -1096,8 +1096,8 @@ class TestColourBy:
     def test_list_colour_by_smoke(self):
         """render_mpl with a list of colour_by keys produces a Figure."""
         scene = _minimal_scene()
-        scene.set_atom_data("a", {0: 1.0})
-        scene.set_atom_data("b", {1: 2.0})
+        scene.set_atom_data("a", by_index={0: 1.0})
+        scene.set_atom_data("b", by_index={1: 2.0})
         fig = render_mpl(
             scene, colour_by=["a", "b"], cmap=["viridis", "plasma"],
             show=False,
@@ -1112,7 +1112,7 @@ class TestColourBy:
         scene = _octahedron_scene()
         # Ti is atom 0; give it a numerical value so it gets a cmap colour.
         n_atoms = len(scene.species)
-        scene.set_atom_data("val", {0: 0.5})
+        scene.set_atom_data("val", by_index={0: 0.5})
 
         def red(_v: float) -> tuple[float, float, float]:
             return (1.0, 0.0, 0.0)
@@ -1131,7 +1131,7 @@ class TestColourBy:
 
         scene = _octahedron_scene(colour=(0.0, 0.0, 1.0))
         n_atoms = len(scene.species)
-        scene.set_atom_data("val", {0: 0.5})
+        scene.set_atom_data("val", by_index={0: 0.5})
 
         def red(_v: float) -> tuple[float, float, float]:
             return (1.0, 0.0, 0.0)
@@ -1235,7 +1235,7 @@ class TestColourBy:
 
         scene = _minimal_scene()
         scene.frames.append(Frame(coords=scene.frames[0].coords.copy()))
-        scene.set_atom_data("static", {0: 1.0})
+        scene.set_atom_data("static", by_index={0: 1.0})
         scene.set_atom_data(
             "dynamic", np.array([[np.nan, 0.0], [np.nan, 1.0]]),
         )

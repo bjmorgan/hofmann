@@ -234,7 +234,7 @@ class TestSetAtomData:
 
     def test_sparse_dict_numeric(self):
         scene = self._scene()
-        scene.set_atom_data("charge", {0: 1.5, 2: -0.3})
+        scene.set_atom_data("charge", by_index={0: 1.5, 2: -0.3})
         arr = scene.atom_data["charge"]
         assert arr[0] == pytest.approx(1.5)
         assert np.isnan(arr[1])
@@ -242,21 +242,24 @@ class TestSetAtomData:
 
     def test_sparse_dict_string(self):
         scene = self._scene()
-        scene.set_atom_data("site", {1: "4a"})
+        scene.set_atom_data("site", by_index={1: "4a"})
         arr = scene.atom_data["site"]
-        assert arr[0] == ""
+        assert arr[0] is None
         assert arr[1] == "4a"
-        assert arr[2] == ""
+        assert arr[2] is None
 
     def test_sparse_dict_out_of_range_raises(self):
         scene = self._scene()
         with pytest.raises(ValueError, match="out of range"):
-            scene.set_atom_data("charge", {5: 1.0})
+            scene.set_atom_data("charge", by_index={5: 1.0})
 
-    def test_sparse_dict_empty_raises(self):
+    def test_dict_in_values_raises_type_error(self):
         scene = self._scene()
-        with pytest.raises(ValueError, match="must not be empty"):
-            scene.set_atom_data("charge", {})
+        with pytest.raises(
+            TypeError,
+            match="values must be array-like.*by_index",
+        ):
+            scene.set_atom_data("charge", {0: 1.0})
 
     def test_overwrite_existing_key(self):
         scene = self._scene()
@@ -277,7 +280,7 @@ class TestSetAtomData:
         """Dict with mixed string and numeric values raises TypeError."""
         scene = self._scene()
         with pytest.raises(TypeError, match="same type"):
-            scene.set_atom_data("bad", {0: 1, 2: "text"})
+            scene.set_atom_data("bad", by_index={0: 1, 2: "text"})
 
     def test_2d_numeric_array(self):
         """A (n_frames, n_atoms) numeric array is accepted."""

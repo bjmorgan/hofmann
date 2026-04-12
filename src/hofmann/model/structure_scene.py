@@ -444,7 +444,7 @@ class StructureScene:
     def set_atom_data(
         self,
         key: str,
-        values: ArrayLike | dict[int, object] | None = None,
+        values: ArrayLike | None = None,
         *,
         by_species: dict[str, object] | None = None,
         by_index: dict[int, object] | None = None,
@@ -471,14 +471,9 @@ class StructureScene:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
             values: Either a 1-D array-like of length ``n_atoms`` (same
-                value every frame), a 2-D array-like of shape
-                ``(n_frames, n_atoms)`` (per-frame values), or a dict
-                mapping atom indices to values (always 1-D).  When a
-                dict is given, the fill value for missing atoms is
-                inferred from the first entry: ``NaN`` for numeric
-                values or ``""`` for string values.  All values in a
-                dict must be of compatible types (all numeric or all
-                strings).
+                value every frame) or a 2-D array-like of shape
+                ``(n_frames, n_atoms)`` (per-frame values).  Passing a
+                dict raises ``TypeError``; use ``by_index=`` instead.
 
         Raises:
             ValueError: If an array-like has the wrong length or
@@ -491,8 +486,9 @@ class StructureScene:
                 dtype (only bool, integer, float, string, and object
                 are accepted), or if a dict contains indices outside
                 the valid range.
-            TypeError: If a dict contains a mixture of string and
-                numeric values.
+            TypeError: If *values* is a dict (use ``by_index=``
+                instead), or if *by_species* or *by_index* contain a
+                mixture of string and numeric values.
 
         See Also:
             :meth:`del_atom_data`: Remove a single entry.
@@ -508,37 +504,14 @@ class StructureScene:
             raise ValueError(
                 "set_atom_data requires values, by_species, or by_index"
             )
+        if isinstance(values, dict):
+            raise TypeError(
+                "values must be array-like; use by_index= for sparse "
+                "assignment by atom index"
+            )
 
         if has_values:
-            n_atoms = len(self.species)
-            if isinstance(values, dict):
-                if not values:
-                    raise ValueError("values dict must not be empty")
-                for idx in values:
-                    if not 0 <= idx < n_atoms:
-                        raise ValueError(
-                            f"atom index {idx} out of range for "
-                            f"{n_atoms} atoms"
-                        )
-                sample = next(iter(values.values()))
-                is_str = isinstance(sample, str)
-                for idx, val in values.items():
-                    if isinstance(val, str) != is_str:
-                        raise TypeError(
-                            f"atom_data dict values must all be the same "
-                            f"type (string or numeric), but index {idx} "
-                            f"has type {type(val).__name__!r}"
-                        )
-                if is_str:
-                    arr = np.array([""] * n_atoms, dtype=object)
-                    for idx, val in values.items():
-                        arr[idx] = val
-                else:
-                    arr = np.full(n_atoms, np.nan)
-                    for idx, val in values.items():
-                        arr[idx] = val
-            else:
-                arr = np.asarray(values)
+            arr = np.asarray(values)
         else:
             arr = self._coerce_sparse_atom_data(
                 key,
