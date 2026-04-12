@@ -422,34 +422,14 @@ class StructureScene:
                 )
 
         # --- Coerce values and infer dtype / dimensionality ---
+        #
+        # seen_str / seen_num track whether any non-sentinel value is
+        # a string or numeric.  None is a missing sentinel and does
+        # not influence the dtype decision.  For object-dtype arrays
+        # the dtype alone is ambiguous, so elements are inspected.
         seen_str = False
         seen_num = False
         promotes_2d = False
-
-        def _classify_scalar(v: object) -> None:
-            """Update seen_str / seen_num from a single scalar."""
-            nonlocal seen_str, seen_num
-            if v is None:
-                return  # missing sentinel; does not determine dtype
-            if isinstance(v, str):
-                seen_str = True
-            else:
-                seen_num = True
-
-        def _classify_array(a: np.ndarray) -> None:
-            """Update seen_str / seen_num from a numpy array's dtype."""
-            nonlocal seen_str, seen_num
-            if a.dtype.kind == "U":
-                seen_str = True
-            elif a.dtype.kind == "O":
-                # Object arrays may contain strings, numerics, or
-                # None sentinels.  Classify from non-None elements.
-                for v in a.ravel():
-                    if seen_str and seen_num:
-                        break
-                    _classify_scalar(v)
-            else:
-                seen_num = True
 
         # Pre-process by_species values.
         species_arr = np.array(self.species)
@@ -459,7 +439,10 @@ class StructureScene:
             n_sp = int(mask.sum())
             a = np.asarray(val)
             if a.ndim == 0:
-                _classify_scalar(a.item())
+                v = a.item()
+                if v is not None:
+                    seen_str |= isinstance(v, str)
+                    seen_num |= not isinstance(v, str)
             elif a.ndim == 1:
                 if len(a) != n_sp:
                     raise ValueError(
@@ -467,7 +450,17 @@ class StructureScene:
                         f"length {len(a)} but species {label!r} has "
                         f"{n_sp} atoms"
                     )
-                _classify_array(a)
+                if a.dtype.kind == "U":
+                    seen_str = True
+                elif a.dtype.kind == "O":
+                    for v in a.ravel():
+                        if v is not None:
+                            seen_str |= isinstance(v, str)
+                            seen_num |= not isinstance(v, str)
+                        if seen_str and seen_num:
+                            break
+                else:
+                    seen_num = True
             elif a.ndim == 2:
                 if a.shape != (n_frames, n_sp):
                     raise ValueError(
@@ -477,7 +470,17 @@ class StructureScene:
                         f"and {n_sp} atoms of species {label!r}"
                     )
                 promotes_2d = True
-                _classify_array(a)
+                if a.dtype.kind == "U":
+                    seen_str = True
+                elif a.dtype.kind == "O":
+                    for v in a.ravel():
+                        if v is not None:
+                            seen_str |= isinstance(v, str)
+                            seen_num |= not isinstance(v, str)
+                        if seen_str and seen_num:
+                            break
+                else:
+                    seen_num = True
             else:
                 raise ValueError(
                     f"atom_data[{key!r}]: by_species[{label!r}] must be "
@@ -490,7 +493,10 @@ class StructureScene:
         for idx, val in by_index.items():
             a = np.asarray(val)
             if a.ndim == 0:
-                _classify_scalar(a.item())
+                v = a.item()
+                if v is not None:
+                    seen_str |= isinstance(v, str)
+                    seen_num |= not isinstance(v, str)
             elif a.ndim == 1:
                 if len(a) != n_frames:
                     raise ValueError(
@@ -498,7 +504,17 @@ class StructureScene:
                         f"length {len(a)} but expected {n_frames} frames"
                     )
                 promotes_2d = True
-                _classify_array(a)
+                if a.dtype.kind == "U":
+                    seen_str = True
+                elif a.dtype.kind == "O":
+                    for v in a.ravel():
+                        if v is not None:
+                            seen_str |= isinstance(v, str)
+                            seen_num |= not isinstance(v, str)
+                        if seen_str and seen_num:
+                            break
+                else:
+                    seen_num = True
             else:
                 raise ValueError(
                     f"atom_data[{key!r}]: by_index[{idx}] must be "
