@@ -28,7 +28,7 @@ def compute_bonds(
     lattice parameter apart).
 
     Args:
-        species: List of species labels, length ``n_atoms``.
+        species: Species labels, one per atom.
         coords: Coordinates array of shape ``(n_atoms, 3)``.
         bond_specs: List of BondSpec rules to apply.
         lattice: 3x3 matrix of lattice vectors (row vectors).

@@ -733,7 +733,7 @@ class StructureScene:
             ValueError: If *species* contains unknown labels or if
                 *values* has the wrong shape.
         """
-        arr = np.array(values)
+        arr = np.asarray(values)
         n_atoms = len(self.species)
 
         if arr.ndim == 1:
