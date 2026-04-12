@@ -119,8 +119,8 @@ take precedence where they overlap with ``by_species``:
 For trajectory data, ``by_species`` accepts 2-D arrays of shape
 ``(n_frames, n_species_atoms)`` and ``by_index`` accepts 1-D arrays
 of length ``n_frames``.  Either of these promotes the output to 2-D.
-Scalar and 1-D ``by_species`` values broadcast across frames
-automatically.
+Scalar and 1-D ``by_species`` values and scalar ``by_index`` values
+broadcast across frames automatically.
 
 Custom colouring functions
 --------------------------

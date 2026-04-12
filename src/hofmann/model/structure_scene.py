@@ -383,9 +383,9 @@ class StructureScene:
         2-D ``(n_frames, n_atoms)`` if any ``by_species`` value is
         2-D or any ``by_index`` value is 1-D.
 
-        When promoted, scalar and 1-D ``by_species`` values are
-        broadcast across the frame axis.  ``by_index`` values
-        overwrite ``by_species`` values at overlapping atoms.
+        ``by_index`` values overwrite ``by_species`` values at
+        overlapping atoms.  When promoted to 2-D, scalar and 1-D
+        ``by_species`` values are broadcast across the frame axis.
 
         Args:
             key: Metadata key (for error messages).
@@ -436,15 +436,21 @@ class StructureScene:
         def _classify_array(a: np.ndarray) -> None:
             """Update seen_str / seen_num from a numpy array's dtype."""
             nonlocal seen_str, seen_num
-            if a.dtype.kind in ("U", "O"):
+            if a.dtype.kind == "U":
                 seen_str = True
+            elif a.dtype.kind == "O":
+                # Object arrays may contain strings, numerics, or
+                # None sentinels.  Classify from non-None elements.
+                for v in a.ravel():
+                    _classify_scalar(v)
             else:
                 seen_num = True
 
         # Pre-process by_species values.
+        species_arr = np.array(self.species)
         species_entries: list[tuple[np.ndarray, np.ndarray]] = []
         for label, val in by_species.items():
-            mask = np.array([s == label for s in self.species])
+            mask = species_arr == label
             n_sp = int(mask.sum())
             a = np.asarray(val)
             if a.ndim == 0:
@@ -495,7 +501,9 @@ class StructureScene:
                 )
             index_entries.append((idx, a))
 
-        # Dtype inference.
+        # Dtype inference.  If all values are None (missing
+        # sentinels), neither flag is set and the default is numeric
+        # (NaN fill).
         if seen_str and seen_num:
             raise TypeError(
                 f"atom_data[{key!r}] has mixed string and numeric "
@@ -620,6 +628,11 @@ class StructureScene:
             :meth:`del_atom_data`: Remove a single entry.
             :meth:`clear_2d_atom_data`: Remove all 2-D entries.
         """
+        if isinstance(values, dict):
+            raise TypeError(
+                "values must be array-like; use by_index= for sparse "
+                "assignment by atom index"
+            )
         has_values = values is not None
         has_sparse = bool(by_species) or bool(by_index)
         if has_values and has_sparse:
@@ -629,11 +642,6 @@ class StructureScene:
         if not has_values and not has_sparse:
             raise ValueError(
                 "set_atom_data requires values, by_species, or by_index"
-            )
-        if isinstance(values, dict):
-            raise TypeError(
-                "values must be array-like; use by_index= for sparse "
-                "assignment by atom index"
             )
 
         if has_values:
