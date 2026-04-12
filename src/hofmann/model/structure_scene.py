@@ -419,8 +419,27 @@ class StructureScene:
                 )
 
         # --- Coerce values and infer dtype / dimensionality ---
-        all_values: list[object] = []
+        seen_str = False
+        seen_num = False
         promotes_2d = False
+
+        def _classify_scalar(v: object) -> None:
+            """Update seen_str / seen_num from a single scalar."""
+            nonlocal seen_str, seen_num
+            if v is None:
+                return  # missing sentinel; does not determine dtype
+            if isinstance(v, str):
+                seen_str = True
+            else:
+                seen_num = True
+
+        def _classify_array(a: np.ndarray) -> None:
+            """Update seen_str / seen_num from a numpy array's dtype."""
+            nonlocal seen_str, seen_num
+            if a.dtype.kind in ("U", "O"):
+                seen_str = True
+            else:
+                seen_num = True
 
         # Pre-process by_species values.
         species_entries: list[tuple[np.ndarray, np.ndarray]] = []
@@ -429,7 +448,7 @@ class StructureScene:
             n_sp = int(mask.sum())
             a = np.asarray(val)
             if a.ndim == 0:
-                all_values.append(a.item())
+                _classify_scalar(a.item())
             elif a.ndim == 1:
                 if len(a) != n_sp:
                     raise ValueError(
@@ -437,7 +456,7 @@ class StructureScene:
                         f"length {len(a)} but species {label!r} has "
                         f"{n_sp} atoms"
                     )
-                all_values.extend(a.ravel().tolist())
+                _classify_array(a)
             elif a.ndim == 2:
                 if a.shape != (n_frames, n_sp):
                     raise ValueError(
@@ -447,7 +466,7 @@ class StructureScene:
                         f"and {n_sp} atoms of species {label!r}"
                     )
                 promotes_2d = True
-                all_values.extend(a.ravel().tolist())
+                _classify_array(a)
             else:
                 raise ValueError(
                     f"atom_data[{key!r}]: by_species[{label!r}] must be "
@@ -460,7 +479,7 @@ class StructureScene:
         for idx, val in by_index.items():
             a = np.asarray(val)
             if a.ndim == 0:
-                all_values.append(a.item())
+                _classify_scalar(a.item())
             elif a.ndim == 1:
                 if len(a) != n_frames:
                     raise ValueError(
@@ -468,7 +487,7 @@ class StructureScene:
                         f"length {len(a)} but expected {n_frames} frames"
                     )
                 promotes_2d = True
-                all_values.extend(a.ravel().tolist())
+                _classify_array(a)
             else:
                 raise ValueError(
                     f"atom_data[{key!r}]: by_index[{idx}] must be "
@@ -477,15 +496,13 @@ class StructureScene:
             index_entries.append((idx, a))
 
         # Dtype inference.
-        has_str = any(isinstance(v, str) for v in all_values)
-        has_num = any(not isinstance(v, str) for v in all_values)
-        if has_str and has_num:
+        if seen_str and seen_num:
             raise TypeError(
                 f"atom_data[{key!r}] has mixed string and numeric "
                 f"values; all values must be the same type "
                 f"(string or numeric)"
             )
-        is_categorical = has_str
+        is_categorical = seen_str
 
         # --- Allocate output ---
         arr: np.ndarray

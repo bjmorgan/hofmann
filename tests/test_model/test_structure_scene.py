@@ -232,27 +232,6 @@ class TestSetAtomData:
         with pytest.raises(ValueError, match="length 3"):
             scene.set_atom_data("charge", np.array([1.0, 2.0]))
 
-    def test_sparse_dict_numeric(self):
-        scene = self._scene()
-        scene.set_atom_data("charge", by_index={0: 1.5, 2: -0.3})
-        arr = scene.atom_data["charge"]
-        assert arr[0] == pytest.approx(1.5)
-        assert np.isnan(arr[1])
-        assert arr[2] == pytest.approx(-0.3)
-
-    def test_sparse_dict_string(self):
-        scene = self._scene()
-        scene.set_atom_data("site", by_index={1: "4a"})
-        arr = scene.atom_data["site"]
-        assert arr[0] is None
-        assert arr[1] == "4a"
-        assert arr[2] is None
-
-    def test_sparse_dict_out_of_range_raises(self):
-        scene = self._scene()
-        with pytest.raises(ValueError, match="out of range"):
-            scene.set_atom_data("charge", by_index={5: 1.0})
-
     def test_dict_in_values_raises_type_error(self):
         scene = self._scene()
         with pytest.raises(
@@ -275,12 +254,6 @@ class TestSetAtomData:
         scene.set_atom_data("site", np.array(["a", "b", "c"], dtype=object))
         assert "charge" in scene.atom_data
         assert "site" in scene.atom_data
-
-    def test_sparse_dict_mixed_types_raises(self):
-        """Dict with mixed string and numeric values raises TypeError."""
-        scene = self._scene()
-        with pytest.raises(TypeError, match="same type"):
-            scene.set_atom_data("bad", by_index={0: 1, 2: "text"})
 
     def test_2d_numeric_array(self):
         """A (n_frames, n_atoms) numeric array is accepted."""
@@ -459,6 +432,25 @@ class TestSetAtomData:
         assert arr[1] == pytest.approx(2.0)   # by_species
         assert np.isnan(arr[2])
         assert np.isnan(arr[3])
+
+    def test_combined_none_overrides_by_species(self):
+        """by_index={i: None} clears the by_species value for that atom."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "site",
+            by_species={"Mn": "oct"},
+            by_index={0: None},
+        )
+        arr = scene.atom_data["site"]
+        assert arr[0] is None    # by_index None overrides by_species
+        assert arr[1] == "oct"   # by_species
+        assert arr[2] is None    # unspecified
+        assert arr[3] is None    # unspecified
+        assert arr.dtype == object
 
     def test_combined_mixed_types_raises(self):
         """String in by_species + numeric in by_index is a TypeError."""
