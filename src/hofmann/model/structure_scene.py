@@ -33,12 +33,7 @@ class StructureScene:
         atom_styles: Mapping from species label to visual style.
         bond_specs: Declarative bond detection rules.
         polyhedra: Declarative polyhedron rendering rules.
-        view: Camera / projection state.
         title: Scene title for display.
-        atom_data: Per-atom metadata container: read-only view with a
-            Mapping-style interface.  See :meth:`set_atom_data`,
-            :meth:`del_atom_data`, and :meth:`clear_2d_atom_data` for
-            modifications.
     """
 
     def __init__(
@@ -664,17 +659,12 @@ class StructureScene:
         as overridden by the pending write -- and this method is
         unnecessary.
 
-        Multi-entry recovery workflow::
-
-            scene.frames.append(new_frame)
-            scene.clear_2d_atom_data()
-            scene.set_atom_data("energy", new_energy_2d)
-            scene.set_atom_data("forces", new_forces_2d)
-            scene.render_mpl(...)
+        The multi-entry recovery workflow is: call this method,
+        then re-assign each 2-D key via :meth:`set_atom_data` at
+        the new shape, then render.
 
         See Also:
-            :meth:`set_atom_data`: Canonical write entry point; also
-                handles single-entry in-place reassignment.
+            :meth:`set_atom_data`: Canonical write entry point.
             :meth:`del_atom_data`: Remove a single entry.
         """
         self._atom_data._clear_2d()
