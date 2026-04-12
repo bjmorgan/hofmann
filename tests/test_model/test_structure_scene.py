@@ -679,6 +679,91 @@ class TestAtomDataWriteMethods:
             scene.atom_data = None  # type: ignore[misc]
 
 
+class TestSelectBySpecies:
+    """Tests for StructureScene.select_by_species."""
+
+    def _scene(self) -> StructureScene:
+        coords = np.zeros((4, 3))
+        return StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+
+    def test_numeric_keeps_selected(self):
+        scene = self._scene()
+        arr = np.array([1.0, 2.0, 3.0, 4.0])
+        result = scene.select_by_species(arr, "Mn")
+        assert result[0] == pytest.approx(1.0)
+        assert result[1] == pytest.approx(2.0)
+        assert np.isnan(result[2])
+        assert np.isnan(result[3])
+
+    def test_categorical_keeps_selected(self):
+        scene = self._scene()
+        arr = np.array(["a", "b", "c", "d"], dtype=object)
+        result = scene.select_by_species(arr, "O")
+        assert result[0] is None
+        assert result[1] is None
+        assert result[2] == "c"
+        assert result[3] == "d"
+        assert result.dtype == object
+
+    def test_unicode_promoted_to_object(self):
+        scene = self._scene()
+        arr = np.array(["a", "b", "c", "d"])  # dtype <U1
+        result = scene.select_by_species(arr, "Mn")
+        assert result[0] == "a"
+        assert result[2] is None
+        assert result.dtype == object
+
+    def test_integer_promoted_to_float(self):
+        scene = self._scene()
+        arr = np.array([1, 2, 3, 4])
+        result = scene.select_by_species(arr, "Mn")
+        assert result[0] == pytest.approx(1.0)
+        assert np.isnan(result[2])
+        assert result.dtype == float
+
+    def test_multiple_species(self):
+        scene = self._scene()
+        arr = np.array([1.0, 2.0, 3.0, 4.0])
+        result = scene.select_by_species(arr, ["Mn", "O"])
+        np.testing.assert_array_equal(result, arr)
+
+    def test_2d_array(self):
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        arr = np.array([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]])
+        result = scene.select_by_species(arr, "Mn")
+        assert result.shape == (2, 4)
+        assert result[0, 0] == pytest.approx(1.0)
+        assert result[1, 1] == pytest.approx(6.0)
+        assert np.isnan(result[0, 2])
+        assert np.isnan(result[1, 3])
+
+    def test_unknown_species_raises(self):
+        scene = self._scene()
+        arr = np.array([1.0, 2.0, 3.0, 4.0])
+        with pytest.raises(ValueError, match="unknown species.*Xe"):
+            scene.select_by_species(arr, "Xe")
+
+    def test_wrong_length_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="4"):
+            scene.select_by_species(np.array([1.0, 2.0]), "Mn")
+
+    def test_returns_copy(self):
+        """Result is a new array; input is not modified."""
+        scene = self._scene()
+        arr = np.array([1.0, 2.0, 3.0, 4.0])
+        result = scene.select_by_species(arr, "Mn")
+        result[0] = 99.0
+        assert arr[0] == pytest.approx(1.0)
+
+
 class TestValidateForRender:
     """Unit and integration tests for scene-level render-time validation."""
 
