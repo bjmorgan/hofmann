@@ -375,10 +375,49 @@ class StructureScene:
             )
         self.view.centre = self.frames[frame].coords[atom_index].copy()
 
+    def _coerce_sparse_atom_data(
+        self,
+        key: str,
+        *,
+        by_species: dict[str, object],
+        by_index: dict[int, object],
+    ) -> np.ndarray:
+        """Resolve sparse by_species/by_index dicts into a dense array.
+
+        Args:
+            key: Metadata key (unused at this stage; reserved for future
+                dtype inference).
+            by_species: Mapping of species label to value.
+            by_index: Mapping of atom index to value.
+
+        Returns:
+            1-D float array of length ``n_atoms`` with ``NaN`` fill for
+            unspecified positions.
+
+        Raises:
+            ValueError: If any index in *by_index* is outside the valid
+                range ``[0, n_atoms)``.
+        """
+        n_atoms = len(self.species)
+
+        for idx in by_index:
+            if not 0 <= idx < n_atoms:
+                raise ValueError(
+                    f"atom index {idx} out of range for {n_atoms} atoms"
+                )
+
+        arr = np.full(n_atoms, np.nan)
+        for idx, val in by_index.items():
+            arr[idx] = val
+        return arr
+
     def set_atom_data(
         self,
         key: str,
-        values: ArrayLike | dict[int, object],
+        values: ArrayLike | dict[int, object] | None = None,
+        *,
+        by_species: dict[str, object] | None = None,
+        by_index: dict[int, object] | None = None,
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
@@ -429,36 +468,53 @@ class StructureScene:
             :meth:`del_atom_data`: Remove a single entry.
             :meth:`clear_2d_atom_data`: Remove all 2-D entries.
         """
-        n_atoms = len(self.species)
+        has_values = values is not None
+        has_sparse = bool(by_species) or bool(by_index)
+        if has_values and has_sparse:
+            raise ValueError(
+                "cannot mix positional values with by_species or by_index"
+            )
+        if not has_values and not has_sparse:
+            raise ValueError(
+                "set_atom_data requires values, by_species, or by_index"
+            )
 
-        if isinstance(values, dict):
-            if not values:
-                raise ValueError("values dict must not be empty")
-            for idx in values:
-                if not 0 <= idx < n_atoms:
-                    raise ValueError(
-                        f"atom index {idx} out of range for "
-                        f"{n_atoms} atoms"
-                    )
-            sample = next(iter(values.values()))
-            is_str = isinstance(sample, str)
-            for idx, val in values.items():
-                if isinstance(val, str) != is_str:
-                    raise TypeError(
-                        f"atom_data dict values must all be the same "
-                        f"type (string or numeric), but index {idx} "
-                        f"has type {type(val).__name__!r}"
-                    )
-            if is_str:
-                arr = np.array([""] * n_atoms, dtype=object)
+        if has_values:
+            n_atoms = len(self.species)
+            if isinstance(values, dict):
+                if not values:
+                    raise ValueError("values dict must not be empty")
+                for idx in values:
+                    if not 0 <= idx < n_atoms:
+                        raise ValueError(
+                            f"atom index {idx} out of range for "
+                            f"{n_atoms} atoms"
+                        )
+                sample = next(iter(values.values()))
+                is_str = isinstance(sample, str)
                 for idx, val in values.items():
-                    arr[idx] = val
+                    if isinstance(val, str) != is_str:
+                        raise TypeError(
+                            f"atom_data dict values must all be the same "
+                            f"type (string or numeric), but index {idx} "
+                            f"has type {type(val).__name__!r}"
+                        )
+                if is_str:
+                    arr = np.array([""] * n_atoms, dtype=object)
+                    for idx, val in values.items():
+                        arr[idx] = val
+                else:
+                    arr = np.full(n_atoms, np.nan)
+                    for idx, val in values.items():
+                        arr[idx] = val
             else:
-                arr = np.full(n_atoms, np.nan)
-                for idx, val in values.items():
-                    arr[idx] = val
+                arr = np.asarray(values)
         else:
-            arr = np.asarray(values)
+            arr = self._coerce_sparse_atom_data(
+                key,
+                by_species=by_species or {},
+                by_index=by_index or {},
+            )
 
         self._atom_data._set(
             key, arr, expected_frames=len(self.frames)

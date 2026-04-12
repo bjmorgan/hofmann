@@ -329,6 +329,34 @@ class TestSetAtomData:
         assert scene.atom_data["site"].shape == (2, 3)
         assert scene.atom_data["site"][0, 1] == "8b"
 
+    def test_by_index_numeric_scalar(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", by_index={0: 1.5, 2: -0.3})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(1.5)
+        assert np.isnan(arr[1])
+        assert arr[2] == pytest.approx(-0.3)
+
+    def test_by_index_out_of_range_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="out of range"):
+            scene.set_atom_data("charge", by_index={5: 1.0})
+
+    def test_by_index_negative_index_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="out of range"):
+            scene.set_atom_data("charge", by_index={-1: 1.0})
+
+    def test_values_and_by_index_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="cannot mix"):
+            scene.set_atom_data("charge", [1.0, 2.0, 3.0], by_index={0: 1.0})
+
+    def test_all_omitted_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError):
+            scene.set_atom_data("charge")
+
 
 class TestAtomDataWriteMethods:
     """Tests for del_atom_data, clear_2d_atom_data, setter removal."""
