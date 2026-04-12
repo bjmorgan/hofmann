@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 class StructureScene:
     """Top-level scene holding atoms, frames, styles, bond rules, and view.
 
+    The :attr:`view` (camera/projection state) and :attr:`atom_data`
+    (per-atom metadata) properties are documented individually below.
+
     Attributes:
         species: One label per atom.
         frames: List of coordinate snapshots.  Each :class:`Frame` may
@@ -33,12 +36,7 @@ class StructureScene:
         atom_styles: Mapping from species label to visual style.
         bond_specs: Declarative bond detection rules.
         polyhedra: Declarative polyhedron rendering rules.
-        view: Camera / projection state.
         title: Scene title for display.
-        atom_data: Per-atom metadata container: read-only view with a
-            Mapping-style interface.  See :meth:`set_atom_data`,
-            :meth:`del_atom_data`, and :meth:`clear_2d_atom_data` for
-            modifications.
     """
 
     def __init__(
@@ -375,10 +373,199 @@ class StructureScene:
             )
         self.view.centre = self.frames[frame].coords[atom_index].copy()
 
+    def _coerce_sparse_atom_data(
+        self,
+        key: str,
+        *,
+        by_species: dict[str, object],
+        by_index: dict[int, object],
+    ) -> np.ndarray:
+        """Resolve sparse by_species/by_index dicts into a dense array.
+
+        Builds a 1-D ``(n_atoms,)`` array by default.  Promotes to
+        2-D ``(n_frames, n_atoms)`` if any ``by_species`` value is
+        2-D or any ``by_index`` value is 1-D.
+
+        ``by_index`` values overwrite ``by_species`` values at
+        overlapping atoms.  When promoted to 2-D, scalar and 1-D
+        ``by_species`` values are broadcast across the frame axis.
+
+        Args:
+            key: Metadata key (for error messages).
+            by_species: Species-label-to-value mapping.
+            by_index: Atom-index-to-value mapping.
+
+        Returns:
+            Dense array ready for ``_atom_data._set``.
+
+        Raises:
+            ValueError: If a species label is unknown, an index is
+                out of range, or a value has the wrong shape.
+            TypeError: If values contain a mixture of string and
+                numeric types.
+        """
+        n_atoms = len(self.species)
+        n_frames = len(self.frames)
+
+        # --- Validate keys ---
+        known = set(self.species)
+        for label in by_species:
+            if label not in known:
+                raise ValueError(
+                    f"atom_data[{key!r}]: unknown species {label!r} "
+                    f"(not present in scene)"
+                )
+        for idx in by_index:
+            if not 0 <= idx < n_atoms:
+                raise ValueError(
+                    f"atom index {idx} out of range for {n_atoms} atoms"
+                )
+
+        # --- Coerce values and infer dtype / dimensionality ---
+        seen_str = False
+        seen_num = False
+        promotes_2d = False
+
+        def _classify_scalar(v: object) -> None:
+            """Update seen_str / seen_num from a single scalar."""
+            nonlocal seen_str, seen_num
+            if v is None:
+                return  # missing sentinel; does not determine dtype
+            if isinstance(v, str):
+                seen_str = True
+            else:
+                seen_num = True
+
+        def _classify_array(a: np.ndarray) -> None:
+            """Update seen_str / seen_num from a numpy array's dtype."""
+            nonlocal seen_str, seen_num
+            if a.dtype.kind == "U":
+                seen_str = True
+            elif a.dtype.kind == "O":
+                # Object arrays may contain strings, numerics, or
+                # None sentinels.  Classify from non-None elements.
+                for v in a.ravel():
+                    if seen_str and seen_num:
+                        break
+                    _classify_scalar(v)
+            else:
+                seen_num = True
+
+        # Pre-process by_species values.
+        species_arr = np.array(self.species)
+        species_entries: list[tuple[np.ndarray, np.ndarray]] = []
+        for label, val in by_species.items():
+            mask = species_arr == label
+            n_sp = int(mask.sum())
+            a = np.asarray(val)
+            if a.ndim == 0:
+                _classify_scalar(a.item())
+            elif a.ndim == 1:
+                if len(a) != n_sp:
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_species[{label!r}] has "
+                        f"length {len(a)} but species {label!r} has "
+                        f"{n_sp} atoms"
+                    )
+                _classify_array(a)
+            elif a.ndim == 2:
+                if a.shape != (n_frames, n_sp):
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_species[{label!r}] has "
+                        f"shape {a.shape} but expected "
+                        f"({n_frames}, {n_sp}) for {n_frames} frames "
+                        f"and {n_sp} atoms of species {label!r}"
+                    )
+                promotes_2d = True
+                _classify_array(a)
+            else:
+                raise ValueError(
+                    f"atom_data[{key!r}]: by_species[{label!r}] must be "
+                    f"scalar, 1-D, or 2-D, got {a.ndim}-D"
+                )
+            species_entries.append((mask, a))
+
+        # Pre-process by_index values.
+        index_entries: list[tuple[int, np.ndarray]] = []
+        for idx, val in by_index.items():
+            a = np.asarray(val)
+            if a.ndim == 0:
+                _classify_scalar(a.item())
+            elif a.ndim == 1:
+                if len(a) != n_frames:
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_index[{idx}] has "
+                        f"length {len(a)} but expected {n_frames} frames"
+                    )
+                promotes_2d = True
+                _classify_array(a)
+            else:
+                raise ValueError(
+                    f"atom_data[{key!r}]: by_index[{idx}] must be "
+                    f"scalar or 1-D, got {a.ndim}-D"
+                )
+            index_entries.append((idx, a))
+
+        # Dtype inference.  If all values are None (missing
+        # sentinels), neither flag is set and the default is numeric
+        # (NaN fill).
+        if seen_str and seen_num:
+            raise TypeError(
+                f"atom_data[{key!r}] has mixed string and numeric "
+                f"values; all values must be the same type "
+                f"(string or numeric)"
+            )
+        is_categorical = seen_str
+
+        # --- Allocate output ---
+        arr: np.ndarray
+        if promotes_2d:
+            if is_categorical:
+                arr = np.empty((n_frames, n_atoms), dtype=object)
+                arr[:] = None
+            else:
+                arr = np.full((n_frames, n_atoms), np.nan)
+        else:
+            if is_categorical:
+                arr = np.array([None] * n_atoms, dtype=object)
+            else:
+                arr = np.full(n_atoms, np.nan)
+
+        # --- Fill from by_species (first, lower precedence) ---
+        for mask, a in species_entries:
+            if promotes_2d:
+                if a.ndim == 0:
+                    arr[:, mask] = a.item()
+                elif a.ndim == 1:
+                    # Broadcast static per-atom across frames.
+                    arr[:, mask] = a[np.newaxis, :]
+                else:
+                    arr[:, mask] = a
+            else:
+                if a.ndim == 0:
+                    arr[mask] = a.item()
+                else:
+                    arr[mask] = a
+
+        # --- Fill from by_index (second, higher precedence) ---
+        for idx, a in index_entries:
+            if promotes_2d:
+                if a.ndim == 0:
+                    arr[:, idx] = a.item()
+                else:
+                    arr[:, idx] = a
+            else:
+                arr[idx] = a.item() if a.ndim == 0 else a
+
+        return arr
+
     def set_atom_data(
         self,
         key: str,
-        values: ArrayLike | dict[int, object],
+        values: ArrayLike | None = None,
+        *,
+        by_species: dict[str, object] | None = None,
+        by_index: dict[int, object] | None = None,
     ) -> None:
         """Set per-atom metadata for colourmap-based rendering.
 
@@ -388,77 +575,88 @@ class StructureScene:
         (for example after extending the trajectory) use
         :meth:`clear_2d_atom_data`.
 
-        A 2-D *values* array is validated in a single walk against
-        the container's prospective post-write state: the new array
-        must have ``shape[0] == len(self.frames)``, and any other
-        stored 2-D entry not being overridden must agree.  For the
-        common single-2-D-entry case, this means an in-place
-        reassignment at a new shape after ``scene.frames.append(...)``
-        just works -- the stored version of *key* is treated as
-        overridden and skipped.  Multi-entry scenes still need
-        :meth:`clear_2d_atom_data` to drop the other stale entries.
+        Provide data in one of two forms:
+
+        - **Full array** via *values*: a 1-D array-like of length
+          ``n_atoms`` (same value every frame) or a 2-D array-like of
+          shape ``(n_frames, n_atoms)`` (per-frame values).
+        - **Sparse** via *by_species* and/or *by_index*: maps species
+          labels or atom indices to values.  See below for shape rules
+          and precedence.
+
+        Mixing *values* with *by_species* or *by_index* raises
+        :class:`ValueError`.
+
+        **by_species** maps species labels to values.  Scalars broadcast
+        to all atoms of the species; 1-D arrays (length = count of that
+        species' atoms) assign per-atom; 2-D arrays of shape
+        ``(n_frames, n_species_atoms)`` assign per-frame.  A 1-D array
+        is always interpreted as static per-atom, even when its length
+        equals ``n_frames``.
+
+        **by_index** maps atom indices to values.  Scalars are static;
+        1-D arrays of length ``n_frames`` are per-frame.
+
+        When both are provided, *by_index* values take precedence over
+        *by_species* at overlapping atoms.
+
+        Unspecified atoms are filled with ``NaN`` (numeric) or ``None``
+        (categorical, stored as object-dtype).
+
+        A 2-D *values* array, or any ``by_*`` form that promotes to
+        2-D, is validated against the container's prospective post-write
+        state: the array's frame count must match ``len(self.frames)``.
 
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
-            values: Either a 1-D array-like of length ``n_atoms`` (same
-                value every frame), a 2-D array-like of shape
-                ``(n_frames, n_atoms)`` (per-frame values), or a dict
-                mapping atom indices to values (always 1-D).  When a
-                dict is given, the fill value for missing atoms is
-                inferred from the first entry: ``NaN`` for numeric
-                values or ``""`` for string values.  All values in a
-                dict must be of compatible types (all numeric or all
-                strings).
+            values: Full-length array-like.  Must not be a dict; use
+                *by_index* for sparse assignment by atom index.
+            by_species: Maps species labels to scalar, 1-D, or 2-D
+                values.  All keys must be present in
+                ``scene.species``.
+            by_index: Maps atom indices to scalar or 1-D values.
+                All keys must be in ``range(len(scene.species))``.
 
         Raises:
-            ValueError: If an array-like has the wrong length or
-                shape for *n_atoms*, if a 2-D array's leading
-                dimension does not match ``len(self.frames)``, if a
-                non-overridden stored 2-D entry is stale relative to
-                ``len(self.frames)`` (the error names the stale key
-                and points at :meth:`clear_2d_atom_data` for
-                recovery), if the coerced array has an unsupported
-                dtype (only bool, integer, float, string, and object
-                are accepted), or if a dict contains indices outside
-                the valid range.
-            TypeError: If a dict contains a mixture of string and
-                numeric values.
+            ValueError: If *values* is mixed with *by_species* or
+                *by_index*; if all three are absent; if a species
+                label is unknown; if an atom index is out of range;
+                if an array has the wrong shape for its context; or
+                if a 2-D array's frame count does not match
+                ``len(self.frames)``.
+            TypeError: If a dict is passed as *values* (use
+                ``by_index=`` instead), or if values contain a
+                mixture of string and numeric types.
 
         See Also:
             :meth:`del_atom_data`: Remove a single entry.
             :meth:`clear_2d_atom_data`: Remove all 2-D entries.
         """
-        n_atoms = len(self.species)
-
         if isinstance(values, dict):
-            if not values:
-                raise ValueError("values dict must not be empty")
-            for idx in values:
-                if not 0 <= idx < n_atoms:
-                    raise ValueError(
-                        f"atom index {idx} out of range for "
-                        f"{n_atoms} atoms"
-                    )
-            sample = next(iter(values.values()))
-            is_str = isinstance(sample, str)
-            for idx, val in values.items():
-                if isinstance(val, str) != is_str:
-                    raise TypeError(
-                        f"atom_data dict values must all be the same "
-                        f"type (string or numeric), but index {idx} "
-                        f"has type {type(val).__name__!r}"
-                    )
-            if is_str:
-                arr = np.array([""] * n_atoms, dtype=object)
-                for idx, val in values.items():
-                    arr[idx] = val
-            else:
-                arr = np.full(n_atoms, np.nan)
-                for idx, val in values.items():
-                    arr[idx] = val
-        else:
+            raise TypeError(
+                "values must be array-like; use by_index= for sparse "
+                "assignment by atom index"
+            )
+        has_values = values is not None
+        has_sparse = bool(by_species) or bool(by_index)
+        if has_values and has_sparse:
+            raise ValueError(
+                "cannot mix positional values with by_species or by_index"
+            )
+        if not has_values and not has_sparse:
+            raise ValueError(
+                "set_atom_data requires values, by_species, or by_index"
+            )
+
+        if has_values:
             arr = np.asarray(values)
+        else:
+            arr = self._coerce_sparse_atom_data(
+                key,
+                by_species=by_species or {},
+                by_index=by_index or {},
+            )
 
         self._atom_data._set(
             key, arr, expected_frames=len(self.frames)
@@ -491,17 +689,12 @@ class StructureScene:
         as overridden by the pending write -- and this method is
         unnecessary.
 
-        Multi-entry recovery workflow::
-
-            scene.frames.append(new_frame)
-            scene.clear_2d_atom_data()
-            scene.set_atom_data("energy", new_energy_2d)
-            scene.set_atom_data("forces", new_forces_2d)
-            scene.render_mpl(...)
+        The multi-entry recovery workflow is: call this method,
+        then re-assign each 2-D key via :meth:`set_atom_data` at
+        the new shape, then render.
 
         See Also:
-            :meth:`set_atom_data`: Canonical write entry point; also
-                handles single-entry in-place reassignment.
+            :meth:`set_atom_data`: Canonical write entry point.
             :meth:`del_atom_data`: Remove a single entry.
         """
         self._atom_data._clear_2d()

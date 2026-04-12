@@ -232,31 +232,13 @@ class TestSetAtomData:
         with pytest.raises(ValueError, match="length 3"):
             scene.set_atom_data("charge", np.array([1.0, 2.0]))
 
-    def test_sparse_dict_numeric(self):
+    def test_dict_in_values_raises_type_error(self):
         scene = self._scene()
-        scene.set_atom_data("charge", {0: 1.5, 2: -0.3})
-        arr = scene.atom_data["charge"]
-        assert arr[0] == pytest.approx(1.5)
-        assert np.isnan(arr[1])
-        assert arr[2] == pytest.approx(-0.3)
-
-    def test_sparse_dict_string(self):
-        scene = self._scene()
-        scene.set_atom_data("site", {1: "4a"})
-        arr = scene.atom_data["site"]
-        assert arr[0] == ""
-        assert arr[1] == "4a"
-        assert arr[2] == ""
-
-    def test_sparse_dict_out_of_range_raises(self):
-        scene = self._scene()
-        with pytest.raises(ValueError, match="out of range"):
-            scene.set_atom_data("charge", {5: 1.0})
-
-    def test_sparse_dict_empty_raises(self):
-        scene = self._scene()
-        with pytest.raises(ValueError, match="must not be empty"):
-            scene.set_atom_data("charge", {})
+        with pytest.raises(
+            TypeError,
+            match="values must be array-like.*by_index",
+        ):
+            scene.set_atom_data("charge", {0: 1.0})
 
     def test_overwrite_existing_key(self):
         scene = self._scene()
@@ -272,12 +254,6 @@ class TestSetAtomData:
         scene.set_atom_data("site", np.array(["a", "b", "c"], dtype=object))
         assert "charge" in scene.atom_data
         assert "site" in scene.atom_data
-
-    def test_sparse_dict_mixed_types_raises(self):
-        """Dict with mixed string and numeric values raises TypeError."""
-        scene = self._scene()
-        with pytest.raises(TypeError, match="same type"):
-            scene.set_atom_data("bad", {0: 1, 2: "text"})
 
     def test_2d_numeric_array(self):
         """A (n_frames, n_atoms) numeric array is accepted."""
@@ -328,6 +304,339 @@ class TestSetAtomData:
         scene.set_atom_data("site", values)
         assert scene.atom_data["site"].shape == (2, 3)
         assert scene.atom_data["site"][0, 1] == "8b"
+
+    def test_by_index_numeric_scalar(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", by_index={0: 1.5, 2: -0.3})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(1.5)
+        assert np.isnan(arr[1])
+        assert arr[2] == pytest.approx(-0.3)
+
+    def test_by_index_out_of_range_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="out of range"):
+            scene.set_atom_data("charge", by_index={5: 1.0})
+
+    def test_by_index_negative_index_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="out of range"):
+            scene.set_atom_data("charge", by_index={-1: 1.0})
+
+    def test_values_and_by_index_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="cannot mix"):
+            scene.set_atom_data("charge", [1.0, 2.0, 3.0], by_index={0: 1.0})
+
+    def test_all_omitted_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError):
+            scene.set_atom_data("charge")
+
+    def test_by_index_categorical(self):
+        scene = self._scene()
+        scene.set_atom_data("site", by_index={1: "4a"})
+        arr = scene.atom_data["site"]
+        assert arr[0] is None
+        assert arr[1] == "4a"
+        assert arr[2] is None
+        assert arr.dtype == object
+
+    def test_by_index_mixed_types_raises(self):
+        scene = self._scene()
+        with pytest.raises(TypeError, match="same type"):
+            scene.set_atom_data("bad", by_index={0: 1.0, 2: "text"})
+
+    def test_by_species_scalar(self):
+        """Scalar broadcasts to all atoms of a species."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("charge", by_species={"Mn": 2.0})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(2.0)
+        assert arr[1] == pytest.approx(2.0)
+        assert np.isnan(arr[2])
+        assert np.isnan(arr[3])
+
+    def test_by_species_1d_array(self):
+        """1-D array assigns per-atom values within the species."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("charge", by_species={"Mn": [2.0, 3.0]})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(2.0)
+        assert arr[1] == pytest.approx(3.0)
+        assert np.isnan(arr[2])
+        assert np.isnan(arr[3])
+
+    def test_by_species_multiple_species(self):
+        """Multiple species in one call."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("charge", by_species={"Mn": 2.0, "O": -2.0})
+        arr = scene.atom_data["charge"]
+        np.testing.assert_array_almost_equal(arr, [2.0, 2.0, -2.0, -2.0])
+
+    def test_by_species_categorical(self):
+        """String values produce object-dtype with None fill."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("site", by_species={"Mn": "oct"})
+        arr = scene.atom_data["site"]
+        assert arr[0] == "oct"
+        assert arr[1] == "oct"
+        assert arr[2] is None
+        assert arr[3] is None
+        assert arr.dtype == object
+
+    def test_by_species_unknown_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="unknown species.*Xe"):
+            scene.set_atom_data("charge", by_species={"Xe": 1.0})
+
+    def test_by_species_wrong_length_raises(self):
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2"):
+            scene.set_atom_data("charge", by_species={"Mn": [1.0, 2.0, 3.0]})
+
+    def test_combined_by_index_overrides_by_species(self):
+        """by_index wins where it overlaps with by_species."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": 2.0},
+            by_index={0: 1.9},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(1.9)   # by_index wins
+        assert arr[1] == pytest.approx(2.0)   # by_species
+        assert np.isnan(arr[2])
+        assert np.isnan(arr[3])
+
+    def test_combined_none_overrides_by_species(self):
+        """by_index={i: None} clears the by_species value for that atom."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "site",
+            by_species={"Mn": "oct"},
+            by_index={0: None},
+        )
+        arr = scene.atom_data["site"]
+        assert arr[0] is None    # by_index None overrides by_species
+        assert arr[1] == "oct"   # by_species
+        assert arr[2] is None    # unspecified
+        assert arr[3] is None    # unspecified
+        assert arr.dtype == object
+
+    def test_combined_mixed_types_raises(self):
+        """String in by_species + numeric in by_index is a TypeError."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(TypeError, match="same type"):
+            scene.set_atom_data(
+                "bad",
+                by_species={"Mn": "oct"},
+                by_index={2: 1.0},
+            )
+
+    def test_values_and_by_species_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="cannot mix"):
+            scene.set_atom_data("charge", [1.0, 2.0, 3.0], by_species={"A": 1.0})
+
+    def test_by_species_2d_promotes(self):
+        """A 2-D by_species value promotes output to (n_frames, n_atoms)."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": np.array([[1.0, 2.0], [3.0, 4.0]])},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == pytest.approx(1.0)
+        assert arr[1, 1] == pytest.approx(4.0)
+        assert np.isnan(arr[0, 2])
+
+    def test_by_index_1d_promotes(self):
+        """A 1-D by_index value of length n_frames promotes to 2-D."""
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_index={0: [10.0, 20.0]},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 3)
+        assert arr[0, 0] == pytest.approx(10.0)
+        assert arr[1, 0] == pytest.approx(20.0)
+        assert np.isnan(arr[0, 1])
+
+    def test_by_species_scalar_broadcasts_when_promoted(self):
+        """Scalar by_species broadcasts across frames when 2-D."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": 2.0},
+            by_index={2: [5.0, 6.0]},  # promotes to 2-D
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == pytest.approx(2.0)
+        assert arr[1, 0] == pytest.approx(2.0)
+        assert arr[0, 2] == pytest.approx(5.0)
+        assert arr[1, 2] == pytest.approx(6.0)
+
+    def test_by_species_1d_broadcasts_when_promoted(self):
+        """1-D by_species broadcasts across frames when promoted by by_index."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": [1.0, 2.0]},
+            by_index={2: [5.0, 6.0]},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == pytest.approx(1.0)  # Mn[0] frame 0
+        assert arr[1, 0] == pytest.approx(1.0)  # Mn[0] frame 1 (broadcast)
+        assert arr[0, 1] == pytest.approx(2.0)  # Mn[1] frame 0
+        assert arr[1, 1] == pytest.approx(2.0)  # Mn[1] frame 1 (broadcast)
+
+    def test_by_species_2d_wrong_shape_raises(self):
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2 frames"):
+            scene.set_atom_data(
+                "charge",
+                by_species={"Mn": np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])},
+            )
+
+    def test_by_index_1d_wrong_length_raises(self):
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2 frames"):
+            scene.set_atom_data("charge", by_index={0: [1.0, 2.0, 3.0]})
+
+    def test_by_index_2d_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError):
+            scene.set_atom_data(
+                "charge", by_index={0: np.array([[1.0]])}
+            )
+
+    def test_by_species_3d_raises(self):
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2-D"):
+            scene.set_atom_data(
+                "charge",
+                by_species={"Mn": np.zeros((2, 2, 2))},
+            )
+
+    def test_by_index_scalar_broadcasts_when_promoted(self):
+        """Scalar by_index broadcasts across frames when output is 2-D."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": np.array([[1.0, 2.0], [3.0, 4.0]])},
+            by_index={2: 9.0},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 2] == pytest.approx(9.0)
+        assert arr[1, 2] == pytest.approx(9.0)
+
+    def test_2d_categorical_via_by_species(self):
+        """2-D categorical sparse path allocates object-dtype with None."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "site",
+            by_species={
+                "Mn": np.array([["oct", "tet"], ["tet", "oct"]], dtype=object),
+            },
+        )
+        arr = scene.atom_data["site"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == "oct"
+        assert arr[1, 0] == "tet"
+        assert arr[0, 2] is None
+        assert arr.dtype == object
+
+    def test_none_in_object_array_not_misclassified(self):
+        """Object array of Nones mixed with numeric values is not categorical."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": np.array([None, None], dtype=object)},
+            by_index={2: 1.0},
+        )
+        arr = scene.atom_data["charge"]
+        assert np.isnan(arr[0])
+        assert np.isnan(arr[1])
+        assert arr[2] == pytest.approx(1.0)
+        assert np.isnan(arr[3])
 
 
 class TestAtomDataWriteMethods:

@@ -333,7 +333,7 @@ def logo_scene() -> StructureScene:
     )
 
     data = dict(zip(range(1, 1 + n_verts), colour_vals))
-    scene.set_atom_data("gradient", data)
+    scene.set_atom_data("gradient", by_index=data)
 
     scene.view.look_along(look_dir)
     scene.view.perspective = 0.12
@@ -664,12 +664,12 @@ def generate_docs_images() -> None:
     type_dict: dict[int, object] = {}
     for i in range(n_outer):
         type_dict[i] = ["Fe", "Co", "Ni"][i % 3]
-    multi_scene.set_atom_data("metal", type_dict)
+    multi_scene.set_atom_data("metal", by_index=type_dict)
     # Inner ring: numerical charge.
     charge_dict: dict[int, object] = {}
     for i in range(n_inner):
         charge_dict[n_outer + i] = float(i) / max(n_inner - 1, 1)
-    multi_scene.set_atom_data("charge", charge_dict)
+    multi_scene.set_atom_data("charge", by_index=charge_dict)
     multi_scene.render_mpl(
         OUT / "colour_by_multi.svg",
         colour_by=["metal", "charge"],

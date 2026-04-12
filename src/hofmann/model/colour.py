@@ -186,8 +186,8 @@ def _resolve_atom_colours(
     non-empty for categorical) determines the atom's colour.  This
     allows different colouring rules for different atom subsets::
 
-        scene.set_atom_data("metal_type", {0: "Fe", 2: "Co"})
-        scene.set_atom_data("o_coord", {1: 4, 3: 6})
+        scene.set_atom_data("metal_type", by_index={0: "Fe", 2: "Co"})
+        scene.set_atom_data("o_coord", by_index={1: 4, 3: 6})
         scene.render_mpl(
             colour_by=["metal_type", "o_coord"],
             cmap=["Set1", "Blues"],
