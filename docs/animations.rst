@@ -170,10 +170,8 @@ same colour.
 Polyhedra inherit ``colour_by`` colouring from their centre atom, so
 per-frame data on the centre atoms flows through to the polyhedra
 automatically.  Here, the octahedral tilt angle of each TiO\ :sub:`6`
-polyhedron in an SrTiO\ :sub:`3` MD trajectory (computed using
-`polyhedral_analysis <https://github.com/bjmorgan/polyhedral-analysis>`_)
-is mapped through the ``Reds`` colourmap — white for untilted, red for
-maximum tilt:
+polyhedron in an SrTiO\ :sub:`3` MD trajectory is mapped through the 
+``Reds`` colourmap — white for untilted, red for maximum tilt:
 
 .. code-block:: python
 
