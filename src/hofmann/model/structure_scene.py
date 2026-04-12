@@ -408,6 +408,15 @@ class StructureScene:
                     f"atom index {idx} out of range for {n_atoms} atoms"
                 )
 
+        # Validate species labels.
+        known = set(self.species)
+        for label in by_species:
+            if label not in known:
+                raise ValueError(
+                    f"atom_data[{key!r}]: unknown species {label!r} "
+                    f"(not present in scene)"
+                )
+
         # Collect all leaf values for dtype inference.
         all_values: list[object] = []
         for val in by_species.values():
@@ -436,6 +445,29 @@ class StructureScene:
             arr = np.array([None] * n_atoms, dtype=object)
         else:
             arr = np.full(n_atoms, np.nan)
+
+        # Fill from by_species (before by_index so by_index takes precedence).
+        for label, val in by_species.items():
+            mask = np.array([s == label for s in self.species])
+            n_species_atoms = int(mask.sum())
+            a = np.asarray(val)
+            if a.ndim == 0:
+                # Scalar: broadcast to all atoms of this species.
+                arr[mask] = a.item()
+            elif a.ndim == 1:
+                if len(a) != n_species_atoms:
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_species[{label!r}] has "
+                        f"length {len(a)} but species {label!r} has "
+                        f"{n_species_atoms} atoms"
+                    )
+                arr[mask] = a
+            else:
+                # 2-D handled in a later task; for now raise.
+                raise ValueError(
+                    f"atom_data[{key!r}]: by_species[{label!r}] must be "
+                    f"scalar or 1-D, got {a.ndim}-D"
+                )
 
         for idx, val in by_index.items():
             arr[idx] = val

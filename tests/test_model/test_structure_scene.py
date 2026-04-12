@@ -374,6 +374,74 @@ class TestSetAtomData:
         with pytest.raises(TypeError, match="same type"):
             scene.set_atom_data("bad", by_index={0: 1.0, 2: "text"})
 
+    def test_by_species_scalar(self):
+        """Scalar broadcasts to all atoms of a species."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("charge", by_species={"Mn": 2.0})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(2.0)
+        assert arr[1] == pytest.approx(2.0)
+        assert np.isnan(arr[2])
+        assert np.isnan(arr[3])
+
+    def test_by_species_1d_array(self):
+        """1-D array assigns per-atom values within the species."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("charge", by_species={"Mn": [2.0, 3.0]})
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(2.0)
+        assert arr[1] == pytest.approx(3.0)
+        assert np.isnan(arr[2])
+        assert np.isnan(arr[3])
+
+    def test_by_species_multiple_species(self):
+        """Multiple species in one call."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("charge", by_species={"Mn": 2.0, "O": -2.0})
+        arr = scene.atom_data["charge"]
+        np.testing.assert_array_almost_equal(arr, [2.0, 2.0, -2.0, -2.0])
+
+    def test_by_species_categorical(self):
+        """String values produce object-dtype with None fill."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data("site", by_species={"Mn": "oct"})
+        arr = scene.atom_data["site"]
+        assert arr[0] == "oct"
+        assert arr[1] == "oct"
+        assert arr[2] is None
+        assert arr[3] is None
+        assert arr.dtype == object
+
+    def test_by_species_unknown_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="unknown species.*Xe"):
+            scene.set_atom_data("charge", by_species={"Xe": 1.0})
+
+    def test_by_species_wrong_length_raises(self):
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2"):
+            scene.set_atom_data("charge", by_species={"Mn": [1.0, 2.0, 3.0]})
+
 
 class TestAtomDataWriteMethods:
     """Tests for del_atom_data, clear_2d_atom_data, setter removal."""
