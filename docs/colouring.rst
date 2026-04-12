@@ -122,6 +122,25 @@ of length ``n_frames``.  Either of these promotes the output to 2-D.
 Scalar and 1-D ``by_species`` values and scalar ``by_index`` values
 broadcast across frames automatically.
 
+Filtering a full-length array
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When you have a full-length array (e.g. from an external calculation)
+but only want to colour certain species, use
+:meth:`~hofmann.StructureScene.select_by_species` to replace
+non-selected atoms with the appropriate missing sentinel:
+
+.. code-block:: python
+
+   # Keep only O-atom charges; other atoms fall back to species colour.
+   scene.set_atom_data(
+       "charge",
+       scene.select_by_species(full_charge_array, "O"),
+   )
+
+This handles integer-to-float promotion, unicode-to-object promotion,
+and species-label validation automatically.
+
 Custom colouring functions
 --------------------------
 
