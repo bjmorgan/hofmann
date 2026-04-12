@@ -45,7 +45,7 @@ class RenderingSet:
             ``[0, 1, 2, ...]``.
     """
 
-    species: list[str]
+    species: list[str]  # list, not tuple: built incrementally during image expansion
     coords: np.ndarray
     bonds: list[Bond]
     source_indices: np.ndarray

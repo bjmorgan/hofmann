@@ -752,6 +752,12 @@ class StructureScene:
                 f"values must be 1-D or 2-D, got {arr.ndim}-D"
             )
 
+        if arr.dtype.kind not in ("b", "i", "u", "f", "U", "O"):
+            raise ValueError(
+                f"unsupported dtype {arr.dtype}; supported dtypes "
+                f"are bool, integer, float, string, and object"
+            )
+
         if isinstance(species, str):
             keep = {species}
         else:

@@ -763,6 +763,41 @@ class TestSelectBySpecies:
         result[0] = 99.0
         assert arr[0] == pytest.approx(1.0)
 
+    def test_species_stored_as_tuple(self):
+        scene = self._scene()
+        assert isinstance(scene.species, tuple)
+
+    def test_3d_array_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="1-D or 2-D"):
+            scene.select_by_species(np.zeros((2, 4, 3)), "Mn")
+
+    def test_2d_wrong_columns_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="4 columns"):
+            scene.select_by_species(np.zeros((2, 3)), "Mn")
+
+    def test_empty_species_list_returns_all_sentinels(self):
+        scene = self._scene()
+        arr = np.array([1.0, 2.0, 3.0, 4.0])
+        result = scene.select_by_species(arr, [])
+        assert all(np.isnan(result))
+
+    def test_bool_array_promoted_to_float(self):
+        scene = self._scene()
+        arr = np.array([True, False, True, False])
+        result = scene.select_by_species(arr, "Mn")
+        assert result[0] == pytest.approx(1.0)
+        assert np.isnan(result[2])
+        assert result.dtype == float
+
+    def test_complex_dtype_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="unsupported dtype"):
+            scene.select_by_species(
+                np.array([1 + 2j, 3 + 4j, 5 + 6j, 7 + 8j]), "Mn"
+            )
+
 
 class TestValidateForRender:
     """Unit and integration tests for scene-level render-time validation."""
