@@ -550,38 +550,59 @@ class StructureScene:
         (for example after extending the trajectory) use
         :meth:`clear_2d_atom_data`.
 
-        A 2-D *values* array is validated in a single walk against
-        the container's prospective post-write state: the new array
-        must have ``shape[0] == len(self.frames)``, and any other
-        stored 2-D entry not being overridden must agree.  For the
-        common single-2-D-entry case, this means an in-place
-        reassignment at a new shape after ``scene.frames.append(...)``
-        just works -- the stored version of *key* is treated as
-        overridden and skipped.  Multi-entry scenes still need
-        :meth:`clear_2d_atom_data` to drop the other stale entries.
+        Provide data in one of two forms:
+
+        - **Full array** via *values*: a 1-D array-like of length
+          ``n_atoms`` (same value every frame) or a 2-D array-like of
+          shape ``(n_frames, n_atoms)`` (per-frame values).
+        - **Sparse** via *by_species* and/or *by_index*: maps species
+          labels or atom indices to values.  See below for shape rules
+          and precedence.
+
+        Mixing *values* with *by_species* or *by_index* raises
+        :class:`ValueError`.
+
+        **by_species** maps species labels to values.  Scalars broadcast
+        to all atoms of the species; 1-D arrays (length = count of that
+        species' atoms) assign per-atom; 2-D arrays of shape
+        ``(n_frames, n_species_atoms)`` assign per-frame.  A 1-D array
+        is always interpreted as static per-atom, even when its length
+        equals ``n_frames``.
+
+        **by_index** maps atom indices to values.  Scalars are static;
+        1-D arrays of length ``n_frames`` are per-frame.
+
+        When both are provided, *by_index* values take precedence over
+        *by_species* at overlapping atoms.
+
+        Unspecified atoms are filled with ``NaN`` (numeric) or ``None``
+        (categorical, stored as object-dtype).
+
+        A 2-D *values* array, or any ``by_*`` form that promotes to
+        2-D, is validated against the container's prospective post-write
+        state: the array's frame count must match ``len(self.frames)``.
 
         Args:
             key: Name for this metadata (e.g. ``"charge"``,
                 ``"site"``).
-            values: Either a 1-D array-like of length ``n_atoms`` (same
-                value every frame) or a 2-D array-like of shape
-                ``(n_frames, n_atoms)`` (per-frame values).  Passing a
-                dict raises ``TypeError``; use ``by_index=`` instead.
+            values: Full-length array-like.  Must not be a dict; use
+                *by_index* for sparse assignment by atom index.
+            by_species: Maps species labels to scalar, 1-D, or 2-D
+                values.  All keys must be present in
+                ``scene.species``.
+            by_index: Maps atom indices to scalar or 1-D values.
+                All keys must be in ``range(len(scene.species))``.
 
         Raises:
-            ValueError: If an array-like has the wrong length or
-                shape for *n_atoms*, if a 2-D array's leading
-                dimension does not match ``len(self.frames)``, if a
-                non-overridden stored 2-D entry is stale relative to
-                ``len(self.frames)`` (the error names the stale key
-                and points at :meth:`clear_2d_atom_data` for
-                recovery), if the coerced array has an unsupported
-                dtype (only bool, integer, float, string, and object
-                are accepted), or if a dict contains indices outside
-                the valid range.
-            TypeError: If *values* is a dict (use ``by_index=``
-                instead), or if *by_species* or *by_index* contain a
-                mixture of string and numeric values.
+            ValueError: If *values* is mixed with *by_species* or
+                *by_index*; if all three are absent; if a species
+                label is unknown; if an atom index is out of range;
+                if an array has the wrong shape for its context; or
+                if a 2-D array's frame count does not match
+                ``len(self.frames)``.
+            TypeError: If a dict is passed as *values* (use
+                ``by_index=`` instead), or if values contain a
+                mixture of string and numeric types.
 
         See Also:
             :meth:`del_atom_data`: Remove a single entry.
