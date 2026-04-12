@@ -196,7 +196,7 @@ def _discover_bonds_for_new_atoms(
 
 
 def _complete_polyhedra_vertices(
-    species: list[str],
+    species: tuple[str, ...],
     coords: np.ndarray,
     lattice: np.ndarray,
     n_physical: int,
@@ -292,7 +292,7 @@ def _complete_polyhedra_vertices(
 
 
 def build_rendering_set(
-    species: list[str],
+    species: tuple[str, ...],
     coords: np.ndarray,
     periodic_bonds: list[Bond],
     bond_specs: list[BondSpec],

@@ -30,7 +30,8 @@ class StructureScene:
     (per-atom metadata) properties are documented individually below.
 
     Attributes:
-        species: One label per atom.
+        species: One label per atom.  Stored as a tuple; the
+            sequence is fixed at construction.
         frames: List of coordinate snapshots.  Each :class:`Frame` may
             carry its own ``lattice`` for variable-cell trajectories.
         atom_styles: Mapping from species label to visual style.
@@ -41,7 +42,7 @@ class StructureScene:
 
     def __init__(
         self,
-        species: list[str],
+        species: Sequence[str],
         frames: list[Frame],
         atom_styles: dict[str, AtomStyle] | None = None,
         bond_specs: list[BondSpec] | None = None,
@@ -50,7 +51,7 @@ class StructureScene:
         title: str = "",
         atom_data: dict[str, ArrayLike] | None = None,
     ) -> None:
-        self.species = species
+        self.species: tuple[str, ...] = tuple(species)
         self.frames = frames
         self.atom_styles = atom_styles if atom_styles is not None else {}
         self.bond_specs = bond_specs if bond_specs is not None else []

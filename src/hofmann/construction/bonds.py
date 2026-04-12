@@ -8,7 +8,7 @@ from hofmann.model import Bond, BondSpec
 
 
 def compute_bonds(
-    species: list[str],
+    species: tuple[str, ...],
     coords: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray | None = None,
@@ -70,7 +70,7 @@ def compute_bonds(
 
 
 def _compute_bonds_direct(
-    species: list[str],
+    species: tuple[str, ...],
     diff: np.ndarray,
     bond_specs: list[BondSpec],
     unique_species: list[str],
@@ -121,7 +121,7 @@ def _inscribed_sphere_radius(lattice: np.ndarray) -> float:
 
 
 def _compute_bonds_periodic(
-    species: list[str],
+    species: tuple[str, ...],
     diff: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray,
@@ -160,7 +160,7 @@ def _compute_bonds_periodic(
 
 
 def _compute_bonds_mic(
-    species: list[str],
+    species: tuple[str, ...],
     diff_frac: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray,
@@ -200,7 +200,7 @@ def _compute_bonds_mic(
 
 
 def _compute_bonds_multi_image(
-    species: list[str],
+    species: tuple[str, ...],
     diff_frac: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray,
@@ -268,7 +268,7 @@ def _compute_bonds_multi_image(
 
 def _species_pair_mask(
     spec: BondSpec,
-    species: list[str],
+    species: tuple[str, ...],
     unique_species: list[str],
 ) -> np.ndarray:
     """Build a boolean (n, n) mask for species pairs matching *spec*."""
