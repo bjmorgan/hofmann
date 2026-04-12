@@ -385,18 +385,20 @@ class StructureScene:
         """Resolve sparse by_species/by_index dicts into a dense array.
 
         Args:
-            key: Metadata key (unused at this stage; reserved for future
-                dtype inference).
+            key: Metadata key, used in error messages.
             by_species: Mapping of species label to value.
             by_index: Mapping of atom index to value.
 
         Returns:
-            1-D float array of length ``n_atoms`` with ``NaN`` fill for
-            unspecified positions.
+            1-D array of length ``n_atoms``.  Float with ``NaN`` fill for
+            numeric values; object-dtype with ``None`` fill for string
+            (categorical) values.
 
         Raises:
             ValueError: If any index in *by_index* is outside the valid
                 range ``[0, n_atoms)``.
+            TypeError: If *by_species* or *by_index* contain a mixture of
+                string and numeric values.
         """
         n_atoms = len(self.species)
 
@@ -406,7 +408,35 @@ class StructureScene:
                     f"atom index {idx} out of range for {n_atoms} atoms"
                 )
 
-        arr = np.full(n_atoms, np.nan)
+        # Collect all leaf values for dtype inference.
+        all_values: list[object] = []
+        for val in by_species.values():
+            a = np.asarray(val)
+            if a.ndim == 0:
+                all_values.append(a.item())
+            else:
+                all_values.extend(a.ravel().tolist())
+        for val in by_index.values():
+            a = np.asarray(val)
+            if a.ndim == 0:
+                all_values.append(a.item())
+            else:
+                all_values.extend(a.ravel().tolist())
+
+        has_str = any(isinstance(v, str) for v in all_values)
+        has_num = any(not isinstance(v, str) for v in all_values)
+        if has_str and has_num:
+            raise TypeError(
+                f"atom_data[{key!r}] has mixed string and numeric values; "
+                f"all values must be the same type (string or numeric)"
+            )
+        is_categorical = has_str
+
+        if is_categorical:
+            arr = np.array([None] * n_atoms, dtype=object)
+        else:
+            arr = np.full(n_atoms, np.nan)
+
         for idx, val in by_index.items():
             arr[idx] = val
         return arr

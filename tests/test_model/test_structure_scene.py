@@ -357,6 +357,20 @@ class TestSetAtomData:
         with pytest.raises(ValueError):
             scene.set_atom_data("charge")
 
+    def test_by_index_categorical(self):
+        scene = self._scene()
+        scene.set_atom_data("site", by_index={1: "4a"})
+        arr = scene.atom_data["site"]
+        assert arr[0] is None
+        assert arr[1] == "4a"
+        assert arr[2] is None
+        assert arr.dtype == object
+
+    def test_by_index_mixed_types_raises(self):
+        scene = self._scene()
+        with pytest.raises(TypeError, match="same type"):
+            scene.set_atom_data("bad", by_index={0: 1.0, 2: "text"})
+
 
 class TestAtomDataWriteMethods:
     """Tests for del_atom_data, clear_2d_atom_data, setter removal."""
