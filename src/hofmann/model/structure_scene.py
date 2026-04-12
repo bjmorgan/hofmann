@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -30,7 +30,8 @@ class StructureScene:
     (per-atom metadata) properties are documented individually below.
 
     Attributes:
-        species: One label per atom.
+        species: One label per atom.  Stored as a tuple; the
+            sequence is fixed at construction.
         frames: List of coordinate snapshots.  Each :class:`Frame` may
             carry its own ``lattice`` for variable-cell trajectories.
         atom_styles: Mapping from species label to visual style.
@@ -41,7 +42,7 @@ class StructureScene:
 
     def __init__(
         self,
-        species: list[str],
+        species: Sequence[str],
         frames: list[Frame],
         atom_styles: dict[str, AtomStyle] | None = None,
         bond_specs: list[BondSpec] | None = None,
@@ -50,7 +51,7 @@ class StructureScene:
         title: str = "",
         atom_data: dict[str, ArrayLike] | None = None,
     ) -> None:
-        self.species = species
+        self.species: tuple[str, ...] = tuple(species)
         self.frames = frames
         self.atom_styles = atom_styles if atom_styles is not None else {}
         self.bond_specs = bond_specs if bond_specs is not None else []
@@ -698,6 +699,92 @@ class StructureScene:
             :meth:`del_atom_data`: Remove a single entry.
         """
         self._atom_data._clear_2d()
+
+    def select_by_species(
+        self,
+        values: ArrayLike,
+        species: str | Iterable[str],
+    ) -> np.ndarray:
+        """Keep values for selected species, fill the rest with sentinels.
+
+        Returns a copy of *values* with entries for non-selected atoms
+        replaced by the appropriate missing sentinel: ``NaN`` for
+        numeric data (with integer-to-float promotion) or ``None``
+        for categorical data (with unicode-to-object promotion).
+
+        Intended for filtering a full-length array before passing it
+        to :meth:`set_atom_data`::
+
+            scene.set_atom_data(
+                "charge",
+                scene.select_by_species(full_array, "O"),
+            )
+
+        Args:
+            values: Array-like of shape ``(n_atoms,)`` or
+                ``(n_frames, n_atoms)``.
+            species: A single species label or an iterable of labels
+                to keep.
+
+        Returns:
+            A new array with the same shape as *values*.
+
+        Raises:
+            ValueError: If *species* contains unknown labels or if
+                *values* has the wrong shape.
+        """
+        arr = np.asarray(values)
+        n_atoms = len(self.species)
+
+        if arr.ndim == 1:
+            if len(arr) != n_atoms:
+                raise ValueError(
+                    f"values must have length {n_atoms}, got {len(arr)}"
+                )
+        elif arr.ndim == 2:
+            if arr.shape[1] != n_atoms:
+                raise ValueError(
+                    f"values must have {n_atoms} columns, "
+                    f"got {arr.shape[1]}"
+                )
+        else:
+            raise ValueError(
+                f"values must be 1-D or 2-D, got {arr.ndim}-D"
+            )
+
+        if arr.dtype.kind not in ("b", "i", "u", "f", "U", "O"):
+            raise ValueError(
+                f"unsupported dtype {arr.dtype}; supported dtypes "
+                f"are bool, integer, float, string, and object"
+            )
+
+        if isinstance(species, str):
+            keep = {species}
+        else:
+            keep = set(species)
+
+        known = set(self.species)
+        unknown = keep - known
+        if unknown:
+            raise ValueError(
+                f"unknown species: {', '.join(sorted(unknown))}"
+            )
+
+        mask = np.array([s in keep for s in self.species])
+
+        # Build output with appropriate sentinel.
+        if arr.dtype.kind in ("U", "O"):
+            out = np.empty_like(arr, dtype=object)
+            out[:] = None
+        else:
+            out = np.full_like(arr, np.nan, dtype=float)
+
+        if arr.ndim == 1:
+            out[mask] = arr[mask]
+        else:
+            out[:, mask] = arr[:, mask]
+
+        return out
 
     def _validate_for_render(self) -> None:
         """Raise if atom_data is incompatible with ``len(self.frames)``.

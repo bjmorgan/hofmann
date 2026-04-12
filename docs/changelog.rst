@@ -4,6 +4,14 @@ Changelog
 0.19.0
 ------
 
+- ``StructureScene.species`` is now stored as a tuple.  The sequence
+  is fixed at construction.
+
+- New :meth:`~hofmann.StructureScene.select_by_species` method filters
+  a full-length per-atom array to keep only selected species, filling
+  the rest with the appropriate missing sentinel (``NaN`` for numeric,
+  ``None`` for categorical).
+
 - :meth:`~hofmann.StructureScene.set_atom_data` gains ``by_species``
   and ``by_index`` keyword arguments for sparse per-atom metadata
   assignment.  ``by_species`` maps species labels to values;

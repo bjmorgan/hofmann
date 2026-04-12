@@ -82,7 +82,7 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
 
 
 def _species_colours(
-    species: list[str],
+    species: tuple[str, ...],
     atom_styles: dict[str, AtomStyle],
 ) -> list[tuple[float, float, float]]:
     """Return per-atom colours from species styles (the default path).
@@ -167,7 +167,7 @@ def _resolve_single_layer(
 
 
 def _resolve_atom_colours(
-    species: list[str],
+    species: tuple[str, ...],
     atom_styles: dict[str, AtomStyle],
     atom_data: dict[str, np.ndarray],
     colour_by: str | list[str] | None = None,

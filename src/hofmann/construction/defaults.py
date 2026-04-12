@@ -6,6 +6,7 @@ but with desaturated tones that reproduce well in print.
 """
 
 import json
+from collections.abc import Sequence
 from importlib import resources
 
 from hofmann.model import AtomStyle, BondSpec, Colour
@@ -262,7 +263,7 @@ def _load_vesta_cutoffs() -> dict[tuple[str, str], float]:
 
 
 def default_bond_specs(
-    species: list[str],
+    species: Sequence[str],
     *,
     bond_radius: float | None = None,
     bond_colour: Colour | None = None,

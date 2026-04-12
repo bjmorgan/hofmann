@@ -10,7 +10,7 @@ from hofmann.model import Bond, Polyhedron, PolyhedronSpec
 
 
 def compute_polyhedra(
-    species: list[str],
+    species: tuple[str, ...],
     coords: np.ndarray,
     bonds: list[Bond],
     polyhedra_specs: list[PolyhedronSpec],

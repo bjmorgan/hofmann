@@ -186,7 +186,7 @@ def _precompute_scene(
         )
         if rs.deduplicate_molecules:
             rset = deduplicate_molecules(rset, lattice)
-        species = rset.species
+        species = tuple(rset.species)
         coords = rset.coords
         bonds = rset.bonds
         source_indices = rset.source_indices
