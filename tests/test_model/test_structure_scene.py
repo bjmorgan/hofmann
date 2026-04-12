@@ -442,6 +442,43 @@ class TestSetAtomData:
         with pytest.raises(ValueError, match="2"):
             scene.set_atom_data("charge", by_species={"Mn": [1.0, 2.0, 3.0]})
 
+    def test_combined_by_index_overrides_by_species(self):
+        """by_index wins where it overlaps with by_species."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": 2.0},
+            by_index={0: 1.9},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr[0] == pytest.approx(1.9)   # by_index wins
+        assert arr[1] == pytest.approx(2.0)   # by_species
+        assert np.isnan(arr[2])
+        assert np.isnan(arr[3])
+
+    def test_combined_mixed_types_raises(self):
+        """String in by_species + numeric in by_index is a TypeError."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords)],
+        )
+        with pytest.raises(TypeError, match="same type"):
+            scene.set_atom_data(
+                "bad",
+                by_species={"Mn": "oct"},
+                by_index={2: 1.0},
+            )
+
+    def test_values_and_by_species_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="cannot mix"):
+            scene.set_atom_data("charge", [1.0, 2.0, 3.0], by_species={"A": 1.0})
+
 
 class TestAtomDataWriteMethods:
     """Tests for del_atom_data, clear_2d_atom_data, setter removal."""
