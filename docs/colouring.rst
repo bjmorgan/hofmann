@@ -6,51 +6,17 @@ Colouring by per-atom data
    :align: center
    :alt: Helix of corner-sharing tetrahedra coloured by position
 
-Atoms can be coloured by arbitrary metadata instead of by species.
-Use :meth:`~hofmann.StructureScene.set_atom_data` to attach a named
-array and the ``colour_by`` parameter on
-:meth:`~hofmann.StructureScene.render_mpl` to activate it.
-
-The scene exposes three methods for managing per-atom metadata:
-
-- :meth:`~hofmann.StructureScene.set_atom_data` adds or replaces a
-  named entry.  1-D arrays of length ``n_atoms`` are stored as
-  static values; 2-D arrays of shape ``(n_frames, n_atoms)`` give
-  per-frame values for trajectories and animations.
-- :meth:`~hofmann.StructureScene.del_atom_data` removes a single
-  entry by key.
-- :meth:`~hofmann.StructureScene.clear_2d_atom_data` drops every
-  per-frame (2-D) entry in one go while leaving static per-atom
-  (1-D) entries untouched.  It is required when two or more 2-D
-  entries exist and the trajectory has been extended, because
-  every stored 2-D entry is now stale and each must be
-  replaced.
-
-After extending the trajectory with a single 2-D entry stored,
-:meth:`~hofmann.StructureScene.set_atom_data` can be called
-directly with the new shape -- the stored version of the key is
-replaced atomically::
-
-   scene.frames.append(new_frame)
-   scene.set_atom_data("energy", new_energy_2d)  # in-place replace
-
-When two or more 2-D entries are stored, drop them all first::
-
-   scene.frames.append(new_frame)
-   scene.clear_2d_atom_data()
-   scene.set_atom_data("energy", new_energy_2d)
-   scene.set_atom_data("forces", new_forces_2d)
-
-The container itself is a read-only mapping: direct assignment
-(``scene.atom_data[key] = ...``) and ``del scene.atom_data[key]``
-are not supported -- always go through the three scene methods
-above.
+Instead of colouring atoms according to their species, atoms can be
+assigned per-atom data that is then used to assign specific colours.
 
 Continuous data
 ---------------
 
-Numerical arrays are mapped through a colourmap.  By default the
-data range is auto-scaled; use ``colour_range`` to fix the limits.
+A common use case is to colour atoms according to individual
+numerical data.  Here, each atom is assigned an ``angle`` value
+corresponding to the azimuthal angle of that atom in the ring.  At
+render time, each atom's ``angle`` value is mapped to a colour
+using the ``twilight`` colourmap:
 
 .. code-block:: python
 
@@ -65,10 +31,20 @@ data range is auto-scaled; use ``colour_range`` to fix the limits.
    :align: center
    :alt: Ring of atoms coloured by angle
 
+The data range is auto-scaled by default.  To fix the limits (for
+example, to share a colour scale across multiple figures), pass
+``colour_range``:
+
+.. code-block:: python
+
+   scene.render_mpl("output.svg", colour_by="angle", colour_range=(0, 360))
+
 Categorical data
 ----------------
 
-String arrays assign a distinct colour to each unique value.
+Atoms can also be assigned categorical data — site labels,
+coordination environments, oxidation states.  Each unique value
+gets its own colour:
 
 .. code-block:: python
 
@@ -81,71 +57,12 @@ String arrays assign a distinct colour to each unique value.
    :align: center
    :alt: Ring of atoms coloured by categorical site labels
 
-Atoms with ``NaN`` (numeric) or ``None`` (categorical) values fall
-back to their species colour.  This is useful when metadata is only
-available for a subset of atoms:
-
-.. code-block:: python
-
-   # Only colour specific atoms by charge; the rest keep species colours.
-   scene.set_atom_data("charge", by_index={0: 1.2, 3: -0.8, 5: 0.4})
-
-Sparse assignment
------------------
-
-Use ``by_species`` or ``by_index`` to assign metadata to a subset of
-atoms without building a full-length array:
-
-.. code-block:: python
-
-   # All Mn atoms get charge 2.0.
-   scene.set_atom_data("charge", by_species={"Mn": 2.0})
-
-   # Specific atoms by index.
-   scene.set_atom_data("charge", by_index={0: 1.2, 3: -0.8})
-
-Both forms can be combined in a single call.  ``by_index`` values
-take precedence where they overlap with ``by_species``:
-
-.. code-block:: python
-
-   # All Mn atoms charge 2.0, except atom 3 (defect site) at 1.9.
-   scene.set_atom_data(
-       "charge",
-       by_species={"Mn": 2.0},
-       by_index={3: 1.9},
-   )
-
-For trajectory data, ``by_species`` accepts 2-D arrays of shape
-``(n_frames, n_species_atoms)`` and ``by_index`` accepts 1-D arrays
-of length ``n_frames``.  Either of these promotes the output to 2-D.
-Scalar and 1-D ``by_species`` values and scalar ``by_index`` values
-broadcast across frames automatically.
-
-Filtering a full-length array
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-When you have a full-length array (e.g. from an external calculation)
-but only want to colour certain species, use
-:meth:`~hofmann.StructureScene.select_by_species` to replace
-non-selected atoms with the appropriate missing sentinel:
-
-.. code-block:: python
-
-   # Keep only O-atom charges; other atoms fall back to species colour.
-   scene.set_atom_data(
-       "charge",
-       scene.select_by_species(full_charge_array, "O"),
-   )
-
-This handles integer-to-float promotion, unicode-to-object promotion,
-and species-label validation automatically.
-
 Custom colouring functions
 --------------------------
 
-Instead of a colourmap name you can pass any callable that maps a
-float in ``[0, 1]`` to an ``(r, g, b)`` tuple:
+You are not limited to named colourmaps.  Any callable that maps a
+float in ``[0, 1]`` to an ``(r, g, b)`` tuple works — including
+``lambda`` expressions and matplotlib ``Colormap`` objects:
 
 .. code-block:: python
 
@@ -160,28 +77,88 @@ float in ``[0, 1]`` to an ``(r, g, b)`` tuple:
    :align: center
    :alt: Ring of atoms coloured by a custom red-to-blue function
 
-This works with any callable, including ``lambda`` expressions and
-matplotlib ``Colormap`` objects.
+Colouring a subset of atoms
+----------------------------
+
+In the examples above, ``set_atom_data`` is called with one value
+for every atom in the scene.  To leave some atoms uncoloured, set
+their values to ``NaN`` (for numeric data) or ``None`` (for
+categorical data).  These atoms will fall back to their default
+species colour:
+
+.. code-block:: python
+
+   charges = np.array([1.2, np.nan, -0.8])  # atom 1 keeps its species colour
+   scene.set_atom_data("charge", charges)
+
+For cases when you only have data for some atoms,
+``set_atom_data`` provides convenience arguments that allow you
+to set data for a subset of atoms, without having to explicitly
+specify "no data" for the other atoms in the scene.
+``by_species`` and ``by_index`` let you provide just the values
+you want to set.  The rest are filled with ``NaN`` or ``None``,
+as appropriate, automatically:
+
+.. code-block:: python
+
+   # Set a charge for each Mn atom (one value per Mn in the scene).
+   scene.set_atom_data("charge", by_species={"Mn": [2.0, 1.8, 2.1]})
+
+   # A single value is broadcast to all atoms of that species.
+   scene.set_atom_data("charge", by_species={"Mn": 2.0})
+
+   # Assign by atom index instead of by species.
+   scene.set_atom_data("charge", by_index={0: 1.2, 3: -0.8})
+
+If ``by_species`` and ``by_index`` are both specified,
+``by_species`` values are applied first, then ``by_index`` values
+are applied over the top.  This is useful for setting a default
+and then overriding a few atoms:
+
+.. code-block:: python
+
+   # All Mn atoms charge 2.0, except atom 3 (defect site) at 1.9.
+   scene.set_atom_data(
+       "charge",
+       by_species={"Mn": 2.0},
+       by_index={3: 1.9},
+   )
+
+Another pattern is where you have a full-length array but only
+want to set data for a certain species.
+:meth:`~hofmann.StructureScene.select_by_species` can be used to
+produce a copy with non-selected atoms replaced by ``NaN`` or
+``None``, as appropriate:
+
+.. code-block:: python
+
+   filtered = scene.select_by_species(full_charge_array, "O")
+   # filtered has the same shape as full_charge_array, but only
+   # O atoms keep their values — everything else is NaN.
+
+   scene.set_atom_data("charge", filtered)
 
 Multiple colouring layers
 -------------------------
 
-When different subsets of atoms should use different colouring rules,
-pass a list of keys to ``colour_by``.  Each layer is tried in order
-and the first non-missing value wins.  ``cmap`` and ``colour_range``
-can also be lists of the same length (or a single value broadcast to
-all layers).
+Different subsets of atoms can use different colouring rules in the
+same render.  Pass a list of keys to ``colour_by``; each layer is
+tried in order and the first non-missing value wins.
 
 Layers can freely mix categorical and continuous data.  In this
-example the outer ring is coloured by a categorical metal type while
-the inner ring uses a numerical charge gradient:
+example the scene has two species — "A" (outer ring) and "B" (inner
+ring).  The outer ring is coloured by a categorical metal type, and
+the inner ring by a numerical charge gradient:
 
 .. code-block:: python
 
-   # Outer atoms: categorical type.
-   scene.set_atom_data("metal", by_index={0: "Fe", 1: "Co", 2: "Ni"})
-   # Inner atoms: numerical charge.
-   scene.set_atom_data("charge", by_index={12: 0.0, 13: 0.3})
+   # Outer ring: repeating categorical labels.
+   scene.set_atom_data(
+       "metal",
+       by_species={"A": ["Fe", "Co", "Ni"] * 4},
+   )
+   # Inner ring: numerical gradient.
+   scene.set_atom_data("charge", by_species={"B": np.linspace(0, 1, 8)})
    scene.render_mpl(
        "output.svg",
        colour_by=["metal", "charge"],
@@ -202,7 +179,7 @@ Polyhedra colour inheritance
 When a :class:`~hofmann.PolyhedronSpec` has no explicit ``colour``,
 polyhedra inherit the resolved colour of their centre atom.  This
 means ``colour_by`` colouring automatically flows through to
-polyhedra without any additional configuration.
+polyhedra without any additional configuration:
 
 .. code-block:: python
 
@@ -230,3 +207,10 @@ polyhedra without any additional configuration.
 
 If a ``PolyhedronSpec`` provides an explicit ``colour``, that
 colour always takes precedence over ``colour_by``.
+
+Per-frame colouring
+-------------------
+
+Per-atom data can also vary across frames in a trajectory, so that
+colours update as the animation progresses.  See the
+:doc:`animations` guide for details.
