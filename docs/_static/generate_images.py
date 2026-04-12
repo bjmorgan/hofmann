@@ -333,7 +333,7 @@ def logo_scene() -> StructureScene:
     )
 
     data = dict(zip(range(1, 1 + n_verts), colour_vals))
-    scene.set_atom_data("gradient", data)
+    scene.set_atom_data("gradient", by_index=data)
 
     scene.view.look_along(look_dir)
     scene.view.perspective = 0.12

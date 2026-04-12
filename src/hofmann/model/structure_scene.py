@@ -26,6 +26,9 @@ if TYPE_CHECKING:
 class StructureScene:
     """Top-level scene holding atoms, frames, styles, bond rules, and view.
 
+    The :attr:`view` (camera/projection state) and :attr:`atom_data`
+    (per-atom metadata) properties are documented individually below.
+
     Attributes:
         species: One label per atom.
         frames: List of coordinate snapshots.  Each :class:`Frame` may
@@ -442,6 +445,8 @@ class StructureScene:
                 # Object arrays may contain strings, numerics, or
                 # None sentinels.  Classify from non-None elements.
                 for v in a.ravel():
+                    if seen_str and seen_num:
+                        break
                     _classify_scalar(v)
             else:
                 seen_num = True
