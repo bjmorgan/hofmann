@@ -4,6 +4,21 @@ Changelog
 0.19.0
 ------
 
+- :meth:`~hofmann.StructureScene.set_atom_data` gains ``by_species``
+  and ``by_index`` keyword arguments for sparse per-atom metadata
+  assignment.  ``by_species`` maps species labels to values;
+  ``by_index`` maps atom indices.  Both can be combined in one call,
+  with ``by_index`` taking precedence at overlapping atoms.
+
+- :meth:`~hofmann.StructureScene.set_atom_data` no longer accepts a
+  dict as its positional ``values`` argument.  Use ``by_index=``
+  instead.
+
+- Missing entries in sparse categorical atom data are now filled with
+  ``None`` (object-dtype) instead of empty strings.  Both are treated
+  as missing by the rendering pipeline; ``None`` cannot collide with
+  a real label.
+
 - The ``AtomData`` container is no longer re-exported from
   ``hofmann`` or ``hofmann.model``.  The only supported way to
   obtain an instance is to read the

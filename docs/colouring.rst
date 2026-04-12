@@ -81,14 +81,46 @@ String arrays assign a distinct colour to each unique value.
    :align: center
    :alt: Ring of atoms coloured by categorical site labels
 
-Atoms with ``NaN`` (numeric) or ``""`` (categorical) values fall
+Atoms with ``NaN`` (numeric) or ``None`` (categorical) values fall
 back to their species colour.  This is useful when metadata is only
 available for a subset of atoms:
 
 .. code-block:: python
 
    # Only colour specific atoms by charge; the rest keep species colours.
-   scene.set_atom_data("charge", {0: 1.2, 3: -0.8, 5: 0.4})
+   scene.set_atom_data("charge", by_index={0: 1.2, 3: -0.8, 5: 0.4})
+
+Sparse assignment
+-----------------
+
+Use ``by_species`` or ``by_index`` to assign metadata to a subset of
+atoms without building a full-length array:
+
+.. code-block:: python
+
+   # All Mn atoms get charge 2.0.
+   scene.set_atom_data("charge", by_species={"Mn": 2.0})
+
+   # Specific atoms by index.
+   scene.set_atom_data("charge", by_index={0: 1.2, 3: -0.8})
+
+Both forms can be combined in a single call.  ``by_index`` values
+take precedence where they overlap with ``by_species``:
+
+.. code-block:: python
+
+   # All Mn atoms charge 2.0, except atom 3 (defect site) at 1.9.
+   scene.set_atom_data(
+       "charge",
+       by_species={"Mn": 2.0},
+       by_index={3: 1.9},
+   )
+
+For trajectory data, ``by_species`` accepts 2-D arrays of shape
+``(n_frames, n_species_atoms)`` and ``by_index`` accepts 1-D arrays
+of length ``n_frames``.  Either of these promotes the output to 2-D.
+Scalar and 1-D ``by_species`` values broadcast across frames
+automatically.
 
 Custom colouring functions
 --------------------------
@@ -128,9 +160,9 @@ the inner ring uses a numerical charge gradient:
 .. code-block:: python
 
    # Outer atoms: categorical type.
-   scene.set_atom_data("metal", {0: "Fe", 1: "Co", 2: "Ni"})
+   scene.set_atom_data("metal", by_index={0: "Fe", 1: "Co", 2: "Ni"})
    # Inner atoms: numerical charge.
-   scene.set_atom_data("charge", {12: 0.0, 13: 0.3})
+   scene.set_atom_data("charge", by_index={12: 0.0, 13: 0.3})
    scene.render_mpl(
        "output.svg",
        colour_by=["metal", "charge"],
