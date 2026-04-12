@@ -192,7 +192,7 @@ polyhedra without any additional configuration.
    # No colour on the spec -- polyhedra inherit from colour_by.
    spec = PolyhedronSpec(centre="M", alpha=0.4)
 
-   scene.set_atom_data("val", {0: 0.0, 1: 0.5, 2: 1.0})
+   scene.set_atom_data("val", by_index={0: 0.0, 1: 0.5, 2: 1.0})
    scene.render_mpl(
        "output.svg",
        colour_by="val", cmap="coolwarm",
