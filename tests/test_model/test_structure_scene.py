@@ -479,6 +479,106 @@ class TestSetAtomData:
         with pytest.raises(ValueError, match="cannot mix"):
             scene.set_atom_data("charge", [1.0, 2.0, 3.0], by_species={"A": 1.0})
 
+    def test_by_species_2d_promotes(self):
+        """A 2-D by_species value promotes output to (n_frames, n_atoms)."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": np.array([[1.0, 2.0], [3.0, 4.0]])},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == pytest.approx(1.0)
+        assert arr[1, 1] == pytest.approx(4.0)
+        assert np.isnan(arr[0, 2])
+
+    def test_by_index_1d_promotes(self):
+        """A 1-D by_index value of length n_frames promotes to 2-D."""
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_index={0: [10.0, 20.0]},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 3)
+        assert arr[0, 0] == pytest.approx(10.0)
+        assert arr[1, 0] == pytest.approx(20.0)
+        assert np.isnan(arr[0, 1])
+
+    def test_by_species_scalar_broadcasts_when_promoted(self):
+        """Scalar by_species broadcasts across frames when 2-D."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": 2.0},
+            by_index={2: [5.0, 6.0]},  # promotes to 2-D
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == pytest.approx(2.0)
+        assert arr[1, 0] == pytest.approx(2.0)
+        assert arr[0, 2] == pytest.approx(5.0)
+        assert arr[1, 2] == pytest.approx(6.0)
+
+    def test_by_species_1d_broadcasts_when_promoted(self):
+        """1-D by_species broadcasts across frames when promoted by by_index."""
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        scene.set_atom_data(
+            "charge",
+            by_species={"Mn": [1.0, 2.0]},
+            by_index={2: [5.0, 6.0]},
+        )
+        arr = scene.atom_data["charge"]
+        assert arr.shape == (2, 4)
+        assert arr[0, 0] == pytest.approx(1.0)  # Mn[0] frame 0
+        assert arr[1, 0] == pytest.approx(1.0)  # Mn[0] frame 1 (broadcast)
+        assert arr[0, 1] == pytest.approx(2.0)  # Mn[1] frame 0
+        assert arr[1, 1] == pytest.approx(2.0)  # Mn[1] frame 1 (broadcast)
+
+    def test_by_species_2d_wrong_shape_raises(self):
+        coords = np.zeros((4, 3))
+        scene = StructureScene(
+            species=["Mn", "Mn", "O", "O"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2 frames"):
+            scene.set_atom_data(
+                "charge",
+                by_species={"Mn": np.array([[1.0, 2.0], [3.0, 4.0], [5.0, 6.0]])},
+            )
+
+    def test_by_index_1d_wrong_length_raises(self):
+        coords = np.zeros((3, 3))
+        scene = StructureScene(
+            species=["A", "B", "C"],
+            frames=[Frame(coords=coords), Frame(coords=coords)],
+        )
+        with pytest.raises(ValueError, match="2 frames"):
+            scene.set_atom_data("charge", by_index={0: [1.0, 2.0, 3.0]})
+
+    def test_by_index_2d_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError):
+            scene.set_atom_data(
+                "charge", by_index={0: np.array([[1.0]])}
+            )
+
 
 class TestAtomDataWriteMethods:
     """Tests for del_atom_data, clear_2d_atom_data, setter removal."""

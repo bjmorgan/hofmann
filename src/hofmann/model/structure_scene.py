@@ -384,31 +384,32 @@ class StructureScene:
     ) -> np.ndarray:
         """Resolve sparse by_species/by_index dicts into a dense array.
 
+        Builds a 1-D ``(n_atoms,)`` array by default.  Promotes to
+        2-D ``(n_frames, n_atoms)`` if any ``by_species`` value is
+        2-D or any ``by_index`` value is 1-D.
+
+        When promoted, scalar and 1-D ``by_species`` values are
+        broadcast across the frame axis.  ``by_index`` values
+        overwrite ``by_species`` values at overlapping atoms.
+
         Args:
-            key: Metadata key, used in error messages.
-            by_species: Mapping of species label to value.
-            by_index: Mapping of atom index to value.
+            key: Metadata key (for error messages).
+            by_species: Species-label-to-value mapping.
+            by_index: Atom-index-to-value mapping.
 
         Returns:
-            1-D array of length ``n_atoms``.  Float with ``NaN`` fill for
-            numeric values; object-dtype with ``None`` fill for string
-            (categorical) values.
+            Dense array ready for ``_atom_data._set``.
 
         Raises:
-            ValueError: If any index in *by_index* is outside the valid
-                range ``[0, n_atoms)``.
-            TypeError: If *by_species* or *by_index* contain a mixture of
-                string and numeric values.
+            ValueError: If a species label is unknown, an index is
+                out of range, or a value has the wrong shape.
+            TypeError: If values contain a mixture of string and
+                numeric types.
         """
         n_atoms = len(self.species)
+        n_frames = len(self.frames)
 
-        for idx in by_index:
-            if not 0 <= idx < n_atoms:
-                raise ValueError(
-                    f"atom index {idx} out of range for {n_atoms} atoms"
-                )
-
-        # Validate species labels.
+        # --- Validate keys ---
         known = set(self.species)
         for label in by_species:
             if label not in known:
@@ -416,61 +417,121 @@ class StructureScene:
                     f"atom_data[{key!r}]: unknown species {label!r} "
                     f"(not present in scene)"
                 )
+        for idx in by_index:
+            if not 0 <= idx < n_atoms:
+                raise ValueError(
+                    f"atom index {idx} out of range for {n_atoms} atoms"
+                )
 
-        # Collect all leaf values for dtype inference.
+        # --- Coerce values and infer dtype / dimensionality ---
         all_values: list[object] = []
-        for val in by_species.values():
-            a = np.asarray(val)
-            if a.ndim == 0:
-                all_values.append(a.item())
-            else:
-                all_values.extend(a.ravel().tolist())
-        for val in by_index.values():
-            a = np.asarray(val)
-            if a.ndim == 0:
-                all_values.append(a.item())
-            else:
-                all_values.extend(a.ravel().tolist())
+        promotes_2d = False
 
+        # Pre-process by_species values.
+        species_entries: list[tuple[np.ndarray, np.ndarray]] = []
+        for label, val in by_species.items():
+            mask = np.array([s == label for s in self.species])
+            n_sp = int(mask.sum())
+            a = np.asarray(val)
+            if a.ndim == 0:
+                all_values.append(a.item())
+            elif a.ndim == 1:
+                if len(a) != n_sp:
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_species[{label!r}] has "
+                        f"length {len(a)} but species {label!r} has "
+                        f"{n_sp} atoms"
+                    )
+                all_values.extend(a.ravel().tolist())
+            elif a.ndim == 2:
+                if a.shape != (n_frames, n_sp):
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_species[{label!r}] has "
+                        f"shape {a.shape} but expected "
+                        f"({n_frames}, {n_sp}) for {n_frames} frames "
+                        f"and {n_sp} atoms of species {label!r}"
+                    )
+                promotes_2d = True
+                all_values.extend(a.ravel().tolist())
+            else:
+                raise ValueError(
+                    f"atom_data[{key!r}]: by_species[{label!r}] must be "
+                    f"scalar, 1-D, or 2-D, got {a.ndim}-D"
+                )
+            species_entries.append((mask, a))
+
+        # Pre-process by_index values.
+        index_entries: list[tuple[int, np.ndarray]] = []
+        for idx, val in by_index.items():
+            a = np.asarray(val)
+            if a.ndim == 0:
+                all_values.append(a.item())
+            elif a.ndim == 1:
+                if len(a) != n_frames:
+                    raise ValueError(
+                        f"atom_data[{key!r}]: by_index[{idx}] has "
+                        f"length {len(a)} but expected {n_frames} frames"
+                    )
+                promotes_2d = True
+                all_values.extend(a.ravel().tolist())
+            else:
+                raise ValueError(
+                    f"atom_data[{key!r}]: by_index[{idx}] must be "
+                    f"scalar or 1-D, got {a.ndim}-D"
+                )
+            index_entries.append((idx, a))
+
+        # Dtype inference.
         has_str = any(isinstance(v, str) for v in all_values)
         has_num = any(not isinstance(v, str) for v in all_values)
         if has_str and has_num:
             raise TypeError(
-                f"atom_data[{key!r}] has mixed string and numeric values; "
-                f"all values must be the same type (string or numeric)"
+                f"atom_data[{key!r}] has mixed string and numeric "
+                f"values; all values must be the same type "
+                f"(string or numeric)"
             )
         is_categorical = has_str
 
-        if is_categorical:
-            arr = np.array([None] * n_atoms, dtype=object)
-        else:
-            arr = np.full(n_atoms, np.nan)
-
-        # Fill from by_species (before by_index so by_index takes precedence).
-        for label, val in by_species.items():
-            mask = np.array([s == label for s in self.species])
-            n_species_atoms = int(mask.sum())
-            a = np.asarray(val)
-            if a.ndim == 0:
-                # Scalar: broadcast to all atoms of this species.
-                arr[mask] = a.item()
-            elif a.ndim == 1:
-                if len(a) != n_species_atoms:
-                    raise ValueError(
-                        f"atom_data[{key!r}]: by_species[{label!r}] has "
-                        f"length {len(a)} but species {label!r} has "
-                        f"{n_species_atoms} atoms"
-                    )
-                arr[mask] = a
+        # --- Allocate output ---
+        arr: np.ndarray
+        if promotes_2d:
+            if is_categorical:
+                arr = np.empty((n_frames, n_atoms), dtype=object)
+                arr[:] = None
             else:
-                # 2-D handled in a later task; for now raise.
-                raise ValueError(
-                    f"atom_data[{key!r}]: by_species[{label!r}] must be "
-                    f"scalar or 1-D, got {a.ndim}-D"
-                )
+                arr = np.full((n_frames, n_atoms), np.nan)
+        else:
+            if is_categorical:
+                arr = np.array([None] * n_atoms, dtype=object)
+            else:
+                arr = np.full(n_atoms, np.nan)
 
-        for idx, val in by_index.items():
-            arr[idx] = val
+        # --- Fill from by_species (first, lower precedence) ---
+        for mask, a in species_entries:
+            if promotes_2d:
+                if a.ndim == 0:
+                    arr[:, mask] = a.item()
+                elif a.ndim == 1:
+                    # Broadcast static per-atom across frames.
+                    arr[:, mask] = a[np.newaxis, :]
+                else:
+                    arr[:, mask] = a
+            else:
+                if a.ndim == 0:
+                    arr[mask] = a.item()
+                else:
+                    arr[mask] = a
+
+        # --- Fill from by_index (second, higher precedence) ---
+        for idx, a in index_entries:
+            if promotes_2d:
+                if a.ndim == 0:
+                    arr[:, idx] = a.item()
+                else:
+                    arr[:, idx] = a
+            else:
+                arr[idx] = a.item() if a.ndim == 0 else a
+
         return arr
 
     def set_atom_data(
