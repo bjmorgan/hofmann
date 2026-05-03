@@ -2071,9 +2071,14 @@ class TestEmitAtomPolygons:
             site_content=Composition({"Fe": 1.0}),
             **self._kwargs(),
         )
-        # Pure-occupancy composition: wedge + outer ring.  No vacancy
-        # wedge, no radial edges (single wedge wrapping circle).
-        assert len(verts) >= 1
+        # Pure-occupancy composition: one wedge in the species' colour
+        # plus an outer ring outline.  No vacancy wedge, no radial edges
+        # (single wedge wrapping the full circle).
+        assert len(verts) == 2
+        # First polygon is the Fe wedge (red, per the kwargs default).
+        assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
+        # Second polygon is the outline ring (in outline_rgb).
+        assert fcs[1] == (0.0, 0.0, 0.0, 1.0)
 
     def test_unstyled_constituent_uses_grey_fallback(self):
         from hofmann.rendering.painter import _emit_atom_polygons
@@ -2095,9 +2100,11 @@ class TestEmitAtomPolygons:
             site_content=Composition({"Fe": 0.7, "Mn": 0.3}),
             **kwargs,
         )
-        # Falls through the non-wedge branch: one polygon with the
-        # fallback face colour.
-        assert len(verts) == 1 or fcs[0] == (1.0, 0.0, 0.0, 1.0)
+        # use_wedges=False forces the non-wedge branch: exactly one
+        # polygon emitted (the unit circle), with the fallback face
+        # colour applied (here red, the kwargs default).
+        assert len(verts) == 1
+        assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
 
     def test_radial_edge_count_two_species_full(self):
         from hofmann.rendering.painter import _emit_atom_polygons
@@ -2115,7 +2122,18 @@ class TestEmitAtomPolygons:
             site_content=Composition({"Fe": 0.5, "Mn": 0.3}),  # 0.2 vacancy
             **self._kwargs(),
         )
-        # Two species + vacancy -> 2 wedges + vacancy wedge + outer
-        # ring + radial edges (vacancy boundary + between species +
-        # species/vacancy at end) = 7.
-        assert len(verts) >= 6
+        # Two species + vacancy -> 2 species wedges + 1 vacancy wedge +
+        # 1 outer ring + 3 radial edges (vacancy/Fe boundary, Fe/Mn
+        # boundary, Mn/vacancy boundary) = 7 polygons.
+        assert len(verts) == 7
+
+    def test_vacancy_uses_bg_rgb_when_vacancy_colour_is_none(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(bg_rgb=(0.85, 0.95, 0.85))
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.7}),  # 30% vacancy
+            **kwargs,
+        )
+        # The vacancy wedge should be filled with bg_rgb (alpha 1.0).
+        expected = (0.85, 0.95, 0.85, 1.0)
+        assert expected in fcs

@@ -751,6 +751,7 @@ class TestFromPymatgenWithMixed:
         site = scene.species[0]
         assert isinstance(site, Composition)
         assert site.vacancy == pytest.approx(0.3)
+        assert site["Fe"] == pytest.approx(0.7)
 
     def test_charged_species_stripped_to_element_symbol(self):
         from pymatgen.core import Lattice, Species, Structure

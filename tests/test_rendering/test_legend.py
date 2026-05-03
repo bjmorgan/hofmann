@@ -191,6 +191,8 @@ class TestBuildLegendItems:
         # Iteration order: Fe (highest occupancy in the Composition),
         # then Mn, then O from the second site.
         assert [item.key for item in items] == ["Fe", "Mn", "O"]
+        # First item is Fe; its colour must come from Fe's AtomStyle.
+        assert items[0].colour == (0.8, 0.2, 0.2)
 
 
 class TestResolveItemRadius:
