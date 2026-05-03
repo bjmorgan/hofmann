@@ -12,6 +12,7 @@ from hofmann.model.colour import (
     Colour,
     normalise_colour,
 )
+from hofmann.model.composition import Composition
 from hofmann.model.frame import Frame
 from hofmann.model.polyhedron_spec import Polyhedron, PolyhedronSpec
 from hofmann.model.render_style import (
@@ -42,6 +43,7 @@ __all__ = [
     "LegendItem",
     "LegendStyle",
     "Colour",
+    "Composition",
     "Frame",
     "Polyhedron",
     "PolygonLegendItem",

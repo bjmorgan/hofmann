@@ -21,3 +21,17 @@ class TestPublicAPI:
         scene.render_mpl(output=out)
         assert out.exists()
         assert out.stat().st_size > 0
+
+
+def test_composition_top_level_export():
+    import hofmann
+    import hofmann.model.composition
+
+    assert hasattr(hofmann, "Composition")
+    assert hofmann.Composition is hofmann.model.composition.Composition
+
+
+def test_composition_in_all():
+    import hofmann
+
+    assert "Composition" in hofmann.__all__
