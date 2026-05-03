@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import dataclasses
 
+from hofmann.model.composition import Composition
+
+SiteContent = str | Composition
+
 _field_defaults_cache: dict[tuple[type, frozenset[str]], dict] = {}
 
 
@@ -27,3 +31,22 @@ def _field_defaults(cls: type, *, exclude: frozenset[str] = frozenset()) -> dict
             and f.name not in exclude
         }
     return _field_defaults_cache[key]
+
+
+def _site_species(site: SiteContent) -> frozenset[str]:
+    """Return the set of constituent species at a site row.
+
+    For a plain string, returns a singleton frozenset.  For a
+    :class:`Composition`, returns its constituent species (vacancy
+    excluded).
+
+    Args:
+        site: A site content value: either a species label string or
+            a :class:`Composition`.
+
+    Returns:
+        A frozenset of constituent species labels.
+    """
+    if isinstance(site, Composition):
+        return site.species
+    return frozenset({site})
