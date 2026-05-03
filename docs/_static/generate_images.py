@@ -172,7 +172,7 @@ def disordered_site_scene() -> StructureScene:
     from pymatgen.core import Structure as PmgStructure
 
     cif_path = Path(__file__).resolve().parent.parent.parent / "examples" / "disordered_site.cif"
-    structure = PmgStructure.from_file(cif_path)
+    structure = PmgStructure.from_file(str(cif_path))
     scene = StructureScene.from_pymatgen(structure)
     scene.view.look_along([1, 0.18, 0.2])
     return scene
