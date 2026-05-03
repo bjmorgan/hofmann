@@ -3,17 +3,15 @@
 Partial and mixed occupancy
 ============================
 
-TiOF\ :sub:`2`
+.. image:: _static/partial_occupancy.svg
+ :width: 400px
+ :align: center
+ :alt: TiOF2 unit cell with disordered O/F anion sites rendered as wedges
 
 Hofmann can render sites with partial or mixed crystallographic
-occupancy.  Such *mixed sites* are drawn as pie wedges -- one wedge
+occupancy.  Such *mixed sites* are drawn as pie wedges; one wedge
 per species, with each wedge's angle equal to that species'
 occupancy.
-
-.. image:: _static/partial_occupancy.svg
-   :width: 400px
-   :align: center
-   :alt: TiOF2 unit cell with disordered O/F anion sites rendered as wedges
 
 Constructing a mixed site
 --------------------------
@@ -39,7 +37,7 @@ Vacancies
 ---------
 
 When a :class:`Composition`'s occupancies sum to less than one, the
-missing fraction is treated as a vacancy::
+missing fraction is treated as a vacancy fraction::
 
     fe_partial = Composition({"Fe": 0.7})  # 70% Fe, 30% vacancy
 
@@ -56,7 +54,8 @@ default.  A custom vacancy colour can be set by passing the
 From a pymatgen Structure
 -------------------------
 
-pymatgen represents partial occupancy and species disorder natively.
+A pymatgen :class:`~pymatgen.core.Structure` represents partial
+occupancy and species disorder natively.
 :func:`~hofmann.from_pymatgen` reads this directly: any site with
 more than one species, or with a single species at occupancy below
 one, becomes a :class:`Composition` in the resulting scene.
@@ -71,9 +70,9 @@ one, becomes a :class:`Composition` in the resulting scene.
 Loading from a CIF file
 -----------------------
 
-CIFs are loaded by pymatgen and passed through to
-:func:`~hofmann.from_pymatgen`.  Here is a minimal example -- a
-single Fe / Mn site filling a 2.8 Å cubic cell:
+CIFs can be loaded with pymatgen and passed through to
+:func:`~hofmann.from_pymatgen`.  For example, this minimal CIF
+defines a single Fe / Mn site filling a 2.8 Å cubic cell:
 
 .. literalinclude:: ../examples/disordered_site.cif
    :language: text
@@ -95,16 +94,11 @@ single Fe / Mn site filling a 2.8 Å cubic cell:
 Customising appearance
 ----------------------
 
-Each wedge takes its colour from the species'
+Each wedge takes its colour from the corresponding species'
 :attr:`~hofmann.AtomStyle.colour`.  The radius of the whole site is
 the occupancy-weighted average of its constituents' radii, with the
 average computed over the occupied species only -- so a half-vacant
 site is drawn at the same size as a fully occupied one.
-
-For more specific styling -- for example, colouring all mixed sites
-the same way to flag disordered positions -- attach per-site data
-with :meth:`~hofmann.StructureScene.set_atom_data` and use the
-``colour_by`` parameter when rendering.  See :doc:`colouring`.
 
 Three :class:`~hofmann.RenderStyle` fields control the wedge layout:
 
@@ -126,6 +120,11 @@ For example::
         vacancy_colour="lightgrey",   # explicit vacancy fill
     )
     scene.render_mpl("structure.svg", style=style)
+
+For more specific styling -- for example, colouring all mixed sites
+the same way to flag disordered positions -- attach per-site data
+with :meth:`~hofmann.StructureScene.set_atom_data` and use the
+``colour_by`` parameter when rendering.  See :doc:`colouring`.
 
 Visibility of constituent species
 ---------------------------------
