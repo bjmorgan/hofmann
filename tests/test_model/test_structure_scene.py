@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from hofmann.construction.defaults import default_atom_style
+from hofmann.model.composition import Composition
 from hofmann.model.frame import Frame
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
@@ -883,3 +884,37 @@ class TestValidateForRender:
             match=r"stale 2-D entry 'forces'.*3 frames.*4 frames were expected",
         ):
             scene.set_atom_data("energy", np.ones((4, 3)))
+
+
+class TestMixedSiteConstruction:
+    def _make_frame(self, n: int) -> Frame:
+        return Frame(coords=np.zeros((n, 3)))
+
+    def test_pure_string_scene_unchanged(self):
+        scene = StructureScene(
+            species=["Fe", "O"],
+            frames=[self._make_frame(2)],
+        )
+        assert scene.species == ("Fe", "O")
+
+    def test_mixed_composition_accepted(self):
+        comp = Composition({"Fe": 0.7, "Mn": 0.3})
+        scene = StructureScene(
+            species=["Fe", comp, "O"],
+            frames=[self._make_frame(3)],
+        )
+        assert scene.species[1] is comp
+
+    def test_invalid_row_type_raises(self):
+        with pytest.raises(TypeError, match="row 1"):
+            StructureScene(
+                species=["Fe", 42, "O"],  # type: ignore[list-item]
+                frames=[self._make_frame(3)],
+            )
+
+    def test_invalid_row_type_dict_raises(self):
+        with pytest.raises(TypeError, match="Composition"):
+            StructureScene(
+                species=["Fe", {"Fe": 0.5, "Mn": 0.5}, "O"],  # type: ignore[list-item]
+                frames=[self._make_frame(3)],
+            )

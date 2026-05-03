@@ -13,6 +13,7 @@ from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
+from hofmann.model.composition import Composition
 from hofmann.model.frame import Frame
 from hofmann.model.polyhedron_spec import PolyhedronSpec
 from hofmann.model.render_style import RenderStyle
@@ -30,8 +31,9 @@ class StructureScene:
     (per-atom metadata) properties are documented individually below.
 
     Attributes:
-        species: One label per atom.  Stored as a tuple; the
-            sequence is fixed at construction.
+        species: One entry per site row, either a species label or a
+            :class:`Composition` describing a partially occupied or
+            mixed site.
         frames: List of coordinate snapshots.  Each :class:`Frame` may
             carry its own ``lattice`` for variable-cell trajectories.
         atom_styles: Mapping from species label to visual style.
@@ -42,7 +44,7 @@ class StructureScene:
 
     def __init__(
         self,
-        species: Sequence[str],
+        species: Sequence[str | Composition],
         frames: list[Frame],
         atom_styles: dict[str, AtomStyle] | None = None,
         bond_specs: list[BondSpec] | None = None,
@@ -51,7 +53,14 @@ class StructureScene:
         title: str = "",
         atom_data: dict[str, ArrayLike] | None = None,
     ) -> None:
-        self.species: tuple[str, ...] = tuple(species)
+        species_tuple = tuple(species)
+        for i, item in enumerate(species_tuple):
+            if not isinstance(item, (str, Composition)):
+                raise TypeError(
+                    f"species row {i} must be a str or Composition, "
+                    f"got {type(item).__name__}: {item!r}"
+                )
+        self.species: tuple[str | Composition, ...] = species_tuple
         self.frames = frames
         self.atom_styles = atom_styles if atom_styles is not None else {}
         self.bond_specs = bond_specs if bond_specs is not None else []
