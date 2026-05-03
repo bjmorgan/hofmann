@@ -125,11 +125,13 @@ def _emit_atom_polygons(
     :attr:`RenderStyle.vacancy_colour` (or *bg_rgb* when that is
     ``None``).
 
-    Hidden constituents (``AtomStyle.visible=False``) contribute no
-    wedge polygon — their share of the site is treated identically
-    to a vacancy fraction.  When ``show_outlines`` is True, the
-    outer ring and any radial edges are still emitted regardless
-    of how many constituents are hidden.
+    Per-species visibility (``AtomStyle.visible``) is ignored for
+    constituents of a :class:`Composition`: every constituent is
+    rendered regardless of the flag.  Per-species visibility only
+    applies to pure-string site rows.  This avoids the visually
+    inconsistent state where a constituent is hidden in the wedge
+    rendering but its species still attracts bonds and matches
+    rule lookups.
 
     Args:
         site_content: Either a species label string or a Composition.
@@ -172,16 +174,11 @@ def _emit_atom_polygons(
         # stroked).
         for sp, polygon in wedges:
             sp_style = atom_styles.get(sp)
-            if sp_style is not None and not sp_style.visible:
-                # Hidden constituent: no fill (gap shows through),
-                # treated identically to a vacancy fraction.
-                continue
             if sp_style is None:
                 # Unknown species (no style registered): fall back to
                 # the same default-grey used elsewhere in the rendering
-                # pipeline (see ``_species_colours`` and
-                # ``_compute_atom_radii``).  Degrades consistently with
-                # pure-string sites that lack a style.
+                # pipeline.  Per-species visibility flags do not apply
+                # to constituents of a Composition — see the design doc.
                 wedge_rgb: tuple[float, float, float] = (0.5, 0.5, 0.5)
             else:
                 wedge_rgb = normalise_colour(sp_style.colour)

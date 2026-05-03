@@ -1900,7 +1900,13 @@ class TestPainterWithMixed:
         )
         plt.close(fig)
 
-    def test_mixed_site_with_hidden_constituent_renders(self):
+    def test_mixed_site_ignores_per_constituent_visibility(self):
+        """visible=False on a constituent has no effect on wedge rendering.
+
+        Per-species visibility is a pure-site concept; mixed sites are
+        drawn with all their constituents regardless of any constituent's
+        visible flag.
+        """
         scene = StructureScene(
             species=[Composition({"Fe": 0.5, "Mn": 0.5})],
             frames=[Frame(coords=np.zeros((1, 3)))],
@@ -1910,9 +1916,19 @@ class TestPainterWithMixed:
             },
         )
         fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        # Both wedges are emitted regardless of Mn's visible=False.
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # 2 wedges + outer ring + 2 radial edges = 5 polygons.
+        assert total_paths >= 5
         plt.close(fig)
 
-    def test_mixed_site_all_constituents_hidden(self):
+    def test_mixed_site_renders_even_if_all_constituents_marked_hidden(self):
+        """All constituents marked visible=False still draws the site.
+
+        This is the design call: mixed sites are not hidden via
+        per-species visibility flags.
+        """
         scene = StructureScene(
             species=[Composition({"Fe": 0.5, "Mn": 0.5})],
             frames=[Frame(coords=np.zeros((1, 3)))],
@@ -1921,8 +1937,11 @@ class TestPainterWithMixed:
                 "Mn": AtomStyle(radius=1.0, colour="purple", visible=False),
             },
         )
-        # Should not raise; site is fully hidden.
         fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # Site still drawn fully.
+        assert total_paths >= 5
         plt.close(fig)
 
     def test_mixed_site_with_unstyled_constituent_renders(self):

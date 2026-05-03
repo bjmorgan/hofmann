@@ -261,18 +261,14 @@ def _precompute_scene(
     style_hidden_atoms: set[int] = set()
     style_hidden_bond_ids: set[int] = set()
     for i, sp in enumerate(species):
-        site_sp = _site_species(sp)
-        if not site_sp:
+        if isinstance(sp, Composition):
+            # Per-species visibility flags do not propagate to
+            # constituents of a mixed site: a Composition row is
+            # always drawn (the user controls its rendering through
+            # composition-level mechanisms like colour_by).
             continue
-        # A site is hidden iff all its constituent species have a style
-        # with visible=False.  Constituents without a style are treated
-        # as visible (default behaviour).
-        all_hidden = all(
-            scene.atom_styles.get(s) is not None
-            and not scene.atom_styles[s].visible
-            for s in site_sp
-        )
-        if all_hidden:
+        style = scene.atom_styles.get(sp)
+        if style is not None and not style.visible:
             style_hidden_atoms.add(i)
     if style_hidden_atoms:
         for bond in bonds:
