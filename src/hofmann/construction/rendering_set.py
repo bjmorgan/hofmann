@@ -36,7 +36,9 @@ class RenderingSet:
     """Expanded set of atoms and bonds ready for rendering.
 
     Attributes:
-        species: Species labels for physical + image atoms.
+        species: Per-site contents (species labels or
+            :class:`Composition` for mixed sites) for physical and
+            image atoms.
         coords: Coordinates array, shape ``(n_expanded, 3)``.
         bonds: Bonds with indices into the expanded arrays.
             All have ``image == (0, 0, 0)`` — periodicity has been
@@ -221,7 +223,8 @@ def _complete_polyhedra_vertices(
     as potential centres.
 
     Args:
-        species: Species labels for physical atoms.
+        species: Per-site contents (species labels or
+            :class:`Composition` for mixed sites) for physical atoms.
         coords: Physical atom coordinates.
         lattice: Lattice matrix.
         n_physical: Number of physical atoms.
@@ -359,7 +362,8 @@ def build_rendering_set(
       vertex completion are separate use cases)
 
     Args:
-        species: Species labels for the physical atoms.
+        species: Per-site contents (species labels or
+            :class:`Composition` for mixed sites) for the physical atoms.
         coords: Physical atom coordinates, shape ``(n_physical, 3)``.
         periodic_bonds: Bonds from :func:`compute_bonds` (may include
             non-zero ``image`` fields).
