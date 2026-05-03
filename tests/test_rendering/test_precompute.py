@@ -5,9 +5,11 @@ from __future__ import annotations
 import warnings
 
 import numpy as np
+import pytest
 
 from hofmann._constants import DEFAULT_ATOM_RADIUS
 from hofmann.model import AtomStyle
+from hofmann.model.composition import Composition
 from hofmann.rendering.precompute import (
     _compute_atom_radii,
     _warn_missing_atom_styles,
@@ -137,3 +139,24 @@ class TestWarnMissingAtomStyles:
             )
         assert len(caught) == 1
         assert str(caught[0].message).count("'Fe'") == 1
+
+
+class TestWarnMissingAtomStylesWithMixed:
+    def test_constituent_species_with_style_no_warning(self):
+        species = ["Fe", Composition({"Fe": 0.7, "Mn": 0.3})]
+        styles = {
+            "Fe": AtomStyle(radius=1.0, colour="red"),
+            "Mn": AtomStyle(radius=1.0, colour="purple"),
+        }
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _warn_missing_atom_styles(species, styles)
+        assert not any(
+            "AtomStyle" in str(w.message) for w in caught
+        )
+
+    def test_constituent_species_missing_style_warns(self):
+        species = ["Fe", Composition({"Fe": 0.7, "Mn": 0.3})]
+        styles = {"Fe": AtomStyle(radius=1.0, colour="red")}
+        with pytest.warns(UserWarning, match="'Mn'"):
+            _warn_missing_atom_styles(species, styles)

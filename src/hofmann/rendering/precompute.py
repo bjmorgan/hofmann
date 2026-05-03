@@ -30,7 +30,9 @@ from hofmann.model import (
     StructureScene,
     normalise_colour,
 )
+from hofmann.model._util import _site_species
 from hofmann.model.colour import _resolve_atom_colours
+from hofmann.model.composition import Composition
 from hofmann._constants import DEFAULT_ATOM_RADIUS
 
 
@@ -107,7 +109,7 @@ def _compute_atom_radii(
 
 
 def _warn_missing_atom_styles(
-    species: Sequence[str],
+    species: Sequence[str | Composition],
     atom_styles: Mapping[str, AtomStyle],
 ) -> None:
     """Emit a single warning listing all species that lack an ``AtomStyle``.
@@ -128,7 +130,10 @@ def _warn_missing_atom_styles(
         species: Per-atom species names, one entry per atom.
         atom_styles: Mapping from species name to :class:`AtomStyle`.
     """
-    missing = sorted(frozenset(species) - atom_styles.keys())
+    all_species: set[str] = set()
+    for site in species:
+        all_species |= _site_species(site)
+    missing = sorted(all_species - atom_styles.keys())
     if not missing:
         return
     species_list = ", ".join(f"'{sp}'" for sp in missing)

@@ -11,6 +11,7 @@ from hofmann.construction.defaults import default_atom_style, default_bond_specs
 from hofmann.model import (
     AtomStyle, BondSpec, Frame, PolyhedronSpec, StructureScene, ViewState,
 )
+from hofmann.model._util import _site_species
 from hofmann.construction.parser import parse_bs, parse_mv
 
 if TYPE_CHECKING:
@@ -167,7 +168,10 @@ def from_ase(
             )
 
     # Default atom styles from the element lookup, merged with overrides.
-    unique_species = sorted(set(species))
+    unique_species_set: set[str] = set()
+    for site in species:
+        unique_species_set |= _site_species(site)
+    unique_species = sorted(unique_species_set)
     merged_styles = {sp: default_atom_style(sp) for sp in unique_species}
     if atom_styles is not None:
         merged_styles.update(atom_styles)
@@ -304,7 +308,10 @@ def from_pymatgen(
     species = [site.specie.symbol for site in structures[0]]
 
     # Default atom styles from the element lookup, merged with overrides.
-    unique_species = sorted(set(species))
+    unique_species_set: set[str] = set()
+    for site in species:
+        unique_species_set |= _site_species(site)
+    unique_species = sorted(unique_species_set)
     merged_styles = {sp: default_atom_style(sp) for sp in unique_species}
     if atom_styles is not None:
         merged_styles.update(atom_styles)
