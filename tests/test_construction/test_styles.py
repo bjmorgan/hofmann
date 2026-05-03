@@ -689,3 +689,36 @@ class TestSceneStyleMethods:
         # Na overridden, Cl unchanged.
         assert scene.atom_styles["Na"].radius == 2.0
         assert scene.atom_styles["Cl"] is original_cl
+
+
+import tempfile
+from pathlib import Path
+
+from hofmann.model.composition import Composition
+from hofmann.model.structure_scene import StructureScene
+
+
+class TestSaveLoadWithMixed:
+    def test_round_trip_unaffected_by_mixed_sites(self):
+        scene = StructureScene(
+            species=[
+                "Fe",
+                Composition({"Fe": 0.7, "Mn": 0.3}),
+                "O",
+            ],
+            frames=[Frame(coords=np.zeros((3, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+                "O":  AtomStyle(radius=0.7, colour="white"),
+            },
+            bond_specs=[BondSpec(species=("Fe", "O"), max_length=2.5)],
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "styles.json"
+            scene.save_styles(path)
+            data = json.loads(path.read_text())
+            assert set(data["atom_styles"]) == {"Fe", "Mn", "O"}
+            scene.load_styles(path)
+            assert scene.atom_styles["Fe"].radius == 1.0
+            assert "Mn" in scene.atom_styles
