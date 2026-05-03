@@ -160,3 +160,39 @@ class TestWarnMissingAtomStylesWithMixed:
         styles = {"Fe": AtomStyle(radius=1.0, colour="red")}
         with pytest.warns(UserWarning, match="'Mn'"):
             _warn_missing_atom_styles(species, styles)
+
+
+class TestComputeAtomRadiiWithMixed:
+    def test_pure_string_unchanged(self):
+        species = ["Fe", "O"]
+        styles = {
+            "Fe": AtomStyle(radius=1.4, colour="red"),
+            "O": AtomStyle(radius=0.7, colour="red"),
+        }
+        radii = _compute_atom_radii(species, styles)
+        assert radii[0] == 1.4
+        assert radii[1] == 0.7
+
+    def test_mixed_site_weighted_average(self):
+        species = [Composition({"Fe": 0.7, "Mn": 0.3})]
+        styles = {
+            "Fe": AtomStyle(radius=1.4, colour="red"),
+            "Mn": AtomStyle(radius=1.0, colour="purple"),
+        }
+        radii = _compute_atom_radii(species, styles)
+        # 0.7 * 1.4 + 0.3 * 1.0 = 1.28; divided by sum_occ (1.0).
+        assert radii[0] == pytest.approx(1.28)
+
+    def test_partial_site_normalised_by_occupancy_sum(self):
+        # 70% Fe + 30% vacancy: site is drawn at full Fe radius.
+        species = [Composition({"Fe": 0.7})]
+        styles = {"Fe": AtomStyle(radius=1.4, colour="red")}
+        radii = _compute_atom_radii(species, styles)
+        assert radii[0] == pytest.approx(1.4)
+
+    def test_missing_constituent_style_falls_back_to_default(self):
+        species = [Composition({"Fe": 0.5, "Mn": 0.5})]
+        styles = {"Fe": AtomStyle(radius=1.4, colour="red")}
+        expected = (0.5 * 1.4 + 0.5 * DEFAULT_ATOM_RADIUS) / 1.0
+        radii = _compute_atom_radii(species, styles)
+        assert radii[0] == pytest.approx(expected)

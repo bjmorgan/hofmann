@@ -83,28 +83,40 @@ class _PrecomputedScene:
 
 
 def _compute_atom_radii(
-    species: Sequence[str],
+    species: Sequence[str | Composition],
     atom_styles: Mapping[str, AtomStyle],
 ) -> np.ndarray:
-    """Compute per-atom display radii from a species list and style map.
+    """Compute per-site display radii.
 
-    Atoms whose species is not present in *atom_styles* fall back to
+    Pure-string sites use their species' :class:`AtomStyle.radius`.
+    Mixed sites use the occupancy-weighted average across constituent
+    species (normalised by the occupancy sum, so vacancies do not
+    shrink the site).  Constituents with no style fall back to
     :data:`DEFAULT_ATOM_RADIUS`.
 
     Args:
-        species: Per-atom species names, one entry per atom.
-        atom_styles: Mapping from species name to :class:`AtomStyle`.
-            Species missing from the map trigger the default fallback.
+        species: Per-site content, one entry per row.  Each entry is
+            either a species label (string) or a :class:`Composition`.
+        atom_styles: Mapping from species label to :class:`AtomStyle`.
 
     Returns:
         A ``(n_atoms,)`` array of ``float`` display radii.
     """
-    species_arr = np.asarray(species)
     radii = np.full(len(species), DEFAULT_ATOM_RADIUS)
-    for sp in set(species):
-        style = atom_styles.get(sp)
-        if style is not None:
-            radii[species_arr == sp] = style.radius
+    for i, site in enumerate(species):
+        if isinstance(site, Composition):
+            total_occ = 0.0
+            weighted = 0.0
+            for sp, occ in site.items():
+                style = atom_styles.get(sp)
+                r = style.radius if style is not None else DEFAULT_ATOM_RADIUS
+                weighted += occ * r
+                total_occ += occ
+            radii[i] = weighted / total_occ if total_occ > 0 else DEFAULT_ATOM_RADIUS
+        else:
+            style = atom_styles.get(site)
+            if style is not None:
+                radii[i] = style.radius
     return radii
 
 
