@@ -3,14 +3,10 @@
 Partial and mixed occupancy
 ============================
 
-Some crystal structures have sites whose atomic identity is not
-fixed across the lattice -- either a species occupies a site in only
-some fraction of unit cells (partial occupancy), or several species
-share the site (a solid solution).  Each individual site still
-contains at most one atom; what varies is which atom, or whether one
-is present at all, from one unit cell to the next.  Hofmann draws
-such sites as pie wedges -- one wedge per species, with each wedge's
-angle equal to that species' crystallographic occupancy.
+Hofmann can render sites with partial crystallographic occupancy or
+sites shared between multiple species (a solid solution).  Such sites
+are drawn as pie wedges -- one wedge per species, with each wedge's
+angle equal to that species' occupancy.
 
 .. image:: _static/partial_occupancy.svg
    :width: 400px
@@ -19,10 +15,8 @@ angle equal to that species' crystallographic occupancy.
 
 The figure above shows TiOF\ :sub:`2`, which adopts the cubic
 ReO\ :sub:`3` structure with Ti at the cell corners and one anion
-site at each edge midpoint.  Across the crystal, two-thirds of these
-positions hold an F atom and one-third hold an O.  The wedges show
-that average: an individual site contains one atom, but the rendering
-draws each site as a 2/3 F, 1/3 O mix.
+site at each edge midpoint.  Each anion site has occupancy 2/3 F and
+1/3 O, so each is drawn as two wedges.
 
 Constructing a mixed site
 --------------------------
