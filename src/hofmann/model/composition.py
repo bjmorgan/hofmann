@@ -37,8 +37,9 @@ class Composition(Mapping[str, float]):
         occupancies: A mapping of species labels to occupancy fractions.
 
     Raises:
-        ValueError: If any value is non-finite or outside ``(0, 1]``;
-            if the sum exceeds 1.0; if the resulting mapping is empty.
+        ValueError: If any value is non-finite or outside ``[0, 1]``;
+            if the sum exceeds 1.0; if the resulting mapping is empty
+            (all values zero, or the input was empty).
         TypeError: If any key is not a string.
     """
 
@@ -67,7 +68,7 @@ class Composition(Mapping[str, float]):
                 )
             if v < 0:
                 raise ValueError(
-                    f"occupancy for {key!r} must be positive, got {v}"
+                    f"occupancy for {key!r} must be non-negative, got {v}"
                 )
             if v > 1.0 + _OCCUPANCY_TOLERANCE:
                 raise ValueError(
@@ -113,14 +114,6 @@ class Composition(Mapping[str, float]):
     def species(self) -> frozenset[str]:
         """Set of constituent species (vacancy excluded)."""
         return frozenset(self.occupancies.keys())
-
-    @property
-    def is_pure(self) -> bool:
-        """True iff exactly one species at occupancy 1.0."""
-        if len(self.occupancies) != 1:
-            return False
-        (only_value,) = self.occupancies.values()
-        return abs(only_value - 1.0) < _OCCUPANCY_TOLERANCE
 
     @property
     def dominant_species(self) -> str:

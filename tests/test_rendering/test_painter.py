@@ -1866,7 +1866,8 @@ class TestPainterWithMixed:
         fig = scene.render_mpl(show=False)
         ax = fig.axes[0]
         total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
-        assert total_paths >= 2
+        # 2 species wedges + outer ring + 2 radial edges = 5 polygons.
+        assert total_paths == 5
         plt.close(fig)
 
     def test_pure_string_scene_renders_unchanged(self):
@@ -1920,7 +1921,7 @@ class TestPainterWithMixed:
         # Both wedges are emitted regardless of Mn's visible=False.
         total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
         # 2 wedges + outer ring + 2 radial edges = 5 polygons.
-        assert total_paths >= 5
+        assert total_paths == 5
         plt.close(fig)
 
     def test_mixed_site_renders_even_if_all_constituents_marked_hidden(self):
@@ -1940,8 +1941,8 @@ class TestPainterWithMixed:
         fig = scene.render_mpl(show=False)
         ax = fig.axes[0]
         total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
-        # Site still drawn fully.
-        assert total_paths >= 5
+        # Site still drawn fully: 2 wedges + outer ring + 2 radials = 5.
+        assert total_paths == 5
         plt.close(fig)
 
     def test_mixed_site_with_unstyled_constituent_renders(self):
@@ -1962,10 +1963,8 @@ class TestPainterWithMixed:
         fig = scene.render_mpl(show=False)
         ax = fig.axes[0]
         total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
-        # Two wedges (Fe + Mn-as-grey) plus outer ring plus radial
-        # separators — strictly more than the 1 polygon we'd get if
-        # the Mn wedge were skipped.
-        assert total_paths >= 3
+        # 2 wedges (Fe + Mn-as-grey) + outer ring + 2 radial edges = 5.
+        assert total_paths == 5
         plt.close(fig)
 
     def test_show_wedge_edges_false_strokes_outer_arc_only(self):
@@ -2059,10 +2058,8 @@ class TestEmitAtomPolygons:
         verts, fcs, ecs, lws = _emit_atom_polygons(
             site_content="Fe", **self._kwargs(),
         )
-        # Single circle polygon plus outline emission depends on path
-        # — just confirm at least one polygon is emitted with the
-        # fallback face colour.
-        assert len(verts) >= 1
+        # Pure-string site: exactly one filled-and-stroked circle.
+        assert len(verts) == 1
         assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
 
     def test_pure_composition_emits_one_wedge(self):

@@ -7,13 +7,12 @@ order into a matplotlib Axes via a single PolyCollection.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
 
 import matplotlib.patheffects as path_effects
 import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.collections import PolyCollection
-
-from collections.abc import Mapping
 
 from hofmann.model import (
     AtomStyle,
@@ -23,6 +22,7 @@ from hofmann.model import (
     ViewState,
     normalise_colour,
 )
+from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.axes_widget import _draw_axes_widget
 from hofmann.rendering.bond_geometry import (
     _bond_polygons_batch,
@@ -37,7 +37,6 @@ from hofmann.rendering.precompute import (
     _collect_polyhedra_faces,
     _precompute_scene,
 )
-from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.projection import (
     _make_unit_circle,
     _make_vacancy_wedge,
@@ -129,8 +128,8 @@ def _emit_atom_polygons(
             if sp_style is None:
                 # Unknown species (no style registered): fall back to
                 # the same default-grey used elsewhere in the rendering
-                # pipeline.  Per-species visibility flags do not apply
-                # to constituents of a Composition — see the design doc.
+                # pipeline.  See the function docstring for the full
+                # rule about per-constituent visibility.
                 wedge_rgb: tuple[float, float, float] = (0.5, 0.5, 0.5)
             else:
                 wedge_rgb = normalise_colour(sp_style.colour)

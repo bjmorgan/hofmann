@@ -18,6 +18,13 @@ Changelog
   :attr:`~hofmann.RenderStyle.vacancy_colour` control the appearance
   of mixed-site wedges.
 
+- :attr:`~hofmann.AtomStyle.visible` now applies only to pure-string
+  site rows.  Constituents of a :class:`~hofmann.Composition` are
+  always rendered, regardless of their ``visible`` flag, and the
+  legend follows suit.  This keeps wedge rendering consistent with
+  bond detection and rule lookups (which already operated on every
+  constituent of a mixed site).
+
 0.19.0
 ------
 

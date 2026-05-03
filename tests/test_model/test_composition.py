@@ -38,7 +38,7 @@ class TestCompositionBasic:
 
 class TestCompositionValidation:
     def test_negative_value_raises(self):
-        with pytest.raises(ValueError, match="must be positive"):
+        with pytest.raises(ValueError, match="must be non-negative"):
             Composition({"Fe": -0.1})
 
     def test_value_above_one_raises(self):
@@ -121,15 +121,6 @@ class TestCompositionAccessors:
         c = Composition({"Fe": 0.7, "Mn": 0.3})
         assert c.species == frozenset({"Fe", "Mn"})
         assert isinstance(c.species, frozenset)
-
-    def test_is_pure_true_for_single_full_occupancy(self):
-        assert Composition({"Fe": 1.0}).is_pure is True
-
-    def test_is_pure_false_for_mixed(self):
-        assert Composition({"Fe": 0.7, "Mn": 0.3}).is_pure is False
-
-    def test_is_pure_false_for_partial(self):
-        assert Composition({"Fe": 0.7}).is_pure is False
 
     def test_dominant_species_max_occupancy(self):
         assert Composition({"Fe": 0.7, "Mn": 0.3}).dominant_species == "Fe"

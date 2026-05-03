@@ -78,6 +78,20 @@ The wedge layout itself is controlled by three render-style fields:
 - :attr:`~hofmann.RenderStyle.vacancy_colour` overrides the vacancy
   fill (default: canvas background colour).
 
+Visibility of constituent species
+---------------------------------
+
+:attr:`~hofmann.AtomStyle.visible` is a per-species flag — setting it
+to ``False`` hides every pure-string site of that species.  It does
+**not** apply to constituents of a :class:`Composition`: a mixed site
+is always drawn with all of its constituents, regardless of any
+constituent's ``visible`` flag.  This avoids the visually inconsistent
+state where a constituent is hidden in the wedge rendering but its
+species still attracts bonds and matches rule lookups.  To
+de-emphasise specific mixed sites, use
+:meth:`~hofmann.StructureScene.set_atom_data` with ``colour_by`` to
+recolour them at the row level.
+
 Bonding and polyhedra
 ---------------------
 

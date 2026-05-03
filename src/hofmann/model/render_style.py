@@ -986,9 +986,12 @@ class LegendStyle:
             species label in points.
         species: Explicit list of species to include, in display
             order.  ``None`` (the default) auto-detects from the
-            scene: unique species in first-seen order, filtered to
-            those with ``visible=True`` in their atom style.
-            Ignored when *items* is provided.
+            scene: unique species in first-seen order.  Pure-string
+            site rows contribute their species only when its
+            ``AtomStyle.visible`` is ``True``; species sourced from
+            a :class:`~hofmann.Composition` constituent are always
+            included (mixed-site rendering ignores per-constituent
+            visibility).  Ignored when *items* is provided.
         labels: Custom display labels for legend entries, mapping
             species name to label string.  Common chemical notation
             is auto-formatted: trailing charges become superscripts

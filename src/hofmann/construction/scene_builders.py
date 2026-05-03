@@ -12,7 +12,7 @@ from hofmann.model import (
     AtomStyle, BondSpec, Frame, PolyhedronSpec, StructureScene, ViewState,
 )
 from hofmann.model._util import _site_species
-from hofmann.model.composition import Composition
+from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.construction.parser import parse_bs, parse_mv
 
 
@@ -42,7 +42,7 @@ def _convert_pmg_species(pmg_site: Any) -> "str | Composition":
         symbol = sp.symbol
         merged[symbol] = merged.get(symbol, 0.0) + float(occ)
     items = list(merged.items())
-    if len(items) == 1 and abs(items[0][1] - 1.0) < 1e-9:
+    if len(items) == 1 and abs(items[0][1] - 1.0) < _OCCUPANCY_TOLERANCE:
         return items[0][0]
     return Composition(merged)
 
