@@ -69,7 +69,8 @@ The wedge layout itself is controlled by three render-style fields:
 - :attr:`~hofmann.RenderStyle.wedge_start_angle` sets the starting
   orientation (default 12 o'clock).
 - :attr:`~hofmann.RenderStyle.show_wedge_edges` toggles radial edges
-  between wedges (default off — only the outer arc is stroked).
+  between wedges (default on; set to ``False`` to stroke only the
+  outer arc).
 - :attr:`~hofmann.RenderStyle.vacancy_colour` fills the vacancy gap.
 
 Bonding and polyhedra

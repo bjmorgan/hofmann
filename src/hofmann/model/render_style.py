@@ -1286,12 +1286,12 @@ class RenderStyle:
     ``None`` (the default) leaves the vacancy as a gap, so the canvas
     background shows through.  Set to a colour to fill the gap explicitly."""
 
-    show_wedge_edges: bool = False
+    show_wedge_edges: bool = True
     """Whether to stroke radial edges between wedges of a mixed site.
 
-    Default ``False`` strokes only the outer arc.  Set to ``True`` to
-    draw each wedge boundary using the existing atom outline colour and
-    width."""
+    Default ``True`` draws each wedge boundary using the existing atom
+    outline colour and width.  Set to ``False`` to stroke only the outer
+    arc."""
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
     circle_segments: int = 72
     arc_segments: int = 12

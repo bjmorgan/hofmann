@@ -1165,10 +1165,10 @@ class TestRenderStyleWedgeFields:
         style = RenderStyle(vacancy_colour="white")
         assert style.vacancy_colour == "white"
 
-    def test_show_wedge_edges_default_false(self):
+    def test_show_wedge_edges_default_true(self):
         style = RenderStyle()
-        assert style.show_wedge_edges is False
+        assert style.show_wedge_edges is True
 
     def test_show_wedge_edges_override(self):
-        style = RenderStyle(show_wedge_edges=True)
-        assert style.show_wedge_edges is True
+        style = RenderStyle(show_wedge_edges=False)
+        assert style.show_wedge_edges is False
