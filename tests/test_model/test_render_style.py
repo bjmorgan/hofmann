@@ -1,5 +1,7 @@
 """Tests for RenderStyle, SlabClipMode, CellEdgeStyle, WidgetCorner, AxesStyle, LegendItem subclasses, and LegendStyle."""
 
+import math
+
 import numpy as np
 import pytest
 
@@ -1144,3 +1146,29 @@ class TestLegendStyle:
     def test_items_non_legend_item_raises(self):
         with pytest.raises(TypeError, match=r"items\[0\] must be a LegendItem"):
             LegendStyle(items=({"key": "Na", "colour": "blue"},))
+
+
+class TestRenderStyleWedgeFields:
+    def test_wedge_start_angle_default(self):
+        style = RenderStyle()
+        assert style.wedge_start_angle == pytest.approx(math.pi / 2)
+
+    def test_wedge_start_angle_override(self):
+        style = RenderStyle(wedge_start_angle=0.0)
+        assert style.wedge_start_angle == 0.0
+
+    def test_vacancy_colour_default_none(self):
+        style = RenderStyle()
+        assert style.vacancy_colour is None
+
+    def test_vacancy_colour_override(self):
+        style = RenderStyle(vacancy_colour="white")
+        assert style.vacancy_colour == "white"
+
+    def test_show_wedge_edges_default_false(self):
+        style = RenderStyle()
+        assert style.show_wedge_edges is False
+
+    def test_show_wedge_edges_override(self):
+        style = RenderStyle(show_wedge_edges=True)
+        assert style.show_wedge_edges is True

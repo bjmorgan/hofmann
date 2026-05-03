@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -1273,6 +1274,24 @@ class RenderStyle:
     outline_colour: Colour = (0.15, 0.15, 0.15)
     atom_outline_width: float = 1.0
     bond_outline_width: float = 1.0
+    wedge_start_angle: float = math.pi / 2
+    """Starting angle for mixed-site pie wedges (radians).
+
+    Default ``pi / 2`` (12 o'clock).  Applied globally to all mixed
+    sites in the scene."""
+
+    vacancy_colour: Colour | None = None
+    """Fill colour for the vacancy fraction of a partially occupied site.
+
+    ``None`` (the default) leaves the vacancy as a gap, so the canvas
+    background shows through.  Set to a colour to fill the gap explicitly."""
+
+    show_wedge_edges: bool = False
+    """Whether to stroke radial edges between wedges of a mixed site.
+
+    Default ``False`` strokes only the outer arc.  Set to ``True`` to
+    draw each wedge boundary using the existing atom outline colour and
+    width."""
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
     circle_segments: int = 72
     arc_segments: int = 12
