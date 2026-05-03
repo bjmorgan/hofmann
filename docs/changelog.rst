@@ -1,6 +1,22 @@
 Changelog
 =========
 
+0.20.0
+------
+
+- Sites can now be partially occupied or shared between multiple
+  species.  Pass a :class:`Composition` in
+  :attr:`~hofmann.StructureScene.species` to declare a mixed site;
+  the renderer draws it as a pie of wedges, one per constituent
+  species, with vacancy fractions left as a gap.
+  :func:`~hofmann.from_pymatgen` propagates partial occupancies from
+  the source structure.
+
+- New render style fields :attr:`~hofmann.RenderStyle.wedge_start_angle`,
+  :attr:`~hofmann.RenderStyle.show_wedge_edges`, and
+  :attr:`~hofmann.RenderStyle.vacancy_colour` control the appearance
+  of mixed-site wedges.
+
 0.19.0
 ------
 
