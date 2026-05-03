@@ -5,10 +5,12 @@ from fnmatch import fnmatch
 import numpy as np
 
 from hofmann.model import Bond, BondSpec
+from hofmann.model._util import _site_species
+from hofmann.model.composition import Composition
 
 
 def compute_bonds(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     coords: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray | None = None,
@@ -53,8 +55,11 @@ def compute_bonds(
             f"{coords.shape[0]} rows"
         )
 
-    # Pre-compute unique species for efficient matching.
-    unique_species = list(set(species))
+    # Pre-compute unique constituent species for efficient matching.
+    unique_species_set: set[str] = set()
+    for site in species:
+        unique_species_set |= _site_species(site)
+    unique_species = list(unique_species_set)
 
     # Vectorised pairwise difference vectors: diff[i,j] = coords[i] - coords[j].
     diff = coords[:, np.newaxis, :] - coords[np.newaxis, :, :]
@@ -70,7 +75,7 @@ def compute_bonds(
 
 
 def _compute_bonds_direct(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     diff: np.ndarray,
     bond_specs: list[BondSpec],
     unique_species: list[str],
@@ -121,7 +126,7 @@ def _inscribed_sphere_radius(lattice: np.ndarray) -> float:
 
 
 def _compute_bonds_periodic(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     diff: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray,
@@ -160,7 +165,7 @@ def _compute_bonds_periodic(
 
 
 def _compute_bonds_mic(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     diff_frac: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray,
@@ -200,7 +205,7 @@ def _compute_bonds_mic(
 
 
 def _compute_bonds_multi_image(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     diff_frac: np.ndarray,
     bond_specs: list[BondSpec],
     lattice: np.ndarray,
@@ -268,15 +273,23 @@ def _compute_bonds_multi_image(
 
 def _species_pair_mask(
     spec: BondSpec,
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     unique_species: list[str],
 ) -> np.ndarray:
-    """Build a boolean (n, n) mask for species pairs matching *spec*."""
+    """Build a boolean (n, n) mask for species pairs matching *spec*.
+
+    For a mixed site, the row matches the spec's species if any
+    constituent species satisfies the (fnmatch-aware) pattern.
+    """
     sp_a, sp_b = spec.species
     match_a = {s for s in unique_species if fnmatch(s, sp_a)}
     match_b = {s for s in unique_species if fnmatch(s, sp_b)}
-    mask_a = np.array([s in match_a for s in species])
-    mask_b = np.array([s in match_b for s in species])
+    mask_a = np.array([
+        bool(_site_species(site) & match_a) for site in species
+    ])
+    mask_b = np.array([
+        bool(_site_species(site) & match_b) for site in species
+    ])
     return (
         (mask_a[:, np.newaxis] & mask_b[np.newaxis, :])
         | (mask_b[:, np.newaxis] & mask_a[np.newaxis, :])

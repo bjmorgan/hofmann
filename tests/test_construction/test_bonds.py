@@ -10,6 +10,7 @@ from hofmann.construction.bonds import (
     compute_bonds,
 )
 from hofmann.model import BondSpec
+from hofmann.model.composition import Composition
 
 
 # CH4 geometry from the test fixture.
@@ -472,3 +473,50 @@ class TestMultiImageBonds:
             pos_b = coords[b.index_b] + np.array(b.image) @ lattice
             dist = np.linalg.norm(pos_b - coords[b.index_a])
             assert dist == pytest.approx(b.length, rel=1e-10)
+
+
+class TestBondsWithMixed:
+    def test_bondspec_fires_on_constituent(self):
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}), "O")
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+        specs = [BondSpec(species=("Fe", "O"), max_length=2.5)]
+        bonds = compute_bonds(species, coords, specs)
+        assert len(bonds) == 1
+
+    def test_one_bond_when_multiple_specs_match(self):
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}), "O")
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+        specs = [
+            BondSpec(species=("Fe", "O"), max_length=2.5),
+            BondSpec(species=("Mn", "O"), max_length=2.5),
+        ]
+        bonds = compute_bonds(species, coords, specs)
+        assert len(bonds) == 1
+
+    def test_only_permissive_rule_fires_at_long_distance(self):
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}), "O")
+        coords = np.array([[0.0, 0.0, 0.0], [2.55, 0.0, 0.0]])
+        specs = [
+            BondSpec(species=("Fe", "O"), max_length=2.4),
+            BondSpec(species=("Mn", "O"), max_length=2.6),
+        ]
+        bonds = compute_bonds(species, coords, specs)
+        assert len(bonds) == 1
+
+    def test_no_bond_if_no_rule_fires(self):
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}), "O")
+        coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0]])
+        specs = [
+            BondSpec(species=("Fe", "O"), max_length=2.4),
+            BondSpec(species=("Mn", "O"), max_length=2.6),
+        ]
+        bonds = compute_bonds(species, coords, specs)
+        assert len(bonds) == 0
+
+    def test_vacancy_does_not_participate(self):
+        # Site is 100% Fe in terms of bonding (vacancy excluded).
+        species = (Composition({"Fe": 0.7}), "O")
+        coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+        specs = [BondSpec(species=("Fe", "O"), max_length=2.5)]
+        bonds = compute_bonds(species, coords, specs)
+        assert len(bonds) == 1
