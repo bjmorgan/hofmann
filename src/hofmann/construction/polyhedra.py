@@ -7,10 +7,12 @@ import numpy as np
 from scipy.spatial import ConvexHull, Delaunay, QhullError
 
 from hofmann.model import Bond, Polyhedron, PolyhedronSpec
+from hofmann.model._util import _site_species
+from hofmann.model.composition import Composition
 
 
 def compute_polyhedra(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     coords: np.ndarray,
     bonds: list[Bond],
     polyhedra_specs: list[PolyhedronSpec],
@@ -54,7 +56,7 @@ def compute_polyhedra(
         for i, sp in enumerate(species):
             if i in claimed:
                 continue
-            if not fnmatch(sp, spec.centre):
+            if not any(fnmatch(s, spec.centre) for s in _site_species(sp)):
                 continue
 
             neighbours = sorted(adjacency.get(i, set()))
