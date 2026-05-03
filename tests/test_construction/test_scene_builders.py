@@ -751,3 +751,29 @@ class TestFromPymatgenWithMixed:
         site = scene.species[0]
         assert isinstance(site, Composition)
         assert site.vacancy == pytest.approx(0.3)
+
+    def test_charged_species_stripped_to_element_symbol(self):
+        from pymatgen.core import Lattice, Species, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[Species("Li", 1)],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        assert scene.species[0] == "Li"
+
+    def test_mixed_charged_species_stripped_to_element_symbols(self):
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Species, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({Species("Fe", 2): 0.7, Species("Mn", 3): 0.3})],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        site = scene.species[0]
+        assert isinstance(site, Composition)
+        assert "Fe" in site
+        assert "Mn" in site

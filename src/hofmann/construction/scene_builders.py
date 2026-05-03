@@ -22,16 +22,18 @@ def _convert_pmg_species(pmg_site: Any) -> "str | Composition":
     Returns a plain string for fully ordered sites (one species at
     occupancy 1.0), and a :class:`Composition` for any partially
     occupied or species-mixed site (preserving vacancy fractions).
+    Charge information is dropped: ``Li+`` becomes ``"Li"`` to match
+    element-symbol-keyed ``atom_styles``.
 
     Args:
         pmg_site: A pymatgen ``PeriodicSite`` (or compatible object
             with a ``.species`` attribute mapping species to occupancies).
 
     Returns:
-        Either a species symbol string or a :class:`Composition`.
+        Either a bare element symbol string or a :class:`Composition`.
     """
     pmg_comp = pmg_site.species
-    items = [(str(sp), float(occ)) for sp, occ in pmg_comp.items()]
+    items = [(sp.symbol, float(occ)) for sp, occ in pmg_comp.items()]
     if len(items) == 1 and abs(items[0][1] - 1.0) < 1e-9:
         return items[0][0]
     return Composition(dict(items))
