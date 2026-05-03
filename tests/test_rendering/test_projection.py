@@ -1,9 +1,17 @@
 """Tests for projection helpers — _project_point and _scene_extent."""
 
+import math
+
 import numpy as np
 
 from hofmann.model import AtomStyle, Frame, StructureScene, ViewState
-from hofmann.rendering.projection import _project_point, _scene_extent
+from hofmann.model.composition import Composition
+from hofmann.rendering.projection import (
+    _make_vacancy_wedge,
+    _make_wedges,
+    _project_point,
+    _scene_extent,
+)
 
 
 class TestProjectPoint:
@@ -88,3 +96,62 @@ class TestSceneExtent:
         )
         e_lat = _scene_extent(scene_lat, view, 0, atom_scale=0.5)
         assert e_lat > e_no_lat
+
+
+class TestMakeWedges:
+    def test_pure_composition_returns_single_full_circle(self):
+        comp = Composition({"Fe": 1.0})
+        wedges = _make_wedges(comp, n_segments_total=24, start_angle=math.pi / 2)
+        assert len(wedges) == 1
+        species, polygon = wedges[0]
+        assert species == "Fe"
+        assert polygon.shape[1] == 2
+
+    def test_two_species_returns_two_wedges_in_canonical_order(self):
+        comp = Composition({"Fe": 0.7, "Mn": 0.3})
+        wedges = _make_wedges(comp, n_segments_total=24, start_angle=math.pi / 2)
+        species_in_order = [sp for sp, _ in wedges]
+        assert species_in_order == ["Fe", "Mn"]
+
+    def test_wedge_angles_proportional_to_occupancy(self):
+        comp = Composition({"Fe": 0.75, "Mn": 0.25})
+        wedges = _make_wedges(comp, n_segments_total=100, start_angle=0.0)
+        fe_polygon = wedges[0][1]
+        mn_polygon = wedges[1][1]
+        # Each polygon is [centre, arc_v0..arc_vN, centre]; N = n_seg.
+        fe_segs = len(fe_polygon) - 3
+        mn_segs = len(mn_polygon) - 3
+        assert fe_segs + mn_segs <= 100
+        assert fe_segs > 2 * mn_segs
+
+    def test_partial_composition_omits_vacancy_wedge(self):
+        comp = Composition({"Fe": 0.7})  # 30% vacancy
+        wedges = _make_wedges(comp, n_segments_total=24, start_angle=math.pi / 2)
+        assert len(wedges) == 1
+        assert wedges[0][0] == "Fe"
+
+
+class TestMakeVacancyWedge:
+    def test_full_composition_returns_none(self):
+        comp = Composition({"Fe": 1.0})
+        result = _make_vacancy_wedge(
+            comp, n_segments_total=24, start_angle=math.pi / 2,
+        )
+        assert result is None
+
+    def test_partial_composition_returns_polygon(self):
+        comp = Composition({"Fe": 0.7})
+        result = _make_vacancy_wedge(
+            comp, n_segments_total=24, start_angle=math.pi / 2,
+        )
+        assert result is not None
+        assert result.shape[1] == 2
+        # Centre + arc segments + closing centre.
+        assert len(result) >= 3
+
+    def test_mixed_partial_composition_returns_polygon(self):
+        comp = Composition({"Fe": 0.5, "Mn": 0.2})  # 30% vacancy
+        result = _make_vacancy_wedge(
+            comp, n_segments_total=24, start_angle=math.pi / 2,
+        )
+        assert result is not None
