@@ -2,7 +2,7 @@
 
 from collections.abc import Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from numpy.typing import ArrayLike
@@ -12,7 +12,29 @@ from hofmann.model import (
     AtomStyle, BondSpec, Frame, PolyhedronSpec, StructureScene, ViewState,
 )
 from hofmann.model._util import _site_species
+from hofmann.model.composition import Composition
 from hofmann.construction.parser import parse_bs, parse_mv
+
+
+def _convert_pmg_species(pmg_site: Any) -> "str | Composition":
+    """Convert a pymatgen ``PeriodicSite.species`` to our SiteContent type.
+
+    Returns a plain string for fully ordered sites (one species at
+    occupancy 1.0), and a :class:`Composition` for any partially
+    occupied or species-mixed site (preserving vacancy fractions).
+
+    Args:
+        pmg_site: A pymatgen ``PeriodicSite`` (or compatible object
+            with a ``.species`` attribute mapping species to occupancies).
+
+    Returns:
+        Either a species symbol string or a :class:`Composition`.
+    """
+    pmg_comp = pmg_site.species
+    items = [(str(sp), float(occ)) for sp, occ in pmg_comp.items()]
+    if len(items) == 1 and abs(items[0][1] - 1.0) < 1e-9:
+        return items[0][0]
+    return Composition(dict(items))
 
 if TYPE_CHECKING:
     from ase import Atoms
@@ -303,9 +325,10 @@ def from_pymatgen(
             recentred.append(s)
         structures = recentred
 
-    # Extract element symbols (not species strings like "Li+" or "O2-").
-    # .symbol works for both Element and Species objects.
-    species = [site.specie.symbol for site in structures[0]]
+    # Extract per-site contents.  Pure ordered sites (one species at
+    # occupancy 1.0) become plain symbol strings; partial / mixed sites
+    # become Composition entries that preserve vacancy fractions.
+    species = [_convert_pmg_species(site) for site in structures[0]]
 
     # Default atom styles from the element lookup, merged with overrides.
     unique_species_set: set[str] = set()
