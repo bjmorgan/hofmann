@@ -53,6 +53,10 @@ class Composition(Mapping[str, float]):
                     f"Composition keys must be strings, got "
                     f"{type(key).__name__}: {key!r}"
                 )
+            if not key:
+                raise ValueError(
+                    "Composition keys must be non-empty species labels"
+                )
 
         # Validate values, dropping zeros.
         cleaned: dict[str, float] = {}

@@ -8,6 +8,7 @@ from hofmann.construction.rendering_set import (
     RenderingSet, build_rendering_set, deduplicate_molecules,
 )
 from hofmann.model import Bond, BondSpec, PolyhedronSpec
+from hofmann.model.composition import Composition
 
 
 class TestNonPeriodicPassthrough:
@@ -814,9 +815,6 @@ class TestDeduplicateMolecules:
         for b in deduped.bonds:
             assert 0 <= b.index_a < n
             assert 0 <= b.index_b < n
-
-
-from hofmann.model.composition import Composition
 
 
 class TestRenderingSetWithMixed:

@@ -3,8 +3,10 @@
 import numpy as np
 import pytest
 
-from hofmann.model import Bond, BondSpec, Polyhedron, PolyhedronSpec
+from hofmann.construction.bonds import compute_bonds
 from hofmann.construction.polyhedra import compute_polyhedra
+from hofmann.model import Bond, BondSpec, Polyhedron, PolyhedronSpec
+from hofmann.model.composition import Composition
 
 
 def _make_bond(i: int, j: int, spec: BondSpec) -> Bond:
@@ -243,15 +245,6 @@ class TestComputePolyhedra:
         assert len(result) == 1
         # Should have triangulated the planar polygon into faces.
         assert len(result[0].faces) >= 1
-
-
-import numpy as np
-
-from hofmann.construction.bonds import compute_bonds
-from hofmann.construction.polyhedra import compute_polyhedra
-from hofmann.model.bond_spec import BondSpec
-from hofmann.model.composition import Composition
-from hofmann.model.polyhedron_spec import PolyhedronSpec
 
 
 def _octahedral_geometry():

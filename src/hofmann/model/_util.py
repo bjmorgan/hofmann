@@ -56,4 +56,9 @@ def _site_species(site: SiteContent) -> frozenset[str]:
     """
     if isinstance(site, Composition):
         return site.species
-    return frozenset({site})
+    if isinstance(site, str):
+        return frozenset({site})
+    raise TypeError(
+        f"site must be a str or Composition, got {type(site).__name__}: "
+        f"{site!r}"
+    )

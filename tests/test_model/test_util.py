@@ -1,5 +1,7 @@
 """Tests for hofmann.model._util helpers."""
 
+import pytest
+
 from hofmann.model._util import _site_species
 from hofmann.model.composition import Composition
 
@@ -21,3 +23,7 @@ class TestSiteSpecies:
     def test_partial_composition_excludes_vacancy(self):
         result = _site_species(Composition({"Fe": 0.7}))
         assert result == frozenset({"Fe"})
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(TypeError, match="str or Composition"):
+            _site_species(42)  # type: ignore[arg-type]

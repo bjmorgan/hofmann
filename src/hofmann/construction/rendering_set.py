@@ -15,11 +15,7 @@ from fnmatch import fnmatch
 import numpy as np
 
 from hofmann.model import Bond, BondSpec
-from hofmann.model._util import _site_species
-from hofmann.model.composition import Composition
-
-# Site content: a plain species label or a partial-occupancy Composition.
-SiteContent = str | Composition
+from hofmann.model._util import SiteContent, _site_species
 
 # 3-element lattice-shift vector, e.g. (0, 1, -1).
 ImageVector = tuple[int, int, int]
