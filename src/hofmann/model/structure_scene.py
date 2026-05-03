@@ -13,6 +13,7 @@ from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
+from hofmann.model._util import _site_species
 from hofmann.model.composition import Composition
 from hofmann.model.frame import Frame
 from hofmann.model.polyhedron_spec import PolyhedronSpec
@@ -772,14 +773,19 @@ class StructureScene:
         else:
             keep = set(species)
 
-        known = set(self.species)
+        known: set[str] = set()
+        for site in self.species:
+            known |= _site_species(site)
+
         unknown = keep - known
         if unknown:
             raise ValueError(
                 f"unknown species: {', '.join(sorted(unknown))}"
             )
 
-        mask = np.array([s in keep for s in self.species])
+        mask = np.array([
+            bool(_site_species(s) & keep) for s in self.species
+        ])
 
         # Build output with appropriate sentinel.
         if arr.dtype.kind in ("U", "O"):

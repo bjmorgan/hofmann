@@ -918,3 +918,39 @@ class TestMixedSiteConstruction:
                 species=["Fe", {"Fe": 0.5, "Mn": 0.5}, "O"],  # type: ignore[list-item]
                 frames=[self._make_frame(3)],
             )
+
+
+class TestSelectBySpeciesWithMixed:
+    def _scene(self):
+        return StructureScene(
+            species=[
+                "Fe",
+                Composition({"Fe": 0.7, "Mn": 0.3}),
+                Composition({"Fe": 0.5}),  # 50% Fe + 50% vacancy
+                "O",
+            ],
+            frames=[Frame(coords=np.zeros((4, 3)))],
+        )
+
+    def test_select_matches_pure_and_mixed(self):
+        scene = self._scene()
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        result = scene.select_by_species(values, "Fe")
+        assert result[0] == 1.0
+        assert result[1] == 2.0
+        assert result[2] == 3.0
+        assert np.isnan(result[3])
+
+    def test_select_matches_constituent_in_mixed(self):
+        scene = self._scene()
+        values = np.array([1.0, 2.0, 3.0, 4.0])
+        result = scene.select_by_species(values, "Mn")
+        assert np.isnan(result[0])
+        assert result[1] == 2.0
+        assert np.isnan(result[2])
+        assert np.isnan(result[3])
+
+    def test_unknown_species_raises_with_constituent_check(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="unknown"):
+            scene.select_by_species(np.array([1.0, 2.0, 3.0, 4.0]), "Cu")
