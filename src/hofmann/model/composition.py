@@ -22,8 +22,9 @@ class Composition(Mapping[str, float]):
 
     Validated at construction:
 
-    - All occupancy values must be finite and lie in ``(0, 1]``.  Zero
-      values are dropped; negative or non-finite values raise.
+    - All occupancy values must be finite and lie in ``[0, 1]``.
+      Zero values are dropped before further validation; negative
+      or non-finite values raise.
     - The occupancy sum must not exceed ``1.0`` (within a tolerance of
       ``1e-9``).  Any deficit is interpreted as a vacancy fraction.
     - Keys must be non-empty strings.
@@ -52,9 +53,9 @@ class Composition(Mapping[str, float]):
                     f"Composition keys must be strings, got "
                     f"{type(key).__name__}: {key!r}"
                 )
-            if not key:
+            if not key.strip():
                 raise ValueError(
-                    "Composition keys must be non-empty species labels"
+                    "Composition keys must be non-empty, non-whitespace species labels"
                 )
 
         cleaned: dict[str, float] = {}

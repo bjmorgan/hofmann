@@ -82,6 +82,14 @@ class TestCompositionValidation:
         with pytest.raises(ValueError, match="non-empty"):
             Composition({"": 1.0})
 
+    def test_whitespace_only_key_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            Composition({"   ": 1.0})
+
+    def test_tab_only_key_raises(self):
+        with pytest.raises(ValueError, match="non-empty"):
+            Composition({"\t": 1.0})
+
 
 class TestCompositionEqualityAndOrder:
     def test_equality_independent_of_insertion_order(self):
