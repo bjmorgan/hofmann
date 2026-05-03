@@ -6,9 +6,10 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 from hofmann import (
-    AtomLegendItem, AtomStyle, AxesStyle, BondSpec, Frame, LegendStyle,
-    PolygonLegendItem, PolyhedronLegendItem, PolyhedronSpec,
-    RenderStyle, StructureScene, ViewState,
+    AtomLegendItem, AtomStyle, AxesStyle, BondSpec, CellEdgeStyle,
+    Composition, Frame, LegendStyle, PolygonLegendItem,
+    PolyhedronLegendItem, PolyhedronSpec, RenderStyle, StructureScene,
+    ViewState,
 )
 
 OUT = Path(__file__).resolve().parent
@@ -122,6 +123,80 @@ def perovskite_scene() -> StructureScene:
         centre_atom=0,
     )
     _style_perovskite(scene)
+    return scene
+
+
+def partial_occupancy_scene() -> StructureScene:
+    """TiOF2 (ReO3-type) illustrating disordered O / F anion sites.
+
+    TiOF2 adopts a cubic ReO3-type structure with Ti at the cell
+    corners and a single anion site at each edge midpoint.  Every
+    anion site is occupied by F and O in a 2:1 ratio, and is
+    therefore drawn as a two-wedge mixed-occupancy site.
+    """
+    # Cubic ReO3-type, a approximately 3.80 Angstroms for TiOF2.
+    a = 3.80
+    coords = np.array([
+        [0.0, 0.0, 0.0],   # Ti
+        [0.5, 0.0, 0.0],   # anion (O / F)
+        [0.0, 0.5, 0.0],   # anion
+        [0.0, 0.0, 0.5],   # anion
+    ]) * a
+
+    anion = Composition({"F": 2 / 3, "O": 1 / 3})
+    species: list[str | Composition] = ["Ti", anion, anion, anion]
+
+    bond_specs = [
+        BondSpec(species=("Ti", "O"), min_length=0.5, max_length=2.3,
+                 radius=0.10, colour=(0.4, 0.4, 0.4)),
+        BondSpec(species=("Ti", "F"), min_length=0.5, max_length=2.3,
+                 radius=0.10, colour=(0.4, 0.4, 0.4)),
+    ]
+
+    scene = StructureScene(
+        species=species,
+        frames=[Frame(coords=coords, lattice=np.eye(3) * a)],
+        atom_styles={
+            "Ti": AtomStyle(radius=1.1, colour="#289588"),
+            "O":  AtomStyle(radius=0.9, colour="#DB694D"),
+            "F":  AtomStyle(radius=0.9, colour="#E89A5C"),
+        },
+        bond_specs=bond_specs,
+    )
+    scene.view.look_along([1, 0.18, 0.2])
+    return scene
+
+
+def disordered_site_scene() -> StructureScene:
+    """Single mixed-occupancy Fe / Mn site loaded from a minimal CIF."""
+    from pymatgen.core import Structure as PmgStructure
+
+    cif_path = Path(__file__).resolve().parent.parent.parent / "examples" / "disordered_site.cif"
+    structure = PmgStructure.from_file(str(cif_path))
+    scene = StructureScene.from_pymatgen(structure)
+    scene.view.look_along([1, 0.18, 0.2])
+    return scene
+
+
+def vacancy_site_scene() -> StructureScene:
+    """Single Fe site at 70 % occupancy in a minimal cell.
+
+    Mirrors the layout of :func:`disordered_site_scene` but with a
+    single-species :class:`Composition` summing to less than one, so
+    the rendering shows a vacancy wedge.
+    """
+    a = 2.8
+    scene = StructureScene(
+        species=[Composition({"Fe": 0.7})],
+        frames=[Frame(
+            coords=np.array([[a / 2, a / 2, a / 2]]),
+            lattice=np.eye(3) * a,
+        )],
+        atom_styles={
+            "Fe": AtomStyle(radius=1.32, colour=(0.812, 0.118, 0.067)),
+        },
+    )
+    scene.view.look_along([1, 0.18, 0.2])
     return scene
 
 
@@ -424,6 +499,38 @@ def generate_docs_images() -> None:
         show_outlines=False,
     )
     print(f"  wrote {OUT / 'perovskite_no_outlines.svg'}")
+
+    # Partial / mixed occupancy: TiOF2 hero figure for the user guide.
+    partial = partial_occupancy_scene()
+    partial.render_mpl(
+        OUT / "partial_occupancy.svg",
+        figsize=(5, 5), dpi=150, half_bonds=False,
+        style=RenderStyle(show_axes=False),
+    )
+    print(f"  wrote {OUT / 'partial_occupancy.svg'}")
+
+    # Minimal single-site mixed-occupancy render, paired with the
+    # disordered_site.cif example in the user guide.
+    minimal_style = RenderStyle(
+        show_axes=False,
+        cell_style=CellEdgeStyle(line_width=1.6),
+    )
+    disordered = disordered_site_scene()
+    disordered.render_mpl(
+        OUT / "partial_occupancy_minimal.svg",
+        figsize=(3, 3), dpi=150,
+        style=minimal_style,
+    )
+    print(f"  wrote {OUT / 'partial_occupancy_minimal.svg'}")
+
+    # Single-site vacancy render for the Vacancies section.
+    vacancy = vacancy_site_scene()
+    vacancy.render_mpl(
+        OUT / "partial_occupancy_vacancy.svg",
+        figsize=(3, 3), dpi=150,
+        style=minimal_style,
+    )
+    print(f"  wrote {OUT / 'partial_occupancy_vacancy.svg'}")
 
     # LLZO garnet with ZrO6 polyhedra and slab clipping
     llzo = llzo_scene()

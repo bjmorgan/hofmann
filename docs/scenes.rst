@@ -58,6 +58,11 @@ their corresponding classmethods):
 - ``atom_data`` -- per-atom metadata arrays for colourmap rendering
   (see :doc:`colouring`).
 
+Sites with multiple species or fractional occupancy are also
+supported: pass a :class:`~hofmann.Composition` value in place of a
+species label, and the renderer draws the site as VESTA-style pie
+wedges.  See :doc:`partial_occupancy` for the full guide.
+
 
 Bonds
 -----
