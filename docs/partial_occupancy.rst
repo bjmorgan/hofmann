@@ -22,15 +22,18 @@ the ``species`` list, in place of a plain string label::
     import numpy as np
     from hofmann import Composition, StructureScene, Frame
 
-    anion = Composition({"O": 2 / 3, "F": 1 / 3})
+    anion = Composition({"F": 2 / 3, "O": 1 / 3})
     scene = StructureScene(
         species=["Ti", anion, anion, anion],
-        frames=[Frame(coords=np.array([
-            [0.0, 0.0, 0.0],
-            [1.9, 0.0, 0.0],
-            [0.0, 1.9, 0.0],
-            [0.0, 0.0, 1.9],
-        ]))],
+        frames=[Frame(
+            coords=np.array([
+                [0.0, 0.0, 0.0],
+                [1.9, 0.0, 0.0],
+                [0.0, 1.9, 0.0],
+                [0.0, 0.0, 1.9],
+            ]),
+            lattice=np.eye(3) * 3.8,
+        )],
     )
 
 Vacancies
@@ -44,7 +47,7 @@ missing fraction is treated as a vacancy fraction::
 .. image:: _static/partial_occupancy_vacancy.svg
    :width: 220px
    :align: center
-   :alt: Single Fe site at 70 percent occupancy with a vacancy wedge
+   :alt: Single Fe site at 70% occupancy with a vacancy wedge
 
 The vacancy wedge is filled with the canvas background colour by
 default.  A custom vacancy colour can be set by passing the
@@ -64,6 +67,7 @@ one, becomes a :class:`Composition` in the resulting scene.
 
    from hofmann import StructureScene
 
+   # 'structure' is any pymatgen Structure
    scene = StructureScene.from_pymatgen(structure)
    scene.render_mpl("output.svg")
 
@@ -96,8 +100,8 @@ Customising appearance
 Each wedge takes its colour from the corresponding species'
 :attr:`~hofmann.AtomStyle.colour`.  The radius of the whole site is
 the occupancy-weighted average of its constituents' radii, with the
-average computed over the occupied species only -- so a half-vacant
-site is drawn at the same size as a fully occupied one.
+weights renormalised over the occupied species only -- so a
+half-vacant site is drawn at the same size as a fully occupied one.
 
 Three :class:`~hofmann.RenderStyle` fields control the wedge layout:
 
@@ -142,7 +146,8 @@ mixed site whenever any of its constituent species matches the rule.
 Each pair of atoms still produces at most one bond, even when several
 rules match: for a 70 / 30 Fe / Mn site bonded to an O neighbour,
 defining both ``("Fe", "O")`` and ``("Mn", "O")`` rules gives one
-bond, not two.  Vacancies never form bonds.
+bond, not two.  When more than one rule matches a pair, the first in
+list order wins.  Vacancies never form bonds.
 
 The half-bond at the mixed-site end is drawn in the colour of the
 dominant species -- the constituent with the highest occupancy, with

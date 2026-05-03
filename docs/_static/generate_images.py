@@ -130,9 +130,9 @@ def partial_occupancy_scene() -> StructureScene:
     """TiOF2 (ReO3-type) illustrating disordered O / F anion sites.
 
     TiOF2 adopts a cubic ReO3-type structure with Ti at the cell
-    corners and a single anion site at each edge midpoint, occupied
-    by O and F in a 2:1 ratio.  Every anion site is therefore drawn
-    as a two-wedge mixed-occupancy site.
+    corners and a single anion site at each edge midpoint.  Every
+    anion site is occupied by F and O in a 2:1 ratio, and is
+    therefore drawn as a two-wedge mixed-occupancy site.
     """
     # Cubic ReO3-type, a approximately 3.80 Angstroms for TiOF2.
     a = 3.80
