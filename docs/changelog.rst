@@ -29,8 +29,8 @@ Changelog
 0.19.0
 ------
 
-- ``StructureScene.species`` is now stored as a tuple.  The sequence
-  is fixed at construction.
+- ``StructureScene.species`` is fixed at construction and can no
+  longer be mutated.
 
 - New :meth:`~hofmann.StructureScene.select_by_species` method filters
   a full-length per-atom array to keep only selected species, filling
@@ -79,28 +79,21 @@ Changelog
   every per-frame (2-D) entry in one go while preserving static
   per-atom (1-D) entries.
 
-- :meth:`~hofmann.StructureScene.set_atom_data` now validates the
-  prospective post-write state of the container in a single walk.
-  A 2-D input's ``shape[0]`` must equal ``len(scene.frames)``, and
-  any already-stored 2-D entry not being overridden by this write
-  must agree with the same frame count.  Mismatches raise
-  :class:`ValueError` naming the offending key and, for the
-  stale-stored case, pointing at
+- :meth:`~hofmann.StructureScene.set_atom_data` validates 2-D
+  inputs against ``len(scene.frames)`` and rejects writes that
+  would leave any other stored 2-D entry stale.  Errors name the
+  offending key and, where applicable, point at
   :meth:`~hofmann.StructureScene.clear_2d_atom_data` for recovery.
 
-- A single 2-D per-atom metadata entry can now be reassigned in
-  place at a new shape after extending the trajectory::
+- A single 2-D metadata entry can now be reassigned at a new
+  shape after appending to the trajectory::
 
      scene.frames.append(new_frame)
-     scene.set_atom_data("energy", new_energy_at_new_shape)
+     scene.set_atom_data("energy", new_energy)
 
-  The stored version of the key is treated as overridden by the
-  pending write and replaced atomically.  For scenes holding two
-  or more 2-D entries,
-  :meth:`~hofmann.StructureScene.clear_2d_atom_data` is still
-  required before the first reassignment because the other 2-D
-  entries are now stale.  The resulting error names the stale key
-  so the user knows what to drop.
+  Scenes holding two or more 2-D entries still need
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data` before the
+  first reassignment; the resulting error names the stale key.
 
 - Appending to ``scene.frames`` after assigning 2-D per-atom
   metadata used to silently leave the container holding a stale
@@ -108,16 +101,15 @@ Changelog
   ``render_*`` call, identifying the mismatch rather than failing
   later with a confusing numpy ``IndexError``.
 
-- The :attr:`~hofmann.StructureScene.atom_data` property now
-  returns a read-only mapping view.  The underlying container
-  inherits from :class:`collections.abc.Mapping`, so every
-  mutation entry point raises at the Python protocol level:
-  ``scene.atom_data[key] = arr`` and
-  ``del scene.atom_data[key]`` raise :class:`TypeError`, while
-  ``scene.atom_data.pop(...)``, ``.popitem()``, ``.setdefault()``,
-  ``.update(...)``, and ``.clear()`` raise :class:`AttributeError`
-  (none of those methods exist on a ``Mapping``).  Use the scene's
-  write methods instead.
+- :attr:`~hofmann.StructureScene.atom_data` is now a read-only
+  mapping.  Direct mutation
+  (``scene.atom_data[key] = arr``,
+  ``del scene.atom_data[key]``,
+  ``scene.atom_data.update(...)``, etc.) raises ``TypeError`` or
+  ``AttributeError``.  Use the scene's write methods
+  (:meth:`~hofmann.StructureScene.set_atom_data`,
+  :meth:`~hofmann.StructureScene.del_atom_data`,
+  :meth:`~hofmann.StructureScene.clear_2d_atom_data`) instead.
 
 - The :attr:`~hofmann.StructureScene.atom_data` setter has been
   removed.  ``scene.atom_data = ...`` raises
@@ -366,12 +358,14 @@ Changelog
 0.10.1
 ------
 
-- :class:`~hofmann.BondSpec` validation is now extracted into
-  per-field private methods, removing duplication between
-  ``__init__`` and property setters.  The ``colour`` setter now
-  validates its input via :func:`~hofmann.model.colour.normalise_colour`,
-  closing a gap where invalid colours were silently accepted
-  post-construction.
+- The ``colour`` setter on :class:`~hofmann.BondSpec` now validates
+  its input via :func:`~hofmann.model.colour.normalise_colour`,
+  closing a gap where invalid colours were silently accepted after
+  construction.
+
+- Internal: :class:`~hofmann.BondSpec` validation is now extracted
+  into per-field private methods, removing duplication between
+  ``__init__`` and property setters.
 
 0.10.0
 ------
@@ -432,20 +426,14 @@ Changelog
   :class:`~hofmann.StructureScene`, so rendering style is fully
   separated from structure data.
 
-- Bond detection for periodic structures dispatches based on the
-  inscribed sphere radius of the unit cell.  When all bond lengths are
-  shorter than the inscribed sphere radius (the common case), the
-  minimum image convention (MIC) gives an efficient single-pass
-  computation.  When bond lengths are comparable to cell dimensions,
-  all 27 image offsets are checked iteratively.  Both paths use
-  O(n^2) peak memory.
+- Bond detection for periodic structures uses the minimum-image
+  convention when bond cutoffs are smaller than the cell's
+  inscribed sphere, and a full image search otherwise.
 
-- Recursive expansion can produce duplicate molecular fragments.  The
-  deduplication stage detects extended structures (slabs, frameworks)
-  that wrap the unit cell and protects them from removal, removes
-  non-wrapped components whose source atoms are a subset of a wrapped
-  component, and selects a canonical copy among remaining duplicates
-  using an unwrapped fractional centre-of-mass tie-breaker.
+- Recursive expansion can produce duplicate molecular fragments.
+  The deduplication stage handles wrapped extended structures
+  (slabs, frameworks) and selects canonical copies among
+  duplicates.  See :doc:`scenes` for the algorithm.
 
 - :class:`~hofmann.StructureScene` now validates that ``view`` is a
   :class:`~hofmann.ViewState` on assignment, with a helpful hint when
@@ -479,11 +467,11 @@ Changelog
 0.7.1
 -----
 
-- Avoid quadratic array growth in ``_merge_expansions`` during
-  periodic boundary expansion.  Accepted image coordinates are now
-  collected in a list with O(1) hash-based deduplication and
-  concatenated once at the end, matching the approach already used by
-  ``_expand_neighbour_shells``.
+- Internal: avoid quadratic array growth in ``_merge_expansions``
+  during periodic boundary expansion.  Accepted image coordinates
+  are now collected in a list with O(1) hash-based deduplication
+  and concatenated once at the end, matching the approach already
+  used by ``_expand_neighbour_shells``.
 
 - :class:`~hofmann.StructureScene` now validates that every frame has
   the same number of atoms as the ``species`` list at construction
