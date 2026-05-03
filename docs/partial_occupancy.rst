@@ -71,8 +71,7 @@ Loading from a CIF file
 -----------------------
 
 CIFs can be loaded with pymatgen and passed through to
-:func:`~hofmann.from_pymatgen`.  For example, this minimal CIF
-defines a single Fe / Mn site filling a 2.8 Å cubic cell:
+:func:`~hofmann.from_pymatgen`.  For example:
 
 .. literalinclude:: ../examples/disordered_site.cif
    :language: text
