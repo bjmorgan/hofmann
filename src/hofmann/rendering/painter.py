@@ -37,7 +37,7 @@ from hofmann.rendering.precompute import (
     _collect_polyhedra_faces,
     _precompute_scene,
 )
-from hofmann.model.composition import Composition
+from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.projection import (
     _make_unit_circle,
     _make_vacancy_wedge,
@@ -230,7 +230,7 @@ def _emit_atom_polygons(
             # The single exception is a fully occupied single-species
             # composition: there are no boundaries (just one wedge
             # wrapping the full circle), so no radial edges to draw.
-            has_vacancy = site_content.vacancy > 1e-9
+            has_vacancy = site_content.vacancy > _OCCUPANCY_TOLERANCE
             if style.show_wedge_edges and (
                 len(wedges) >= 2 or has_vacancy
             ):

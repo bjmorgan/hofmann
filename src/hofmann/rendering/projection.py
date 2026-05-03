@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from hofmann.model import StructureScene, ViewState
-from hofmann.model.composition import Composition
+from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
 
 # Default unit circle for atom rendering (closed polygon).
@@ -191,7 +191,7 @@ def _make_vacancy_wedge(
         A polygon array of shape ``(k, 2)``, or ``None`` if no vacancy.
     """
     total_occ = sum(composition.values())
-    if total_occ >= 1.0 - 1e-9:
+    if total_occ >= 1.0 - _OCCUPANCY_TOLERANCE:
         return None
     vacancy_frac = 1.0 - total_occ
     angle = start_angle + 2.0 * np.pi * total_occ
