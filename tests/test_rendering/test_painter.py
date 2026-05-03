@@ -2071,14 +2071,20 @@ class TestEmitAtomPolygons:
             site_content=Composition({"Fe": 1.0}),
             **self._kwargs(),
         )
-        # Pure-occupancy composition: one wedge in the species' colour
-        # plus an outer ring outline.  No vacancy wedge, no radial edges
+        # Pure-occupancy composition: one filled wedge in the
+        # species' colour plus a transparent-fill outer-circle
+        # outline polygon.  No vacancy wedge, no radial edges
         # (single wedge wrapping the full circle).
         assert len(verts) == 2
-        # First polygon is the Fe wedge (red, per the kwargs default).
+        # First polygon is the Fe wedge (red, per the kwargs default),
+        # filled and not stroked.
         assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
-        # Second polygon is the outline ring (in outline_rgb).
-        assert fcs[1] == (0.0, 0.0, 0.0, 1.0)
+        assert lws[0] == 0.0
+        # Second polygon is the outer-circle outline: transparent
+        # face, stroked edge in outline_rgb at atom_outline_width.
+        assert fcs[1] == (0.0, 0.0, 0.0, 0.0)
+        assert ecs[1] == (0.0, 0.0, 0.0, 1.0)
+        assert lws[1] == 1.0
 
     def test_unstyled_constituent_uses_grey_fallback(self):
         from hofmann.rendering.painter import _emit_atom_polygons

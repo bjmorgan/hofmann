@@ -48,54 +48,6 @@ from hofmann.rendering.projection import (
 _TITLE_FONT_SIZE = 12.0
 
 
-def _make_unit_ring(n: int, thickness: float = 0.04) -> np.ndarray:
-    """Closed polygon for an outer-arc-only outline.
-
-    Returns a thin annular ring (outer radius 1, inner radius
-    ``1 - thickness``) as a single closed polygon.  Drawn filled with
-    the outline colour, this produces a visual outline without the
-    internal radial edges that the wedges would otherwise stroke.
-
-    Args:
-        n: Segment count for the arc (matches ``style.circle_segments``).
-        thickness: Ring thickness as a fraction of the unit radius.
-    """
-    thetas = np.linspace(0.0, 2.0 * np.pi, n + 1)
-    outer = np.column_stack([np.cos(thetas), np.sin(thetas)])
-    inner = np.column_stack([
-        np.cos(thetas[::-1]) * (1.0 - thickness),
-        np.sin(thetas[::-1]) * (1.0 - thickness),
-    ])
-    return np.vstack([outer, inner, outer[:1]])
-
-
-def _make_radial_edge(
-    theta: float,
-    half_thickness: float = 0.02,
-) -> np.ndarray:
-    """Closed polygon for a thin radial line from centre to outer arc.
-
-    Drawn filled with the outline colour, this produces a single
-    radial edge separator between adjacent species wedges in a
-    mixed-site rendering.
-
-    Args:
-        theta: Angle of the radial line (radians, counter-clockwise
-            from the +x axis).
-        half_thickness: Half-width of the line as a fraction of the
-            unit radius.
-    """
-    cos_t, sin_t = np.cos(theta), np.sin(theta)
-    perp_x, perp_y = -np.sin(theta), np.cos(theta)
-    return np.array([
-        [-perp_x * half_thickness, -perp_y * half_thickness],
-        [cos_t - perp_x * half_thickness, sin_t - perp_y * half_thickness],
-        [cos_t + perp_x * half_thickness, sin_t + perp_y * half_thickness],
-        [perp_x * half_thickness, perp_y * half_thickness],
-        [-perp_x * half_thickness, -perp_y * half_thickness],
-    ])
-
-
 def _emit_atom_polygons(
     site_content: str | Composition,
     centre_xy: np.ndarray,
@@ -206,30 +158,26 @@ def _emit_atom_polygons(
 
         if show_outlines:
             edge_fc = (*outline_rgb, 1.0)
-            # Wedge-outline thickness scales with atom_outline_width:
-            # at the default of 1.0 the visual matches the previous
-            # fixed-thickness rendering (ring 0.04, radial 0.02 of
-            # unit radius); larger values produce proportionally
-            # thicker outlines, and 0 elides them entirely.
-            ring_thickness = 0.04 * atom_outline_width
-            radial_half_thickness = 0.02 * atom_outline_width
-            # Always draw the full outer ring.  This closes the atom
-            # boundary even when there is a vacancy gap, and prevents
-            # bonds from appearing disconnected at vacancy-facing
-            # angles.
-            ring_polygon = _make_unit_ring(
-                style.circle_segments, thickness=ring_thickness,
-            )
-            verts.append(ring_polygon * screen_radius + centre_xy)
-            face_cs.append(edge_fc)
+            transparent = (0.0, 0.0, 0.0, 0.0)
+            # Outer outline: same closed unit circle as a pure-string
+            # site, but with a transparent face so the wedge fills
+            # show through.  matplotlib strokes the boundary at
+            # ``atom_outline_width`` points, identical in units to
+            # the pure-circle path.
+            verts.append(unit_circle * screen_radius + centre_xy)
+            face_cs.append(transparent)
             edge_cs.append(edge_fc)
-            lws.append(0.0)
+            lws.append(atom_outline_width)
 
             # Radial edges bound every wedge boundary, treating the
             # vacancy fraction as an implicit additional species.
             # The single exception is a fully occupied single-species
             # composition: there are no boundaries (just one wedge
             # wrapping the full circle), so no radial edges to draw.
+            # Each radial is emitted as a degenerate two-vertex
+            # polygon (centre, outer-point); matplotlib closes the
+            # path back to the centre, so the stroke traces a single
+            # line at ``atom_outline_width``.
             has_vacancy = site_content.vacancy > _OCCUPANCY_TOLERANCE
             if style.show_wedge_edges and (
                 len(wedges) >= 2 or has_vacancy
@@ -241,25 +189,25 @@ def _emit_atom_polygons(
                 # is handled by the trailing boundary of the last
                 # wedge below.
                 if has_vacancy:
-                    edge_polygon = _make_radial_edge(
-                        cumulative_angle,
-                        half_thickness=radial_half_thickness,
-                    )
+                    edge_polygon = np.array([
+                        [0.0, 0.0],
+                        [np.cos(cumulative_angle), np.sin(cumulative_angle)],
+                    ])
                     verts.append(edge_polygon * screen_radius + centre_xy)
-                    face_cs.append(edge_fc)
+                    face_cs.append(transparent)
                     edge_cs.append(edge_fc)
-                    lws.append(0.0)
+                    lws.append(atom_outline_width)
                 # Boundary at the end of each wedge.
                 for sp, _polygon in wedges:
                     cumulative_angle += 2.0 * np.pi * site_content[sp]
-                    edge_polygon = _make_radial_edge(
-                        cumulative_angle,
-                        half_thickness=radial_half_thickness,
-                    )
+                    edge_polygon = np.array([
+                        [0.0, 0.0],
+                        [np.cos(cumulative_angle), np.sin(cumulative_angle)],
+                    ])
                     verts.append(edge_polygon * screen_radius + centre_xy)
-                    face_cs.append(edge_fc)
+                    face_cs.append(transparent)
                     edge_cs.append(edge_fc)
-                    lws.append(0.0)
+                    lws.append(atom_outline_width)
     else:
         verts.append(unit_circle * screen_radius + centre_xy)
         face_cs.append(fallback_face_colour)
