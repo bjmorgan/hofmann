@@ -200,23 +200,30 @@ def _emit_atom_polygons(
             edge_cs.append(edge_fc)
             lws.append(0.0)
 
-            # Radial edges separate *adjacent species wedges* only
-            # — never at a species/vacancy boundary, and never inside
-            # a single-species wedge (which would put a meaningless
-            # line through a uniform disc).
-            if style.show_wedge_edges and len(wedges) >= 2:
-                has_vacancy = site_content.vacancy > 1e-9
+            # Radial edges bound every wedge boundary, treating the
+            # vacancy fraction as an implicit additional species.
+            # The single exception is a fully occupied single-species
+            # composition: there are no boundaries (just one wedge
+            # wrapping the full circle), so no radial edges to draw.
+            has_vacancy = site_content.vacancy > 1e-9
+            if style.show_wedge_edges and (
+                len(wedges) >= 2 or has_vacancy
+            ):
                 cumulative_angle = style.wedge_start_angle
-                for i, (sp, _polygon) in enumerate(wedges):
+                # Boundary at the start of the first wedge: only
+                # meaningful when it separates the vacancy from the
+                # first species.  When fully occupied, the wrap-around
+                # is handled by the trailing boundary of the last
+                # wedge below.
+                if has_vacancy:
+                    edge_polygon = _make_radial_edge(cumulative_angle)
+                    verts.append(edge_polygon * screen_radius + centre_xy)
+                    face_cs.append(edge_fc)
+                    edge_cs.append(edge_fc)
+                    lws.append(0.0)
+                # Boundary at the end of each wedge.
+                for sp, _polygon in wedges:
                     cumulative_angle += 2.0 * np.pi * site_content[sp]
-                    is_last = i == len(wedges) - 1
-                    # Skip the boundary after the final wedge when
-                    # it faces the vacancy.  When fully occupied,
-                    # this boundary wraps around to meet the first
-                    # wedge — a real species/species boundary that
-                    # should be drawn.
-                    if is_last and has_vacancy:
-                        continue
                     edge_polygon = _make_radial_edge(cumulative_angle)
                     verts.append(edge_polygon * screen_radius + centre_xy)
                     face_cs.append(edge_fc)
