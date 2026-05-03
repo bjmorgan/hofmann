@@ -113,7 +113,9 @@ def _compute_atom_radii(
                 r = style.radius if style is not None else DEFAULT_ATOM_RADIUS
                 weighted += occ * r
                 total_occ += occ
-            radii[i] = weighted / total_occ if total_occ > 0 else DEFAULT_ATOM_RADIUS
+            # Composition invariants (validated at construction) guarantee
+            # total_occ > 0 here.
+            radii[i] = weighted / total_occ
         else:
             style = atom_styles.get(site)
             if style is not None:
