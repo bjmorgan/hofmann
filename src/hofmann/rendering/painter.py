@@ -108,6 +108,7 @@ def _emit_atom_polygons(
     outline_rgb: tuple[float, float, float],
     atom_outline_width: float,
     use_wedges: bool,
+    bg_rgb: tuple[float, float, float],
 ) -> tuple[
     list[np.ndarray],
     list[tuple[float, ...]],
@@ -120,7 +121,9 @@ def _emit_atom_polygons(
     single circle polygon styled with *fallback_face_colour*.  For a
     :class:`Composition` site with *use_wedges* True, returns one
     wedge polygon per constituent species (using the constituents'
-    :class:`AtomStyle.colour`) plus an optional vacancy wedge.
+    :class:`AtomStyle.colour`) plus a vacancy wedge filled with
+    :attr:`RenderStyle.vacancy_colour` (or *bg_rgb* when that is
+    ``None``).
 
     Hidden constituents (``AtomStyle.visible=False``) contribute no
     polygon.  When all constituents are hidden, returns four empty
@@ -140,6 +143,9 @@ def _emit_atom_polygons(
         atom_outline_width: Outline width when drawn.
         use_wedges: Whether to emit wedges for mixed sites
             (false when colour_by is overriding the row).
+        bg_rgb: Normalised canvas background RGB.  Used as the default
+            vacancy fill when ``style.vacancy_colour`` is ``None``,
+            ensuring the atom remains visually opaque.
 
     Returns:
         ``(verts, face_cs, edge_cs, line_widths)`` lists, all the
@@ -175,18 +181,21 @@ def _emit_atom_polygons(
             edge_cs.append(wedge_fc)
             lws.append(0.0)
 
-        if style.vacancy_colour is not None:
-            vac = _make_vacancy_wedge(
-                site_content,
-                n_segments_total=style.circle_segments,
-                start_angle=style.wedge_start_angle,
-            )
-            if vac is not None:
-                vac_fc = (*normalise_colour(style.vacancy_colour), 1.0)
-                verts.append(vac * screen_radius + centre_xy)
-                face_cs.append(vac_fc)
-                edge_cs.append(vac_fc)
-                lws.append(0.0)
+        vac = _make_vacancy_wedge(
+            site_content,
+            n_segments_total=style.circle_segments,
+            start_angle=style.wedge_start_angle,
+        )
+        if vac is not None:
+            if style.vacancy_colour is not None:
+                vac_rgb = normalise_colour(style.vacancy_colour)
+            else:
+                vac_rgb = bg_rgb
+            vac_fc = (*vac_rgb, 1.0)
+            verts.append(vac * screen_radius + centre_xy)
+            face_cs.append(vac_fc)
+            edge_cs.append(vac_fc)
+            lws.append(0.0)
 
         if show_outlines:
             edge_fc = (*outline_rgb, 1.0)
@@ -585,6 +594,7 @@ def _draw_scene(
                 outline_rgb=outline_rgb,
                 atom_outline_width=atom_outline_width,
                 use_wedges=use_wedges,
+                bg_rgb=bg_rgb,
             )
             all_verts.extend(verts_out)
             face_colours.extend(faces_out)
@@ -611,6 +621,7 @@ def _draw_scene(
                 outline_rgb=outline_rgb,
                 atom_outline_width=atom_outline_width,
                 use_wedges=use_wedges,
+                bg_rgb=bg_rgb,
             )
             all_verts.extend(verts_out)
             face_colours.extend(faces_out)
@@ -652,6 +663,7 @@ def _draw_scene(
             outline_rgb=outline_rgb,
             atom_outline_width=atom_outline_width,
             use_wedges=use_wedges,
+            bg_rgb=bg_rgb,
         )
         all_verts.extend(verts_out)
         face_colours.extend(faces_out)

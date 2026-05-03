@@ -1283,8 +1283,11 @@ class RenderStyle:
     vacancy_colour: Colour | None = None
     """Fill colour for the vacancy fraction of a partially occupied site.
 
-    ``None`` (the default) leaves the vacancy as a gap, so the canvas
-    background shows through.  Set to a colour to fill the gap explicitly."""
+    ``None`` (the default) fills the vacancy wedge with the canvas
+    background colour, so partial sites read as opaque circles with
+    one slice "missing".  Set to an explicit colour to make the
+    vacancy stand out against the background (for example,
+    ``"lightgrey"`` on a white canvas)."""
 
     show_wedge_edges: bool = True
     """Whether to stroke radial edges between wedges of a mixed site.

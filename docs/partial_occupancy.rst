@@ -39,10 +39,12 @@ an implicit vacancy fraction::
 
     fe_partial = Composition({"Fe": 0.7})  # 70% Fe + 30% vacancy
 
-The vacancy fraction renders as a gap by default (canvas background
-shows through).  Set
-:attr:`~hofmann.RenderStyle.vacancy_colour` to fill the gap with an
-explicit colour.
+The vacancy fraction renders as an opaque wedge filled with the
+canvas background colour by default, so partial sites still read as
+solid circles with a "missing" slice.  Set
+:attr:`~hofmann.RenderStyle.vacancy_colour` to override with an
+explicit colour (for example, ``"lightgrey"`` on a white canvas to
+make the vacancy stand out).
 
 Loading from pymatgen
 ---------------------
@@ -71,7 +73,8 @@ The wedge layout itself is controlled by three render-style fields:
 - :attr:`~hofmann.RenderStyle.show_wedge_edges` toggles radial edges
   between wedges (default on; set to ``False`` to stroke only the
   outer arc).
-- :attr:`~hofmann.RenderStyle.vacancy_colour` fills the vacancy gap.
+- :attr:`~hofmann.RenderStyle.vacancy_colour` overrides the vacancy
+  fill (default: canvas background colour).
 
 Bonding and polyhedra
 ---------------------
