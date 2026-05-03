@@ -34,3 +34,38 @@ class TestCompositionBasic:
         c = Composition({"Fe": 1.0})
         with pytest.raises(dataclasses.FrozenInstanceError):
             c.occupancies = {}  # type: ignore[misc]
+
+
+class TestCompositionValidation:
+    def test_negative_value_raises(self):
+        with pytest.raises(ValueError, match="must be positive"):
+            Composition({"Fe": -0.1})
+
+    def test_value_above_one_raises(self):
+        with pytest.raises(ValueError, match="must be in"):
+            Composition({"Fe": 1.5})
+
+    def test_sum_above_one_raises(self):
+        with pytest.raises(ValueError, match="sum"):
+            Composition({"Fe": 0.7, "Mn": 0.6})
+
+    def test_sum_at_one_within_tolerance_ok(self):
+        c = Composition({"Fe": 0.5000000001, "Mn": 0.5})
+        assert pytest.approx(sum(c.values()), abs=1e-9) == 1.0
+
+    def test_zero_values_dropped(self):
+        c = Composition({"Fe": 0.7, "Mn": 0.0})
+        assert "Mn" not in c
+        assert dict(c) == {"Fe": 0.7}
+
+    def test_empty_mapping_raises(self):
+        with pytest.raises(ValueError, match="empty"):
+            Composition({})
+
+    def test_all_zero_after_drop_raises(self):
+        with pytest.raises(ValueError, match="empty"):
+            Composition({"Fe": 0.0, "Mn": 0.0})
+
+    def test_non_string_key_raises(self):
+        with pytest.raises(TypeError, match="string"):
+            Composition({26: 1.0})  # type: ignore[dict-item]
