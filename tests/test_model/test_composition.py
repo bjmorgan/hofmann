@@ -94,3 +94,35 @@ class TestCompositionEqualityAndOrder:
     def test_iter_order_three_species(self):
         c = Composition({"O": 0.2, "Fe": 0.3, "Mn": 0.5})
         assert list(c) == ["Mn", "Fe", "O"]
+
+
+class TestCompositionAccessors:
+    def test_species_returns_frozenset(self):
+        c = Composition({"Fe": 0.7, "Mn": 0.3})
+        assert c.species == frozenset({"Fe", "Mn"})
+        assert isinstance(c.species, frozenset)
+
+    def test_is_pure_true_for_single_full_occupancy(self):
+        assert Composition({"Fe": 1.0}).is_pure is True
+
+    def test_is_pure_false_for_mixed(self):
+        assert Composition({"Fe": 0.7, "Mn": 0.3}).is_pure is False
+
+    def test_is_pure_false_for_partial(self):
+        assert Composition({"Fe": 0.7}).is_pure is False
+
+    def test_dominant_species_max_occupancy(self):
+        assert Composition({"Fe": 0.7, "Mn": 0.3}).dominant_species == "Fe"
+
+    def test_dominant_species_alphabetical_tiebreak(self):
+        assert Composition({"Mn": 0.5, "Fe": 0.5}).dominant_species == "Fe"
+
+    def test_vacancy_zero_when_full(self):
+        assert Composition({"Fe": 1.0}).vacancy == pytest.approx(0.0)
+
+    def test_vacancy_partial(self):
+        assert Composition({"Fe": 0.7}).vacancy == pytest.approx(0.3)
+
+    def test_vacancy_clamped_to_zero_within_tolerance(self):
+        c = Composition({"Fe": 0.5, "Mn": 0.5000000001})
+        assert c.vacancy == pytest.approx(0.0, abs=1e-9)

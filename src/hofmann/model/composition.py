@@ -73,3 +73,29 @@ class Composition(Mapping[str, float]):
 
     def __hash__(self) -> int:
         return hash(tuple(self.occupancies.items()))
+
+    @property
+    def species(self) -> frozenset[str]:
+        """Set of constituent species (vacancy excluded)."""
+        return frozenset(self.occupancies.keys())
+
+    @property
+    def is_pure(self) -> bool:
+        """True iff exactly one species at occupancy 1.0."""
+        if len(self.occupancies) != 1:
+            return False
+        (only_value,) = self.occupancies.values()
+        return abs(only_value - 1.0) < _OCCUPANCY_TOLERANCE
+
+    @property
+    def dominant_species(self) -> str:
+        """Species with the highest occupancy.  Tiebreak: alphabetical."""
+        # Iteration order is already canonical (descending occupancy,
+        # then alphabetical), so the first key is the dominant species.
+        return next(iter(self.occupancies))
+
+    @property
+    def vacancy(self) -> float:
+        """Vacancy fraction: ``1 - sum(occupancies)``, clamped to [0, 1)."""
+        deficit = 1.0 - sum(self.occupancies.values())
+        return max(0.0, deficit)
