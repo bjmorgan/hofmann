@@ -182,7 +182,7 @@ def _emit_atom_polygons(
                 # pure-string sites that lack a style.
                 wedge_rgb: tuple[float, float, float] = (0.5, 0.5, 0.5)
             else:
-                wedge_rgb = tuple(normalise_colour(sp_style.colour))
+                wedge_rgb = normalise_colour(sp_style.colour)
             wedge_fc = (*wedge_rgb, 1.0)
             verts.append(polygon * screen_radius + centre_xy)
             face_cs.append(wedge_fc)
