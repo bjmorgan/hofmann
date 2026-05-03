@@ -28,3 +28,9 @@ class TestCompositionBasic:
         c = Composition({"Fe": 1.0})
         with pytest.raises(TypeError):
             c["Fe"] = 0.5  # type: ignore[index]
+
+    def test_dataclass_attribute_is_frozen(self):
+        import dataclasses
+        c = Composition({"Fe": 1.0})
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            c.occupancies = {}  # type: ignore[misc]

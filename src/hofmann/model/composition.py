@@ -9,10 +9,7 @@ from types import MappingProxyType
 
 @dataclass(frozen=True)
 class Composition(Mapping[str, float]):
-    """Species-to-occupancy mapping for a (possibly mixed) site.
-
-    See the design doc and module docstring for detailed semantics.
-    """
+    """Species-to-occupancy mapping for a (possibly mixed) site."""
 
     occupancies: Mapping[str, float]
 
