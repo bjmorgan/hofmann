@@ -520,3 +520,13 @@ class TestBondsWithMixed:
         specs = [BondSpec(species=("Fe", "O"), max_length=2.5)]
         bonds = compute_bonds(species, coords, specs)
         assert len(bonds) == 1
+
+    def test_periodic_bond_with_mixed_site(self):
+        """Bond detection across a periodic boundary still fires on
+        constituent species."""
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}), "O")
+        coords = np.array([[0.5, 0.0, 0.0], [3.5, 0.0, 0.0]])
+        lattice = np.eye(3) * 4.0  # Fe-O distance via PBC: 1.0 (vs 3.0 direct)
+        specs = [BondSpec(species=("Fe", "O"), max_length=1.5)]
+        bonds = compute_bonds(species, coords, specs, lattice=lattice)
+        assert len(bonds) == 1

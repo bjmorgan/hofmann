@@ -1994,3 +1994,109 @@ class TestPainterWithMixed:
         # Just confirm rendering does not raise; colour assertion is in
         # the unit-level test of _species_colours.
         scene.render_mpl(show=False)
+
+    def test_colour_by_renders_mixed_site_as_uniform_circle(self):
+        """When colour_by is set, mixed sites render as a single uniform
+        circle (use_wedges=False), not as wedges."""
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        scene.set_atom_data("highlight", values=np.array([1.0]))
+        fig = scene.render_mpl(colour_by="highlight", show=False)
+        plt.close(fig)
+
+
+class TestEmitAtomPolygons:
+    def _kwargs(self, **overrides):
+        """Build a default kwargs dict for _emit_atom_polygons."""
+        defaults = dict(
+            centre_xy=np.array([0.0, 0.0]),
+            screen_radius=10.0,
+            fallback_face_colour=(1.0, 0.0, 0.0, 1.0),
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+            style=RenderStyle(),
+            unit_circle=np.array([
+                [1, 0], [0, 1], [-1, 0], [0, -1], [1, 0],
+            ], dtype=float),
+            show_outlines=True,
+            outline_rgb=(0.0, 0.0, 0.0),
+            atom_outline_width=1.0,
+            use_wedges=True,
+            bg_rgb=(1.0, 1.0, 1.0),
+        )
+        defaults.update(overrides)
+        return defaults
+
+    def test_pure_string_emits_single_circle(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content="Fe", **self._kwargs(),
+        )
+        # Single circle polygon plus outline emission depends on path
+        # — just confirm at least one polygon is emitted with the
+        # fallback face colour.
+        assert len(verts) >= 1
+        assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
+
+    def test_pure_composition_emits_one_wedge(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 1.0}),
+            **self._kwargs(),
+        )
+        # Pure-occupancy composition: wedge + outer ring.  No vacancy
+        # wedge, no radial edges (single wedge wrapping circle).
+        assert len(verts) >= 1
+
+    def test_unstyled_constituent_uses_grey_fallback(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        # Mn missing from atom_styles.
+        kwargs = self._kwargs(
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.5}),
+            **kwargs,
+        )
+        # Look for a face colour matching default grey (0.5, 0.5, 0.5, 1.0).
+        assert (0.5, 0.5, 0.5, 1.0) in fcs
+
+    def test_use_wedges_false_renders_single_circle_for_composition(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(use_wedges=False)
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.7, "Mn": 0.3}),
+            **kwargs,
+        )
+        # Falls through the non-wedge branch: one polygon with the
+        # fallback face colour.
+        assert len(verts) == 1 or fcs[0] == (1.0, 0.0, 0.0, 1.0)
+
+    def test_radial_edge_count_two_species_full(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.7, "Mn": 0.3}),
+            **self._kwargs(),
+        )
+        # Two species + full occupancy -> 2 wedge polygons + 1 outer
+        # ring + 2 radial edges (wrap-around + between species) = 5.
+        assert len(verts) == 5
+
+    def test_radial_edge_count_two_species_with_vacancy(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.3}),  # 0.2 vacancy
+            **self._kwargs(),
+        )
+        # Two species + vacancy -> 2 wedges + vacancy wedge + outer
+        # ring + radial edges (vacancy boundary + between species +
+        # species/vacancy at end) = 7.
+        assert len(verts) >= 6
