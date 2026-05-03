@@ -201,8 +201,10 @@ def from_ase(
         merged_styles.update(atom_styles)
 
     # Generate default bond specs from VESTA cutoffs if none provided.
+    # Pass the flattened unique constituent species so each element
+    # in a mixed site contributes to bond rule generation.
     if bond_specs is None:
-        bond_specs = default_bond_specs(species)
+        bond_specs = default_bond_specs(unique_species)
 
     # Build frames.  For periodic systems, wrap fractional coordinates
     # to [0, 1) and store the lattice per frame (supporting NPT
@@ -342,8 +344,10 @@ def from_pymatgen(
         merged_styles.update(atom_styles)
 
     # Generate default bond specs from VESTA cutoffs if none provided.
+    # Pass the flattened unique constituent species so each element
+    # in a mixed site contributes to bond rule generation.
     if bond_specs is None:
-        bond_specs = default_bond_specs(species)
+        bond_specs = default_bond_specs(unique_species)
 
     # Build frames.  Wrap fractional coordinates to [0, 1) so atoms
     # sit inside the unit cell for consistent periodic bond

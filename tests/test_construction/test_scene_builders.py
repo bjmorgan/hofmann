@@ -777,3 +777,19 @@ class TestFromPymatgenWithMixed:
         assert isinstance(site, Composition)
         assert "Fe" in site
         assert "Mn" in site
+
+    def test_default_bond_specs_use_mixed_site_constituents(self):
+        """Default bond specs include pairs involving mixed-site
+        constituents (Fe-O, Mn-O), not just literal site keys."""
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({"Fe": 0.7, "Mn": 0.3}), "O"],
+            coords=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        pairs = {tuple(sorted(s.species)) for s in scene.bond_specs}
+        assert ("Fe", "O") in pairs
+        assert ("Mn", "O") in pairs
