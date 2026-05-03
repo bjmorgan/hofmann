@@ -13,7 +13,10 @@ import numpy as np
 from matplotlib.axes import Axes
 from matplotlib.collections import PolyCollection
 
+from collections.abc import Mapping
+
 from hofmann.model import (
+    AtomStyle,
     CmapSpec,
     RenderStyle,
     StructureScene,
@@ -34,10 +37,113 @@ from hofmann.rendering.precompute import (
     _collect_polyhedra_faces,
     _precompute_scene,
 )
-from hofmann.rendering.projection import _make_unit_circle
+from hofmann.model.composition import Composition
+from hofmann.rendering.projection import (
+    _make_unit_circle,
+    _make_vacancy_wedge,
+    _make_wedges,
+)
 
 # Font size (points) for scene titles rendered inside the viewport.
 _TITLE_FONT_SIZE = 12.0
+
+
+def _emit_atom_polygons(
+    site_content: str | Composition,
+    centre_xy: np.ndarray,
+    screen_radius: float,
+    fallback_face_colour: tuple[float, ...],
+    atom_styles: Mapping[str, AtomStyle],
+    style: RenderStyle,
+    unit_circle: np.ndarray,
+    show_outlines: bool,
+    outline_rgb: tuple[float, float, float],
+    atom_outline_width: float,
+    use_wedges: bool,
+) -> tuple[
+    list[np.ndarray],
+    list[tuple[float, ...]],
+    list[tuple[float, ...]],
+    list[float],
+]:
+    """Build polygon(s) and styling for one atom-row emission.
+
+    For a pure-string site (or when *use_wedges* is False), returns a
+    single circle polygon styled with *fallback_face_colour*.  For a
+    :class:`Composition` site with *use_wedges* True, returns one
+    wedge polygon per constituent species (using the constituents'
+    :class:`AtomStyle.colour`) plus an optional vacancy wedge.
+
+    Hidden constituents (``AtomStyle.visible=False``) contribute no
+    polygon.  When all constituents are hidden, returns four empty
+    lists (caller does not append anything).
+
+    Args:
+        site_content: Either a species label string or a Composition.
+        centre_xy: 2D screen-space centre, shape ``(2,)``.
+        screen_radius: Atom display radius in screen units.
+        fallback_face_colour: RGBA face colour used for pure sites or
+            when colour_by overrides the row.
+        atom_styles: Mapping species label -> AtomStyle.
+        style: The active RenderStyle.
+        unit_circle: Pre-computed unit circle polygon.
+        show_outlines: Whether to draw outlines.
+        outline_rgb: Normalised outline RGB triple.
+        atom_outline_width: Outline width when drawn.
+        use_wedges: Whether to emit wedges for mixed sites
+            (false when colour_by is overriding the row).
+
+    Returns:
+        ``(verts, face_cs, edge_cs, line_widths)`` lists, all the
+        same length.
+    """
+    verts: list[np.ndarray] = []
+    face_cs: list[tuple[float, ...]] = []
+    edge_cs: list[tuple[float, ...]] = []
+    lws: list[float] = []
+
+    if isinstance(site_content, Composition) and use_wedges:
+        wedges = _make_wedges(
+            site_content,
+            n_segments_total=style.circle_segments,
+            start_angle=style.wedge_start_angle,
+        )
+        for sp, polygon in wedges:
+            sp_style = atom_styles.get(sp)
+            if sp_style is None:
+                # No style: skip this constituent (gap shows through).
+                continue
+            if not sp_style.visible:
+                continue
+            wedge_fc = (*normalise_colour(sp_style.colour), 1.0)
+            verts.append(polygon * screen_radius + centre_xy)
+            face_cs.append(wedge_fc)
+            edge_cs.append((*outline_rgb, 1.0) if show_outlines else wedge_fc)
+            lws.append(atom_outline_width if show_outlines else 0.0)
+
+        if style.vacancy_colour is not None:
+            vac = _make_vacancy_wedge(
+                site_content,
+                n_segments_total=style.circle_segments,
+                start_angle=style.wedge_start_angle,
+            )
+            if vac is not None:
+                vac_fc = (*normalise_colour(style.vacancy_colour), 1.0)
+                verts.append(vac * screen_radius + centre_xy)
+                face_cs.append(vac_fc)
+                edge_cs.append(
+                    (*outline_rgb, 1.0) if show_outlines else vac_fc
+                )
+                lws.append(atom_outline_width if show_outlines else 0.0)
+    else:
+        verts.append(unit_circle * screen_radius + centre_xy)
+        face_cs.append(fallback_face_colour)
+        edge_cs.append(
+            (*outline_rgb, 1.0) if show_outlines else fallback_face_colour
+        )
+        lws.append(atom_outline_width if show_outlines else 0.0)
+
+    return verts, face_cs, edge_cs, lws
 
 
 def _draw_scene(
@@ -127,6 +233,8 @@ def _draw_scene(
     atom_colours = precomputed.atom_colours
     bond_half_colours = precomputed.bond_half_colours
     adjacency = precomputed.adjacency
+    species = precomputed.species
+    use_wedges = colour_by is None
 
     # ---- Projection ----
     xy, depth, atom_screen_radii = view.project(
@@ -371,14 +479,23 @@ def _draw_scene(
             if not slab_visible[vi]:
                 continue
             fc_atom = (*atom_colours[vi], 1.0)
-            all_verts.append(unit_circle * atom_screen_radii[vi] + xy[vi])
-            face_colours.append(fc_atom)
-            edge_colours.append(
-                (*outline_rgb, 1.0) if show_outlines else fc_atom,
+            verts_out, faces_out, edges_out, lws_out = _emit_atom_polygons(
+                site_content=species[vi],
+                centre_xy=xy[vi],
+                screen_radius=atom_screen_radii[vi],
+                fallback_face_colour=fc_atom,
+                atom_styles=scene.atom_styles,
+                style=style,
+                unit_circle=unit_circle,
+                show_outlines=show_outlines,
+                outline_rgb=outline_rgb,
+                atom_outline_width=atom_outline_width,
+                use_wedges=use_wedges,
             )
-            line_widths.append(
-                atom_outline_width if show_outlines else 0.0,
-            )
+            all_verts.extend(verts_out)
+            face_colours.extend(faces_out)
+            edge_colours.extend(edges_out)
+            line_widths.extend(lws_out)
 
         if not slab_visible[k]:
             continue
@@ -388,10 +505,23 @@ def _draw_scene(
         if (k not in all_hidden_atoms
                 and k not in deferred_vertex_atoms):
             fc_atom = (*atom_colours[k], 1.0)
-            all_verts.append(unit_circle * atom_screen_radii[k] + xy[k])
-            face_colours.append(fc_atom)
-            edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_atom)
-            line_widths.append(atom_outline_width if show_outlines else 0.0)
+            verts_out, faces_out, edges_out, lws_out = _emit_atom_polygons(
+                site_content=species[k],
+                centre_xy=xy[k],
+                screen_radius=atom_screen_radii[k],
+                fallback_face_colour=fc_atom,
+                atom_styles=scene.atom_styles,
+                style=style,
+                unit_circle=unit_circle,
+                show_outlines=show_outlines,
+                outline_rgb=outline_rgb,
+                atom_outline_width=atom_outline_width,
+                use_wedges=use_wedges,
+            )
+            all_verts.extend(verts_out)
+            face_colours.extend(faces_out)
+            edge_colours.extend(edges_out)
+            line_widths.extend(lws_out)
 
     # Draw cell edges in front of all atoms.
     for edge_verts, edge_rgba, _ in (
@@ -416,14 +546,23 @@ def _draw_scene(
         if not slab_visible[vi]:
             continue
         fc_atom = (*atom_colours[vi], 1.0)
-        all_verts.append(unit_circle * atom_screen_radii[vi] + xy[vi])
-        face_colours.append(fc_atom)
-        edge_colours.append(
-            (*outline_rgb, 1.0) if show_outlines else fc_atom,
+        verts_out, faces_out, edges_out, lws_out = _emit_atom_polygons(
+            site_content=species[vi],
+            centre_xy=xy[vi],
+            screen_radius=atom_screen_radii[vi],
+            fallback_face_colour=fc_atom,
+            atom_styles=scene.atom_styles,
+            style=style,
+            unit_circle=unit_circle,
+            show_outlines=show_outlines,
+            outline_rgb=outline_rgb,
+            atom_outline_width=atom_outline_width,
+            use_wedges=use_wedges,
         )
-        line_widths.append(
-            atom_outline_width if show_outlines else 0.0,
-        )
+        all_verts.extend(verts_out)
+        face_colours.extend(faces_out)
+        edge_colours.extend(edges_out)
+        line_widths.extend(lws_out)
 
     if all_verts:
         pc = PolyCollection(

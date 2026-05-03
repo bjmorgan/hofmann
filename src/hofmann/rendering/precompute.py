@@ -65,6 +65,7 @@ class _PrecomputedScene:
     zoom changes in the interactive viewer.
     """
 
+    species: tuple[str | Composition, ...]
     coords: np.ndarray
     radii_3d: np.ndarray
     atom_colours: list[tuple[float, float, float]]
@@ -258,8 +259,18 @@ def _precompute_scene(
     style_hidden_atoms: set[int] = set()
     style_hidden_bond_ids: set[int] = set()
     for i, sp in enumerate(species):
-        style = scene.atom_styles.get(sp)
-        if style is not None and not style.visible:
+        site_sp = _site_species(sp)
+        if not site_sp:
+            continue
+        # A site is hidden iff all its constituent species have a style
+        # with visible=False.  Constituents without a style are treated
+        # as visible (default behaviour).
+        all_hidden = all(
+            scene.atom_styles.get(s) is not None
+            and not scene.atom_styles[s].visible
+            for s in site_sp
+        )
+        if all_hidden:
             style_hidden_atoms.add(i)
     if style_hidden_atoms:
         for bond in bonds:
@@ -329,6 +340,7 @@ def _precompute_scene(
         ))
 
     return _PrecomputedScene(
+        species=tuple(species),
         coords=coords,
         radii_3d=radii_3d,
         atom_colours=atom_colours,

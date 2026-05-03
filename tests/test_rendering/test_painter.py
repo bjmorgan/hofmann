@@ -23,6 +23,7 @@ from hofmann.model import (
     ViewState,
     normalise_colour,
 )
+from hofmann.model.composition import Composition
 from hofmann.rendering.static import render_mpl
 from hofmann.construction.scene_builders import from_xbs
 
@@ -1848,4 +1849,78 @@ class TestRenderLegend:
         path = tmp_path / "poly_legend.svg"
         fig = render_legend(scene, output=path, legend_style=style)
         assert path.exists()
+        plt.close(fig)
+
+
+class TestPainterWithMixed:
+    def test_mixed_site_emits_multiple_polygons(self):
+        """A mixed site contributes one polygon per constituent species."""
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        assert total_paths >= 2
+        plt.close(fig)
+
+    def test_pure_string_scene_renders_unchanged(self):
+        scene = StructureScene(
+            species=["Fe"],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        # Should not raise.
+        fig = scene.render_mpl(show=False)
+        plt.close(fig)
+
+    def test_partial_site_renders(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7})],  # 30% vacancy
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        fig = scene.render_mpl(show=False)
+        plt.close(fig)
+
+    def test_vacancy_colour_renders(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        fig = scene.render_mpl(
+            style=RenderStyle(vacancy_colour="white"),
+            show=False,
+        )
+        plt.close(fig)
+
+    def test_mixed_site_with_hidden_constituent_renders(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.5, "Mn": 0.5})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple", visible=False),
+            },
+        )
+        fig = scene.render_mpl(show=False)
+        plt.close(fig)
+
+    def test_mixed_site_all_constituents_hidden(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.5, "Mn": 0.5})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red", visible=False),
+                "Mn": AtomStyle(radius=1.0, colour="purple", visible=False),
+            },
+        )
+        # Should not raise; site is fully hidden.
+        fig = scene.render_mpl(show=False)
         plt.close(fig)
