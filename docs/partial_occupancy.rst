@@ -3,10 +3,9 @@
 Partial and mixed occupancy
 ============================
 
-Hofmann can render sites with partial crystallographic occupancy or
-sites shared between multiple species (a solid solution).  Such sites
-are drawn as pie wedges -- one wedge per species, with each wedge's
-angle equal to that species' occupancy.
+Hofmann can render sites with partial or mixed crystallographic
+occupancy.  Such sites are drawn as pie wedges -- one wedge per
+species, with each wedge's angle equal to that species' occupancy.
 
 .. image:: _static/partial_occupancy.svg
    :width: 400px
