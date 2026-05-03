@@ -12,7 +12,34 @@ _OCCUPANCY_TOLERANCE = 1e-9
 
 @dataclass(frozen=True, eq=False)
 class Composition(Mapping[str, float]):
-    """Species-to-occupancy mapping for a (possibly mixed) site."""
+    """Species-to-occupancy mapping for a (possibly mixed) site.
+
+    A frozen, hashable ``Mapping[str, float]`` describing how a site is
+    occupied: a single species at full occupancy (a "pure" site, also
+    expressible as a plain ``str``), a weighted mix of species (a
+    "mixed" site), or any of the above with an implicit vacancy fraction
+    (``1 - sum(occupancies)``).
+
+    Validated at construction:
+
+    - All occupancy values must be finite and lie in ``(0, 1]``.  Zero
+      values are dropped; negative or non-finite values raise.
+    - The occupancy sum must not exceed ``1.0`` (within a tolerance of
+      ``1e-9``).  Any deficit is interpreted as a vacancy fraction.
+    - Keys must be non-empty strings.
+
+    Iteration order is canonical: descending occupancy, with alphabetical
+    tiebreak.  This ordering determines wedge layout in the renderer, so
+    visual reproducibility is guaranteed across runs.
+
+    Args:
+        occupancies: A mapping of species labels to occupancy fractions.
+
+    Raises:
+        ValueError: If any value is non-finite or outside ``(0, 1]``;
+            if the sum exceeds 1.0; if the resulting mapping is empty.
+        TypeError: If any key is not a string.
+    """
 
     occupancies: Mapping[str, float]
 

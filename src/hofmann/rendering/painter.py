@@ -126,8 +126,10 @@ def _emit_atom_polygons(
     ``None``).
 
     Hidden constituents (``AtomStyle.visible=False``) contribute no
-    polygon.  When all constituents are hidden, returns four empty
-    lists (caller does not append anything).
+    wedge polygon — their share of the site is treated identically
+    to a vacancy fraction.  When ``show_outlines`` is True, the
+    outer ring and any radial edges are still emitted regardless
+    of how many constituents are hidden.
 
     Args:
         site_content: Either a species label string or a Composition.

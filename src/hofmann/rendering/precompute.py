@@ -140,7 +140,9 @@ def _warn_missing_atom_styles(
     Does nothing if all species have styles or the species list is empty.
 
     Args:
-        species: Per-atom species names, one entry per atom.
+        species: Per-site content, one entry per atom.  Each entry is
+            either a species label string or a :class:`Composition`;
+            the latter is flattened to its constituent species.
         atom_styles: Mapping from species name to :class:`AtomStyle`.
     """
     all_species: set[str] = set()

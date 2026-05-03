@@ -1,4 +1,11 @@
-"""Shared serialisation helpers for model dataclasses."""
+"""Internal helpers for the model layer.
+
+Provides ``SiteContent``, the union type for a row in
+``StructureScene.species`` (either a species label string or a
+:class:`Composition`), and ``_site_species``, the helper that flattens
+either form to a frozenset of constituent species.  Also hosts the
+shared ``_field_defaults`` dataclass utility used by render styles.
+"""
 
 from __future__ import annotations
 

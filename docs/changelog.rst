@@ -8,7 +8,8 @@ Changelog
   species.  Pass a :class:`Composition` in
   :attr:`~hofmann.StructureScene.species` to declare a mixed site;
   the renderer draws it as a pie of wedges, one per constituent
-  species, with vacancy fractions left as a gap.
+  species, with vacancy fractions filled opaquely with the canvas
+  background colour.
   :func:`~hofmann.from_pymatgen` propagates partial occupancies from
   the source structure.
 

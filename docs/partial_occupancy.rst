@@ -58,9 +58,11 @@ preprocessing or manual handling is required.
 Customising appearance
 ----------------------
 
-By default a mixed site is drawn at a radius equal to the occupancy-
-weighted average of its constituents' :attr:`~hofmann.AtomStyle.radius`,
-with each wedge using its species' :attr:`~hofmann.AtomStyle.colour`.
+By default a mixed site is drawn at a radius equal to the
+occupancy-weighted average of its constituents'
+:attr:`~hofmann.AtomStyle.radius`, normalised by the total species
+occupancy so that vacancy fractions do not shrink the site.  Each
+wedge uses its species' :attr:`~hofmann.AtomStyle.colour`.
 For more specific styling — for example, colouring all mixed sites the
 same way to highlight disordered positions — use
 :meth:`~hofmann.StructureScene.set_atom_data` and the ``colour_by``

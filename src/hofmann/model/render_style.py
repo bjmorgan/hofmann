@@ -1290,11 +1290,13 @@ class RenderStyle:
     ``"lightgrey"`` on a white canvas)."""
 
     show_wedge_edges: bool = True
-    """Whether to stroke radial edges between wedges of a mixed site.
+    """Whether to draw radial separators between wedges of a mixed site.
 
-    Default ``True`` draws each wedge boundary using the existing atom
-    outline colour and width.  Set to ``False`` to stroke only the outer
-    arc."""
+    Default ``True`` draws thin radial lines (filled polygons in the
+    atom outline colour) between adjacent wedges, including at the
+    vacancy boundary.  Set to ``False`` to render mixed sites as
+    seamless pies bounded only by the outer arc."""
+
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
     circle_segments: int = 72
     arc_segments: int = 12

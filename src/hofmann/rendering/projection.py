@@ -138,7 +138,8 @@ def _make_wedges(
     Returns:
         A list of ``(species_label, polygon)`` pairs in canonical
         composition order.  ``polygon`` has shape ``(k, 2)`` where
-        ``k`` is the number of vertices (>= 3).
+        ``k`` is the number of vertices (``k >= 4``: centre, at
+        least two arc vertices, closing centre).
     """
     occupancies = list(composition.items())
     total_occ = sum(occ for _, occ in occupancies)
