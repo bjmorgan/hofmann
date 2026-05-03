@@ -46,7 +46,6 @@ class Composition(Mapping[str, float]):
     def __post_init__(self) -> None:
         raw = dict(self.occupancies)
 
-        # Type-check keys.
         for key in raw:
             if not isinstance(key, str):
                 raise TypeError(
@@ -58,7 +57,6 @@ class Composition(Mapping[str, float]):
                     "Composition keys must be non-empty species labels"
                 )
 
-        # Validate values, dropping zeros.
         cleaned: dict[str, float] = {}
         for key, value in raw.items():
             v = float(value)

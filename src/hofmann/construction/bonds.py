@@ -55,7 +55,6 @@ def compute_bonds(
             f"{coords.shape[0]} rows"
         )
 
-    # Pre-compute unique constituent species for efficient matching.
     unique_species_set: set[str] = set()
     for site in species:
         unique_species_set |= _site_species(site)
