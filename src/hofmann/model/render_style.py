@@ -1175,7 +1175,11 @@ class RenderStyle:
         show_outlines: Whether to draw outlines around atoms and bonds.
         outline_colour: Colour for outlines when *show_outlines* is
             ``True``.
-        atom_outline_width: Line width for atom outlines (points).
+        atom_outline_width: Line width for pure-circle atom outlines
+            (points).  Mixed-site (Composition) outlines and radial
+            wedge separators are drawn as filled polygons whose
+            thickness scales with the atom's display radius rather
+            than this value; see *show_wedge_edges*.
         bond_outline_width: Line width for bond outlines (points).
         slab_clip_mode: How slab clipping affects polyhedra at the
             boundary.  ``"per_face"`` drops individual faces with
@@ -1292,10 +1296,15 @@ class RenderStyle:
     show_wedge_edges: bool = True
     """Whether to draw radial separators between wedges of a mixed site.
 
-    Default ``True`` draws thin radial lines (filled polygons in the
-    atom outline colour) between adjacent wedges, including at the
-    vacancy boundary.  Set to ``False`` to render mixed sites as
-    seamless pies bounded only by the outer arc."""
+    Default ``True`` draws thin radial lines between adjacent wedges,
+    including at the vacancy boundary.  Set to ``False`` to render
+    mixed sites as seamless pies bounded only by the outer arc.
+
+    The radial separators (and the outer arc itself) are emitted as
+    filled polygons in the atom outline colour with a fixed thickness
+    proportional to the atom's display radius.  This means
+    :attr:`atom_outline_width` (a points-based stroke width for pure
+    circles) does not apply to mixed-site outlines."""
 
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
     circle_segments: int = 72
