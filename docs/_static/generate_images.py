@@ -162,7 +162,6 @@ def partial_occupancy_scene() -> StructureScene:
             "F":  AtomStyle(radius=0.9, colour="#E89A5C"),
         },
         bond_specs=bond_specs,
-        title="TiOF$_{2}$",
     )
     scene.view.look_along([1, 0.18, 0.2])
     return scene
@@ -175,6 +174,28 @@ def disordered_site_scene() -> StructureScene:
     cif_path = Path(__file__).resolve().parent.parent.parent / "examples" / "disordered_site.cif"
     structure = PmgStructure.from_file(cif_path)
     scene = StructureScene.from_pymatgen(structure)
+    scene.view.look_along([1, 0.18, 0.2])
+    return scene
+
+
+def vacancy_site_scene() -> StructureScene:
+    """Single Fe site at 70 % occupancy in a minimal cell.
+
+    Mirrors the layout of :func:`disordered_site_scene` but with a
+    single-species :class:`Composition` summing to less than one, so
+    the rendering shows a vacancy wedge.
+    """
+    a = 2.8
+    scene = StructureScene(
+        species=[Composition({"Fe": 0.7})],
+        frames=[Frame(
+            coords=np.array([[a / 2, a / 2, a / 2]]),
+            lattice=np.eye(3) * a,
+        )],
+        atom_styles={
+            "Fe": AtomStyle(radius=1.32, colour=(0.812, 0.118, 0.067)),
+        },
+    )
     scene.view.look_along([1, 0.18, 0.2])
     return scene
 
@@ -490,16 +511,26 @@ def generate_docs_images() -> None:
 
     # Minimal single-site mixed-occupancy render, paired with the
     # disordered_site.cif example in the user guide.
+    minimal_style = RenderStyle(
+        show_axes=False,
+        cell_style=CellEdgeStyle(line_width=1.6),
+    )
     disordered = disordered_site_scene()
     disordered.render_mpl(
         OUT / "partial_occupancy_minimal.svg",
         figsize=(3, 3), dpi=150,
-        style=RenderStyle(
-            show_axes=False,
-            cell_style=CellEdgeStyle(line_width=1.6),
-        ),
+        style=minimal_style,
     )
     print(f"  wrote {OUT / 'partial_occupancy_minimal.svg'}")
+
+    # Single-site vacancy render for the Vacancies section.
+    vacancy = vacancy_site_scene()
+    vacancy.render_mpl(
+        OUT / "partial_occupancy_vacancy.svg",
+        figsize=(3, 3), dpi=150,
+        style=minimal_style,
+    )
+    print(f"  wrote {OUT / 'partial_occupancy_vacancy.svg'}")
 
     # LLZO garnet with ZrO6 polyhedra and slab clipping
     llzo = llzo_scene()
