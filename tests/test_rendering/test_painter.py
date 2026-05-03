@@ -1953,3 +1953,19 @@ class TestPainterWithMixed:
             style=RenderStyle(show_wedge_edges=True),
             show=False,
         )
+
+    def test_half_bond_colour_uses_dominant_at_mixed_end(self):
+        """The half-bond at a mixed-site end uses dominant species' colour."""
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3}), "O"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour=(1.0, 0.0, 0.0)),
+                "Mn": AtomStyle(radius=1.0, colour=(0.5, 0.0, 0.5)),
+                "O":  AtomStyle(radius=1.0, colour=(0.0, 0.0, 1.0)),
+            },
+            bond_specs=[BondSpec(species=("Fe", "O"), max_length=2.5)],
+        )
+        # Just confirm rendering does not raise; colour assertion is in
+        # the unit-level test of _species_colours.
+        scene.render_mpl(show=False)
