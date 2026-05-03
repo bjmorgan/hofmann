@@ -171,6 +171,62 @@ class TestBuildLegendItems:
         items = self._build(scene)
         assert items == []
 
+    def test_auto_detect_expands_composition_constituents(self):
+        """Mixed sites contribute each constituent species to the legend."""
+        from hofmann.model.composition import Composition
+
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3}), "O"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "Fe": AtomStyle(1.4, (0.8, 0.2, 0.2)),
+                "Mn": AtomStyle(1.0, (0.5, 0.0, 0.5)),
+                "O":  AtomStyle(0.7, (0.0, 0.8, 0.8)),
+            },
+        )
+        items = self._build(scene)
+        # Iteration order: Fe (highest occupancy in the Composition),
+        # then Mn, then O from the second site.
+        assert [item.key for item in items] == ["Fe", "Mn", "O"]
+        # First item is Fe; its colour must come from Fe's AtomStyle.
+        assert items[0].colour == (0.8, 0.2, 0.2)
+
+    def test_auto_detect_includes_invisible_composition_constituent(self):
+        """A constituent of a Composition is included even if its
+        AtomStyle has visible=False — mixed sites always render all
+        constituents, so the legend must reflect them."""
+        from hofmann.model.composition import Composition
+
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(1.4, (0.8, 0.2, 0.2)),
+                # Mn marked invisible; mixed-site rendering ignores
+                # this flag, so the legend should too.
+                "Mn": AtomStyle(1.0, (0.5, 0.0, 0.5), visible=False),
+            },
+        )
+        items = self._build(scene)
+        assert [item.key for item in items] == ["Fe", "Mn"]
+
+    def test_auto_detect_excludes_invisible_pure_species(self):
+        """A pure-string row with visible=False is genuinely hidden,
+        so it should be omitted from the legend."""
+        scene = StructureScene(
+            species=["Fe", "Mn"],
+            frames=[Frame(coords=np.zeros((2, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(1.4, (0.8, 0.2, 0.2)),
+                "Mn": AtomStyle(1.0, (0.5, 0.0, 0.5), visible=False),
+            },
+        )
+        items = self._build(scene)
+        assert [item.key for item in items] == ["Fe"]
+
 
 class TestResolveItemRadius:
     """Tests for _resolve_item_radius — polyhedron vs flat defaults."""

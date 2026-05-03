@@ -5,6 +5,7 @@ from __future__ import annotations
 import numpy as np
 
 from hofmann.model import StructureScene, ViewState
+from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
 
 # Default unit circle for atom rendering (closed polygon).
@@ -108,3 +109,100 @@ def _scene_extent(
         max_extent *= persp_scale
 
     return float(max_extent * view.zoom)
+
+
+def _make_wedges(
+    composition: Composition,
+    n_segments_total: int,
+    start_angle: float,
+) -> list[tuple[str, np.ndarray]]:
+    """Build wedge polygons for a mixed-site composition.
+
+    Each wedge is a closed polygon (centre + arc vertices + closing
+    vertex back to the centre) sweeping an angle of exactly
+    ``2π · occ``.  Wedge *angles* are therefore always proportional
+    to occupancy — independent of any segment allocation.
+
+    *n_segments_total* controls only the smoothness of the rendered
+    arcs.  Each wedge gets ``max(1, round(n_segments_total * occ))``
+    arc segments: a per-wedge target proportional to occupancy, with
+    a minimum of one segment so that every wedge has at least two
+    arc vertices.  The sum across wedges is therefore a soft target,
+    not a hard cap — small constituents that round below one segment
+    are bumped up.  In practice the overshoot is at most a couple
+    of segments at the default budget, well below display resolution.
+
+    Args:
+        composition: The site composition (iteration order is canonical).
+        n_segments_total: Target arc-segment count for a full circle,
+            controlling arc smoothness.  Per-wedge counts are derived
+            proportionally with a minimum of one segment.
+        start_angle: Starting angle in radians (counter-clockwise from
+            the +x axis).
+
+    Returns:
+        A list of ``(species_label, polygon)`` pairs in canonical
+        composition order.  ``polygon`` has shape ``(k, 2)`` where
+        ``k`` is the number of vertices (``k >= 4``: centre, at
+        least two arc vertices, closing centre).
+    """
+    occupancies = list(composition.items())
+    total_occ = sum(occ for _, occ in occupancies)
+    if total_occ <= 0.0:
+        return []
+
+    raw_alloc = [
+        max(1, int(round(n_segments_total * occ)))
+        for _, occ in occupancies
+    ]
+
+    wedges: list[tuple[str, np.ndarray]] = []
+    angle = start_angle
+    for (species_label, occ), n_seg in zip(occupancies, raw_alloc):
+        wedge_angle = 2.0 * np.pi * occ
+        thetas = np.linspace(angle, angle + wedge_angle, n_seg + 1)
+        arc = np.column_stack([np.cos(thetas), np.sin(thetas)])
+        polygon = np.vstack([
+            np.array([[0.0, 0.0]]),
+            arc,
+            np.array([[0.0, 0.0]]),
+        ])
+        wedges.append((species_label, polygon))
+        angle += wedge_angle
+
+    return wedges
+
+
+def _make_vacancy_wedge(
+    composition: Composition,
+    n_segments_total: int,
+    start_angle: float,
+) -> np.ndarray | None:
+    """Build the leftover-arc polygon for a partially occupied composition.
+
+    Returns a closed polygon (centre + arc + close) covering the
+    vacancy fraction of *composition*.  Returns ``None`` when the
+    composition is fully occupied.
+
+    Args:
+        composition: The site composition.
+        n_segments_total: Total arc segments allocated to a full circle.
+        start_angle: Starting angle for the species wedges (radians).
+
+    Returns:
+        A polygon array of shape ``(k, 2)``, or ``None`` if no vacancy.
+    """
+    total_occ = sum(composition.values())
+    if total_occ >= 1.0 - _OCCUPANCY_TOLERANCE:
+        return None
+    vacancy_frac = 1.0 - total_occ
+    angle = start_angle + 2.0 * np.pi * total_occ
+    n_seg = max(1, int(round(n_segments_total * vacancy_frac)))
+    thetas = np.linspace(angle, angle + 2.0 * np.pi * vacancy_frac, n_seg + 1)
+    arc = np.column_stack([np.cos(thetas), np.sin(thetas)])
+    polygon = np.vstack([
+        np.array([[0.0, 0.0]]),
+        arc,
+        np.array([[0.0, 0.0]]),
+    ])
+    return polygon

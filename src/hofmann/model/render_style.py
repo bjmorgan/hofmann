@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import StrEnum
@@ -985,9 +986,12 @@ class LegendStyle:
             species label in points.
         species: Explicit list of species to include, in display
             order.  ``None`` (the default) auto-detects from the
-            scene: unique species in first-seen order, filtered to
-            those with ``visible=True`` in their atom style.
-            Ignored when *items* is provided.
+            scene: unique species in first-seen order.  Pure-string
+            site rows contribute their species only when its
+            ``AtomStyle.visible`` is ``True``; species sourced from
+            a :class:`~hofmann.Composition` constituent are always
+            included (mixed-site rendering ignores per-constituent
+            visibility).  Ignored when *items* is provided.
         labels: Custom display labels for legend entries, mapping
             species name to label string.  Common chemical notation
             is auto-formatted: trailing charges become superscripts
@@ -1175,6 +1179,8 @@ class RenderStyle:
         outline_colour: Colour for outlines when *show_outlines* is
             ``True``.
         atom_outline_width: Line width for atom outlines (points).
+            Applies uniformly to pure-string sites and to the outer
+            outline and radial wedge separators of mixed sites.
         bond_outline_width: Line width for bond outlines (points).
         slab_clip_mode: How slab clipping affects polyhedra at the
             boundary.  ``"per_face"`` drops individual faces with
@@ -1273,6 +1279,32 @@ class RenderStyle:
     outline_colour: Colour = (0.15, 0.15, 0.15)
     atom_outline_width: float = 1.0
     bond_outline_width: float = 1.0
+    wedge_start_angle: float = math.pi / 2
+    """Starting angle for mixed-site pie wedges (radians).
+
+    Default ``pi / 2`` (12 o'clock).  Applied globally to all mixed
+    sites in the scene."""
+
+    vacancy_colour: Colour | None = None
+    """Fill colour for the vacancy fraction of a partially occupied site.
+
+    ``None`` (the default) fills the vacancy wedge with the canvas
+    background colour, so partial sites read as opaque circles with
+    one slice "missing".  Set to an explicit colour to make the
+    vacancy stand out against the background (for example,
+    ``"lightgrey"`` on a white canvas)."""
+
+    show_wedge_edges: bool = True
+    """Whether to draw radial separators between wedges of a mixed site.
+
+    Default ``True`` draws thin radial lines between adjacent wedges,
+    including at the vacancy boundary.  Set to ``False`` to render
+    mixed sites as seamless pies bounded only by the outer arc.
+
+    Both the outer arc and the radial separators are stroked at
+    :attr:`atom_outline_width` points, so mixed-site outlines have
+    the same visual weight as pure-circle outlines."""
+
     slab_clip_mode: SlabClipMode = SlabClipMode.PER_FACE
     circle_segments: int = 72
     arc_segments: int = 12

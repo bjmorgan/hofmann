@@ -30,7 +30,9 @@ from hofmann.model import (
     StructureScene,
     normalise_colour,
 )
+from hofmann.model._util import _site_species
 from hofmann.model.colour import _resolve_atom_colours
+from hofmann.model.composition import Composition
 from hofmann._constants import DEFAULT_ATOM_RADIUS
 
 
@@ -63,6 +65,7 @@ class _PrecomputedScene:
     zoom changes in the interactive viewer.
     """
 
+    species: tuple[str | Composition, ...]
     coords: np.ndarray
     radii_3d: np.ndarray
     atom_colours: list[tuple[float, float, float]]
@@ -81,33 +84,47 @@ class _PrecomputedScene:
 
 
 def _compute_atom_radii(
-    species: Sequence[str],
+    species: Sequence[str | Composition],
     atom_styles: Mapping[str, AtomStyle],
 ) -> np.ndarray:
-    """Compute per-atom display radii from a species list and style map.
+    """Compute per-site display radii.
 
-    Atoms whose species is not present in *atom_styles* fall back to
+    Pure-string sites use their species' :class:`AtomStyle.radius`.
+    Mixed sites use the occupancy-weighted average across constituent
+    species (normalised by the occupancy sum, so vacancies do not
+    shrink the site).  Constituents with no style fall back to
     :data:`DEFAULT_ATOM_RADIUS`.
 
     Args:
-        species: Per-atom species names, one entry per atom.
-        atom_styles: Mapping from species name to :class:`AtomStyle`.
-            Species missing from the map trigger the default fallback.
+        species: Per-site content, one entry per row.  Each entry is
+            either a species label (string) or a :class:`Composition`.
+        atom_styles: Mapping from species label to :class:`AtomStyle`.
 
     Returns:
         A ``(n_atoms,)`` array of ``float`` display radii.
     """
-    species_arr = np.asarray(species)
     radii = np.full(len(species), DEFAULT_ATOM_RADIUS)
-    for sp in set(species):
-        style = atom_styles.get(sp)
-        if style is not None:
-            radii[species_arr == sp] = style.radius
+    for i, site in enumerate(species):
+        if isinstance(site, Composition):
+            total_occ = 0.0
+            weighted = 0.0
+            for sp, occ in site.items():
+                style = atom_styles.get(sp)
+                r = style.radius if style is not None else DEFAULT_ATOM_RADIUS
+                weighted += occ * r
+                total_occ += occ
+            # Composition invariants (validated at construction) guarantee
+            # total_occ > 0 here.
+            radii[i] = weighted / total_occ
+        else:
+            style = atom_styles.get(site)
+            if style is not None:
+                radii[i] = style.radius
     return radii
 
 
 def _warn_missing_atom_styles(
-    species: Sequence[str],
+    species: Sequence[str | Composition],
     atom_styles: Mapping[str, AtomStyle],
 ) -> None:
     """Emit a single warning listing all species that lack an ``AtomStyle``.
@@ -125,10 +142,15 @@ def _warn_missing_atom_styles(
     Does nothing if all species have styles or the species list is empty.
 
     Args:
-        species: Per-atom species names, one entry per atom.
+        species: Per-site content, one entry per atom.  Each entry is
+            either a species label string or a :class:`Composition`;
+            the latter is flattened to its constituent species.
         atom_styles: Mapping from species name to :class:`AtomStyle`.
     """
-    missing = sorted(frozenset(species) - atom_styles.keys())
+    all_species: set[str] = set()
+    for site in species:
+        all_species |= _site_species(site)
+    missing = sorted(all_species - atom_styles.keys())
     if not missing:
         return
     species_list = ", ".join(f"'{sp}'" for sp in missing)
@@ -241,6 +263,12 @@ def _precompute_scene(
     style_hidden_atoms: set[int] = set()
     style_hidden_bond_ids: set[int] = set()
     for i, sp in enumerate(species):
+        if isinstance(sp, Composition):
+            # Per-species visibility flags do not propagate to
+            # constituents of a mixed site: a Composition row is
+            # always drawn (the user controls its rendering through
+            # composition-level mechanisms like colour_by).
+            continue
         style = scene.atom_styles.get(sp)
         if style is not None and not style.visible:
             style_hidden_atoms.add(i)
@@ -312,6 +340,7 @@ def _precompute_scene(
         ))
 
     return _PrecomputedScene(
+        species=tuple(species),
         coords=coords,
         radii_3d=radii_3d,
         atom_colours=atom_colours,

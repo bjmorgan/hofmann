@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from hofmann.model import AtomStyle, StructureScene, ViewState
+from hofmann.model.composition import Composition
 from hofmann.construction.scene_builders import from_ase, from_xbs, from_pymatgen
 
 _has_ase = False
@@ -706,3 +707,109 @@ class TestFromAseImportError:
         monkeypatch.setattr(builtins, "__import__", mock_import)
         with pytest.raises(ImportError, match="ase is required"):
             from_ase(None)
+
+
+@pytest.mark.skipif(not _has_pymatgen, reason="pymatgen not installed")
+class TestFromPymatgenWithMixed:
+    def test_pure_site_remains_string(self):
+        from pymatgen.core import Lattice, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=["Fe"],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        assert scene.species[0] == "Fe"
+        assert isinstance(scene.species[0], str)
+
+    def test_mixed_site_becomes_composition(self):
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({"Fe": 0.7, "Mn": 0.3})],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        site = scene.species[0]
+        assert isinstance(site, Composition)
+        assert site["Fe"] == pytest.approx(0.7)
+        assert site["Mn"] == pytest.approx(0.3)
+
+    def test_partial_site_with_vacancy(self):
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({"Fe": 0.7})],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        site = scene.species[0]
+        assert isinstance(site, Composition)
+        assert site.vacancy == pytest.approx(0.3)
+        assert site["Fe"] == pytest.approx(0.7)
+
+    def test_charged_species_stripped_to_element_symbol(self):
+        from pymatgen.core import Lattice, Species, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[Species("Li", 1)],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        assert scene.species[0] == "Li"
+
+    def test_mixed_charged_species_stripped_to_element_symbols(self):
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Species, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({Species("Fe", 2): 0.7, Species("Mn", 3): 0.3})],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        site = scene.species[0]
+        assert isinstance(site, Composition)
+        assert "Fe" in site
+        assert "Mn" in site
+
+    def test_mixed_valence_same_element_merges(self):
+        """Fe2+ and Fe3+ on one site should not collide via .symbol stripping."""
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Species, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({Species("Fe", 2): 0.4, Species("Fe", 3): 0.6})],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        site = scene.species[0]
+        # The full occupancy of 1.0 should be preserved (no fake vacancy).
+        if isinstance(site, str):
+            assert site == "Fe"
+        else:
+            assert site["Fe"] == pytest.approx(1.0)
+            assert site.vacancy == pytest.approx(0.0)
+
+    def test_default_bond_specs_use_mixed_site_constituents(self):
+        """Default bond specs include pairs involving mixed-site
+        constituents (Fe-O, Mn-O), not just literal site keys."""
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({"Fe": 0.7, "Mn": 0.3}), "O"],
+            coords=[[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        pairs = {tuple(sorted(s.species)) for s in scene.bond_specs}
+        assert ("Fe", "O") in pairs
+        assert ("Mn", "O") in pairs

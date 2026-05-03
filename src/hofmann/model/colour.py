@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
+from hofmann.model.composition import Composition
+
 if TYPE_CHECKING:
     from hofmann.model.atom_data import AtomData
     from hofmann.model.atom_style import AtomStyle
@@ -82,25 +84,34 @@ def normalise_colour(colour: Colour) -> tuple[float, float, float]:
 
 
 def _species_colours(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     atom_styles: dict[str, AtomStyle],
 ) -> list[tuple[float, float, float]]:
     """Return per-atom colours from species styles (the default path).
 
-    Colours are normalised once per species and cached, so the cost is
-    proportional to the number of unique species rather than the number
-    of atoms.
+    For pure-string sites, returns the species' :class:`AtomStyle.colour`.
+    For :class:`Composition` sites, returns the *dominant species*'
+    colour (highest occupancy, alphabetical tiebreak).  Sites with no
+    matching style fall back to grey ``(0.5, 0.5, 0.5)``.
+
+    Colours are normalised once per resolved label and cached, so the
+    cost is proportional to the number of distinct dominant labels
+    rather than the number of atoms.
     """
     cache: dict[str, tuple[float, float, float]] = {}
     colours: list[tuple[float, float, float]] = []
-    for sp in species:
-        if sp not in cache:
-            style = atom_styles.get(sp)
+    for site in species:
+        if isinstance(site, Composition):
+            label = site.dominant_species
+        else:
+            label = site
+        if label not in cache:
+            style = atom_styles.get(label)
             if style is not None:
-                cache[sp] = normalise_colour(style.colour)
+                cache[label] = normalise_colour(style.colour)
             else:
-                cache[sp] = (0.5, 0.5, 0.5)
-        colours.append(cache[sp])
+                cache[label] = (0.5, 0.5, 0.5)
+        colours.append(cache[label])
     return colours
 
 
@@ -167,7 +178,7 @@ def _resolve_single_layer(
 
 
 def _resolve_atom_colours(
-    species: tuple[str, ...],
+    species: tuple[str | Composition, ...],
     atom_styles: dict[str, AtomStyle],
     atom_data: dict[str, np.ndarray],
     colour_by: str | list[str] | None = None,

@@ -25,6 +25,9 @@ Data model
 .. autoclass:: AtomStyle
    :members:
 
+.. autoclass:: Composition
+   :members:
+
 .. autoclass:: BondSpec
    :members:
 

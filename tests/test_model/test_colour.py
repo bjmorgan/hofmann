@@ -4,7 +4,12 @@ import numpy as np
 import pytest
 
 from hofmann.model.atom_style import AtomStyle
-from hofmann.model.colour import _resolve_atom_colours, normalise_colour
+from hofmann.model.colour import (
+    _resolve_atom_colours,
+    _species_colours,
+    normalise_colour,
+)
+from hofmann.model.composition import Composition
 
 
 class TestNormaliseColour:
@@ -425,3 +430,40 @@ class TestResolveAtomColours:
         )
         for actual, exp in zip(result, expected):
             assert actual == pytest.approx(exp)
+
+
+class TestSpeciesColoursWithMixed:
+    def _styles(self):
+        return {
+            "Fe": AtomStyle(radius=1.0, colour=(1.0, 0.0, 0.0)),
+            "Mn": AtomStyle(radius=1.0, colour=(0.5, 0.0, 0.5)),
+            "O":  AtomStyle(radius=1.0, colour=(0.0, 0.0, 1.0)),
+        }
+
+    def test_pure_string_unchanged(self):
+        colours = _species_colours(("Fe",), self._styles())
+        assert colours[0] == pytest.approx((1.0, 0.0, 0.0))
+
+    def test_mixed_site_uses_dominant_species_colour(self):
+        # 70% Fe, 30% Mn -> Fe is dominant.
+        site = Composition({"Fe": 0.7, "Mn": 0.3})
+        colours = _species_colours((site,), self._styles())
+        assert colours[0] == pytest.approx((1.0, 0.0, 0.0))
+
+    def test_mixed_site_alphabetical_tiebreak(self):
+        # 50/50 -> alphabetical -> Fe.
+        site = Composition({"Fe": 0.5, "Mn": 0.5})
+        colours = _species_colours((site,), self._styles())
+        assert colours[0] == pytest.approx((1.0, 0.0, 0.0))
+
+    def test_partial_site_uses_only_present_species(self):
+        # Vacancy excluded; Fe is the only constituent -> Fe colour.
+        site = Composition({"Fe": 0.7})
+        colours = _species_colours((site,), self._styles())
+        assert colours[0] == pytest.approx((1.0, 0.0, 0.0))
+
+    def test_dominant_missing_style_falls_back_to_grey(self):
+        site = Composition({"Cu": 0.7, "Mn": 0.3})
+        # Cu is dominant but has no AtomStyle.
+        colours = _species_colours((site,), self._styles())
+        assert colours[0] == (0.5, 0.5, 0.5)

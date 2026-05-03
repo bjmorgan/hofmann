@@ -23,6 +23,7 @@ from hofmann.model import (
     ViewState,
     normalise_colour,
 )
+from hofmann.model.composition import Composition
 from hofmann.rendering.static import render_mpl
 from hofmann.construction.scene_builders import from_xbs
 
@@ -1849,3 +1850,320 @@ class TestRenderLegend:
         fig = render_legend(scene, output=path, legend_style=style)
         assert path.exists()
         plt.close(fig)
+
+
+class TestPainterWithMixed:
+    def test_mixed_site_emits_multiple_polygons(self):
+        """A mixed site contributes one polygon per constituent species."""
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # 2 species wedges + outer ring + 2 radial edges = 5 polygons.
+        assert total_paths == 5
+        plt.close(fig)
+
+    def test_pure_string_scene_renders_unchanged(self):
+        scene = StructureScene(
+            species=["Fe"],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        # Should not raise.
+        fig = scene.render_mpl(show=False)
+        plt.close(fig)
+
+    def test_partial_site_renders(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7})],  # 30% vacancy
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        fig = scene.render_mpl(show=False)
+        plt.close(fig)
+
+    def test_vacancy_colour_renders(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        fig = scene.render_mpl(
+            style=RenderStyle(vacancy_colour="white"),
+            show=False,
+        )
+        plt.close(fig)
+
+    def test_mixed_site_ignores_per_constituent_visibility(self):
+        """visible=False on a constituent has no effect on wedge rendering.
+
+        Per-species visibility is a pure-site concept; mixed sites are
+        drawn with all their constituents regardless of any constituent's
+        visible flag.
+        """
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.5, "Mn": 0.5})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple", visible=False),
+            },
+        )
+        fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        # Both wedges are emitted regardless of Mn's visible=False.
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # 2 wedges + outer ring + 2 radial edges = 5 polygons.
+        assert total_paths == 5
+        plt.close(fig)
+
+    def test_mixed_site_renders_even_if_all_constituents_marked_hidden(self):
+        """All constituents marked visible=False still draws the site.
+
+        This is the design call: mixed sites are not hidden via
+        per-species visibility flags.
+        """
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.5, "Mn": 0.5})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red", visible=False),
+                "Mn": AtomStyle(radius=1.0, colour="purple", visible=False),
+            },
+        )
+        fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # Site still drawn fully: 2 wedges + outer ring + 2 radials = 5.
+        assert total_paths == 5
+        plt.close(fig)
+
+    def test_mixed_site_with_unstyled_constituent_renders(self):
+        """A constituent with no AtomStyle should fall back to grey,
+        not leave a transparent gap.  Matches the fallback used in
+        ``_compute_atom_radii`` and ``_species_colours``.
+        """
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.5, "Mn": 0.5})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                # Mn deliberately omitted.
+            },
+        )
+        # Should not raise, and should still emit a polygon for the
+        # unstyled Mn wedge (greyed out, not skipped).
+        fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # 2 wedges (Fe + Mn-as-grey) + outer ring + 2 radial edges = 5.
+        assert total_paths == 5
+        plt.close(fig)
+
+    def test_show_wedge_edges_false_strokes_outer_arc_only(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        # Should not raise.  Exercises show_wedge_edges=False
+        # explicitly (the default is True).
+        scene.render_mpl(
+            style=RenderStyle(show_wedge_edges=False),
+            show=False,
+        )
+
+    def test_show_wedge_edges_true_does_not_raise(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        scene.render_mpl(
+            style=RenderStyle(show_wedge_edges=True),
+            show=False,
+        )
+
+    def test_half_bond_colour_uses_dominant_at_mixed_end(self):
+        """The half-bond at a mixed-site end uses dominant species' colour."""
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3}), "O"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]]))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour=(1.0, 0.0, 0.0)),
+                "Mn": AtomStyle(radius=1.0, colour=(0.5, 0.0, 0.5)),
+                "O":  AtomStyle(radius=1.0, colour=(0.0, 0.0, 1.0)),
+            },
+            bond_specs=[BondSpec(species=("Fe", "O"), max_length=2.5)],
+        )
+        # Just confirm rendering does not raise; colour assertion is in
+        # the unit-level test of _species_colours.
+        scene.render_mpl(show=False)
+
+    def test_colour_by_renders_mixed_site_as_uniform_circle(self):
+        """When colour_by is set, mixed sites render as a single uniform
+        circle (use_wedges=False), not as wedges."""
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        scene.set_atom_data("highlight", values=np.array([1.0]))
+        fig = scene.render_mpl(colour_by="highlight", show=False)
+        plt.close(fig)
+
+
+class TestEmitAtomPolygons:
+    def _kwargs(self, **overrides):
+        """Build a default kwargs dict for _emit_atom_polygons."""
+        defaults = dict(
+            centre_xy=np.array([0.0, 0.0]),
+            screen_radius=10.0,
+            fallback_face_colour=(1.0, 0.0, 0.0, 1.0),
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+            style=RenderStyle(),
+            unit_circle=np.array([
+                [1, 0], [0, 1], [-1, 0], [0, -1], [1, 0],
+            ], dtype=float),
+            show_outlines=True,
+            outline_rgb=(0.0, 0.0, 0.0),
+            atom_outline_width=1.0,
+            use_wedges=True,
+            bg_rgb=(1.0, 1.0, 1.0),
+        )
+        defaults.update(overrides)
+        return defaults
+
+    def test_pure_string_emits_single_circle(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content="Fe", **self._kwargs(),
+        )
+        # Pure-string site: exactly one filled-and-stroked circle.
+        assert len(verts) == 1
+        assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
+
+    def test_pure_composition_emits_one_wedge(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 1.0}),
+            **self._kwargs(),
+        )
+        # Pure-occupancy composition: one filled wedge in the
+        # species' colour plus a transparent-fill outer-circle
+        # outline polygon.  No vacancy wedge, no radial edges
+        # (single wedge wrapping the full circle).
+        assert len(verts) == 2
+        # First polygon is the Fe wedge (red, per the kwargs default),
+        # filled and not stroked.
+        assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
+        assert lws[0] == 0.0
+        # Second polygon is the outer-circle outline: transparent
+        # face, stroked edge in outline_rgb at atom_outline_width.
+        assert fcs[1] == (0.0, 0.0, 0.0, 0.0)
+        assert ecs[1] == (0.0, 0.0, 0.0, 1.0)
+        assert lws[1] == 1.0
+
+    def test_unstyled_constituent_uses_grey_fallback(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        # Mn missing from atom_styles.
+        kwargs = self._kwargs(
+            atom_styles={"Fe": AtomStyle(radius=1.0, colour="red")},
+        )
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.5}),
+            **kwargs,
+        )
+        # Look for a face colour matching default grey (0.5, 0.5, 0.5, 1.0).
+        assert (0.5, 0.5, 0.5, 1.0) in fcs
+
+    def test_use_wedges_false_renders_single_circle_for_composition(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(use_wedges=False)
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.7, "Mn": 0.3}),
+            **kwargs,
+        )
+        # use_wedges=False forces the non-wedge branch: exactly one
+        # polygon emitted (the unit circle), with the fallback face
+        # colour applied (here red, the kwargs default).
+        assert len(verts) == 1
+        assert fcs[0] == (1.0, 0.0, 0.0, 1.0)
+
+    def test_radial_edge_count_two_species_full(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.7, "Mn": 0.3}),
+            **self._kwargs(),
+        )
+        # Two species + full occupancy -> 2 wedge polygons + 1 outer
+        # ring + 2 radial edges (wrap-around + between species) = 5.
+        assert len(verts) == 5
+
+    def test_radial_edge_count_two_species_with_vacancy(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.3}),  # 0.2 vacancy
+            **self._kwargs(),
+        )
+        # Two species + vacancy -> 2 species wedges + 1 vacancy wedge +
+        # 1 outer ring + 3 radial edges (vacancy/Fe boundary, Fe/Mn
+        # boundary, Mn/vacancy boundary) = 7 polygons.
+        assert len(verts) == 7
+
+    def test_zero_outline_width_skips_outline_polygons(self):
+        """atom_outline_width=0 should elide outline polygons entirely.
+
+        With a stroked-paths outline implementation, a zero linewidth
+        produces no visible stroke, but the polygon vertices would
+        still bloat the PolyCollection.  Short-circuiting the outline
+        emission keeps the collection tight.
+        """
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(atom_outline_width=0.0)
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.5}),
+            **kwargs,
+        )
+        # Only the two filled wedges; no outer ring, no radial edges.
+        assert len(verts) == 2
+
+    def test_zero_outline_width_skips_outline_polygons_with_vacancy(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(atom_outline_width=0.0)
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.3}),  # vacancy
+            **kwargs,
+        )
+        # Two species wedges + vacancy wedge.  No outline polygons.
+        assert len(verts) == 3
+
+    def test_vacancy_uses_bg_rgb_when_vacancy_colour_is_none(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(bg_rgb=(0.85, 0.95, 0.85))
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.7}),  # 30% vacancy
+            **kwargs,
+        )
+        # The vacancy wedge should be filled with bg_rgb (alpha 1.0).
+        expected = (0.85, 0.95, 0.85, 1.0)
+        assert expected in fcs

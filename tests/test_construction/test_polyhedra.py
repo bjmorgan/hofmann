@@ -3,8 +3,10 @@
 import numpy as np
 import pytest
 
-from hofmann.model import Bond, BondSpec, Polyhedron, PolyhedronSpec
+from hofmann.construction.bonds import compute_bonds
 from hofmann.construction.polyhedra import compute_polyhedra
+from hofmann.model import Bond, BondSpec, Polyhedron, PolyhedronSpec
+from hofmann.model.composition import Composition
 
 
 def _make_bond(i: int, j: int, spec: BondSpec) -> Bond:
@@ -243,3 +245,71 @@ class TestComputePolyhedra:
         assert len(result) == 1
         # Should have triangulated the planar polygon into faces.
         assert len(result[0].faces) >= 1
+
+
+def _octahedral_geometry():
+    """Return coords for one centre atom plus six octahedral vertices."""
+    coords = np.array([
+        [0.0, 0.0, 0.0],
+        [2.0, 0.0, 0.0], [-2.0, 0.0, 0.0],
+        [0.0, 2.0, 0.0], [0.0, -2.0, 0.0],
+        [0.0, 0.0, 2.0], [0.0, 0.0, -2.0],
+    ])
+    return coords
+
+
+class TestPolyhedraWithMixed:
+    def test_mixed_centre_fires_on_constituent(self):
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}),) + ("O",) * 6
+        coords = _octahedral_geometry()
+        bonds = compute_bonds(
+            species, coords,
+            [BondSpec(species=("Fe", "O"), max_length=2.5)],
+        )
+        polys = compute_polyhedra(
+            species, coords, bonds,
+            [PolyhedronSpec(centre="Fe")],
+        )
+        assert len(polys) == 1
+
+    def test_pure_centre_unchanged(self):
+        species = ("Fe",) + ("O",) * 6
+        coords = _octahedral_geometry()
+        bonds = compute_bonds(
+            species, coords,
+            [BondSpec(species=("Fe", "O"), max_length=2.5)],
+        )
+        polys = compute_polyhedra(
+            species, coords, bonds,
+            [PolyhedronSpec(centre="Fe")],
+        )
+        assert len(polys) == 1
+
+    def test_mixed_vertex_inherits_via_bonds(self):
+        # Six mixed O/F vertices around a pure Ti centre.
+        # Bonds for Ti-O fire on the mixed vertices because they contain O.
+        species = ("Ti",) + (Composition({"O": 0.5, "F": 0.5}),) * 6
+        coords = _octahedral_geometry()
+        bonds = compute_bonds(
+            species, coords,
+            [BondSpec(species=("Ti", "O"), max_length=2.5)],
+        )
+        polys = compute_polyhedra(
+            species, coords, bonds,
+            [PolyhedronSpec(centre="Ti")],
+        )
+        assert len(polys) == 1
+
+    def test_centre_pattern_misses_when_species_absent(self):
+        # Pure Ni centre, Fe-pattern spec must not fire.
+        species = ("Ni",) + ("O",) * 6
+        coords = _octahedral_geometry()
+        bonds = compute_bonds(
+            species, coords,
+            [BondSpec(species=("Ni", "O"), max_length=2.5)],
+        )
+        polys = compute_polyhedra(
+            species, coords, bonds,
+            [PolyhedronSpec(centre="Fe")],
+        )
+        assert len(polys) == 0

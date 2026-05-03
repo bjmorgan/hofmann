@@ -7,6 +7,7 @@ order into a matplotlib Axes via a single PolyCollection.
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Mapping
 
 import matplotlib.patheffects as path_effects
 import numpy as np
@@ -14,12 +15,14 @@ from matplotlib.axes import Axes
 from matplotlib.collections import PolyCollection
 
 from hofmann.model import (
+    AtomStyle,
     CmapSpec,
     RenderStyle,
     StructureScene,
     ViewState,
     normalise_colour,
 )
+from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.axes_widget import _draw_axes_widget
 from hofmann.rendering.bond_geometry import (
     _bond_polygons_batch,
@@ -34,10 +37,185 @@ from hofmann.rendering.precompute import (
     _collect_polyhedra_faces,
     _precompute_scene,
 )
-from hofmann.rendering.projection import _make_unit_circle
+from hofmann.rendering.projection import (
+    _make_unit_circle,
+    _make_vacancy_wedge,
+    _make_wedges,
+)
 
 # Font size (points) for scene titles rendered inside the viewport.
 _TITLE_FONT_SIZE = 12.0
+
+
+def _emit_atom_polygons(
+    site_content: str | Composition,
+    centre_xy: np.ndarray,
+    screen_radius: float,
+    fallback_face_colour: tuple[float, ...],
+    atom_styles: Mapping[str, AtomStyle],
+    style: RenderStyle,
+    unit_circle: np.ndarray,
+    show_outlines: bool,
+    outline_rgb: tuple[float, float, float],
+    atom_outline_width: float,
+    use_wedges: bool,
+    bg_rgb: tuple[float, float, float],
+) -> tuple[
+    list[np.ndarray],
+    list[tuple[float, ...]],
+    list[tuple[float, ...]],
+    list[float],
+]:
+    """Build polygon(s) and styling for one atom-row emission.
+
+    For a pure-string site (or when *use_wedges* is False), returns a
+    single circle polygon styled with *fallback_face_colour*.  For a
+    :class:`Composition` site with *use_wedges* True, returns one
+    wedge polygon per constituent species (using the constituents'
+    :class:`AtomStyle.colour`) plus a vacancy wedge filled with
+    :attr:`RenderStyle.vacancy_colour` (or *bg_rgb* when that is
+    ``None``).
+
+    Per-species visibility (``AtomStyle.visible``) is ignored for
+    constituents of a :class:`Composition`: every constituent is
+    rendered regardless of the flag.  Per-species visibility only
+    applies to pure-string site rows.  This avoids the visually
+    inconsistent state where a constituent is hidden in the wedge
+    rendering but its species still attracts bonds and matches
+    rule lookups.
+
+    Args:
+        site_content: Either a species label string or a Composition.
+        centre_xy: 2D screen-space centre, shape ``(2,)``.
+        screen_radius: Atom display radius in screen units.
+        fallback_face_colour: RGBA face colour used for pure sites or
+            when colour_by overrides the row.
+        atom_styles: Mapping species label -> AtomStyle.
+        style: The active RenderStyle.
+        unit_circle: Pre-computed unit circle polygon.
+        show_outlines: Whether to draw outlines.
+        outline_rgb: Normalised outline RGB triple.
+        atom_outline_width: Outline width when drawn.
+        use_wedges: Whether to emit wedges for mixed sites
+            (false when colour_by is overriding the row).
+        bg_rgb: Normalised canvas background RGB.  Used as the default
+            vacancy fill when ``style.vacancy_colour`` is ``None``,
+            ensuring the atom remains visually opaque.
+
+    Returns:
+        ``(verts, face_cs, edge_cs, line_widths)`` lists, all the
+        same length.
+    """
+    verts: list[np.ndarray] = []
+    face_cs: list[tuple[float, ...]] = []
+    edge_cs: list[tuple[float, ...]] = []
+    lws: list[float] = []
+
+    if isinstance(site_content, Composition) and use_wedges:
+        wedges = _make_wedges(
+            site_content,
+            n_segments_total=style.circle_segments,
+            start_angle=style.wedge_start_angle,
+        )
+        # Filled wedges always have no edge stroke.  The outer arc
+        # outline is emitted separately as a full ring (so vacancy
+        # gaps still close the atom boundary visibly), and radial
+        # edges between adjacent species wedges are emitted as their
+        # own thin line polygons (so the vacancy boundary is not
+        # stroked).
+        for sp, polygon in wedges:
+            sp_style = atom_styles.get(sp)
+            if sp_style is None:
+                # Unknown species (no style registered): fall back to
+                # the same default-grey used elsewhere in the rendering
+                # pipeline.  See the function docstring for the full
+                # rule about per-constituent visibility.
+                wedge_rgb: tuple[float, float, float] = (0.5, 0.5, 0.5)
+            else:
+                wedge_rgb = normalise_colour(sp_style.colour)
+            wedge_fc = (*wedge_rgb, 1.0)
+            verts.append(polygon * screen_radius + centre_xy)
+            face_cs.append(wedge_fc)
+            edge_cs.append(wedge_fc)
+            lws.append(0.0)
+
+        vac = _make_vacancy_wedge(
+            site_content,
+            n_segments_total=style.circle_segments,
+            start_angle=style.wedge_start_angle,
+        )
+        if vac is not None:
+            if style.vacancy_colour is not None:
+                vac_rgb = normalise_colour(style.vacancy_colour)
+            else:
+                vac_rgb = bg_rgb
+            vac_fc = (*vac_rgb, 1.0)
+            verts.append(vac * screen_radius + centre_xy)
+            face_cs.append(vac_fc)
+            edge_cs.append(vac_fc)
+            lws.append(0.0)
+
+        if show_outlines and atom_outline_width > 0:
+            edge_fc = (*outline_rgb, 1.0)
+            transparent = (0.0, 0.0, 0.0, 0.0)
+            # Outer outline: same closed unit circle as a pure-string
+            # site, but with a transparent face so the wedge fills
+            # show through.  matplotlib strokes the boundary at
+            # ``atom_outline_width`` points, identical in units to
+            # the pure-circle path.
+            verts.append(unit_circle * screen_radius + centre_xy)
+            face_cs.append(transparent)
+            edge_cs.append(edge_fc)
+            lws.append(atom_outline_width)
+
+            # Radial edges bound every wedge boundary, treating the
+            # vacancy fraction as an implicit additional species.
+            # The single exception is a fully occupied single-species
+            # composition: there are no boundaries (just one wedge
+            # wrapping the full circle), so no radial edges to draw.
+            # Each radial is emitted as a degenerate two-vertex
+            # polygon (centre, outer-point); matplotlib closes the
+            # path back to the centre, so the stroke traces a single
+            # line at ``atom_outline_width``.
+            has_vacancy = site_content.vacancy > _OCCUPANCY_TOLERANCE
+            if style.show_wedge_edges and (
+                len(wedges) >= 2 or has_vacancy
+            ):
+                cumulative_angle = style.wedge_start_angle
+                # Boundary at the start of the first wedge: only
+                # meaningful when it separates the vacancy from the
+                # first species.  When fully occupied, the wrap-around
+                # is handled by the trailing boundary of the last
+                # wedge below.
+                if has_vacancy:
+                    edge_polygon = np.array([
+                        [0.0, 0.0],
+                        [np.cos(cumulative_angle), np.sin(cumulative_angle)],
+                    ])
+                    verts.append(edge_polygon * screen_radius + centre_xy)
+                    face_cs.append(transparent)
+                    edge_cs.append(edge_fc)
+                    lws.append(atom_outline_width)
+                # Boundary at the end of each wedge.
+                for sp, _polygon in wedges:
+                    cumulative_angle += 2.0 * np.pi * site_content[sp]
+                    edge_polygon = np.array([
+                        [0.0, 0.0],
+                        [np.cos(cumulative_angle), np.sin(cumulative_angle)],
+                    ])
+                    verts.append(edge_polygon * screen_radius + centre_xy)
+                    face_cs.append(transparent)
+                    edge_cs.append(edge_fc)
+                    lws.append(atom_outline_width)
+    else:
+        verts.append(unit_circle * screen_radius + centre_xy)
+        face_cs.append(fallback_face_colour)
+        edge_cs.append(
+            (*outline_rgb, 1.0) if show_outlines else fallback_face_colour
+        )
+        lws.append(atom_outline_width if show_outlines else 0.0)
+
+    return verts, face_cs, edge_cs, lws
 
 
 def _draw_scene(
@@ -127,6 +305,8 @@ def _draw_scene(
     atom_colours = precomputed.atom_colours
     bond_half_colours = precomputed.bond_half_colours
     adjacency = precomputed.adjacency
+    species = precomputed.species
+    use_wedges = colour_by is None
 
     # ---- Projection ----
     xy, depth, atom_screen_radii = view.project(
@@ -371,14 +551,24 @@ def _draw_scene(
             if not slab_visible[vi]:
                 continue
             fc_atom = (*atom_colours[vi], 1.0)
-            all_verts.append(unit_circle * atom_screen_radii[vi] + xy[vi])
-            face_colours.append(fc_atom)
-            edge_colours.append(
-                (*outline_rgb, 1.0) if show_outlines else fc_atom,
+            verts_out, faces_out, edges_out, lws_out = _emit_atom_polygons(
+                site_content=species[vi],
+                centre_xy=xy[vi],
+                screen_radius=atom_screen_radii[vi],
+                fallback_face_colour=fc_atom,
+                atom_styles=scene.atom_styles,
+                style=style,
+                unit_circle=unit_circle,
+                show_outlines=show_outlines,
+                outline_rgb=outline_rgb,
+                atom_outline_width=atom_outline_width,
+                use_wedges=use_wedges,
+                bg_rgb=bg_rgb,
             )
-            line_widths.append(
-                atom_outline_width if show_outlines else 0.0,
-            )
+            all_verts.extend(verts_out)
+            face_colours.extend(faces_out)
+            edge_colours.extend(edges_out)
+            line_widths.extend(lws_out)
 
         if not slab_visible[k]:
             continue
@@ -388,10 +578,24 @@ def _draw_scene(
         if (k not in all_hidden_atoms
                 and k not in deferred_vertex_atoms):
             fc_atom = (*atom_colours[k], 1.0)
-            all_verts.append(unit_circle * atom_screen_radii[k] + xy[k])
-            face_colours.append(fc_atom)
-            edge_colours.append((*outline_rgb, 1.0) if show_outlines else fc_atom)
-            line_widths.append(atom_outline_width if show_outlines else 0.0)
+            verts_out, faces_out, edges_out, lws_out = _emit_atom_polygons(
+                site_content=species[k],
+                centre_xy=xy[k],
+                screen_radius=atom_screen_radii[k],
+                fallback_face_colour=fc_atom,
+                atom_styles=scene.atom_styles,
+                style=style,
+                unit_circle=unit_circle,
+                show_outlines=show_outlines,
+                outline_rgb=outline_rgb,
+                atom_outline_width=atom_outline_width,
+                use_wedges=use_wedges,
+                bg_rgb=bg_rgb,
+            )
+            all_verts.extend(verts_out)
+            face_colours.extend(faces_out)
+            edge_colours.extend(edges_out)
+            line_widths.extend(lws_out)
 
     # Draw cell edges in front of all atoms.
     for edge_verts, edge_rgba, _ in (
@@ -416,14 +620,24 @@ def _draw_scene(
         if not slab_visible[vi]:
             continue
         fc_atom = (*atom_colours[vi], 1.0)
-        all_verts.append(unit_circle * atom_screen_radii[vi] + xy[vi])
-        face_colours.append(fc_atom)
-        edge_colours.append(
-            (*outline_rgb, 1.0) if show_outlines else fc_atom,
+        verts_out, faces_out, edges_out, lws_out = _emit_atom_polygons(
+            site_content=species[vi],
+            centre_xy=xy[vi],
+            screen_radius=atom_screen_radii[vi],
+            fallback_face_colour=fc_atom,
+            atom_styles=scene.atom_styles,
+            style=style,
+            unit_circle=unit_circle,
+            show_outlines=show_outlines,
+            outline_rgb=outline_rgb,
+            atom_outline_width=atom_outline_width,
+            use_wedges=use_wedges,
+            bg_rgb=bg_rgb,
         )
-        line_widths.append(
-            atom_outline_width if show_outlines else 0.0,
-        )
+        all_verts.extend(verts_out)
+        face_colours.extend(faces_out)
+        edge_colours.extend(edges_out)
+        line_widths.extend(lws_out)
 
     if all_verts:
         pc = PolyCollection(

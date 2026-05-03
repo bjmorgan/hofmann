@@ -42,6 +42,7 @@ Quick example
 
    legends
    colouring
+   partial_occupancy
    animations
    styles
    interactive

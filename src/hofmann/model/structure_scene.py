@@ -13,6 +13,8 @@ from hofmann.model.atom_data import AtomData
 from hofmann.model.atom_style import AtomStyle
 from hofmann.model.bond_spec import BondSpec
 from hofmann.model.colour import Colour, CmapSpec
+from hofmann.model._util import _site_species
+from hofmann.model.composition import Composition
 from hofmann.model.frame import Frame
 from hofmann.model.polyhedron_spec import PolyhedronSpec
 from hofmann.model.render_style import RenderStyle
@@ -30,8 +32,9 @@ class StructureScene:
     (per-atom metadata) properties are documented individually below.
 
     Attributes:
-        species: One label per atom.  Stored as a tuple; the
-            sequence is fixed at construction.
+        species: One entry per site row, either a species label or a
+            :class:`Composition` describing a partially occupied or
+            mixed site.
         frames: List of coordinate snapshots.  Each :class:`Frame` may
             carry its own ``lattice`` for variable-cell trajectories.
         atom_styles: Mapping from species label to visual style.
@@ -42,7 +45,7 @@ class StructureScene:
 
     def __init__(
         self,
-        species: Sequence[str],
+        species: Sequence[str | Composition],
         frames: list[Frame],
         atom_styles: dict[str, AtomStyle] | None = None,
         bond_specs: list[BondSpec] | None = None,
@@ -51,7 +54,14 @@ class StructureScene:
         title: str = "",
         atom_data: dict[str, ArrayLike] | None = None,
     ) -> None:
-        self.species: tuple[str, ...] = tuple(species)
+        species_tuple = tuple(species)
+        for i, item in enumerate(species_tuple):
+            if not isinstance(item, (str, Composition)):
+                raise TypeError(
+                    f"species row {i} must be a str or Composition, "
+                    f"got {type(item).__name__}: {item!r}"
+                )
+        self.species: tuple[str | Composition, ...] = species_tuple
         self.frames = frames
         self.atom_styles = atom_styles if atom_styles is not None else {}
         self.bond_specs = bond_specs if bond_specs is not None else []
@@ -409,7 +419,10 @@ class StructureScene:
         n_frames = len(self.frames)
 
         # --- Validate keys ---
-        known = set(self.species)
+        known: set[str] = set()
+        for site in self.species:
+            known |= _site_species(site)
+
         for label in by_species:
             if label not in known:
                 raise ValueError(
@@ -420,6 +433,19 @@ class StructureScene:
             if not 0 <= idx < n_atoms:
                 raise ValueError(
                     f"atom index {idx} out of range for {n_atoms} atoms"
+                )
+
+        # Conflict detection: a single mixed site cannot receive values
+        # from multiple by_species keys unless by_index overrides it.
+        overridden = set(by_index)
+        for row, site in enumerate(self.species):
+            site_sp = _site_species(site)
+            matches = sorted(k for k in by_species if k in site_sp)
+            if len(matches) > 1 and row not in overridden:
+                raise ValueError(
+                    f"atom_data[{key!r}]: row {row} matches multiple "
+                    f"by_species keys {matches}; pass by_index[{row}]=... "
+                    f"to disambiguate"
                 )
 
         # --- Coerce values and infer dtype / dimensionality ---
@@ -453,10 +479,11 @@ class StructureScene:
                 seen_num = True
 
         # Pre-process by_species values.
-        species_arr = np.array(self.species)
         species_entries: list[tuple[np.ndarray, np.ndarray]] = []
         for label, val in by_species.items():
-            mask = species_arr == label
+            mask = np.array([
+                label in _site_species(site) for site in self.species
+            ])
             n_sp = int(mask.sum())
             a = np.asarray(val)
             if a.ndim == 0:
@@ -763,14 +790,19 @@ class StructureScene:
         else:
             keep = set(species)
 
-        known = set(self.species)
+        known: set[str] = set()
+        for site in self.species:
+            known |= _site_species(site)
+
         unknown = keep - known
         if unknown:
             raise ValueError(
                 f"unknown species: {', '.join(sorted(unknown))}"
             )
 
-        mask = np.array([s in keep for s in self.species])
+        mask = np.array([
+            bool(_site_species(s) & keep) for s in self.species
+        ])
 
         # Build output with appropriate sentinel.
         if arr.dtype.kind in ("U", "O"):

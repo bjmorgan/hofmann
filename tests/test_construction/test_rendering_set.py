@@ -8,6 +8,7 @@ from hofmann.construction.rendering_set import (
     RenderingSet, build_rendering_set, deduplicate_molecules,
 )
 from hofmann.model import Bond, BondSpec, PolyhedronSpec
+from hofmann.model.composition import Composition
 
 
 class TestNonPeriodicPassthrough:
@@ -814,3 +815,20 @@ class TestDeduplicateMolecules:
         for b in deduped.bonds:
             assert 0 <= b.index_a < n
             assert 0 <= b.index_b < n
+
+
+class TestRenderingSetWithMixed:
+    def test_image_atoms_preserve_composition(self):
+        species = (Composition({"Fe": 0.7, "Mn": 0.3}),)
+        coords = np.array([[0.0, 0.0, 0.0]])
+        lattice = np.eye(3) * 4.0
+        bonds = compute_bonds(species, coords, [], lattice=lattice)
+        rset = build_rendering_set(
+            species, coords, bonds, [], lattice,
+            max_recursive_depth=0,
+            pbc_padding=0.0,
+            polyhedra_specs=[],
+        )
+        # All replicated rows should still be the same Composition.
+        assert all(site == species[0] for site in rset.species)
+        assert all(isinstance(site, Composition) for site in rset.species)

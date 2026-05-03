@@ -18,7 +18,11 @@ class AtomStyle:
             float, or RGB tuple/list).  See :data:`Colour`.
         visible: Whether atoms of this species are drawn.  Set to
             ``False`` to hide atoms without removing them from the
-            scene.  Bonds to hidden atoms are also suppressed.
+            scene.  Bonds to hidden atoms are also suppressed.  This
+            flag has no effect on sites occupied by a
+            :class:`~hofmann.Composition`: mixed sites always render
+            every constituent regardless of any constituent's
+            ``visible`` flag.
     """
 
     radius: float

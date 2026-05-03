@@ -15,6 +15,7 @@ from fnmatch import fnmatch
 import numpy as np
 
 from hofmann.model import Bond, BondSpec
+from hofmann.model._util import SiteContent, _site_species
 
 # 3-element lattice-shift vector, e.g. (0, 1, -1).
 ImageVector = tuple[int, int, int]
@@ -35,7 +36,9 @@ class RenderingSet:
     """Expanded set of atoms and bonds ready for rendering.
 
     Attributes:
-        species: Species labels for physical + image atoms.
+        species: Per-site contents (species labels or
+            :class:`Composition` for mixed sites) for physical and
+            image atoms.
         coords: Coordinates array, shape ``(n_expanded, 3)``.
         bonds: Bonds with indices into the expanded arrays.
             All have ``image == (0, 0, 0)`` — periodicity has been
@@ -45,27 +48,32 @@ class RenderingSet:
             ``[0, 1, 2, ...]``.
     """
 
-    species: list[str]  # list, not tuple: built incrementally during image expansion
+    species: list[SiteContent]  # list, not tuple: built incrementally during image expansion
     coords: np.ndarray
     bonds: list[Bond]
     source_indices: np.ndarray
 
 
-def _complete_matches(complete: str | bool, species: str) -> bool:
-    """Check whether *complete* selects the given species.
+def _complete_matches(complete: str | bool, site: SiteContent) -> bool:
+    """Check whether *complete* selects the given site.
+
+    For a plain string site, matches the label directly.  For a
+    :class:`Composition` site, matches if *any* constituent species
+    matches the pattern.
 
     Args:
         complete: The ``complete`` field from a :class:`BondSpec`.
-        species: Species label to test.
+        site: Site content to test (species label or Composition).
 
     Returns:
-        ``True`` if this species should have its shell completed.
+        ``True`` if this site should have its shell completed.
     """
     if complete is False:
         return False
     if complete == "*":
         return True
-    return fnmatch(species, str(complete))
+    pattern = str(complete)
+    return any(fnmatch(sp, pattern) for sp in _site_species(site))
 
 
 def _expand_padding(
@@ -196,7 +204,7 @@ def _discover_bonds_for_new_atoms(
 
 
 def _complete_polyhedra_vertices(
-    species: tuple[str, ...],
+    species: tuple[SiteContent, ...],
     coords: np.ndarray,
     lattice: np.ndarray,
     n_physical: int,
@@ -215,7 +223,8 @@ def _complete_polyhedra_vertices(
     as potential centres.
 
     Args:
-        species: Species labels for physical atoms.
+        species: Per-site contents (species labels or
+            :class:`Composition` for mixed sites) for physical atoms.
         coords: Physical atom coordinates.
         lattice: Lattice matrix.
         n_physical: Number of physical atoms.
@@ -233,8 +242,12 @@ def _complete_polyhedra_vertices(
     if not centre_patterns:
         return
 
-    def _is_centre(sp: str) -> bool:
-        return any(fnmatch(sp, pat) for pat in centre_patterns)
+    def _is_centre(site: SiteContent) -> bool:
+        return any(
+            fnmatch(sp, pat)
+            for sp in _site_species(site)
+            for pat in centre_patterns
+        )
 
     # Build per-atom bond lookup from periodic bonds.
     atom_bonds: dict[int, list[tuple[int, ImageVector, BondSpec]]] = {}
@@ -292,7 +305,7 @@ def _complete_polyhedra_vertices(
 
 
 def build_rendering_set(
-    species: tuple[str, ...],
+    species: tuple[SiteContent, ...],
     coords: np.ndarray,
     periodic_bonds: list[Bond],
     bond_specs: list[BondSpec],
@@ -349,7 +362,8 @@ def build_rendering_set(
       vertex completion are separate use cases)
 
     Args:
-        species: Species labels for the physical atoms.
+        species: Per-site contents (species labels or
+            :class:`Composition` for mixed sites) for the physical atoms.
         coords: Physical atom coordinates, shape ``(n_physical, 3)``.
         periodic_bonds: Bonds from :func:`compute_bonds` (may include
             non-zero ``image`` fields).
@@ -384,7 +398,7 @@ def build_rendering_set(
 
     # Image atom registry: (physical_index, image_tuple) → expanded index.
     image_registry: dict[tuple[int, ImageVector], int] = {}
-    image_species: list[str] = []
+    image_species: list[SiteContent] = []
     image_coords_list: list[np.ndarray] = []
     image_source: list[int] = []
 
