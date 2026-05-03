@@ -119,22 +119,24 @@ def _make_wedges(
     """Build wedge polygons for a mixed-site composition.
 
     Each wedge is a closed polygon (centre + arc vertices + closing
-    vertex back to the centre).  Segment count for each wedge is
-    ``max(1, round(n_segments_total * occ))``.  This means the
-    smallest wedge always gets at least one arc segment, and the
-    combined species + vacancy segment count tracks
-    ``n_segments_total`` only approximately: rounding plus the
-    minimum-of-one rule can over- or under-shoot the budget by a
-    few segments per wedge.  In practice this is invisible at the
-    default 24-segment budget for typical 2–4-species compositions;
-    the overshoot only becomes meaningful for compositions with
-    more constituent species than the budget itself.
+    vertex back to the centre) sweeping an angle of exactly
+    ``2π · occ``.  Wedge *angles* are therefore always proportional
+    to occupancy — independent of any segment allocation.
+
+    *n_segments_total* controls only the smoothness of the rendered
+    arcs.  Each wedge gets ``max(1, round(n_segments_total * occ))``
+    arc segments: a per-wedge target proportional to occupancy, with
+    a minimum of one segment so that every wedge has at least two
+    arc vertices.  The sum across wedges is therefore a soft target,
+    not a hard cap — small constituents that round below one segment
+    are bumped up.  In practice the overshoot is at most a couple
+    of segments at the default budget, well below display resolution.
 
     Args:
         composition: The site composition (iteration order is canonical).
-        n_segments_total: Target arc segments for a full circle.
-            Each species wedge claims a share proportional to its
-            occupancy, with rounding and a minimum of one segment.
+        n_segments_total: Target arc-segment count for a full circle,
+            controlling arc smoothness.  Per-wedge counts are derived
+            proportionally with a minimum of one segment.
         start_angle: Starting angle in radians (counter-clockwise from
             the +x axis).
 
