@@ -123,4 +123,6 @@ If you have pymatgen installed, you can build a scene directly from a
    :alt: Diamond-cubic Si rendered from pymatgen
 
 See :func:`~hofmann.from_pymatgen` for full details on periodic boundary
-condition expansion and polyhedra support.
+condition expansion and polyhedra support.  Partial-occupancy and
+solid-solution sites pass through automatically -- see
+:doc:`partial_occupancy`.

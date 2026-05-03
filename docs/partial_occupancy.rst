@@ -8,6 +8,16 @@ atom) or shared between multiple species (a solid solution).  These
 sites appear as VESTA-style pie wedges, one wedge per constituent
 species, with wedge angles proportional to occupancy.
 
+.. image:: _static/partial_occupancy.svg
+   :width: 400px
+   :align: center
+   :alt: TiOF2 unit cell with disordered O/F anion sites rendered as wedges
+
+The figure above shows TiOF\ :sub:`2`, which adopts the cubic
+ReO\ :sub:`3` structure with Ti at the cell corners and a single anion
+site at each edge midpoint.  Every anion site is occupied by O and F
+in a 2:1 ratio, so each appears as a two-wedge mixed site.
+
 Constructing a mixed site
 --------------------------
 
@@ -17,19 +27,57 @@ the ``species`` list, in place of a plain string label::
     import numpy as np
     from hofmann import Composition, StructureScene, Frame
 
-    fe_mn = Composition({"Fe": 0.7, "Mn": 0.3})
+    anion = Composition({"O": 2 / 3, "F": 1 / 3})
     scene = StructureScene(
-        species=["Fe", fe_mn, fe_mn, "O"],
+        species=["Ti", anion, anion, anion],
         frames=[Frame(coords=np.array([
             [0.0, 0.0, 0.0],
-            [2.0, 0.0, 0.0],
-            [4.0, 0.0, 0.0],
-            [6.0, 0.0, 0.0],
+            [1.9, 0.0, 0.0],
+            [0.0, 1.9, 0.0],
+            [0.0, 0.0, 1.9],
         ]))],
     )
 
 Reusing a single ``Composition`` value across many rows is the
 recommended way to keep authoring concise.
+
+Loading from a CIF file
+-----------------------
+
+CIF files express mixed sites by listing each species at the same
+fractional position with its own occupancy.  pymatgen reads these
+files directly and :func:`~hofmann.from_pymatgen` propagates the
+occupancies through to a :class:`Composition`-bearing scene with no
+manual processing.
+
+Here is the smallest possible example -- a single Fe / Mn site
+filling a 2.8 Å cubic cell:
+
+.. literalinclude:: ../examples/disordered_site.cif
+   :language: text
+   :caption: ``disordered_site.cif``
+
+Loading and rendering takes two lines:
+
+.. code-block:: python
+
+   from pymatgen.core import Structure
+   from hofmann import StructureScene
+
+   structure = Structure.from_file("disordered_site.cif")
+   scene = StructureScene.from_pymatgen(structure)
+   scene.render_mpl("disordered.svg")
+
+.. image:: _static/partial_occupancy_minimal.svg
+   :width: 220px
+   :align: center
+   :alt: Single mixed-occupancy Fe/Mn site rendered as a two-wedge atom
+
+The same pattern applies to any pymatgen :class:`~pymatgen.core.Structure`,
+whether it was read from a CIF file or built programmatically: any
+:class:`pymatgen.core.PeriodicSite` whose ``species`` mapping has
+more than one entry, or a single entry at occupancy less than one,
+becomes a :class:`Composition` in the resulting scene.
 
 Vacancies
 ---------
@@ -45,15 +93,6 @@ solid circles with a "missing" slice.  Set
 :attr:`~hofmann.RenderStyle.vacancy_colour` to override with an
 explicit colour (for example, ``"lightgrey"`` on a white canvas to
 make the vacancy stand out).
-
-Loading from pymatgen
----------------------
-
-:func:`~hofmann.from_pymatgen` propagates partial occupancies
-directly: any :class:`pymatgen.core.PeriodicSite` whose ``species``
-mapping has more than one entry, or a single entry at occupancy less
-than one, becomes a :class:`Composition` in the resulting scene.  No
-preprocessing or manual handling is required.
 
 Customising appearance
 ----------------------
@@ -77,6 +116,17 @@ The wedge layout itself is controlled by three render-style fields:
   outer arc).
 - :attr:`~hofmann.RenderStyle.vacancy_colour` overrides the vacancy
   fill (default: canvas background colour).
+
+For example::
+
+    from hofmann import RenderStyle
+
+    style = RenderStyle(
+        wedge_start_angle=0.0,        # start at 3 o'clock
+        show_wedge_edges=False,       # outer arc only, no radial edges
+        vacancy_colour="lightgrey",   # explicit vacancy fill
+    )
+    scene.render_mpl("structure.svg", style=style)
 
 Visibility of constituent species
 ---------------------------------
