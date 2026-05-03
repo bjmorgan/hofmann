@@ -38,8 +38,10 @@ the ``species`` list, in place of a plain string label::
         ]))],
     )
 
-Reusing a single ``Composition`` value across many rows is the
-recommended way to keep authoring concise.
+When several sites share the same composition -- as the three anion
+sites do above -- define the :class:`Composition` once and pass the
+same value at each position, rather than constructing a fresh
+identical mix every time.
 
 Loading from a CIF file
 -----------------------
