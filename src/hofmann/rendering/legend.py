@@ -27,6 +27,7 @@ from hofmann.model import (
     _DEFAULT_SPACING,
     normalise_colour,
 )
+from hofmann.model.composition import Composition
 from hofmann.rendering._legend_polyhedra import (
     CANONICAL_VERTICES,
     LEGEND_ROTATION,
@@ -96,13 +97,19 @@ def _build_legend_items(
     if style.species is not None:
         species_list = list(style.species)
     else:
-        # Auto-detect: unique species in first-seen order, visible only.
+        # Auto-detect: unique constituent species in first-seen order,
+        # visible only.  Mixed sites (Composition) contribute each of
+        # their constituent species in canonical occupancy order.
         seen: dict[str, None] = {}
-        for sp in scene.species:
-            if sp not in seen:
-                atom_style = scene.atom_styles.get(sp)
-                if atom_style is None or atom_style.visible:
-                    seen[sp] = None
+        for site in scene.species:
+            constituents = (
+                tuple(site) if isinstance(site, Composition) else (site,)
+            )
+            for sp in constituents:
+                if sp not in seen:
+                    atom_style = scene.atom_styles.get(sp)
+                    if atom_style is None or atom_style.visible:
+                        seen[sp] = None
         species_list = list(seen)
 
     if not species_list:

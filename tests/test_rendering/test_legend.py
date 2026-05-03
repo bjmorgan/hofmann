@@ -171,6 +171,27 @@ class TestBuildLegendItems:
         items = self._build(scene)
         assert items == []
 
+    def test_auto_detect_expands_composition_constituents(self):
+        """Mixed sites contribute each constituent species to the legend."""
+        from hofmann.model.composition import Composition
+
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3}), "O"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, 0.0],
+                [2.0, 0.0, 0.0],
+            ]))],
+            atom_styles={
+                "Fe": AtomStyle(1.4, (0.8, 0.2, 0.2)),
+                "Mn": AtomStyle(1.0, (0.5, 0.0, 0.5)),
+                "O":  AtomStyle(0.7, (0.0, 0.8, 0.8)),
+            },
+        )
+        items = self._build(scene)
+        # Iteration order: Fe (highest occupancy in the Composition),
+        # then Mn, then O from the second site.
+        assert [item.key for item in items] == ["Fe", "Mn", "O"]
+
 
 class TestResolveItemRadius:
     """Tests for _resolve_item_radius — polyhedron vs flat defaults."""
