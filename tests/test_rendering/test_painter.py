@@ -1924,3 +1924,32 @@ class TestPainterWithMixed:
         # Should not raise; site is fully hidden.
         fig = scene.render_mpl(show=False)
         plt.close(fig)
+
+    def test_show_wedge_edges_false_strokes_outer_arc_only(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        # Should not raise; default show_wedge_edges=False.
+        scene.render_mpl(
+            style=RenderStyle(show_wedge_edges=False),
+            show=False,
+        )
+
+    def test_show_wedge_edges_true_does_not_raise(self):
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.7, "Mn": 0.3})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                "Mn": AtomStyle(radius=1.0, colour="purple"),
+            },
+        )
+        scene.render_mpl(
+            style=RenderStyle(show_wedge_edges=True),
+            show=False,
+        )

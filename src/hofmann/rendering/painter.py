@@ -48,6 +48,27 @@ from hofmann.rendering.projection import (
 _TITLE_FONT_SIZE = 12.0
 
 
+def _make_unit_ring(n: int, thickness: float = 0.04) -> np.ndarray:
+    """Closed polygon for an outer-arc-only outline.
+
+    Returns a thin annular ring (outer radius 1, inner radius
+    ``1 - thickness``) as a single closed polygon.  Drawn filled with
+    the outline colour, this produces a visual outline without the
+    internal radial edges that the wedges would otherwise stroke.
+
+    Args:
+        n: Segment count for the arc (matches ``style.circle_segments``).
+        thickness: Ring thickness as a fraction of the unit radius.
+    """
+    thetas = np.linspace(0.0, 2.0 * np.pi, n + 1)
+    outer = np.column_stack([np.cos(thetas), np.sin(thetas)])
+    inner = np.column_stack([
+        np.cos(thetas[::-1]) * (1.0 - thickness),
+        np.sin(thetas[::-1]) * (1.0 - thickness),
+    ])
+    return np.vstack([outer, inner, outer[:1]])
+
+
 def _emit_atom_polygons(
     site_content: str | Composition,
     centre_xy: np.ndarray,
@@ -108,6 +129,7 @@ def _emit_atom_polygons(
             n_segments_total=style.circle_segments,
             start_angle=style.wedge_start_angle,
         )
+        show_radial = style.show_wedge_edges
         for sp, polygon in wedges:
             sp_style = atom_styles.get(sp)
             if sp_style is None:
@@ -118,8 +140,14 @@ def _emit_atom_polygons(
             wedge_fc = (*normalise_colour(sp_style.colour), 1.0)
             verts.append(polygon * screen_radius + centre_xy)
             face_cs.append(wedge_fc)
-            edge_cs.append((*outline_rgb, 1.0) if show_outlines else wedge_fc)
-            lws.append(atom_outline_width if show_outlines else 0.0)
+            if show_radial:
+                edge_cs.append(
+                    (*outline_rgb, 1.0) if show_outlines else wedge_fc
+                )
+                lws.append(atom_outline_width if show_outlines else 0.0)
+            else:
+                edge_cs.append(wedge_fc)
+                lws.append(0.0)
 
         if style.vacancy_colour is not None:
             vac = _make_vacancy_wedge(
@@ -131,10 +159,22 @@ def _emit_atom_polygons(
                 vac_fc = (*normalise_colour(style.vacancy_colour), 1.0)
                 verts.append(vac * screen_radius + centre_xy)
                 face_cs.append(vac_fc)
-                edge_cs.append(
-                    (*outline_rgb, 1.0) if show_outlines else vac_fc
-                )
-                lws.append(atom_outline_width if show_outlines else 0.0)
+                if show_radial:
+                    edge_cs.append(
+                        (*outline_rgb, 1.0) if show_outlines else vac_fc
+                    )
+                    lws.append(atom_outline_width if show_outlines else 0.0)
+                else:
+                    edge_cs.append(vac_fc)
+                    lws.append(0.0)
+
+        if show_outlines and not show_radial:
+            ring_polygon = _make_unit_ring(style.circle_segments)
+            verts.append(ring_polygon * screen_radius + centre_xy)
+            ring_fc = (*outline_rgb, 1.0)
+            face_cs.append(ring_fc)
+            edge_cs.append(ring_fc)
+            lws.append(0.0)
     else:
         verts.append(unit_circle * screen_radius + centre_xy)
         face_cs.append(fallback_face_colour)
