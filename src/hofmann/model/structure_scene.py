@@ -419,7 +419,10 @@ class StructureScene:
         n_frames = len(self.frames)
 
         # --- Validate keys ---
-        known = set(self.species)
+        known: set[str] = set()
+        for site in self.species:
+            known |= _site_species(site)
+
         for label in by_species:
             if label not in known:
                 raise ValueError(
@@ -430,6 +433,19 @@ class StructureScene:
             if not 0 <= idx < n_atoms:
                 raise ValueError(
                     f"atom index {idx} out of range for {n_atoms} atoms"
+                )
+
+        # Conflict detection: a single mixed site cannot receive values
+        # from multiple by_species keys unless by_index overrides it.
+        overridden = set(by_index)
+        for row, site in enumerate(self.species):
+            site_sp = _site_species(site)
+            matches = sorted(k for k in by_species if k in site_sp)
+            if len(matches) > 1 and row not in overridden:
+                raise ValueError(
+                    f"atom_data[{key!r}]: row {row} matches multiple "
+                    f"by_species keys {matches}; pass by_index[{row}]=... "
+                    f"to disambiguate"
                 )
 
         # --- Coerce values and infer dtype / dimensionality ---
@@ -463,10 +479,11 @@ class StructureScene:
                 seen_num = True
 
         # Pre-process by_species values.
-        species_arr = np.array(self.species)
         species_entries: list[tuple[np.ndarray, np.ndarray]] = []
         for label, val in by_species.items():
-            mask = species_arr == label
+            mask = np.array([
+                label in _site_species(site) for site in self.species
+            ])
             n_sp = int(mask.sum())
             a = np.asarray(val)
             if a.ndim == 0:

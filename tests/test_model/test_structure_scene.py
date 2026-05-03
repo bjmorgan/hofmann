@@ -954,3 +954,43 @@ class TestSelectBySpeciesWithMixed:
         scene = self._scene()
         with pytest.raises(ValueError, match="unknown"):
             scene.select_by_species(np.array([1.0, 2.0, 3.0, 4.0]), "Cu")
+
+
+class TestSetAtomDataWithMixed:
+    def _scene(self):
+        return StructureScene(
+            species=[
+                "Fe",
+                Composition({"Fe": 0.7, "Mn": 0.3}),
+                "O",
+            ],
+            frames=[Frame(coords=np.zeros((3, 3)))],
+        )
+
+    def test_by_species_unique_match_writes(self):
+        scene = self._scene()
+        scene.set_atom_data("charge", by_species={"Mn": 5.0})
+        assert np.isnan(scene.atom_data["charge"][0])
+        assert scene.atom_data["charge"][1] == 5.0
+        assert np.isnan(scene.atom_data["charge"][2])
+
+    def test_by_species_overlapping_keys_raise(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="row 1"):
+            scene.set_atom_data(
+                "charge", by_species={"Fe": 1.0, "Mn": 2.0},
+            )
+
+    def test_by_index_overrides_overlap(self):
+        scene = self._scene()
+        scene.set_atom_data(
+            "charge",
+            by_species={"Fe": 1.0, "Mn": 2.0},
+            by_index={1: 99.0},
+        )
+        assert scene.atom_data["charge"][1] == 99.0
+
+    def test_by_species_unknown_constituent_raises(self):
+        scene = self._scene()
+        with pytest.raises(ValueError, match="unknown species"):
+            scene.set_atom_data("charge", by_species={"Cu": 1.0})
