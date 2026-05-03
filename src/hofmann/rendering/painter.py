@@ -69,6 +69,33 @@ def _make_unit_ring(n: int, thickness: float = 0.04) -> np.ndarray:
     return np.vstack([outer, inner, outer[:1]])
 
 
+def _make_radial_edge(
+    theta: float,
+    half_thickness: float = 0.02,
+) -> np.ndarray:
+    """Closed polygon for a thin radial line from centre to outer arc.
+
+    Drawn filled with the outline colour, this produces a single
+    radial edge separator between adjacent species wedges in a
+    mixed-site rendering.
+
+    Args:
+        theta: Angle of the radial line (radians, counter-clockwise
+            from the +x axis).
+        half_thickness: Half-width of the line as a fraction of the
+            unit radius.
+    """
+    cos_t, sin_t = np.cos(theta), np.sin(theta)
+    perp_x, perp_y = -np.sin(theta), np.cos(theta)
+    return np.array([
+        [-perp_x * half_thickness, -perp_y * half_thickness],
+        [cos_t - perp_x * half_thickness, sin_t - perp_y * half_thickness],
+        [cos_t + perp_x * half_thickness, sin_t + perp_y * half_thickness],
+        [perp_x * half_thickness, perp_y * half_thickness],
+        [-perp_x * half_thickness, -perp_y * half_thickness],
+    ])
+
+
 def _emit_atom_polygons(
     site_content: str | Composition,
     centre_xy: np.ndarray,
@@ -129,7 +156,12 @@ def _emit_atom_polygons(
             n_segments_total=style.circle_segments,
             start_angle=style.wedge_start_angle,
         )
-        show_radial = style.show_wedge_edges
+        # Filled wedges always have no edge stroke.  The outer arc
+        # outline is emitted separately as a full ring (so vacancy
+        # gaps still close the atom boundary visibly), and radial
+        # edges between adjacent species wedges are emitted as their
+        # own thin line polygons (so the vacancy boundary is not
+        # stroked).
         for sp, polygon in wedges:
             sp_style = atom_styles.get(sp)
             if sp_style is None:
@@ -140,14 +172,8 @@ def _emit_atom_polygons(
             wedge_fc = (*normalise_colour(sp_style.colour), 1.0)
             verts.append(polygon * screen_radius + centre_xy)
             face_cs.append(wedge_fc)
-            if show_radial:
-                edge_cs.append(
-                    (*outline_rgb, 1.0) if show_outlines else wedge_fc
-                )
-                lws.append(atom_outline_width if show_outlines else 0.0)
-            else:
-                edge_cs.append(wedge_fc)
-                lws.append(0.0)
+            edge_cs.append(wedge_fc)
+            lws.append(0.0)
 
         if style.vacancy_colour is not None:
             vac = _make_vacancy_wedge(
@@ -159,22 +185,43 @@ def _emit_atom_polygons(
                 vac_fc = (*normalise_colour(style.vacancy_colour), 1.0)
                 verts.append(vac * screen_radius + centre_xy)
                 face_cs.append(vac_fc)
-                if show_radial:
-                    edge_cs.append(
-                        (*outline_rgb, 1.0) if show_outlines else vac_fc
-                    )
-                    lws.append(atom_outline_width if show_outlines else 0.0)
-                else:
-                    edge_cs.append(vac_fc)
-                    lws.append(0.0)
+                edge_cs.append(vac_fc)
+                lws.append(0.0)
 
-        if show_outlines and not show_radial:
+        if show_outlines:
+            edge_fc = (*outline_rgb, 1.0)
+            # Always draw the full outer ring.  This closes the atom
+            # boundary even when there is a vacancy gap, and prevents
+            # bonds from appearing disconnected at vacancy-facing
+            # angles.
             ring_polygon = _make_unit_ring(style.circle_segments)
             verts.append(ring_polygon * screen_radius + centre_xy)
-            ring_fc = (*outline_rgb, 1.0)
-            face_cs.append(ring_fc)
-            edge_cs.append(ring_fc)
+            face_cs.append(edge_fc)
+            edge_cs.append(edge_fc)
             lws.append(0.0)
+
+            # Radial edges separate *adjacent species wedges* only
+            # — never at a species/vacancy boundary, and never inside
+            # a single-species wedge (which would put a meaningless
+            # line through a uniform disc).
+            if style.show_wedge_edges and len(wedges) >= 2:
+                has_vacancy = site_content.vacancy > 1e-9
+                cumulative_angle = style.wedge_start_angle
+                for i, (sp, _polygon) in enumerate(wedges):
+                    cumulative_angle += 2.0 * np.pi * site_content[sp]
+                    is_last = i == len(wedges) - 1
+                    # Skip the boundary after the final wedge when
+                    # it faces the vacancy.  When fully occupied,
+                    # this boundary wraps around to meet the first
+                    # wedge — a real species/species boundary that
+                    # should be drawn.
+                    if is_last and has_vacancy:
+                        continue
+                    edge_polygon = _make_radial_edge(cumulative_angle)
+                    verts.append(edge_polygon * screen_radius + centre_xy)
+                    face_cs.append(edge_fc)
+                    edge_cs.append(edge_fc)
+                    lws.append(0.0)
     else:
         verts.append(unit_circle * screen_radius + centre_xy)
         face_cs.append(fallback_face_colour)
