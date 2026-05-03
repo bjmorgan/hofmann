@@ -120,18 +120,21 @@ def _make_wedges(
 
     Each wedge is a closed polygon (centre + arc vertices + closing
     vertex back to the centre).  Segment count for each wedge is
-    proportional to its absolute occupancy share of the full circle;
-    the smallest wedge gets at least one segment.  When the
-    composition is partially occupied, the vacancy fraction's segments
-    are reserved for :func:`_make_vacancy_wedge` so the combined arc
-    segments across all wedges (species + vacancy) do not exceed
-    *n_segments_total*.
+    ``max(1, round(n_segments_total * occ))``.  This means the
+    smallest wedge always gets at least one arc segment, and the
+    combined species + vacancy segment count tracks
+    ``n_segments_total`` only approximately: rounding plus the
+    minimum-of-one rule can over- or under-shoot the budget by a
+    few segments per wedge.  In practice this is invisible at the
+    default 24-segment budget for typical 2–4-species compositions;
+    the overshoot only becomes meaningful for compositions with
+    more constituent species than the budget itself.
 
     Args:
         composition: The site composition (iteration order is canonical).
-        n_segments_total: Total arc segments allocated to a full
-            circle.  Each species wedge claims a share proportional to
-            its occupancy of the full circle.
+        n_segments_total: Target arc segments for a full circle.
+            Each species wedge claims a share proportional to its
+            occupancy, with rounding and a minimum of one segment.
         start_angle: Starting angle in radians (counter-clockwise from
             the +x axis).
 

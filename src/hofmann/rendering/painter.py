@@ -209,11 +209,20 @@ def _emit_atom_polygons(
 
         if show_outlines:
             edge_fc = (*outline_rgb, 1.0)
+            # Wedge-outline thickness scales with atom_outline_width:
+            # at the default of 1.0 the visual matches the previous
+            # fixed-thickness rendering (ring 0.04, radial 0.02 of
+            # unit radius); larger values produce proportionally
+            # thicker outlines, and 0 elides them entirely.
+            ring_thickness = 0.04 * atom_outline_width
+            radial_half_thickness = 0.02 * atom_outline_width
             # Always draw the full outer ring.  This closes the atom
             # boundary even when there is a vacancy gap, and prevents
             # bonds from appearing disconnected at vacancy-facing
             # angles.
-            ring_polygon = _make_unit_ring(style.circle_segments)
+            ring_polygon = _make_unit_ring(
+                style.circle_segments, thickness=ring_thickness,
+            )
             verts.append(ring_polygon * screen_radius + centre_xy)
             face_cs.append(edge_fc)
             edge_cs.append(edge_fc)
@@ -235,7 +244,10 @@ def _emit_atom_polygons(
                 # is handled by the trailing boundary of the last
                 # wedge below.
                 if has_vacancy:
-                    edge_polygon = _make_radial_edge(cumulative_angle)
+                    edge_polygon = _make_radial_edge(
+                        cumulative_angle,
+                        half_thickness=radial_half_thickness,
+                    )
                     verts.append(edge_polygon * screen_radius + centre_xy)
                     face_cs.append(edge_fc)
                     edge_cs.append(edge_fc)
@@ -243,7 +255,10 @@ def _emit_atom_polygons(
                 # Boundary at the end of each wedge.
                 for sp, _polygon in wedges:
                     cumulative_angle += 2.0 * np.pi * site_content[sp]
-                    edge_polygon = _make_radial_edge(cumulative_angle)
+                    edge_polygon = _make_radial_edge(
+                        cumulative_angle,
+                        half_thickness=radial_half_thickness,
+                    )
                     verts.append(edge_polygon * screen_radius + centre_xy)
                     face_cs.append(edge_fc)
                     edge_cs.append(edge_fc)
