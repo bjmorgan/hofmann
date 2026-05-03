@@ -98,18 +98,23 @@ def _build_legend_items(
         species_list = list(style.species)
     else:
         # Auto-detect: unique constituent species in first-seen order,
-        # visible only.  Mixed sites (Composition) contribute each of
-        # their constituent species in canonical occupancy order.
+        # restricted to species whose AtomStyle.visible is True (or
+        # whose AtomStyle is unset, falling back to default).  A
+        # species coming from a Composition row always counts as
+        # rendered, since mixed-site rendering ignores per-constituent
+        # visibility flags; a species coming only from pure-string
+        # rows is included only if its style is visible.
         seen: dict[str, None] = {}
         for site in scene.species:
-            constituents = (
-                tuple(site) if isinstance(site, Composition) else (site,)
-            )
-            for sp in constituents:
-                if sp not in seen:
-                    atom_style = scene.atom_styles.get(sp)
-                    if atom_style is None or atom_style.visible:
+            if isinstance(site, Composition):
+                for sp in site:
+                    if sp not in seen:
                         seen[sp] = None
+            else:
+                if site not in seen:
+                    atom_style = scene.atom_styles.get(site)
+                    if atom_style is None or atom_style.visible:
+                        seen[site] = None
         species_list = list(seen)
 
     if not species_list:

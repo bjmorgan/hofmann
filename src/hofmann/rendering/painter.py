@@ -156,7 +156,7 @@ def _emit_atom_polygons(
             edge_cs.append(vac_fc)
             lws.append(0.0)
 
-        if show_outlines:
+        if show_outlines and atom_outline_width > 0:
             edge_fc = (*outline_rgb, 1.0)
             transparent = (0.0, 0.0, 0.0, 0.0)
             # Outer outline: same closed unit circle as a pure-string

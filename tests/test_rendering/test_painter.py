@@ -2133,6 +2133,33 @@ class TestEmitAtomPolygons:
         # boundary, Mn/vacancy boundary) = 7 polygons.
         assert len(verts) == 7
 
+    def test_zero_outline_width_skips_outline_polygons(self):
+        """atom_outline_width=0 should elide outline polygons entirely.
+
+        With a stroked-paths outline implementation, a zero linewidth
+        produces no visible stroke, but the polygon vertices would
+        still bloat the PolyCollection.  Short-circuiting the outline
+        emission keeps the collection tight.
+        """
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(atom_outline_width=0.0)
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.5}),
+            **kwargs,
+        )
+        # Only the two filled wedges; no outer ring, no radial edges.
+        assert len(verts) == 2
+
+    def test_zero_outline_width_skips_outline_polygons_with_vacancy(self):
+        from hofmann.rendering.painter import _emit_atom_polygons
+        kwargs = self._kwargs(atom_outline_width=0.0)
+        verts, fcs, ecs, lws = _emit_atom_polygons(
+            site_content=Composition({"Fe": 0.5, "Mn": 0.3}),  # vacancy
+            **kwargs,
+        )
+        # Two species wedges + vacancy wedge.  No outline polygons.
+        assert len(verts) == 3
+
     def test_vacancy_uses_bg_rgb_when_vacancy_colour_is_none(self):
         from hofmann.rendering.painter import _emit_atom_polygons
         kwargs = self._kwargs(bg_rgb=(0.85, 0.95, 0.85))
