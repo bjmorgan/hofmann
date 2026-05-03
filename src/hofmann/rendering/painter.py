@@ -170,12 +170,20 @@ def _emit_atom_polygons(
         # stroked).
         for sp, polygon in wedges:
             sp_style = atom_styles.get(sp)
+            if sp_style is not None and not sp_style.visible:
+                # Hidden constituent: no fill (gap shows through),
+                # treated identically to a vacancy fraction.
+                continue
             if sp_style is None:
-                # No style: skip this constituent (gap shows through).
-                continue
-            if not sp_style.visible:
-                continue
-            wedge_fc = (*normalise_colour(sp_style.colour), 1.0)
+                # Unknown species (no style registered): fall back to
+                # the same default-grey used elsewhere in the rendering
+                # pipeline (see ``_species_colours`` and
+                # ``_compute_atom_radii``).  Degrades consistently with
+                # pure-string sites that lack a style.
+                wedge_rgb: tuple[float, float, float] = (0.5, 0.5, 0.5)
+            else:
+                wedge_rgb = tuple(normalise_colour(sp_style.colour))
+            wedge_fc = (*wedge_rgb, 1.0)
             verts.append(polygon * screen_radius + centre_xy)
             face_cs.append(wedge_fc)
             edge_cs.append(wedge_fc)

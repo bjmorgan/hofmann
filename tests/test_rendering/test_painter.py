@@ -1925,6 +1925,30 @@ class TestPainterWithMixed:
         fig = scene.render_mpl(show=False)
         plt.close(fig)
 
+    def test_mixed_site_with_unstyled_constituent_renders(self):
+        """A constituent with no AtomStyle should fall back to grey,
+        not leave a transparent gap.  Matches the fallback used in
+        ``_compute_atom_radii`` and ``_species_colours``.
+        """
+        scene = StructureScene(
+            species=[Composition({"Fe": 0.5, "Mn": 0.5})],
+            frames=[Frame(coords=np.zeros((1, 3)))],
+            atom_styles={
+                "Fe": AtomStyle(radius=1.0, colour="red"),
+                # Mn deliberately omitted.
+            },
+        )
+        # Should not raise, and should still emit a polygon for the
+        # unstyled Mn wedge (greyed out, not skipped).
+        fig = scene.render_mpl(show=False)
+        ax = fig.axes[0]
+        total_paths = sum(len(coll.get_paths()) for coll in ax.collections)
+        # Two wedges (Fe + Mn-as-grey) plus outer ring plus radial
+        # separators — strictly more than the 1 polygon we'd get if
+        # the Mn wedge were skipped.
+        assert total_paths >= 3
+        plt.close(fig)
+
     def test_show_wedge_edges_false_strokes_outer_arc_only(self):
         scene = StructureScene(
             species=[Composition({"Fe": 0.7, "Mn": 0.3})],
@@ -1934,7 +1958,8 @@ class TestPainterWithMixed:
                 "Mn": AtomStyle(radius=1.0, colour="purple"),
             },
         )
-        # Should not raise; default show_wedge_edges=False.
+        # Should not raise.  Exercises show_wedge_edges=False
+        # explicitly (the default is True).
         scene.render_mpl(
             style=RenderStyle(show_wedge_edges=False),
             show=False,

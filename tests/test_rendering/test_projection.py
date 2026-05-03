@@ -130,6 +130,27 @@ class TestMakeWedges:
         assert len(wedges) == 1
         assert wedges[0][0] == "Fe"
 
+    def test_segment_count_respects_total_with_vacancy(self):
+        """Combined wedge + vacancy segments must not exceed budget."""
+        comp = Composition({"Fe": 0.7})  # 70% Fe + 30% vacancy
+        n = 100
+        wedges = _make_wedges(comp, n_segments_total=n, start_angle=0.0)
+        vac = _make_vacancy_wedge(comp, n_segments_total=n, start_angle=0.0)
+        assert vac is not None
+        wedge_segs = sum(len(p) - 3 for _, p in wedges)
+        vac_segs = len(vac) - 3
+        # Allow rounding slack of one segment per wedge (here 2 wedges).
+        assert wedge_segs + vac_segs <= n + 2
+
+    def test_species_segments_proportional_to_absolute_occupancy(self):
+        """A 30% Fe wedge gets ~30% of the budget, not 100%."""
+        comp = Composition({"Fe": 0.3})  # 70% vacancy
+        n = 100
+        wedges = _make_wedges(comp, n_segments_total=n, start_angle=0.0)
+        fe_segs = len(wedges[0][1]) - 3
+        # Roughly 30, allow ±2 for rounding.
+        assert 28 <= fe_segs <= 32
+
 
 class TestMakeVacancyWedge:
     def test_full_composition_returns_none(self):

@@ -1,6 +1,8 @@
 """Tests for style serialisation and file I/O."""
 
 import json
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -11,6 +13,7 @@ from hofmann.model import (
     AxesStyle,
     BondSpec,
     CellEdgeStyle,
+    Composition,
     Frame,
     LegendItem,
     LegendStyle,
@@ -689,13 +692,6 @@ class TestSceneStyleMethods:
         # Na overridden, Cl unchanged.
         assert scene.atom_styles["Na"].radius == 2.0
         assert scene.atom_styles["Cl"] is original_cl
-
-
-import tempfile
-from pathlib import Path
-
-from hofmann.model.composition import Composition
-from hofmann.model.structure_scene import StructureScene
 
 
 class TestSaveLoadWithMixed:
