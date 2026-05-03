@@ -778,6 +778,25 @@ class TestFromPymatgenWithMixed:
         assert "Fe" in site
         assert "Mn" in site
 
+    def test_mixed_valence_same_element_merges(self):
+        """Fe2+ and Fe3+ on one site should not collide via .symbol stripping."""
+        from pymatgen.core import Composition as PmgComposition
+        from pymatgen.core import Lattice, Species, Structure
+
+        struct = Structure(
+            lattice=Lattice.cubic(4.0),
+            species=[PmgComposition({Species("Fe", 2): 0.4, Species("Fe", 3): 0.6})],
+            coords=[[0.0, 0.0, 0.0]],
+        )
+        scene = StructureScene.from_pymatgen(struct)
+        site = scene.species[0]
+        # The full occupancy of 1.0 should be preserved (no fake vacancy).
+        if isinstance(site, str):
+            assert site == "Fe"
+        else:
+            assert site["Fe"] == pytest.approx(1.0)
+            assert site.vacancy == pytest.approx(0.0)
+
     def test_default_bond_specs_use_mixed_site_constituents(self):
         """Default bond specs include pairs involving mixed-site
         constituents (Fe-O, Mn-O), not just literal site keys."""

@@ -33,10 +33,18 @@ def _convert_pmg_species(pmg_site: Any) -> "str | Composition":
         Either a bare element symbol string or a :class:`Composition`.
     """
     pmg_comp = pmg_site.species
-    items = [(sp.symbol, float(occ)) for sp, occ in pmg_comp.items()]
+    # Merge occupancies for entries that share an element symbol so
+    # that mixed-valence sites (e.g. Fe2+ + Fe3+) accumulate rather
+    # than colliding via ``.symbol`` and silently overwriting one
+    # another.
+    merged: dict[str, float] = {}
+    for sp, occ in pmg_comp.items():
+        symbol = sp.symbol
+        merged[symbol] = merged.get(symbol, 0.0) + float(occ)
+    items = list(merged.items())
     if len(items) == 1 and abs(items[0][1] - 1.0) < 1e-9:
         return items[0][0]
-    return Composition(dict(items))
+    return Composition(merged)
 
 if TYPE_CHECKING:
     from ase import Atoms
