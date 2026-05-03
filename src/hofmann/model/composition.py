@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from types import MappingProxyType
@@ -30,6 +31,10 @@ class Composition(Mapping[str, float]):
         cleaned: dict[str, float] = {}
         for key, value in raw.items():
             v = float(value)
+            if not math.isfinite(v):
+                raise ValueError(
+                    f"occupancy for {key!r} must be finite, got {v}"
+                )
             if v < 0:
                 raise ValueError(
                     f"occupancy for {key!r} must be positive, got {v}"

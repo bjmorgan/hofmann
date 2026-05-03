@@ -70,6 +70,14 @@ class TestCompositionValidation:
         with pytest.raises(TypeError, match="string"):
             Composition({26: 1.0})  # type: ignore[dict-item]
 
+    def test_nan_value_raises(self):
+        with pytest.raises(ValueError, match="finite"):
+            Composition({"Fe": float("nan")})
+
+    def test_inf_value_raises(self):
+        with pytest.raises(ValueError, match="finite"):
+            Composition({"Fe": float("inf")})
+
 
 class TestCompositionEqualityAndOrder:
     def test_equality_independent_of_insertion_order(self):
