@@ -9,7 +9,7 @@ from types import MappingProxyType
 _OCCUPANCY_TOLERANCE = 1e-9
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, eq=False)
 class Composition(Mapping[str, float]):
     """Species-to-occupancy mapping for a (possibly mixed) site."""
 
@@ -51,7 +51,11 @@ class Composition(Mapping[str, float]):
                 f"Composition occupancies sum to {total}, must be <= 1.0"
             )
 
-        object.__setattr__(self, "occupancies", MappingProxyType(cleaned))
+        # Canonical order: descending occupancy, then alphabetical.
+        ordered = dict(sorted(
+            cleaned.items(), key=lambda kv: (-kv[1], kv[0]),
+        ))
+        object.__setattr__(self, "occupancies", MappingProxyType(ordered))
 
     def __getitem__(self, key: str) -> float:
         return self.occupancies[key]
@@ -61,3 +65,11 @@ class Composition(Mapping[str, float]):
 
     def __len__(self) -> int:
         return len(self.occupancies)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Composition):
+            return NotImplemented
+        return dict(self.occupancies) == dict(other.occupancies)
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.occupancies.items()))

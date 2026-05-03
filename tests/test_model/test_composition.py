@@ -69,3 +69,28 @@ class TestCompositionValidation:
     def test_non_string_key_raises(self):
         with pytest.raises(TypeError, match="string"):
             Composition({26: 1.0})  # type: ignore[dict-item]
+
+
+class TestCompositionEqualityAndOrder:
+    def test_equality_independent_of_insertion_order(self):
+        a = Composition({"Fe": 0.7, "Mn": 0.3})
+        b = Composition({"Mn": 0.3, "Fe": 0.7})
+        assert a == b
+        assert hash(a) == hash(b)
+
+    def test_usable_as_dict_key(self):
+        a = Composition({"Fe": 0.7, "Mn": 0.3})
+        d = {a: "value"}
+        assert d[Composition({"Mn": 0.3, "Fe": 0.7})] == "value"
+
+    def test_iter_order_descending_occupancy(self):
+        c = Composition({"Mn": 0.3, "Fe": 0.7})
+        assert list(c) == ["Fe", "Mn"]
+
+    def test_iter_order_alphabetical_tiebreak(self):
+        c = Composition({"Mn": 0.5, "Fe": 0.5})
+        assert list(c) == ["Fe", "Mn"]
+
+    def test_iter_order_three_species(self):
+        c = Composition({"O": 0.2, "Fe": 0.3, "Mn": 0.5})
+        assert list(c) == ["Mn", "Fe", "O"]
