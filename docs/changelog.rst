@@ -26,6 +26,15 @@ Changelog
   rules, which already operated on every constituent of a mixed
   site.
 
+- :class:`~hofmann.BondSpec` gains a ``deduplicate`` flag.  When
+  :attr:`~hofmann.RenderStyle.deduplicate_molecules` is enabled and one
+  or more bond specs set ``deduplicate=True``, only the bonded networks
+  those specs describe are deduplicated; every other component,
+  including isolated atoms, keeps its periodic image copies.  This makes
+  it possible to collapse duplicate copies of one sub-structure (such as
+  cages that complete across cell boundaries) while preserving the
+  space-filling image atoms of the rest of the scene.
+
 0.19.0
 ------
 
