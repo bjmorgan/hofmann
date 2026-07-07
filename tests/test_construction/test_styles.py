@@ -101,6 +101,7 @@ class TestBondSpecDict:
         assert "colour" not in d
         assert "complete" not in d
         assert "recursive" not in d
+        assert "deduplicate" not in d
 
     def test_explicit_radius_preserved(self):
         spec = BondSpec(species=("C", "H"), max_length=1.2, radius=0.15)
@@ -121,6 +122,18 @@ class TestBondSpecDict:
         d = {"species": ["Ti", "O"], "max_length": 2.5}
         restored = BondSpec.from_dict(d)
         assert restored.species == ("O", "Ti")
+
+    def test_round_trip_deduplicate(self):
+        spec = BondSpec(species=("Li", "Li"), max_length=3.0,
+                        recursive=True, deduplicate=True)
+        d = spec.to_dict()
+        restored = BondSpec.from_dict(d)
+        assert restored.deduplicate is True
+
+    def test_deduplicate_omitted_when_false(self):
+        spec = BondSpec(species=("C", "H"), max_length=1.2)
+        d = spec.to_dict()
+        assert "deduplicate" not in d
 
 
 # -- PolyhedronSpec -----------------------------------------------------------
