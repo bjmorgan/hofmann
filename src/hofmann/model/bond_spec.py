@@ -50,10 +50,10 @@ class BondSpec:
             from this spec are eligible for molecule deduplication when
             :attr:`~hofmann.RenderStyle.deduplicate_molecules` is also
             enabled.  Components with no opted-in bond — including
-            isolated, bond-less atoms — are preserved untouched, keeping
-            their periodic image copies.  When no spec in the scene opts
-            in, deduplication applies scene-wide (the original
-            behaviour).
+            isolated, bond-less atoms — keep their periodic image copies,
+            aside from redundant unbonded fragments of an opted-in
+            network.  When no spec in the scene opts in, deduplication
+            applies scene-wide (the original behaviour).
     """
 
     default_radius: ClassVar[float] = 0.1

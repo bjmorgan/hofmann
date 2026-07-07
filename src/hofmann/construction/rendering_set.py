@@ -666,6 +666,18 @@ def deduplicate_molecules(
     fragment, breaking ties by the smallest fractional coordinates
     — a deterministic, view-independent rule.
 
+    When one or more :class:`~hofmann.BondSpec` in the scene set
+    ``deduplicate=True``, deduplication is *scoped*: only connected
+    components containing at least one bond from an opted-in spec are
+    deduplicated.  Every other component — including isolated, bond-less
+    atoms and their periodic images — is preserved, except that an
+    unbonded image atom is still dropped when it merely duplicates the
+    source of an opted-in network (a redundant fragment).  This lets one
+    bonded sub-network (e.g. cages that complete across cell boundaries)
+    be deduplicated while the periodic image copies of the rest of the
+    scene are kept.  When no spec opts in, the whole scene is
+    deduplicated as described above.
+
     Args:
         rset: The rendering set to deduplicate.
         lattice: 3x3 lattice matrix (row vectors), used to convert
@@ -711,10 +723,38 @@ def deduplicate_molecules(
     for root, members in components.items():
         source_sets[root] = {int(rset.source_indices[i]) for i in members}
 
+    # --- Determine deduplication scope ---
+    # When any in-play spec opts in via BondSpec.deduplicate, restrict
+    # deduplication to components containing at least one such bond; all
+    # other components (and isolated, bond-less atoms) keep their
+    # periodic image copies (bar redundant unbonded fragments removed by
+    # the orphan-cleanup pass below).  When no spec opts in, every
+    # component is in scope, giving the original whole-scene behaviour.
+    scoped = any(bond.spec.deduplicate for bond in rset.bonds)
+    in_scope_roots: set[int]
+    if scoped:
+        in_scope_roots = {
+            find(bond.index_a)
+            for bond in rset.bonds
+            if bond.spec.deduplicate
+        }
+    else:
+        in_scope_roots = set(components)
+
     keep_atoms: set[int] = set()
+    out_of_scope_atoms: set[int] = set()
+    in_scope_sources: set[int] = set()
     wrapped_sources: set[int] = set()
     non_wrapped_roots: list[int] = []
     for root, members in components.items():
+        if root not in in_scope_roots:
+            # Out of scope: keep every atom for now.  The orphan-cleanup
+            # pass below still drops any unbonded image whose source
+            # belongs to an in-scope network (a redundant fragment).
+            keep_atoms.update(members)
+            out_of_scope_atoms.update(members)
+            continue
+        in_scope_sources.update(source_sets[root])
         if len(source_sets[root]) < len(members):
             keep_atoms.update(members)
             wrapped_sources.update(source_sets[root])
@@ -795,7 +835,10 @@ def deduplicate_molecules(
     # --- Remove orphaned image atoms ---
     # Padding can create unbonded image atoms that survive the group
     # selection (e.g. padding images of slab atoms in a wrapped group).
-    # Strip any image atom that has no bonds in the kept set.
+    # Strip any image atom that has no bonds in the kept set.  Atoms of
+    # out-of-scope components are exempt so their periodic images survive
+    # — unless the image merely duplicates the source of an in-scope
+    # network, in which case it is a redundant fragment and is dropped.
     bonded_in_kept: set[int] = set()
     for bond in rset.bonds:
         if bond.index_a in keep_atoms and bond.index_b in keep_atoms:
@@ -803,7 +846,10 @@ def deduplicate_molecules(
             bonded_in_kept.add(bond.index_b)
     keep_atoms = {
         i for i in keep_atoms
-        if rset.source_indices[i] == i or i in bonded_in_kept
+        if (i in out_of_scope_atoms
+            and int(rset.source_indices[i]) not in in_scope_sources)
+        or rset.source_indices[i] == i
+        or i in bonded_in_kept
     }
 
     # --- Build output with remapped indices ---
