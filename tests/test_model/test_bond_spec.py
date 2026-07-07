@@ -191,6 +191,14 @@ class TestBondSpecRepr:
         spec = BondSpec(species=("C", "H"), max_length=3.4)
         assert "recursive" not in repr(spec)
 
+    def test_deduplicate_omitted_when_false(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4)
+        assert "deduplicate" not in repr(spec)
+
+    def test_deduplicate_shown_when_set(self):
+        spec = BondSpec(species=("C", "H"), max_length=3.4, deduplicate=True)
+        assert "deduplicate=True" in repr(spec)
+
     def test_complete_shown_when_set(self):
         spec = BondSpec(species=("C", "H"), max_length=3.4, complete="C")
         assert "complete='C'" in repr(spec)
@@ -210,6 +218,11 @@ class TestBondSpecEquality:
     def test_default_not_equal_to_explicit_same_value(self):
         a = BondSpec(species=("C", "H"), max_length=3.4)
         b = BondSpec(species=("C", "H"), max_length=3.4, radius=0.1)
+        assert a != b
+
+    def test_not_equal_when_deduplicate_differs(self):
+        a = BondSpec(species=("C", "H"), max_length=3.4)
+        b = BondSpec(species=("C", "H"), max_length=3.4, deduplicate=True)
         assert a != b
 
     def test_not_equal_to_other_type(self):

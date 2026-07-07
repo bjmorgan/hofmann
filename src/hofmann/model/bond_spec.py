@@ -46,6 +46,14 @@ class BondSpec:
             are checked on the next iteration, extending the
             expansion outward.  Useful for molecules that span
             periodic boundaries.
+        deduplicate: If ``True``, connected components containing a bond
+            from this spec are eligible for molecule deduplication when
+            :attr:`~hofmann.RenderStyle.deduplicate_molecules` is also
+            enabled.  Components with no opted-in bond — including
+            isolated, bond-less atoms — keep their periodic image copies,
+            aside from redundant unbonded fragments of an opted-in
+            network.  When no spec in the scene opts in, deduplication
+            applies scene-wide (the original behaviour).
     """
 
     default_radius: ClassVar[float] = 0.1
@@ -121,6 +129,7 @@ class BondSpec:
         colour: Colour | None = None,
         complete: bool | str = False,
         recursive: bool = False,
+        deduplicate: bool = False,
     ) -> None:
         a, b = sorted(species)
         self.species = (a, b)
@@ -130,6 +139,7 @@ class BondSpec:
         self._colour = colour
         self.complete = complete
         self.recursive = recursive
+        self.deduplicate = deduplicate
 
         self._validate()
 
@@ -183,6 +193,8 @@ class BondSpec:
             parts.append(f"complete={self.complete!r}")
         if self.recursive:
             parts.append(f"recursive={self.recursive!r}")
+        if self.deduplicate:
+            parts.append(f"deduplicate={self.deduplicate!r}")
         return f"BondSpec({', '.join(parts)})"
 
     def __eq__(self, other: object) -> bool:
@@ -196,6 +208,7 @@ class BondSpec:
             and self._colour == other._colour
             and self.complete == other.complete
             and self.recursive == other.recursive
+            and self.deduplicate == other.deduplicate
         )
 
     __hash__ = None  # type: ignore[assignment]
@@ -222,9 +235,9 @@ class BondSpec:
         """Serialise to a JSON-compatible dictionary.
 
         Fields at their default values are omitted (``min_length=0``,
-        ``complete=False``, ``recursive=False``).  When ``radius`` or
-        ``colour`` use the class-level default (i.e. were not set
-        explicitly), they are omitted too.
+        ``complete=False``, ``recursive=False``, ``deduplicate=False``).
+        When ``radius`` or ``colour`` use the class-level default (i.e.
+        were not set explicitly), they are omitted too.
         """
         d: dict = {
             "species": list(self.species),
@@ -240,6 +253,8 @@ class BondSpec:
             d["complete"] = self.complete
         if self.recursive:
             d["recursive"] = True
+        if self.deduplicate:
+            d["deduplicate"] = True
         return d
 
     @classmethod
@@ -256,6 +271,7 @@ class BondSpec:
             colour=d.get("colour"),
             complete=d.get("complete", False),
             recursive=d.get("recursive", False),
+            deduplicate=d.get("deduplicate", False),
         )
 
 

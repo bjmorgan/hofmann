@@ -288,3 +288,25 @@ systems (e.g. a slab with adsorbed solvent):
 - **Orphan cleanup.**  After selection, any image atom that has no bonds
   within the kept set is removed.  This catches isolated padding
   artefacts at cell edges.
+
+By default the pass is scene-global: every molecule is reduced to one
+copy.  In composite figures this is often too aggressive -- you may want
+to deduplicate one bonded network (say, cages that complete across cell
+boundaries) while keeping the periodic image copies of everything else,
+so the unit cell still looks full.  Set ``deduplicate=True`` on the bond
+specs of the network you want reduced:
+
+.. code-block:: python
+
+   bonds = [
+       BondSpec(species=("P", "S"), max_length=2.2),        # kept whole
+       BondSpec(species=("Li", "Li"), max_length=3.2,
+                recursive=True, deduplicate=True),           # deduplicated
+   ]
+   scene.render_mpl(deduplicate_molecules=True)
+
+Only connected components containing a ``deduplicate=True`` bond are
+deduplicated; all other components -- including isolated atoms with no
+bonds -- keep their periodic images.  ``deduplicate_molecules=True`` is
+still required to enable the pass at all; when no spec opts in,
+deduplication applies to the whole scene as before.
