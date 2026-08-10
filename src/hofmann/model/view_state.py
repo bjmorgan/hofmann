@@ -25,11 +25,11 @@ class Oblique:
     foreshortening: float = 0.5
 
 
+#: Cavalier projection: receding axis at 45 degrees, full length.
 CAVALIER = Oblique(45.0, 1.0)
-"""Cavalier projection: receding axis at 45 degrees, full length."""
 
+#: Cabinet projection: receding axis at 45 degrees, half length.
 CABINET = Oblique(45.0, 0.5)
-"""Cabinet projection: receding axis at 45 degrees, half length."""
 
 
 @dataclass

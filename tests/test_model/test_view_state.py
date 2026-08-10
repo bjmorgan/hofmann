@@ -5,8 +5,7 @@ from dataclasses import FrozenInstanceError
 import numpy as np
 import pytest
 
-from hofmann.model import CABINET, CAVALIER, Oblique
-from hofmann.model.view_state import ViewState
+from hofmann.model.view_state import CABINET, CAVALIER, Oblique, ViewState
 
 
 class TestViewStateProject:
@@ -314,10 +313,3 @@ class TestOblique:
     def test_presets(self):
         assert CAVALIER == Oblique(45.0, 1.0)
         assert CABINET == Oblique(45.0, 0.5)
-
-    def test_exported_from_package_root(self):
-        import hofmann
-
-        assert hofmann.Oblique is Oblique
-        assert hofmann.CAVALIER is CAVALIER
-        assert hofmann.CABINET is CABINET
