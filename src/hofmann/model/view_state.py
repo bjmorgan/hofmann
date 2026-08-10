@@ -106,7 +106,8 @@ class ViewState:
         in proportion to depth, so that the receding axis is drawn at
         :attr:`Oblique.angle` with length scaled by
         :attr:`Oblique.foreshortening`.  Zoom-free and
-        perspective-free, so it can also map bare direction vectors, as the axes orientation widget requires.
+        perspective-free, so it can also map bare direction vectors,
+        as the axes orientation widget requires.
         """
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=float)
         if self.oblique is not None:

@@ -75,7 +75,7 @@ Pan and perspective
    * - Shift + Arrow keys
      - Pan the view
    * - ``p`` / ``P``
-     - Increase / decrease perspective strength
+     - Increase / decrease perspective strength. Raising perspective from an oblique view switches mode, clearing the oblique projection.
    * - ``d`` / ``D``
      - Increase / decrease viewing distance
 
@@ -147,7 +147,7 @@ and display toggles — are captured in the returned objects.
 
    view, style = scene.render_mpl_interactive()
 
-   # The view captures rotation, zoom, pan, perspective, and distance.
+   # The view captures the complete view state, including any oblique projection.
    scene.view = view
 
    # The style captures display toggles (bonds, outlines, polyhedra, etc.).
