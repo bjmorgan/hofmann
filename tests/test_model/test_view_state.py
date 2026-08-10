@@ -310,6 +310,21 @@ class TestViewStateValidation:
         vs = ViewState(zoom=2.0, view_distance=15.0)
         assert vs.zoom == 2.0
 
+    def test_non_finite_scalars_rejected(self):
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(zoom=bad)
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(view_distance=bad)
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(perspective=bad)
+
+    def test_nan_perspective_cannot_bypass_exclusivity(self):
+        """nan > 0 is False, so without finiteness validation a nan
+        perspective would slip past the mutual-exclusion check."""
+        with pytest.raises(ValueError):
+            ViewState(perspective=float("nan"), oblique=CABINET)
+
 
 class TestViewStateOblique:
     """Tests for the oblique field, validation, and with_oblique."""
@@ -393,6 +408,17 @@ class TestOblique:
     def test_presets(self):
         assert CAVALIER == Oblique(45.0, 1.0)
         assert CABINET == Oblique(45.0, 0.5)
+
+    def test_rejects_non_finite(self):
+        for bad in (float("nan"), float("inf"), float("-inf")):
+            with pytest.raises(ValueError, match="finite"):
+                Oblique(angle=bad)
+            with pytest.raises(ValueError, match="finite"):
+                Oblique(foreshortening=bad)
+
+    def test_negative_foreshortening_allowed(self):
+        """Negative f is meaningful: equivalent to angle + 180 degrees."""
+        assert Oblique(foreshortening=-0.5).foreshortening == -0.5
 
 
 class TestViewStateProjectCamera:

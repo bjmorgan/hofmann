@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -9,20 +10,29 @@ import numpy as np
 class Oblique:
     """Direction and foreshortening of an oblique projection's receding axis.
 
-    An oblique (axonometric) parallel projection draws two axes
-    undistorted in the plane of the page and the third receding at an
-    angle, foreshortened.
+    An oblique parallel projection draws two axes undistorted in the
+    plane of the page and the third receding at an angle,
+    foreshortened.
 
     Attributes:
         angle: On-screen direction of the receding axis, in degrees
             anticlockwise from screen +x.
         foreshortening: Scale factor applied to the receding axis
             (cavalier 1.0, cabinet 0.5).  Zero recovers the
-            orthographic projection exactly.
+            orthographic projection exactly.  Negative values are
+            equivalent to ``angle + 180``.
     """
 
     angle: float = 45.0
     foreshortening: float = 0.5
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.angle):
+            raise ValueError(f"angle must be finite, got {self.angle}")
+        if not math.isfinite(self.foreshortening):
+            raise ValueError(
+                f"foreshortening must be finite, got {self.foreshortening}"
+            )
 
 
 #: Cavalier projection: receding axis at 45 degrees, full length.
@@ -89,11 +99,18 @@ class ViewState:
     oblique: Oblique | None = None
 
     def __post_init__(self) -> None:
-        if self.zoom <= 0:
-            raise ValueError(f"zoom must be positive, got {self.zoom}")
-        if self.view_distance <= 0:
+        if not math.isfinite(self.zoom) or self.zoom <= 0:
             raise ValueError(
-                f"view_distance must be positive, got {self.view_distance}"
+                f"zoom must be finite and positive, got {self.zoom}"
+            )
+        if not math.isfinite(self.view_distance) or self.view_distance <= 0:
+            raise ValueError(
+                f"view_distance must be finite and positive, got "
+                f"{self.view_distance}"
+            )
+        if not math.isfinite(self.perspective):
+            raise ValueError(
+                f"perspective must be finite, got {self.perspective}"
             )
         _check_oblique_perspective_exclusive(self.oblique, self.perspective)
 
