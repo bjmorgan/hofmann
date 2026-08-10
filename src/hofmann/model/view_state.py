@@ -5,6 +5,33 @@ from dataclasses import dataclass, field
 import numpy as np
 
 
+@dataclass(frozen=True)
+class Oblique:
+    """Direction and foreshortening of an oblique projection's receding axis.
+
+    An oblique (axonometric) parallel projection draws two axes
+    undistorted in the plane of the page and the third receding at an
+    angle, foreshortened.
+
+    Attributes:
+        angle: On-screen direction of the receding axis, in degrees
+            anticlockwise from screen +x.
+        foreshortening: Scale factor applied to the receding axis
+            (cavalier 1.0, cabinet 0.5).  Zero recovers the
+            orthographic projection exactly.
+    """
+
+    angle: float = 45.0
+    foreshortening: float = 0.5
+
+
+CAVALIER = Oblique(45.0, 1.0)
+"""Cavalier projection: receding axis at 45 degrees, full length."""
+
+CABINET = Oblique(45.0, 0.5)
+"""Cabinet projection: receding axis at 45 degrees, half length."""
+
+
 @dataclass
 class ViewState:
     """Camera state for 3D-to-2D projection.

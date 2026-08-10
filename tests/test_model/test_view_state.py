@@ -1,8 +1,11 @@
 """Tests for ViewState projection, look_along, slab clipping, and validation."""
 
+from dataclasses import FrozenInstanceError
+
 import numpy as np
 import pytest
 
+from hofmann.model import CABINET, CAVALIER, Oblique
 from hofmann.model.view_state import ViewState
 
 
@@ -293,3 +296,28 @@ class TestViewStateValidation:
     def test_valid_view_state_accepted(self):
         vs = ViewState(zoom=2.0, view_distance=15.0)
         assert vs.zoom == 2.0
+
+
+class TestOblique:
+    """Tests for the Oblique value type and its preset constants."""
+
+    def test_defaults(self):
+        ob = Oblique()
+        assert ob.angle == 45.0
+        assert ob.foreshortening == 0.5
+
+    def test_frozen(self):
+        ob = Oblique()
+        with pytest.raises(FrozenInstanceError):
+            ob.angle = 30.0
+
+    def test_presets(self):
+        assert CAVALIER == Oblique(45.0, 1.0)
+        assert CABINET == Oblique(45.0, 0.5)
+
+    def test_exported_from_package_root(self):
+        import hofmann
+
+        assert hofmann.Oblique is Oblique
+        assert hofmann.CAVALIER is CAVALIER
+        assert hofmann.CABINET is CABINET

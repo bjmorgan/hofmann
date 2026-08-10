@@ -30,7 +30,7 @@ from hofmann.model.render_style import (
     _DEFAULT_SPACING,
 )
 from hofmann.model.structure_scene import StructureScene
-from hofmann.model.view_state import ViewState
+from hofmann.model.view_state import CABINET, CAVALIER, Oblique, ViewState
 
 __all__ = [
     "AtomLegendItem",
@@ -38,13 +38,16 @@ __all__ = [
     "AxesStyle",
     "Bond",
     "BondSpec",
+    "CABINET",
+    "CAVALIER",
     "CellEdgeStyle",
     "CmapSpec",
-    "LegendItem",
-    "LegendStyle",
     "Colour",
     "Composition",
     "Frame",
+    "LegendItem",
+    "LegendStyle",
+    "Oblique",
     "Polyhedron",
     "PolygonLegendItem",
     "PolyhedronLegendItem",
