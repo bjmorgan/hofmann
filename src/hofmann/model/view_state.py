@@ -258,8 +258,8 @@ class ViewState:
             ``self``, with :attr:`oblique` set.
 
         Raises:
-            ValueError: If :attr:`perspective` is positive — oblique
-                and perspective projections are mutually exclusive.
+            ValueError: If *perspective* is positive — oblique and
+                perspective projections are mutually exclusive.
         """
         if self.perspective > 0:
             raise ValueError(
