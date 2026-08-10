@@ -29,6 +29,24 @@ class TestProjectPoint:
         np.testing.assert_allclose(s, 1.0)
         np.testing.assert_allclose(xy, [1.0, 0.0])
 
+    def test_equivalent_to_project_camera(self):
+        """_project_point is the single-point view of project_camera —
+        this is what pins bond rendering to the shared mapping."""
+        from hofmann.model import Oblique
+
+        views = [
+            ViewState(zoom=1.5),
+            ViewState(perspective=0.5, view_distance=8.0),
+            ViewState(oblique=Oblique(35.0, 0.6), zoom=2.0),
+        ]
+        pts = np.array([[1.0, -2.0, 3.0], [0.0, 0.0, 0.0], [-4.0, 1.0, -1.5]])
+        for view in views:
+            batch_xy, batch_scale = view.project_camera(pts)
+            for i, pt in enumerate(pts):
+                xy, s = _project_point(pt, view)
+                np.testing.assert_array_equal(xy, batch_xy[i])
+                assert s == batch_scale[i]
+
 
 class TestSceneExtent:
     """Tests for _scene_extent viewport calculation."""

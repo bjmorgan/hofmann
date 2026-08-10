@@ -32,6 +32,8 @@ def _project_point(
 ) -> tuple[np.ndarray, float]:
     """Project a single 3D rotated point to 2D screen coordinates.
 
+    Thin single-point wrapper around :meth:`ViewState.project_camera`.
+
     Args:
         pt: 3D point in rotated (camera) coordinates.
         view: The ViewState defining the projection.
@@ -40,13 +42,8 @@ def _project_point(
         Tuple of (xy, scale) where *xy* is the 2D position and *scale*
         is the perspective scale factor at this depth.
     """
-    z = pt[2]
-    if view.perspective > 0:
-        s = view.view_distance / (view.view_distance - z * view.perspective)
-    else:
-        s = 1.0
-    xy = pt[:2] * s * view.zoom
-    return xy, s
+    xy, scale = view.project_camera(pt[np.newaxis, :])
+    return xy[0], float(scale[0])
 
 
 # Fractional coordinates of the 8 unit cube corners.
