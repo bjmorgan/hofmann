@@ -90,6 +90,38 @@ class ViewState:
                 "oblique and perspective projections are mutually exclusive"
             )
 
+    @property
+    def screen_matrix(self) -> np.ndarray:
+        """The ``(2, 3)`` linear map from camera space to screen space.
+
+        Identity on x and y when :attr:`oblique` is ``None``.  With an
+        oblique projection the third column displaces screen positions
+        in proportion to depth, so that the receding axis is drawn at
+        :attr:`Oblique.angle` with length scaled by
+        :attr:`Oblique.foreshortening`.  Zoom-free and
+        perspective-free, so it is well defined on direction vectors.
+        """
+        m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        if self.oblique is not None:
+            th = np.deg2rad(self.oblique.angle)
+            f = self.oblique.foreshortening
+            m[0, 2] = -f * np.cos(th)
+            m[1, 2] = -f * np.sin(th)
+        return m
+
+    @property
+    def screen_scale_bound(self) -> float:
+        """Largest factor by which :attr:`screen_matrix` can stretch a vector.
+
+        The largest singular value of the screen matrix:
+        ``sqrt(1 + f**2)`` for foreshortening ``f``, exactly ``1.0``
+        when :attr:`oblique` is ``None``.  Used for viewport sizing.
+        """
+        if self.oblique is None:
+            return 1.0
+        f = self.oblique.foreshortening
+        return float(np.sqrt(1.0 + f * f))
+
     def project(
         self, coords: np.ndarray, radii: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

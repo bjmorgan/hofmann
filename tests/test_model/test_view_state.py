@@ -331,6 +331,38 @@ class TestViewStateOblique:
         assert vs.oblique == CABINET
 
 
+class TestScreenMatrix:
+    """Tests for the camera-to-screen linear map."""
+
+    def test_identity_when_oblique_none(self):
+        m = ViewState().screen_matrix
+        np.testing.assert_array_equal(
+            m, np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        )
+
+    def test_oblique_third_column(self):
+        vs = ViewState(oblique=Oblique(angle=35.0, foreshortening=0.6))
+        th = np.deg2rad(35.0)
+        expected = np.array([
+            [1.0, 0.0, -0.6 * np.cos(th)],
+            [0.0, 1.0, -0.6 * np.sin(th)],
+        ])
+        np.testing.assert_allclose(vs.screen_matrix, expected)
+
+    def test_scale_bound_is_one_when_oblique_none(self):
+        assert ViewState().screen_scale_bound == 1.0
+
+    def test_scale_bound_is_largest_singular_value(self):
+        vs = ViewState(oblique=Oblique(angle=35.0, foreshortening=0.6))
+        singular_values = np.linalg.svd(vs.screen_matrix, compute_uv=False)
+        np.testing.assert_allclose(
+            vs.screen_scale_bound, singular_values.max()
+        )
+        np.testing.assert_allclose(
+            vs.screen_scale_bound, np.sqrt(1.0 + 0.6**2)
+        )
+
+
 class TestOblique:
     """Tests for the Oblique value type and its preset constants."""
 
