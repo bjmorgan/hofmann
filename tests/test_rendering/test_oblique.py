@@ -14,12 +14,14 @@ import numpy as np
 
 from hofmann.model import (
     AtomStyle,
+    AxesStyle,
     BondSpec,
     Frame,
     Oblique,
     StructureScene,
     ViewState,
 )
+from hofmann.rendering.axes_widget import _draw_axes_widget
 from hofmann.rendering.static import render_mpl
 
 
@@ -96,6 +98,45 @@ class TestCellEdgesShearConsistently:
                 assert dists.min() < 1e-8, (
                     f"projected corner {corner} not found among drawn "
                     f"cell-edge endpoints (closest {dists.min():.3e})"
+                )
+        finally:
+            plt.close(fig)
+
+
+class TestAxesWidgetShearsConsistently:
+    def test_tips_match_screen_matrix(self):
+        """Axis-triad tips must advertise the sheared directions the
+        figure actually uses."""
+        lattice = np.eye(3) * 3.0
+        view = _oblique_view()
+        fig, ax = plt.subplots()
+        try:
+            ax.set_xlim(-10.0, 10.0)
+            ax.set_ylim(-10.0, 10.0)
+            style = AxesStyle()
+            _draw_axes_widget(ax, lattice, view, style)
+
+            pad = 10.0  # half-extent of the square limits above
+            arrow_len = style.arrow_length * pad
+            directions = lattice / np.linalg.norm(lattice, axis=1)[:, None]
+            expected_tips = (
+                (directions @ view.rotation.T) @ view.screen_matrix.T
+                * arrow_len
+            )
+
+            # The widget draws exactly three axis lines, each from the
+            # common origin to origin + tip.
+            deltas = np.array([
+                np.asarray(line.get_xydata())[1]
+                - np.asarray(line.get_xydata())[0]
+                for line in ax.lines
+            ])
+            assert len(deltas) == 3
+            for tip in expected_tips:
+                dists = np.linalg.norm(deltas - tip, axis=1)
+                assert dists.min() < 1e-9, (
+                    f"expected sheared tip {tip} not drawn "
+                    f"(closest delta off by {dists.min():.3e})"
                 )
         finally:
             plt.close(fig)

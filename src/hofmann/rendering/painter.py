@@ -673,11 +673,14 @@ def _draw_scene(
     if draw_axes is None:
         draw_axes = lattice is not None
     if draw_axes and viewport_extent is None:
-        # Expand viewport so the widget doesn't overlap atoms.
-        # The widget spans (margin + 2 * arrow_length) * pad from the
-        # corner; halve this because expansion is applied to both sides.
+        # The widget spans (margin + 2 * reach) * pad from the corner,
+        # where a sheared tip can reach screen_scale_bound * arrow_length;
+        # halve because expansion is applied to both sides.
         axes_style = style.axes_style
-        widget_frac = axes_style.margin + 2.0 * axes_style.arrow_length
+        widget_frac = (
+            axes_style.margin
+            + 2.0 * axes_style.arrow_length * view.screen_scale_bound
+        )
         expand_per_side = widget_frac * 0.5
         pad_x *= 1.0 + expand_per_side
         pad_y *= 1.0 + expand_per_side

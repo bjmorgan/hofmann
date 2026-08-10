@@ -64,9 +64,11 @@ def _draw_axes_widget(
         ox = (cx - pad_x) + 2 * pad_x * fx
         oy = (cy - pad_y) + 2 * pad_y * fy
     else:
-        # Named corner with margin inset.
-        inset_x = style.margin * pad_x + arrow_len
-        inset_y = style.margin * pad_y + arrow_len
+        # Named corner with margin inset.  A sheared tip can reach
+        # screen_scale_bound * arrow_len from the widget origin.
+        reach = arrow_len * view.screen_scale_bound
+        inset_x = style.margin * pad_x + reach
+        inset_y = style.margin * pad_y + reach
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.TOP_LEFT):
             ox = (cx - pad_x) + inset_x
         else:
@@ -99,9 +101,11 @@ def _draw_axes_widget(
         norm = float(np.linalg.norm(v))
         directions[i] = v / norm if norm > 1e-12 else np.eye(3)[i]
 
-    # Project through the view rotation (orthographic, no perspective).
+    # Project into camera space (kept 3D for depth ordering), then
+    # through the screen matrix so the tips shear consistently with
+    # the rest of the figure (orthographic or oblique; no perspective).
     projected = directions @ view.rotation.T  # (3, 3)
-    tips_2d = projected[:, :2] * arrow_len
+    tips_2d = projected @ view.screen_matrix.T * arrow_len
 
     # Sort by z-depth (furthest first) so nearer lines overlap.
     draw_order = np.argsort(projected[:, 2])
