@@ -16,8 +16,10 @@ from hofmann.model import (
     AtomStyle,
     AxesStyle,
     BondSpec,
+    CAVALIER,
     Frame,
     Oblique,
+    RenderStyle,
     StructureScene,
     ViewState,
 )
@@ -161,6 +163,51 @@ class TestAxesWidgetShearsConsistently:
                 )
         finally:
             plt.close(fig)
+
+    def test_widget_lines_stay_inside_axes_under_cavalier(self):
+        """The corner inset allows for sheared tip reach, so no axis
+        line may poke outside the axes limits even at full cavalier
+        foreshortening."""
+        lattice = np.eye(3) * 3.0
+        view = ViewState().look_along([0, -1, 0]).with_oblique(CAVALIER)
+        fig, ax = plt.subplots()
+        try:
+            ax.set_xlim(-10.0, 10.0)
+            ax.set_ylim(-10.0, 10.0)
+            _draw_axes_widget(ax, lattice, view, AxesStyle())
+            for line in ax.lines:
+                data = np.asarray(line.get_xydata())
+                assert data[:, 0].min() >= -10.0 and data[:, 0].max() <= 10.0
+                assert data[:, 1].min() >= -10.0 and data[:, 1].max() <= 10.0
+        finally:
+            plt.close(fig)
+
+
+class TestWidgetViewportExpansion:
+    def test_expansion_grows_with_scale_bound(self):
+        """The viewport expansion for the axes widget must allow for
+        sheared tip reach: rendering with the widget on expands the
+        limits by (margin + 2 * arrow_length * screen_scale_bound) / 2
+        per side relative to the widget-off render."""
+        lattice = np.diag([3.0, 4.0, 5.0])
+        scene = _make_scene(lattice)
+        scene.view = _oblique_view()
+
+        fig_on = render_mpl(scene, show=False, show_axes=True)
+        fig_off = render_mpl(scene, show=False, show_axes=False)
+        try:
+            w_on = np.diff(fig_on.axes[0].get_xlim())[0]
+            w_off = np.diff(fig_off.axes[0].get_xlim())[0]
+            axes_style = RenderStyle().axes_style
+            widget_frac = (
+                axes_style.margin
+                + 2.0 * axes_style.arrow_length
+                * scene.view.screen_scale_bound
+            )
+            np.testing.assert_allclose(w_on / w_off, 1.0 + widget_frac / 2.0)
+        finally:
+            plt.close(fig_on)
+            plt.close(fig_off)
 
 
 class TestFullSceneConsistency:

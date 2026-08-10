@@ -449,6 +449,29 @@ class TestViewStateProjectCamera:
         with pytest.raises(ValueError, match="mutually exclusive"):
             vs.project_camera(np.zeros((1, 3)))
 
+    def test_perspective_path_is_bit_exact(self):
+        """The project comment promises byte-identical output to the
+        pre-oblique implementation; pin the perspective path against
+        the formula written with the same operations in the same
+        order."""
+        vs = ViewState(perspective=0.7, view_distance=12.0, zoom=1.3)
+        rng = np.random.default_rng(11)
+        pts = rng.normal(scale=2.0, size=(15, 3))
+        radii = np.linspace(0.1, 0.8, 15)
+
+        rotated = (pts - vs.centre) @ vs.rotation.T
+        depth = rotated[:, 2]
+        d = vs.view_distance - depth * vs.perspective
+        scale = vs.view_distance / d
+        expected_xy = rotated[:, :2] * scale[:, np.newaxis] * vs.zoom
+        denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+        expected_radii = radii * vs.view_distance / denom * vs.zoom
+
+        xy, depth_out, radii_out = vs.project(pts, radii)
+        np.testing.assert_array_equal(xy, expected_xy)
+        np.testing.assert_array_equal(depth_out, depth)
+        np.testing.assert_array_equal(radii_out, expected_radii)
+
 
 class TestViewStateProjectOblique:
     """Tests for oblique projection through ViewState.project."""

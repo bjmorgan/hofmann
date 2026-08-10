@@ -404,6 +404,21 @@ class TestKeyActions:
         assert view.view_distance == 10.0
         assert kind == "view"
 
+    def test_reset_restores_slab_fields(self):
+        """The generic restore must cover every field — the old
+        hand-enumerated restore silently dropped the slab settings."""
+        view, style, state, _ = _key_action_fixtures()
+        view.slab_near = -1.0
+        view.slab_far = 2.0
+        initial_view = copy.deepcopy(view)
+        view.slab_near = None
+        view.slab_far = None
+        view.slab_origin = np.array([1.0, 2.0, 3.0])
+        _do_key("r", view, style, state, initial_view)
+        assert view.slab_near == -1.0
+        assert view.slab_far == 2.0
+        assert view.slab_origin is None
+
     # -- Help overlay --
 
     def test_help_toggle(self):
