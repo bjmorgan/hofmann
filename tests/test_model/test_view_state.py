@@ -379,3 +379,104 @@ class TestOblique:
     def test_presets(self):
         assert CAVALIER == Oblique(45.0, 1.0)
         assert CABINET == Oblique(45.0, 0.5)
+
+
+class TestViewStateProjectCamera:
+    """Tests for the consolidated camera-to-screen mapping."""
+
+    def test_orthographic_matches_manual(self):
+        vs = ViewState(zoom=2.0)
+        camera = np.array([[1.0, 2.0, 3.0], [-1.0, 0.5, -2.0]])
+        xy, scale = vs.project_camera(camera)
+        np.testing.assert_array_equal(xy, camera[:, :2] * 2.0)
+        np.testing.assert_array_equal(scale, [1.0, 1.0])
+
+    def test_perspective_matches_manual(self):
+        vs = ViewState(perspective=0.5, view_distance=10.0, zoom=1.5)
+        camera = np.array([[1.0, 2.0, 3.0], [-1.0, 0.5, -2.0]])
+        xy, scale = vs.project_camera(camera)
+        expected_scale = 10.0 / (10.0 - camera[:, 2] * 0.5)
+        np.testing.assert_allclose(scale, expected_scale)
+        np.testing.assert_allclose(
+            xy, camera[:, :2] * expected_scale[:, np.newaxis] * 1.5
+        )
+
+    def test_backstop_rejects_oblique_with_perspective(self):
+        """Direct assignment bypasses __post_init__; project_camera
+        must still refuse the forbidden combination."""
+        vs = ViewState(oblique=CABINET)
+        vs.perspective = 0.5  # direct assignment, no validation runs
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            vs.project_camera(np.zeros((1, 3)))
+
+
+class TestViewStateProjectOblique:
+    """Tests for oblique projection through ViewState.project."""
+
+    def _points(self):
+        rng = np.random.default_rng(42)
+        return rng.normal(scale=3.0, size=(20, 3))
+
+    def test_oblique_none_unchanged(self):
+        """Regression guard: the refactored path must be exactly the
+        old orthographic computation."""
+        vs = ViewState(zoom=1.7, centre=np.array([0.5, -0.2, 1.0]))
+        pts = self._points()
+        rotated = (pts - vs.centre) @ vs.rotation.T
+        xy, depth, radii = vs.project(pts, np.full(len(pts), 0.4))
+        np.testing.assert_array_equal(xy, rotated[:, :2] * 1.7)
+        np.testing.assert_array_equal(depth, rotated[:, 2])
+        np.testing.assert_array_equal(radii, np.full(len(pts), 0.4 * 1.7))
+
+    def test_zero_foreshortening_is_orthographic(self):
+        vs_ortho = ViewState()
+        vs_oblique = ViewState(oblique=Oblique(35.0, 0.0))
+        pts = self._points()
+        xy_o, d_o, _ = vs_ortho.project(pts)
+        xy_q, d_q, _ = vs_oblique.project(pts)
+        np.testing.assert_allclose(xy_q, xy_o, atol=1e-15)
+        np.testing.assert_array_equal(d_q, d_o)
+
+    def test_offset_is_minus_f_d_cos_sin(self):
+        """A point at depth d is displaced by exactly -f*d*(cos, sin)
+        from its orthographic position."""
+        angle, f = 35.0, 0.6
+        vs = ViewState(oblique=Oblique(angle, f))
+        pts = self._points()
+        xy_ortho, depth, _ = ViewState().project(pts)
+        xy_obl, depth_obl, _ = vs.project(pts)
+        th = np.radians(angle)
+        expected = xy_ortho - depth[:, np.newaxis] * f * np.array(
+            [np.cos(th), np.sin(th)]
+        )
+        np.testing.assert_allclose(xy_obl, expected, atol=1e-14)
+
+    def test_depth_unchanged_by_oblique(self):
+        """Painter ordering must be identical to the orthographic case."""
+        pts = self._points()
+        _, depth_ortho, _ = ViewState().project(pts)
+        _, depth_obl, _ = ViewState(oblique=CAVALIER).project(pts)
+        np.testing.assert_array_equal(depth_obl, depth_ortho)
+
+    def test_radii_unchanged_by_oblique(self):
+        """Spheres keep circular outlines by convention."""
+        pts = self._points()
+        radii = np.linspace(0.2, 1.0, len(pts))
+        _, _, r_ortho = ViewState().project(pts, radii)
+        _, _, r_obl = ViewState(oblique=CAVALIER).project(pts, radii)
+        np.testing.assert_array_equal(r_obl, r_ortho)
+
+    def test_cavalier_unit_step_cabinet_half_step(self):
+        """A unit step along the receding axis (depth -1, i.e. away
+        from the viewer) draws as a unit step on screen under cavalier
+        and a half step under cabinet, in the direction of *angle*."""
+        step = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
+        for oblique, length in ((CAVALIER, 1.0), (CABINET, 0.5)):
+            vs = ViewState(rotation=np.eye(3), oblique=oblique)
+            xy, _, _ = vs.project(step)
+            drawn = xy[1] - xy[0]
+            th = np.radians(oblique.angle)
+            np.testing.assert_allclose(
+                drawn, length * np.array([np.cos(th), np.sin(th)]),
+                atol=1e-15,
+            )

@@ -122,6 +122,47 @@ class ViewState:
         f = self.oblique.foreshortening
         return float(np.sqrt(1.0 + f * f))
 
+    def project_camera(
+        self, camera: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Map camera-space coordinates to screen coordinates.
+
+        The single source of truth for the camera-space-to-screen
+        mapping: applies :attr:`screen_matrix`, then perspective
+        scaling, then zoom.  Every rendered object must obtain its
+        screen positions through this method (directly or via
+        :meth:`project`) so that all drawn geometry projects
+        consistently.
+
+        Args:
+            camera: Array of shape ``(n, 3)`` in camera space, i.e.
+                after centring and rotation.
+
+        Returns:
+            Tuple of ``(xy, scale)`` where *xy* has shape ``(n, 2)``
+            and *scale* has shape ``(n,)``, the perspective scale
+            factor at each depth (all ones when orthographic).
+
+        Raises:
+            ValueError: If :attr:`oblique` is set while
+                :attr:`perspective` is positive.  Construction and
+                :meth:`with_oblique` also reject this combination;
+                this backstop closes the direct-assignment path.
+        """
+        if self.oblique is not None and self.perspective > 0:
+            raise ValueError(
+                "oblique and perspective projections are mutually exclusive"
+            )
+        camera = np.asarray(camera, dtype=float)
+        xy = camera @ self.screen_matrix.T
+        if self.perspective > 0:
+            scale = self.view_distance / (
+                self.view_distance - camera[:, 2] * self.perspective
+            )
+        else:
+            scale = np.ones(len(camera))
+        return xy * scale[:, np.newaxis] * self.zoom, scale
+
     def project(
         self, coords: np.ndarray, radii: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -129,6 +170,11 @@ class ViewState:
 
         The eye sits at ``[0, 0, view_distance]`` and each sphere's
         visible silhouette is projected onto the z=0 plane.
+
+        With an oblique projection the screen coordinates gain a
+        depth-proportional offset; *depth* and *projected_radii* are
+        unchanged — spheres keep their circular outlines by drawing
+        convention.
 
         Args:
             coords: Array of shape ``(n, 3)``.
@@ -148,25 +194,20 @@ class ViewState:
         rotated = centred @ self.rotation.T
         depth = rotated[:, 2]
 
-        if self.perspective > 0:
-            # Eye-to-atom distance along z.
-            d = self.view_distance - depth * self.perspective
-            scale = self.view_distance / d
-            xy = rotated[:, :2] * scale[:, np.newaxis] * self.zoom
+        xy, _ = self.project_camera(rotated)
 
-            if radii is not None:
-                radii = np.asarray(radii, dtype=float)
+        if radii is not None:
+            radii = np.asarray(radii, dtype=float)
+            if self.perspective > 0:
+                # Eye-to-atom distance along z.
+                d = self.view_distance - depth * self.perspective
                 # Silhouette radius: r * D / sqrt(d^2 - r^2).
                 denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
                 projected_radii = radii * self.view_distance / denom * self.zoom
             else:
-                projected_radii = np.zeros(len(depth))
+                projected_radii = radii * self.zoom
         else:
-            xy = rotated[:, :2] * self.zoom
-            if radii is not None:
-                projected_radii = np.asarray(radii, dtype=float) * self.zoom
-            else:
-                projected_radii = np.zeros(len(depth))
+            projected_radii = np.zeros(len(depth))
 
         return xy, depth, projected_radii
 
