@@ -115,6 +115,35 @@ class TestSceneExtent:
         e_lat = _scene_extent(scene_lat, view, 0, atom_scale=0.5)
         assert e_lat > e_no_lat
 
+    def _two_atom_scene(self):
+        return StructureScene(
+            species=["C", "C"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, -5.0],
+                [0.0, 0.0, 5.0],
+            ]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+
+    def test_oblique_scales_extent_by_scale_bound(self):
+        """Cavalier would clip at the viewport edge without the
+        sqrt(1 + f^2) allowance."""
+        from hofmann.model import Oblique
+
+        scene = self._two_atom_scene()
+        f = 0.6
+        e_none = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
+        e_obl = _scene_extent(
+            scene, ViewState(oblique=Oblique(35.0, f)), 0, atom_scale=0.5,
+        )
+        np.testing.assert_allclose(e_obl, e_none * math.sqrt(1.0 + f**2))
+
+    def test_extent_unchanged_when_oblique_none(self):
+        scene = self._two_atom_scene()
+        e_a = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
+        e_b = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
+        assert e_a == e_b
+
 
 class TestMakeWedges:
     def test_pure_composition_returns_single_full_circle(self):

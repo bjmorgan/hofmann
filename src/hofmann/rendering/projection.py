@@ -92,6 +92,13 @@ def _scene_extent(
     if max_extent == 0.0:
         max_extent = 1.0
 
+    # An oblique shear stretches screen positions by at most
+    # screen_scale_bound (sqrt(1 + f^2), the screen matrix's largest
+    # singular value).  Applying it to the whole dists-plus-radii
+    # bound is slightly conservative — silhouette radii stay unscaled
+    # under oblique — which is harmless over-padding.
+    max_extent *= view.screen_scale_bound
+
     # Under perspective, atoms near the camera appear larger.  The
     # worst-case magnification for an atom at distance *d* from the
     # view centre is when it is rotated to depth z = +d (closest to
