@@ -68,9 +68,10 @@ def _scene_extent(
     """Compute rotation-invariant viewport half-extent for *scene*.
 
     Returns the radius of a 2D bounding circle centred at the origin
-    that encloses all atoms regardless of rotation.  This is simply the
-    maximum 3D distance from the view centre plus the largest display
-    radius, scaled by zoom.
+    that encloses all atoms regardless of rotation.  The base bound is
+    the maximum 3D distance from the view centre plus the largest
+    display radius, scaled by zoom; oblique and perspective
+    magnification allowances are applied on top.
     """
     coords = scene.frames[frame_index].coords
     dists = np.linalg.norm(coords - view.centre, axis=1)

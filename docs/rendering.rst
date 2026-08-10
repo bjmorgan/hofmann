@@ -59,7 +59,7 @@ Perspective
 Oblique projection
 ------------------
 
-An oblique (axonometric) projection draws two axes undistorted in the
+An oblique projection draws two axes undistorted in the
 plane of the page, with the third receding at a chosen angle and
 foreshortening -- a standard idiom for crystal-structure figures::
 
@@ -68,8 +68,10 @@ foreshortening -- a standard idiom for crystal-structure figures::
    scene.view.look_along([0, -1, 0]).with_oblique(CABINET)
 
 ``CAVALIER`` draws the receding axis at full length, ``CABINET`` at
-half length, both at 45 degrees.  For other angles or foreshortening
-factors, pass an :class:`~hofmann.Oblique` directly::
+half length, both at 45 degrees.  The axis that recedes is the
+current view direction, so choose it first with
+:meth:`~hofmann.ViewState.look_along`.  For other angles or
+foreshortening factors, pass an :class:`~hofmann.Oblique` directly::
 
    scene.view.with_oblique(Oblique(angle=35.0, foreshortening=0.6))
 

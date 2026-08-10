@@ -1,5 +1,8 @@
 # Project-specific
 CLAUDE.md
+OBLIQUE_PROJECTION.md
+.superpowers/
+docs/superpowers/
 examples/*.pdf
 examples/*.svg
 examples/*.png

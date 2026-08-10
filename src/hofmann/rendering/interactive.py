@@ -275,7 +275,9 @@ def render_mpl_interactive(
     - **,** / **.** roll in the screen plane.
     - **+** / **=** / **-** zoom in/out.
     - **Shift+Arrow** keys pan the view.
-    - **p** / **P** increase/decrease perspective strength. Raising perspective from an oblique view switches mode, clearing the oblique projection.
+    - **p** / **P** increase/decrease perspective strength. Raising
+      perspective from an oblique view switches mode, clearing the
+      oblique projection.
     - **d** / **D** increase/decrease viewing distance.
     - **b** toggle bonds, **o** toggle outlines, **e** toggle polyhedra,
       **u** toggle unit cell, **a** toggle axes widget.

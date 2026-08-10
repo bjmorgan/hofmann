@@ -26,7 +26,7 @@ Changelog
   rules, which already operated on every constituent of a mixed
   site.
 
-- Oblique (axonometric) projection.  Set
+- Oblique projection.  Set
   :attr:`~hofmann.ViewState.oblique` to an :class:`~hofmann.Oblique`,
   or chain :meth:`~hofmann.ViewState.with_oblique`, to draw two axes
   undistorted in the page plane with the third receding at a chosen

@@ -310,7 +310,7 @@ class ViewState:
         d_len = np.linalg.norm(d)
         if d_len < 1e-12:
             raise ValueError("direction must be non-zero")
-        fwd = d / d_len                     # camera z-axis (into screen)
+        fwd = d / d_len                     # camera z-axis (towards the viewer)
 
         right = np.cross(u, fwd)
         right_len = np.linalg.norm(right)
