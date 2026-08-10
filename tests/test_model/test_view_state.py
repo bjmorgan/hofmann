@@ -297,6 +297,40 @@ class TestViewStateValidation:
         assert vs.zoom == 2.0
 
 
+class TestViewStateOblique:
+    """Tests for the oblique field, validation, and with_oblique."""
+
+    def test_default_is_none(self):
+        assert ViewState().oblique is None
+
+    def test_constructor_rejects_oblique_with_perspective(self):
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            ViewState(perspective=0.5, oblique=CABINET)
+
+    def test_constructor_accepts_oblique_orthographic(self):
+        vs = ViewState(oblique=CABINET)
+        assert vs.oblique == CABINET
+
+    def test_with_oblique_sets_and_returns_self(self):
+        vs = ViewState()
+        result = vs.with_oblique(CAVALIER)
+        assert result is vs
+        assert vs.oblique == CAVALIER
+
+    def test_with_oblique_default_is_cabinet(self):
+        vs = ViewState().with_oblique()
+        assert vs.oblique == CABINET
+
+    def test_with_oblique_rejects_perspective(self):
+        vs = ViewState(perspective=0.5)
+        with pytest.raises(ValueError, match="mutually exclusive"):
+            vs.with_oblique()
+
+    def test_with_oblique_chains_with_look_along(self):
+        vs = ViewState().look_along([0, -1, 0]).with_oblique(CABINET)
+        assert vs.oblique == CABINET
+
+
 class TestOblique:
     """Tests for the Oblique value type and its preset constants."""
 

@@ -59,6 +59,9 @@ class ViewState:
             further from camera), or ``None`` for no near limit.
         slab_far: Far offset from the slab origin depth (positive =
             closer to camera), or ``None`` for no far limit.
+        oblique: Oblique projection parameters, or ``None`` for the
+            standard orthographic / perspective projection.  Mutually
+            exclusive with *perspective*.
     """
 
     rotation: np.ndarray = field(
@@ -73,6 +76,7 @@ class ViewState:
     slab_origin: np.ndarray | None = None
     slab_near: float | None = None
     slab_far: float | None = None
+    oblique: Oblique | None = None
 
     def __post_init__(self) -> None:
         if self.zoom <= 0:
@@ -80,6 +84,10 @@ class ViewState:
         if self.view_distance <= 0:
             raise ValueError(
                 f"view_distance must be positive, got {self.view_distance}"
+            )
+        if self.oblique is not None and self.perspective > 0:
+            raise ValueError(
+                "oblique and perspective projections are mutually exclusive"
             )
 
     def project(
@@ -229,4 +237,33 @@ class ViewState:
         # Rotation matrix: rows are the camera basis vectors.
         # R maps world coords to camera coords: rotated = R @ world.
         self.rotation = np.array([right, up_actual, fwd])
+        return self
+
+    def with_oblique(self, oblique: Oblique = CABINET) -> ViewState:
+        """Enable an oblique projection and return ``self`` for chaining.
+
+        Mirrors :meth:`look_along`::
+
+            scene.view = ViewState().look_along([0, -1, 0]).with_oblique(CAVALIER)
+
+        To return to an orthographic projection, assign
+        ``view.oblique = None`` directly; this method deliberately
+        does not accept ``None``.
+
+        Args:
+            oblique: Oblique projection parameters.  Defaults to
+                :data:`CABINET`.
+
+        Returns:
+            ``self``, with :attr:`oblique` set.
+
+        Raises:
+            ValueError: If :attr:`perspective` is positive — oblique
+                and perspective projections are mutually exclusive.
+        """
+        if self.perspective > 0:
+            raise ValueError(
+                "oblique and perspective projections are mutually exclusive"
+            )
+        self.oblique = oblique
         return self
