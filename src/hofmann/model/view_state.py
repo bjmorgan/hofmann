@@ -32,6 +32,16 @@ CAVALIER = Oblique(45.0, 1.0)
 CABINET = Oblique(45.0, 0.5)
 
 
+def _check_oblique_perspective_exclusive(
+    oblique: Oblique | None, perspective: float,
+) -> None:
+    """Raise if an oblique projection is combined with perspective."""
+    if oblique is not None and perspective > 0:
+        raise ValueError(
+            "oblique and perspective projections are mutually exclusive"
+        )
+
+
 @dataclass
 class ViewState:
     """Camera state for 3D-to-2D projection.
@@ -85,10 +95,7 @@ class ViewState:
             raise ValueError(
                 f"view_distance must be positive, got {self.view_distance}"
             )
-        if self.oblique is not None and self.perspective > 0:
-            raise ValueError(
-                "oblique and perspective projections are mutually exclusive"
-            )
+        _check_oblique_perspective_exclusive(self.oblique, self.perspective)
 
     @property
     def screen_matrix(self) -> np.ndarray:
@@ -149,10 +156,7 @@ class ViewState:
                 :meth:`with_oblique` also reject this combination;
                 this backstop closes the direct-assignment path.
         """
-        if self.oblique is not None and self.perspective > 0:
-            raise ValueError(
-                "oblique and perspective projections are mutually exclusive"
-            )
+        _check_oblique_perspective_exclusive(self.oblique, self.perspective)
         camera = np.asarray(camera, dtype=float)
         xy = camera @ self.screen_matrix.T
         if self.perspective > 0:
@@ -199,6 +203,9 @@ class ViewState:
         if radii is not None:
             radii = np.asarray(radii, dtype=float)
             if self.perspective > 0:
+                # Recomputed directly (not view_distance / scale): the
+                # division round-trip is not bit-exact and output must
+                # be byte-identical to the pre-oblique implementation.
                 # Eye-to-atom distance along z.
                 d = self.view_distance - depth * self.perspective
                 # Silhouette radius: r * D / sqrt(d^2 - r^2).
@@ -334,9 +341,6 @@ class ViewState:
             ValueError: If *perspective* is positive — oblique and
                 perspective projections are mutually exclusive.
         """
-        if self.perspective > 0:
-            raise ValueError(
-                "oblique and perspective projections are mutually exclusive"
-            )
+        _check_oblique_perspective_exclusive(oblique, self.perspective)
         self.oblique = oblique
         return self
