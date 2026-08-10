@@ -139,10 +139,12 @@ class TestSceneExtent:
         np.testing.assert_allclose(e_obl, e_none * math.sqrt(1.0 + f**2))
 
     def test_extent_unchanged_when_oblique_none(self):
+        """The shear allowance must be exactly 1.0 when oblique is
+        None: the extent pins to its hand-computed pre-oblique value
+        (max atom distance 5.0 plus scaled radius 0.5)."""
         scene = self._two_atom_scene()
-        e_a = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
-        e_b = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
-        assert e_a == e_b
+        extent = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
+        assert extent == 5.5
 
 
 class TestMakeWedges:
