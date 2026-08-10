@@ -480,3 +480,39 @@ class TestViewStateProjectOblique:
                 drawn, length * np.array([np.cos(th), np.sin(th)]),
                 atol=1e-15,
             )
+
+    def test_reproduces_manual_shear_figure(self):
+        """The new API must reproduce the published figure's shear
+        matrix (fig_p3121_legend.py in data_nbo2f_chirality): camera
+        along [0, -1, 0], receding axis at 35 degrees, f = 0.6.
+
+        The shear's depth row is [0, -1, 0], so the camera sits on
+        the -y side: look_along([0, 1, 0]) does NOT match (it mirrors
+        x and flips the depth sign).
+        """
+        th = np.radians(35.0)
+        shear = np.array([
+            [1.0, 0.6 * np.cos(th), 0.0],
+            [0.0, 0.6 * np.sin(th), 1.0],
+            [0.0, -1.0,             0.0],
+        ])
+        pts = self._points()
+        sheared = pts @ shear.T
+        expected_xy = sheared[:, :2]
+        expected_depth = sheared[:, 2]
+
+        vs = ViewState().look_along([0, -1, 0]).with_oblique(
+            Oblique(35.0, 0.6)
+        )
+        xy, depth, _ = vs.project(pts)
+        np.testing.assert_allclose(xy, expected_xy, atol=1e-14)
+        np.testing.assert_array_equal(depth, expected_depth)
+
+        # Guard: the wrong camera (the one the original working note
+        # proposed) must not match.
+        vs_wrong = ViewState().look_along([0, 1, 0]).with_oblique(
+            Oblique(35.0, 0.6)
+        )
+        xy_wrong, depth_wrong, _ = vs_wrong.project(pts)
+        assert not np.allclose(xy_wrong, expected_xy)
+        assert not np.allclose(depth_wrong, expected_depth)
