@@ -102,6 +102,27 @@ class TestCellEdgesShearConsistently:
         finally:
             plt.close(fig)
 
+    def test_corner_endpoints_match_projection_perspective(self):
+        """Same agreement property under perspective: pins the
+        rewritten cell-edge projection path for perspective views,
+        which previously had no integration coverage."""
+        lattice = np.diag([3.0, 4.0, 5.0])
+        scene = _make_scene(lattice)
+        scene.view = ViewState(perspective=0.5, view_distance=30.0)
+        fig = render_mpl(scene, show=False)
+        try:
+            drawn = _quad_endpoints(fig)
+            assert len(drawn) > 0
+            expected_xy, _, _ = scene.view.project(_cell_corners(lattice))
+            for corner in expected_xy:
+                dists = np.linalg.norm(drawn - corner, axis=1)
+                assert dists.min() < 1e-8, (
+                    f"projected corner {corner} not found among drawn "
+                    f"cell-edge endpoints (closest {dists.min():.3e})"
+                )
+        finally:
+            plt.close(fig)
+
 
 class TestAxesWidgetShearsConsistently:
     def test_tips_match_screen_matrix(self):
@@ -138,5 +159,54 @@ class TestAxesWidgetShearsConsistently:
                     f"expected sheared tip {tip} not drawn "
                     f"(closest delta off by {dists.min():.3e})"
                 )
+        finally:
+            plt.close(fig)
+
+
+class TestFullSceneConsistency:
+    """Property test: drawn geometry agrees with ViewState.project.
+
+    The pairwise tests above check the known screen-mapping sites; this
+    checks the property itself, so a site *not* on the known list that
+    bypasses project_camera fails here too.
+    """
+
+    def test_bond_drawn_along_projected_direction(self):
+        """The bond polygon must run between the projected atom
+        positions.  Its vertices are tangent- and half-width-offset
+        from the centres, but they all lie along the projected
+        bond direction — collinearity is exact regardless of offsets."""
+        lattice = np.diag([3.0, 4.0, 5.0])
+        scene = _make_scene(lattice)
+        scene.view = _oblique_view()
+        fig = render_mpl(scene, show=False)
+        try:
+            atoms_xy, _, _ = scene.view.project(scene.frames[0].coords)
+            a2d, b2d = atoms_xy
+            u = (b2d - a2d) / np.linalg.norm(b2d - a2d)
+            perp = np.array([-u[1], u[0]])
+            bond_len = np.linalg.norm(b2d - a2d)
+
+            # The bond is the only large many-vertex polygon: atoms
+            # are tiny (radius 0.01) circles, cell edges are 4-vertex
+            # rectangles.
+            bond_polys = []
+            ax = fig.axes[0]
+            for pc in ax.collections:
+                for path in pc.get_paths():
+                    v = np.asarray(path.vertices)
+                    if len(v) > 5 and np.ptp(v, axis=0).max() > 0.5:
+                        bond_polys.append(v)
+            assert len(bond_polys) >= 1
+
+            for v in bond_polys:
+                rel = v - a2d
+                # Perpendicular deviation bounded by the bond's screen
+                # half-width (radius 0.005) plus tolerance.
+                assert np.abs(rel @ perp).max() < 0.02
+                # Vertices span between the two projected centres.
+                along = rel @ u
+                assert along.min() > -0.02
+                assert along.max() < bond_len + 0.02
         finally:
             plt.close(fig)

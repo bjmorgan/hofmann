@@ -274,6 +274,20 @@ class TestViewStateSlab:
         expected = np.array([True, True, False])
         np.testing.assert_array_equal(mask, expected)
 
+    def test_slab_mask_unchanged_by_oblique(self):
+        """Slab clipping operates on camera-space depth, which the
+        oblique offset must not touch — the invariant's most
+        safety-critical clause."""
+        rng = np.random.default_rng(7)
+        coords = rng.normal(scale=4.0, size=(30, 3))
+        vs_plain = ViewState(slab_near=-1.5, slab_far=2.0)
+        vs_oblique = ViewState(
+            slab_near=-1.5, slab_far=2.0, oblique=CAVALIER,
+        )
+        np.testing.assert_array_equal(
+            vs_oblique.slab_mask(coords), vs_plain.slab_mask(coords)
+        )
+
 
 class TestViewStateValidation:
     def test_zero_zoom_raises(self):
