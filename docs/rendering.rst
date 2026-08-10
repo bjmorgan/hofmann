@@ -56,6 +56,28 @@ Perspective
 
           Perspective (``perspective=0.5``)
 
+Oblique projection
+------------------
+
+An oblique (axonometric) projection draws two axes undistorted in the
+plane of the page, with the third receding at a chosen angle and
+foreshortening -- a standard idiom for crystal-structure figures::
+
+   from hofmann import CABINET, CAVALIER, Oblique
+
+   scene.view.look_along([0, -1, 0]).with_oblique(CABINET)
+
+``CAVALIER`` draws the receding axis at full length, ``CABINET`` at
+half length, both at 45 degrees.  For other angles or foreshortening
+factors, pass an :class:`~hofmann.Oblique` directly::
+
+   scene.view.with_oblique(Oblique(angle=35.0, foreshortening=0.6))
+
+Assign ``scene.view.oblique = None`` to return to the orthographic
+projection.  Oblique projection is parallel, so it cannot be combined
+with ``perspective``; atoms keep their circular outlines by drawing
+convention.
+
 
 Render styles
 -------------

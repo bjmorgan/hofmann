@@ -43,6 +43,19 @@ Data model
 .. autoclass:: ViewState
    :members:
 
+.. autoclass:: Oblique
+   :members:
+
+.. data:: CAVALIER
+   :type: Oblique
+
+   Standard oblique projection at 45 degrees with full-length receding axis.
+
+.. data:: CABINET
+   :type: Oblique
+
+   Standard oblique projection at 45 degrees with half-length receding axis.
+
 .. autoclass:: hofmann.model.atom_data.AtomData
    :members: n_atoms, ranges, labels
 
