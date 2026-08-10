@@ -331,7 +331,7 @@ class TestViewStateOblique:
         assert vs.oblique == CABINET
 
 
-class TestScreenMatrix:
+class TestViewStateScreenMatrix:
     """Tests for the camera-to-screen linear map."""
 
     def test_identity_when_oblique_none(self):
@@ -342,7 +342,7 @@ class TestScreenMatrix:
 
     def test_oblique_third_column(self):
         vs = ViewState(oblique=Oblique(angle=35.0, foreshortening=0.6))
-        th = np.deg2rad(35.0)
+        th = np.radians(35.0)
         expected = np.array([
             [1.0, 0.0, -0.6 * np.cos(th)],
             [0.0, 1.0, -0.6 * np.sin(th)],
