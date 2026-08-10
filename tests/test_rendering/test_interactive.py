@@ -1,9 +1,11 @@
 """Tests for interactive rendering — keyboard actions and rotation helpers."""
 
+import copy
+
 import numpy as np
 import pytest
 
-from hofmann.model import RenderStyle, ViewState
+from hofmann.model import CABINET, RenderStyle, ViewState
 from hofmann.rendering.interactive import (
     _apply_key_action,
     _HELP_TEXT,
@@ -79,13 +81,7 @@ def _key_action_fixtures():
         "input_mode": None,
         "input_buffer": "",
     }
-    initial_view = {
-        "rotation": view.rotation.copy(),
-        "zoom": view.zoom,
-        "centre": view.centre.copy(),
-        "perspective": view.perspective,
-        "view_distance": view.view_distance,
-    }
+    initial_view = copy.deepcopy(view)
     return view, style, state, initial_view
 
 
@@ -568,3 +564,59 @@ class TestKeyActions:
         assert "Go to frame" in _HELP_TEXT
         assert "Set step" in _HELP_TEXT
         assert "Frame indicator" in _HELP_TEXT
+
+
+class TestObliqueInteractive:
+    """Oblique projection survives interactive-session state handling."""
+
+    def test_deepcopy_preserves_oblique(self):
+        """The working copy taken on session entry is a deepcopy; it
+        must carry every field, including oblique."""
+        vs = ViewState(oblique=CABINET, zoom=2.0)
+        clone = copy.deepcopy(vs)
+        assert clone.oblique == CABINET
+        assert clone.zoom == 2.0
+        assert clone.rotation is not vs.rotation
+
+    def test_reset_restores_oblique(self):
+        view, style, state, initial_view = _make_fixtures_with_oblique()
+        view.oblique = None
+        view.zoom = 3.0
+        result = _apply_key_action(
+            "r", view, style, state,
+            n_frames=1, base_extent=10.0, initial_view=initial_view,
+        )
+        assert result == "view"
+        assert view.oblique == CABINET
+        assert view.zoom == initial_view.zoom
+
+    def test_p_key_clears_oblique_and_enables_perspective(self):
+        """Raising perspective is a mode switch: it must clear the
+        mutually exclusive oblique projection rather than silently
+        constructing the forbidden combination."""
+        view, style, state, initial_view = _make_fixtures_with_oblique()
+        result = _apply_key_action(
+            "p", view, style, state,
+            n_frames=1, base_extent=10.0, initial_view=initial_view,
+        )
+        assert result == "view"
+        assert view.oblique is None
+        assert view.perspective > 0
+        # The combination must remain projectable.
+        view.project_camera(np.zeros((1, 3)))
+
+
+def _make_fixtures_with_oblique():
+    """Fixtures whose initial view has an oblique projection."""
+    view = ViewState(oblique=CABINET)
+    style = RenderStyle()
+    state = {
+        "frame_index": 0,
+        "help_visible": False,
+        "frame_step": 1,
+        "indicator_visible": False,
+        "input_mode": None,
+        "input_buffer": "",
+    }
+    initial_view = copy.deepcopy(view)
+    return view, style, state, initial_view

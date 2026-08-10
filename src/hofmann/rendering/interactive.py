@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import copy
 import time
+from dataclasses import fields
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -88,7 +90,7 @@ def _apply_key_action(
     *,
     n_frames: int,
     base_extent: float,
-    initial_view: dict,
+    initial_view: "ViewState",
     has_lattice: bool = False,
 ) -> str:
     """Apply a keyboard action, mutating *view*, *style*, and *state*.
@@ -167,6 +169,10 @@ def _apply_key_action(
 
     # -- Perspective / distance --
     elif key == "p":
+        # Oblique and perspective are mutually exclusive: raising
+        # perspective is a mode switch that clears any oblique
+        # projection.
+        view.oblique = None
         view.perspective = min(1.0, view.perspective + _PERSPECTIVE_STEP)
     elif key == "P":
         view.perspective = max(0.0, view.perspective - _PERSPECTIVE_STEP)
@@ -227,11 +233,8 @@ def _apply_key_action(
 
     # -- Reset --
     elif key == "r":
-        view.rotation = initial_view["rotation"].copy()
-        view.zoom = initial_view["zoom"]
-        view.centre = initial_view["centre"].copy()
-        view.perspective = initial_view["perspective"]
-        view.view_distance = initial_view["view_distance"]
+        for f in fields(view):
+            setattr(view, f.name, copy.deepcopy(getattr(initial_view, f.name)))
 
     # -- Help overlay --
     elif key == "h":
@@ -334,19 +337,10 @@ def render_mpl_interactive(
     resolved.arc_segments = resolved.interactive_arc_segments
 
     # Work on a copy so we don't mutate the original scene's view.
-    view = ViewState(
-        rotation=scene.view.rotation.copy(),
-        zoom=scene.view.zoom,
-        centre=scene.view.centre.copy(),
-        perspective=scene.view.perspective,
-        view_distance=scene.view.view_distance,
-        slab_origin=(
-            scene.view.slab_origin.copy()
-            if scene.view.slab_origin is not None else None
-        ),
-        slab_near=scene.view.slab_near,
-        slab_far=scene.view.slab_far,
-    )
+    # A deepcopy carries every field, so a new ViewState field cannot
+    # be silently dropped from the session (animation.py sets the
+    # same precedent).
+    view = copy.deepcopy(scene.view)
 
     # Fixed viewport extent — rotation-invariant so the scene doesn't
     # appear to shift or rescale while dragging.
@@ -391,13 +385,7 @@ def render_mpl_interactive(
     }
 
     # Snapshot for the reset key.
-    initial_view = {
-        "rotation": view.rotation.copy(),
-        "zoom": view.zoom,
-        "centre": view.centre.copy(),
-        "perspective": view.perspective,
-        "view_distance": view.view_distance,
-    }
+    initial_view = copy.deepcopy(view)
 
     _DRAG_SENSITIVITY = 0.01  # radians per pixel
     _MIN_INTERVAL = 0.03  # seconds between redraws (~30 fps cap)
