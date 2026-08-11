@@ -42,19 +42,19 @@ Perspective
 
 .. code-block:: python
 
-   scene.view.perspective = 0.3  # Mild perspective
-   scene.view.perspective = 0.0  # Orthographic (default)
+   scene.view.projection = Perspective(0.3)  # Mild perspective
+   scene.view.projection = Orthographic()  # Orthographic (default)
 
 .. list-table::
    :widths: 50 50
 
    * - .. figure:: _static/perovskite_ortho.svg
 
-          Orthographic (``perspective=0.0``)
+          Orthographic (``Orthographic()``)
 
      - .. figure:: _static/perovskite_perspective.svg
 
-          Perspective (``perspective=0.5``)
+          Perspective (``Perspective(0.5)``)
 
 Oblique projection
 ------------------
@@ -65,7 +65,7 @@ foreshortening -- a standard idiom for crystal-structure figures::
 
    from hofmann import CABINET, CAVALIER, Oblique
 
-   scene.view.look_along([0, -1, 0]).with_oblique(CABINET)
+   scene.view.look_along([0, -1, 0]).with_projection(CABINET)
 
 ``CAVALIER`` draws the receding axis at full length, ``CABINET`` at
 half length, both at 45 degrees.  The axis that recedes is the
@@ -73,12 +73,11 @@ current view direction, so choose it first with
 :meth:`~hofmann.ViewState.look_along`.  For other angles or
 foreshortening factors, pass an :class:`~hofmann.Oblique` directly::
 
-   scene.view.with_oblique(Oblique(angle=35.0, foreshortening=0.6))
+   scene.view.with_projection(Oblique(angle=35.0, foreshortening=0.6))
 
-Assign ``scene.view.oblique = None`` to return to the orthographic
-projection.  Oblique projection is parallel, so it cannot be combined
-with ``perspective``; atoms keep their circular outlines by drawing
-convention.
+The projection is a single mode: assigning a new one replaces the old.
+Atoms keep their circular outlines by drawing convention in oblique
+projection.
 
 
 Render styles

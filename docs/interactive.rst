@@ -75,9 +75,9 @@ Pan and perspective
    * - Shift + Arrow keys
      - Pan the view
    * - ``p`` / ``P``
-     - Increase / decrease perspective strength. Raising perspective from an oblique view switches mode, clearing the oblique projection.
+     - Step into/out of perspective projection, entering :class:`~hofmann.Orthographic` at the bottom of the ladder and replacing an oblique projection when raising.
    * - ``d`` / ``D``
-     - Increase / decrease viewing distance
+     - Adjust viewing distance in :class:`~hofmann.Perspective` mode only.
 
 Display toggles
 ^^^^^^^^^^^^^^^

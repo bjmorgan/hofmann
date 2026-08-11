@@ -26,14 +26,22 @@ Changelog
   rules, which already operated on every constituent of a mixed
   site.
 
-- Oblique projection.  Set
-  :attr:`~hofmann.ViewState.oblique` to an :class:`~hofmann.Oblique`,
-  or chain :meth:`~hofmann.ViewState.with_oblique`, to draw two axes
-  undistorted in the page plane with the third receding at a chosen
-  angle and foreshortening.  The :data:`~hofmann.CAVALIER` and
-  :data:`~hofmann.CABINET` presets cover the two standard
-  conventions.  Cell edges and the axes orientation widget follow the
-  projection, so all drawn geometry stays consistent.
+- Oblique projection.  Set :attr:`~hofmann.ViewState.projection` to
+  an :class:`~hofmann.Oblique`, or chain :meth:`~hofmann.ViewState.with_projection`,
+  to draw two axes undistorted in the page plane with the third
+  receding at a chosen angle and foreshortening.  The
+  :data:`~hofmann.CAVALIER` and :data:`~hofmann.CABINET` presets
+  cover the two standard conventions.  Cell edges and the axes
+  orientation widget follow the projection, so all drawn geometry stays
+  consistent.
+
+- **Breaking:** Projection mode is now selected with a single
+  :attr:`~hofmann.ViewState.projection` field taking
+  :class:`~hofmann.Orthographic` (the default),
+  :class:`~hofmann.Perspective`, or :class:`~hofmann.Oblique`.
+  Perspective strength and viewing distance move onto
+  :class:`~hofmann.Perspective`; the ``perspective``, ``view_distance``,
+  and ``oblique`` attributes are removed.
 
 0.19.0
 ------
