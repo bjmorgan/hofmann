@@ -52,3 +52,29 @@ def test_oblique_in_all():
     assert "Oblique" in hofmann.__all__
     assert "CAVALIER" in hofmann.__all__
     assert "CABINET" in hofmann.__all__
+
+
+def test_orthographic_top_level_export():
+    import hofmann
+    import hofmann.model.view_state
+
+    assert hofmann.Orthographic is hofmann.model.view_state.Orthographic
+
+
+def test_orthographic_in_all():
+    import hofmann
+
+    assert "Orthographic" in hofmann.__all__
+
+
+def test_perspective_top_level_export():
+    import hofmann
+    import hofmann.model.view_state
+
+    assert hofmann.Perspective is hofmann.model.view_state.Perspective
+
+
+def test_perspective_in_all():
+    import hofmann
+
+    assert "Perspective" in hofmann.__all__

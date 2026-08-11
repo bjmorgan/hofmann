@@ -6,7 +6,44 @@ from dataclasses import dataclass, field
 import numpy as np
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
+class Orthographic:
+    """Parallel projection with no foreshortening of depth."""
+
+
+@dataclass(frozen=True, slots=True)
+class Perspective:
+    """Perspective projection parameters.
+
+    Attributes:
+        strength: Perspective strength.  Must be finite and positive;
+            zero strength is not representable — orthographic
+            projection is :class:`Orthographic`.
+        view_distance: Distance from camera to scene centre.  Must be
+            finite and positive.
+    """
+
+    strength: float = 0.5
+    view_distance: float = 10.0
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.strength):
+            raise ValueError(f"strength must be finite, got {self.strength}")
+        if self.strength <= 0:
+            raise ValueError(
+                f"strength must be positive, got {self.strength}"
+            )
+        if not math.isfinite(self.view_distance):
+            raise ValueError(
+                f"view_distance must be finite, got {self.view_distance}"
+            )
+        if self.view_distance <= 0:
+            raise ValueError(
+                f"view_distance must be positive, got {self.view_distance}"
+            )
+
+
+@dataclass(frozen=True, slots=True)
 class Oblique:
     """Direction and foreshortening of an oblique projection's receding axis.
 

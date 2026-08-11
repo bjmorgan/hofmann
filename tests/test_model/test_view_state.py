@@ -5,7 +5,14 @@ from dataclasses import FrozenInstanceError
 import numpy as np
 import pytest
 
-from hofmann.model.view_state import CABINET, CAVALIER, Oblique, ViewState
+from hofmann.model.view_state import (
+    CABINET,
+    CAVALIER,
+    Oblique,
+    Orthographic,
+    Perspective,
+    ViewState,
+)
 
 
 class TestViewStateProject:
@@ -579,3 +586,53 @@ class TestViewStateProjectOblique:
         xy_wrong, depth_wrong, _ = vs_wrong.project(pts)
         assert not np.allclose(xy_wrong, expected_xy)
         assert not np.allclose(depth_wrong, expected_depth)
+
+
+class TestProjectionTypes:
+    """Tests for the projection mode value types."""
+
+    def test_orthographic_instances_equal(self):
+        assert Orthographic() == Orthographic()
+
+    def test_orthographic_not_equal_to_other_modes(self):
+        assert Orthographic() != Perspective()
+        assert Orthographic() != Oblique()
+
+    def test_perspective_defaults(self):
+        p = Perspective()
+        assert p.strength == 0.5
+        assert p.view_distance == 10.0
+
+    def test_perspective_rejects_non_positive_strength(self):
+        for bad in (0.0, -0.5):
+            with pytest.raises(ValueError, match="strength"):
+                Perspective(strength=bad)
+
+    def test_perspective_rejects_non_finite(self):
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="finite"):
+                Perspective(strength=bad)
+            with pytest.raises(ValueError, match="finite"):
+                Perspective(view_distance=bad)
+
+    def test_perspective_rejects_non_positive_view_distance(self):
+        with pytest.raises(ValueError, match="view_distance"):
+            Perspective(view_distance=0.0)
+
+    def test_modes_are_frozen_with_slots(self):
+        # Orthographic and Oblique have no fields, so test with a fake attr.
+        # TypeError from slots; Perspective has fields, so test with that.
+        o = Orthographic()
+        with pytest.raises(TypeError):  # slots prevents new attributes
+            o.anything = 1
+        assert not hasattr(o, "__dict__")
+
+        p = Perspective()
+        with pytest.raises(FrozenInstanceError):  # frozen prevents field changes
+            p.strength = 0.3
+        assert not hasattr(p, "__dict__")
+
+        ob = Oblique()
+        with pytest.raises(FrozenInstanceError):  # frozen prevents field changes
+            ob.angle = 30.0
+        assert not hasattr(ob, "__dict__")
