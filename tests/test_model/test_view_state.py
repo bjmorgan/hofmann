@@ -600,11 +600,15 @@ class TestProjectionTypes:
                 Perspective(view_distance=bad)
 
     def test_modes_are_frozen_with_slots(self):
-        # A new attribute name raises TypeError (slots, no __dict__); an
-        # existing field name raises FrozenInstanceError (frozen).
+        # Assigning a new attribute name must fail loudly (slots, no
+        # __dict__), but the exception type is a CPython detail: 3.11
+        # and 3.12 raise TypeError (the generated frozen __setattr__
+        # trips over its stale pre-slots class reference), while 3.13+
+        # fix that and raise FrozenInstanceError.  Assigning an
+        # existing field raises FrozenInstanceError on all versions.
         # Orthographic has no fields, so only the former applies to it.
         o = Orthographic()
-        with pytest.raises(TypeError):  # slots prevents new attributes
+        with pytest.raises((TypeError, FrozenInstanceError)):
             o.anything = 1
         assert not hasattr(o, "__dict__")
 
