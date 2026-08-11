@@ -352,6 +352,15 @@ class TestViewStateProjection:
         with pytest.raises(TypeError, match="projection"):
             vs.project_camera(np.zeros((1, 3)))
 
+    def test_project_camera_rejects_wrong_shape(self):
+        """A single (3,) point would otherwise broadcast into silently
+        duplicated nonsense rows; the shape contract fails loudly."""
+        vs = ViewState()
+        with pytest.raises(ValueError, match="shape"):
+            vs.project_camera(np.array([1.0, 2.0, 3.0]))
+        with pytest.raises(ValueError, match="shape"):
+            vs.project_camera(np.zeros((2, 4)))
+
 
 class TestViewStateScreenMatrix:
     """Tests for the camera-to-screen linear map."""

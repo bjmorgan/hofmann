@@ -190,8 +190,17 @@ class ViewState:
             Tuple of ``(xy, scale)`` where *xy* has shape ``(n, 2)``
             and *scale* has shape ``(n,)``, the perspective scale
             factor at each depth (all ones when orthographic).
+
+        Raises:
+            ValueError: If *camera* does not have shape ``(n, 3)`` —
+                a single ``(3,)`` point would otherwise broadcast into
+                silently duplicated rows.
         """
         camera = np.asarray(camera, dtype=float)
+        if camera.ndim != 2 or camera.shape[1] != 3:
+            raise ValueError(
+                f"camera must have shape (n, 3), got {camera.shape}"
+            )
         xy = camera @ self.screen_matrix.T
         match self.projection:
             case Orthographic() | Oblique():
