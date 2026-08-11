@@ -1,8 +1,5 @@
 # Project-specific
 CLAUDE.md
-OBLIQUE_PROJECTION.md
-.superpowers/
-docs/superpowers/
 examples/*.pdf
 examples/*.svg
 examples/*.png
@@ -45,6 +42,9 @@ htmlcov/
 # Planning docs
 RESTRUCTURE.md
 PLAN-*.md
+OBLIQUE_PROJECTION.md
+.superpowers/
+docs/superpowers/
 
 # OS
 .DS_Store
