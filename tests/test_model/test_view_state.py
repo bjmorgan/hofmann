@@ -51,7 +51,7 @@ class TestViewStateProject:
         np.testing.assert_allclose(xy, [[0.0, 1.0]], atol=1e-10)
 
     def test_perspective_scaling(self):
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([
             [1.0, 0.0, 0.0],
             [1.0, 0.0, -5.0],
@@ -78,7 +78,7 @@ class TestViewStateProject:
         np.testing.assert_allclose(proj_r, [3.0])  # r * zoom
 
     def test_projected_radii_perspective(self):
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([[0.0, 0.0, 0.0]])
         radii = np.array([1.0])
         _, _, proj_r = vs.project(coords, radii)
@@ -88,7 +88,7 @@ class TestViewStateProject:
 
     def test_projected_radii_larger_than_point_scale(self):
         """Silhouette radii should exceed naive r * scale under perspective."""
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([[0.0, 0.0, 2.0]])  # closer to eye
         radii = np.array([1.0])
         _, _, proj_r = vs.project(coords, radii)
@@ -157,11 +157,10 @@ class TestViewStateLookAlong:
 
     def test_preserves_other_state(self):
         """look_along should only change the rotation."""
-        vs = ViewState(zoom=2.5, perspective=0.8, view_distance=15.0)
+        vs = ViewState(zoom=2.5, projection=Perspective(0.8, 15.0))
         vs.look_along([1, 1, 0])
         assert vs.zoom == 2.5
-        assert vs.perspective == 0.8
-        assert vs.view_distance == 15.0
+        assert vs.projection == Perspective(0.8, 15.0)
 
     def test_up_parallel_to_direction_raises(self):
         """An explicit up vector parallel to the view direction should raise."""
@@ -289,7 +288,7 @@ class TestViewStateSlab:
         coords = rng.normal(scale=4.0, size=(30, 3))
         vs_plain = ViewState(slab_near=-1.5, slab_far=2.0)
         vs_oblique = ViewState(
-            slab_near=-1.5, slab_far=2.0, oblique=CAVALIER,
+            slab_near=-1.5, slab_far=2.0, projection=CAVALIER,
         )
         np.testing.assert_array_equal(
             vs_oblique.slab_mask(coords), vs_plain.slab_mask(coords)
@@ -305,66 +304,31 @@ class TestViewStateValidation:
         with pytest.raises(ValueError, match="zoom"):
             ViewState(zoom=-1.0)
 
-    def test_zero_view_distance_raises(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            ViewState(view_distance=0.0)
-
-    def test_negative_view_distance_raises(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            ViewState(view_distance=-1.0)
-
     def test_valid_view_state_accepted(self):
-        vs = ViewState(zoom=2.0, view_distance=15.0)
+        vs = ViewState(zoom=2.0, projection=Perspective(view_distance=15.0))
         assert vs.zoom == 2.0
 
     def test_non_finite_scalars_rejected(self):
         for bad in (float("nan"), float("inf")):
             with pytest.raises(ValueError, match="finite"):
                 ViewState(zoom=bad)
-            with pytest.raises(ValueError, match="finite"):
-                ViewState(view_distance=bad)
-            with pytest.raises(ValueError, match="finite"):
-                ViewState(perspective=bad)
-
-    def test_nan_perspective_cannot_bypass_exclusivity(self):
-        """nan > 0 is False, so without finiteness validation a nan
-        perspective would slip past the mutual-exclusion check."""
-        with pytest.raises(ValueError):
-            ViewState(perspective=float("nan"), oblique=CABINET)
 
 
-class TestViewStateOblique:
-    """Tests for the oblique field, validation, and with_oblique."""
+class TestViewStateProjection:
+    """Tests for the projection field and with_projection."""
 
-    def test_default_is_none(self):
-        assert ViewState().oblique is None
+    def test_default_is_orthographic(self):
+        assert ViewState().projection == Orthographic()
 
-    def test_constructor_rejects_oblique_with_perspective(self):
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            ViewState(perspective=0.5, oblique=CABINET)
-
-    def test_constructor_accepts_oblique_orthographic(self):
-        vs = ViewState(oblique=CABINET)
-        assert vs.oblique == CABINET
-
-    def test_with_oblique_sets_and_returns_self(self):
+    def test_with_projection_sets_and_returns_self(self):
         vs = ViewState()
-        result = vs.with_oblique(CAVALIER)
+        result = vs.with_projection(CAVALIER)
         assert result is vs
-        assert vs.oblique == CAVALIER
+        assert vs.projection == CAVALIER
 
-    def test_with_oblique_default_is_cabinet(self):
-        vs = ViewState().with_oblique()
-        assert vs.oblique == CABINET
-
-    def test_with_oblique_rejects_perspective(self):
-        vs = ViewState(perspective=0.5)
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            vs.with_oblique()
-
-    def test_with_oblique_chains_with_look_along(self):
-        vs = ViewState().look_along([0, -1, 0]).with_oblique(CABINET)
-        assert vs.oblique == CABINET
+    def test_with_projection_chains_with_look_along(self):
+        vs = ViewState().look_along([0, -1, 0]).with_projection(CABINET)
+        assert vs.projection == CABINET
 
 
 class TestViewStateScreenMatrix:
@@ -377,7 +341,7 @@ class TestViewStateScreenMatrix:
         )
 
     def test_oblique_third_column(self):
-        vs = ViewState(oblique=Oblique(angle=35.0, foreshortening=0.6))
+        vs = ViewState(projection=Oblique(angle=35.0, foreshortening=0.6))
         th = np.radians(35.0)
         expected = np.array([
             [1.0, 0.0, -0.6 * np.cos(th)],
@@ -389,7 +353,7 @@ class TestViewStateScreenMatrix:
         assert ViewState().screen_scale_bound == 1.0
 
     def test_scale_bound_is_largest_singular_value(self):
-        vs = ViewState(oblique=Oblique(angle=35.0, foreshortening=0.6))
+        vs = ViewState(projection=Oblique(angle=35.0, foreshortening=0.6))
         singular_values = np.linalg.svd(vs.screen_matrix, compute_uv=False)
         np.testing.assert_allclose(
             vs.screen_scale_bound, singular_values.max()
@@ -439,7 +403,7 @@ class TestViewStateProjectCamera:
         np.testing.assert_array_equal(scale, [1.0, 1.0])
 
     def test_perspective_matches_manual(self):
-        vs = ViewState(perspective=0.5, view_distance=10.0, zoom=1.5)
+        vs = ViewState(projection=Perspective(0.5, 10.0), zoom=1.5)
         camera = np.array([[1.0, 2.0, 3.0], [-1.0, 0.5, -2.0]])
         xy, scale = vs.project_camera(camera)
         expected_scale = 10.0 / (10.0 - camera[:, 2] * 0.5)
@@ -448,31 +412,24 @@ class TestViewStateProjectCamera:
             xy, camera[:, :2] * expected_scale[:, np.newaxis] * 1.5
         )
 
-    def test_backstop_rejects_oblique_with_perspective(self):
-        """Direct assignment bypasses __post_init__; project_camera
-        must still refuse the forbidden combination."""
-        vs = ViewState(oblique=CABINET)
-        vs.perspective = 0.5  # direct assignment, no validation runs
-        with pytest.raises(ValueError, match="mutually exclusive"):
-            vs.project_camera(np.zeros((1, 3)))
-
     def test_perspective_path_is_bit_exact(self):
         """The project comment promises byte-identical output to the
         pre-oblique implementation; pin the perspective path against
         the formula written with the same operations in the same
         order."""
-        vs = ViewState(perspective=0.7, view_distance=12.0, zoom=1.3)
+        p = Perspective(0.7, 12.0)
+        vs = ViewState(projection=p, zoom=1.3)
         rng = np.random.default_rng(11)
         pts = rng.normal(scale=2.0, size=(15, 3))
         radii = np.linspace(0.1, 0.8, 15)
 
         rotated = (pts - vs.centre) @ vs.rotation.T
         depth = rotated[:, 2]
-        d = vs.view_distance - depth * vs.perspective
-        scale = vs.view_distance / d
+        d = p.view_distance - depth * p.strength
+        scale = p.view_distance / d
         expected_xy = rotated[:, :2] * scale[:, np.newaxis] * vs.zoom
         denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
-        expected_radii = radii * vs.view_distance / denom * vs.zoom
+        expected_radii = radii * p.view_distance / denom * vs.zoom
 
         xy, depth_out, radii_out = vs.project(pts, radii)
         np.testing.assert_array_equal(xy, expected_xy)
@@ -500,7 +457,7 @@ class TestViewStateProjectOblique:
 
     def test_zero_foreshortening_is_orthographic(self):
         vs_ortho = ViewState()
-        vs_oblique = ViewState(oblique=Oblique(35.0, 0.0))
+        vs_oblique = ViewState(projection=Oblique(35.0, 0.0))
         pts = self._points()
         xy_o, d_o, _ = vs_ortho.project(pts)
         xy_q, d_q, _ = vs_oblique.project(pts)
@@ -511,7 +468,7 @@ class TestViewStateProjectOblique:
         """A point at depth d is displaced by exactly -f*d*(cos, sin)
         from its orthographic position."""
         angle, f = 35.0, 0.6
-        vs = ViewState(oblique=Oblique(angle, f))
+        vs = ViewState(projection=Oblique(angle, f))
         pts = self._points()
         xy_ortho, depth, _ = ViewState().project(pts)
         xy_obl, depth_obl, _ = vs.project(pts)
@@ -525,7 +482,7 @@ class TestViewStateProjectOblique:
         """Painter ordering must be identical to the orthographic case."""
         pts = self._points()
         _, depth_ortho, _ = ViewState().project(pts)
-        _, depth_obl, _ = ViewState(oblique=CAVALIER).project(pts)
+        _, depth_obl, _ = ViewState(projection=CAVALIER).project(pts)
         np.testing.assert_array_equal(depth_obl, depth_ortho)
 
     def test_radii_unchanged_by_oblique(self):
@@ -533,7 +490,7 @@ class TestViewStateProjectOblique:
         pts = self._points()
         radii = np.linspace(0.2, 1.0, len(pts))
         _, _, r_ortho = ViewState().project(pts, radii)
-        _, _, r_obl = ViewState(oblique=CAVALIER).project(pts, radii)
+        _, _, r_obl = ViewState(projection=CAVALIER).project(pts, radii)
         np.testing.assert_array_equal(r_obl, r_ortho)
 
     def test_cavalier_unit_step_cabinet_half_step(self):
@@ -542,7 +499,7 @@ class TestViewStateProjectOblique:
         and a half step under cabinet, in the direction of *angle*."""
         step = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
         for oblique, length in ((CAVALIER, 1.0), (CABINET, 0.5)):
-            vs = ViewState(rotation=np.eye(3), oblique=oblique)
+            vs = ViewState(rotation=np.eye(3), projection=oblique)
             xy, _, _ = vs.project(step)
             drawn = xy[1] - xy[0]
             th = np.radians(oblique.angle)
@@ -571,7 +528,7 @@ class TestViewStateProjectOblique:
         expected_xy = sheared[:, :2]
         expected_depth = sheared[:, 2]
 
-        vs = ViewState().look_along([0, -1, 0]).with_oblique(
+        vs = ViewState().look_along([0, -1, 0]).with_projection(
             Oblique(35.0, 0.6)
         )
         xy, depth, _ = vs.project(pts)
@@ -580,7 +537,7 @@ class TestViewStateProjectOblique:
 
         # Guard: the wrong camera (the one the original working note
         # proposed) must not match.
-        vs_wrong = ViewState().look_along([0, 1, 0]).with_oblique(
+        vs_wrong = ViewState().look_along([0, 1, 0]).with_projection(
             Oblique(35.0, 0.6)
         )
         xy_wrong, depth_wrong, _ = vs_wrong.project(pts)

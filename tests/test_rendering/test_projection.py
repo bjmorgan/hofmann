@@ -4,7 +4,7 @@ import math
 
 import numpy as np
 
-from hofmann.model import AtomStyle, Frame, StructureScene, ViewState
+from hofmann.model import AtomStyle, Frame, Perspective, StructureScene, ViewState
 from hofmann.model.composition import Composition
 from hofmann.rendering.projection import (
     _make_vacancy_wedge,
@@ -23,7 +23,7 @@ class TestProjectPoint:
         assert s == 1.0
 
     def test_perspective(self):
-        view = ViewState(perspective=1.0, view_distance=10.0)
+        view = ViewState(projection=Perspective(1.0, 10.0))
         pt = np.array([1.0, 0.0, 0.0])  # depth 0 -> scale = 1
         xy, s = _project_point(pt, view)
         np.testing.assert_allclose(s, 1.0)
@@ -36,8 +36,8 @@ class TestProjectPoint:
 
         views = [
             ViewState(zoom=1.5),
-            ViewState(perspective=0.5, view_distance=8.0),
-            ViewState(oblique=Oblique(35.0, 0.6), zoom=2.0),
+            ViewState(projection=Perspective(0.5, 8.0)),
+            ViewState(projection=Oblique(35.0, 0.6), zoom=2.0),
         ]
         pts = np.array([[1.0, -2.0, 3.0], [0.0, 0.0, 0.0], [-4.0, 1.0, -1.5]])
         for view in views:
@@ -62,8 +62,8 @@ class TestSceneExtent:
             ]))],
             atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
         )
-        view_no_persp = ViewState(perspective=0.0)
-        view_persp = ViewState(perspective=0.5)
+        view_no_persp = ViewState()
+        view_persp = ViewState(projection=Perspective(0.5))
         e_no = _scene_extent(scene, view_no_persp, 0, atom_scale=0.5)
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
@@ -134,7 +134,7 @@ class TestSceneExtent:
         f = 0.6
         e_none = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
         e_obl = _scene_extent(
-            scene, ViewState(oblique=Oblique(35.0, f)), 0, atom_scale=0.5,
+            scene, ViewState(projection=Oblique(35.0, f)), 0, atom_scale=0.5,
         )
         np.testing.assert_allclose(e_obl, e_none * math.sqrt(1.0 + f**2))
 

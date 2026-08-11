@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import copy
 import time
-from dataclasses import fields
+from dataclasses import fields, replace
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -13,6 +13,8 @@ import numpy as np
 from hofmann.model import (
     CmapSpec,
     Colour,
+    Orthographic,
+    Perspective,
     RenderStyle,
     StructureScene,
     ViewState,
@@ -169,17 +171,49 @@ def _apply_key_action(
 
     # -- Perspective / distance --
     elif key == "p":
-        # Oblique and perspective are mutually exclusive: raising
-        # perspective is a mode switch that clears any oblique
-        # projection.
-        view.oblique = None
-        view.perspective = min(1.0, view.perspective + _PERSPECTIVE_STEP)
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj,
+                    strength=min(1.0, proj.strength + _PERSPECTIVE_STEP),
+                )
+            case _:
+                # Mode switch: any other projection is replaced whole.
+                view.projection = Perspective(strength=_PERSPECTIVE_STEP)
     elif key == "P":
-        view.perspective = max(0.0, view.perspective - _PERSPECTIVE_STEP)
+        match view.projection:
+            case Perspective() as proj if (
+                proj.strength - _PERSPECTIVE_STEP > 1e-9
+            ):
+                view.projection = replace(
+                    proj, strength=proj.strength - _PERSPECTIVE_STEP,
+                )
+            case Perspective():
+                # Bottom of the ladder: the tolerance absorbs float
+                # residue so descent never strands on Perspective(~1e-17).
+                view.projection = Orthographic()
+            case _:
+                return "none"
     elif key == "d":
-        view.view_distance *= _DISTANCE_FACTOR
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj,
+                    view_distance=proj.view_distance * _DISTANCE_FACTOR,
+                )
+            case _:
+                return "none"
     elif key == "D":
-        view.view_distance = max(0.1, view.view_distance / _DISTANCE_FACTOR)
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj,
+                    view_distance=max(
+                        0.1, proj.view_distance / _DISTANCE_FACTOR,
+                    ),
+                )
+            case _:
+                return "none"
 
     # -- Style toggles (no recomputation needed) --
     elif key == "b":
@@ -275,10 +309,11 @@ def render_mpl_interactive(
     - **,** / **.** roll in the screen plane.
     - **+** / **=** / **-** zoom in/out.
     - **Shift+Arrow** keys pan the view.
-    - **p** / **P** increase/decrease perspective strength. Raising
-      perspective from an oblique view switches mode, clearing the
-      oblique projection.
-    - **d** / **D** increase/decrease viewing distance.
+    - **p** / **P** step perspective strength up/down, entering and
+      leaving :class:`Orthographic` at the bottom of the ladder and
+      replacing an oblique projection outright when raising.
+    - **d** / **D** increase/decrease viewing distance; no-op outside
+      :class:`Perspective` mode.
     - **b** toggle bonds, **o** toggle outlines, **e** toggle polyhedra,
       **u** toggle unit cell, **a** toggle axes widget.
     - **[** / **]** step to the previous/next frame;

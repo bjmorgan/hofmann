@@ -5,9 +5,10 @@ import copy
 import numpy as np
 import pytest
 
-from hofmann.model import CABINET, RenderStyle, ViewState
+from hofmann.model import CABINET, Orthographic, Perspective, RenderStyle, ViewState
 from hofmann.rendering.interactive import (
     _apply_key_action,
+    _DISTANCE_FACTOR,
     _HELP_TEXT,
     _KEY_PAN_FRACTION,
     _KEY_ROTATION_STEP,
@@ -201,50 +202,52 @@ class TestKeyActions:
     def test_perspective_increase(self):
         view, style, state, iv = _key_action_fixtures()
         kind = _do_key("p", view, style, state, iv)
-        assert view.perspective == pytest.approx(_PERSPECTIVE_STEP)
+        assert view.projection == Perspective(strength=_PERSPECTIVE_STEP)
         assert kind == "view"
 
     def test_perspective_decrease(self):
         view, style, state, iv = _key_action_fixtures()
-        view.perspective = 0.5
+        view.projection = Perspective(0.5)
         _do_key("P", view, style, state, iv)
-        assert view.perspective == pytest.approx(0.5 - _PERSPECTIVE_STEP)
+        assert view.projection == Perspective(0.5 - _PERSPECTIVE_STEP)
 
     def test_perspective_clamped_max(self):
         view, style, state, iv = _key_action_fixtures()
-        view.perspective = 0.95
+        view.projection = Perspective(0.95)
         _do_key("p", view, style, state, iv)
-        assert view.perspective == 1.0
+        assert view.projection == Perspective(1.0)
 
     def test_perspective_clamped_min(self):
+        """Descending past the bottom of the ladder lands on
+        Orthographic(), not a clamped-to-zero Perspective."""
         view, style, state, iv = _key_action_fixtures()
-        view.perspective = 0.05
+        view.projection = Perspective(0.05)
         _do_key("P", view, style, state, iv)
-        assert view.perspective == 0.0
+        assert view.projection == Orthographic()
 
     # -- Distance --
 
     def test_distance_increase(self):
         view, style, state, iv = _key_action_fixtures()
-        old = view.view_distance
+        view.projection = Perspective(0.5, 10.0)
         kind = _do_key("d", view, style, state, iv)
-        assert view.view_distance == pytest.approx(old * 1.05)
+        assert view.projection == Perspective(0.5, 10.0 * _DISTANCE_FACTOR)
         assert kind == "view"
 
     def test_distance_decrease(self):
         view, style, state, iv = _key_action_fixtures()
-        old = view.view_distance
+        view.projection = Perspective(0.5, 10.0)
         _do_key("D", view, style, state, iv)
-        assert view.view_distance == pytest.approx(old / 1.05)
+        assert view.projection == Perspective(0.5, 10.0 / _DISTANCE_FACTOR)
 
     def test_distance_clamped_min(self):
         view, style, state, iv = _key_action_fixtures()
-        view.view_distance = 0.11
+        view.projection = Perspective(0.5, 0.11)
         _do_key("D", view, style, state, iv)
         # 0.11 / 1.05 ~ 0.1048, still above 0.1
         _do_key("D", view, style, state, iv)
         _do_key("D", view, style, state, iv)
-        assert view.view_distance >= 0.1
+        assert view.projection.view_distance >= 0.1
 
     # -- Style toggles --
 
@@ -394,14 +397,12 @@ class TestKeyActions:
         view.rotation = _rotation_y(1.0) @ view.rotation
         view.zoom = 3.5
         view.centre = np.array([1.0, 2.0, 3.0])
-        view.perspective = 0.7
-        view.view_distance = 20.0
+        view.projection = Perspective(0.7, 20.0)
         kind = _do_key("r", view, style, state, iv)
         np.testing.assert_allclose(view.rotation, np.eye(3))
         assert view.zoom == 1.0
         np.testing.assert_allclose(view.centre, [0.0, 0.0, 0.0])
-        assert view.perspective == 0.0
-        assert view.view_distance == 10.0
+        assert view.projection == Orthographic()
         assert kind == "view"
 
     def test_reset_restores_slab_fields(self):
@@ -586,44 +587,44 @@ class TestObliqueInteractive:
 
     def test_deepcopy_preserves_oblique(self):
         """The working copy taken on session entry is a deepcopy; it
-        must carry every field, including oblique."""
-        vs = ViewState(oblique=CABINET, zoom=2.0)
+        must carry every field, including projection."""
+        vs = ViewState(projection=CABINET, zoom=2.0)
         clone = copy.deepcopy(vs)
-        assert clone.oblique == CABINET
+        assert clone.projection == CABINET
         assert clone.zoom == 2.0
         assert clone.rotation is not vs.rotation
 
     def test_reset_restores_oblique(self):
         view, style, state, initial_view = _make_fixtures_with_oblique()
-        view.oblique = None
+        view.projection = Orthographic()
         view.zoom = 3.0
         result = _apply_key_action(
             "r", view, style, state,
             n_frames=1, base_extent=10.0, initial_view=initial_view,
         )
         assert result == "view"
-        assert view.oblique == CABINET
+        assert view.projection == CABINET
         assert view.zoom == initial_view.zoom
 
-    def test_p_key_clears_oblique_and_enables_perspective(self):
-        """Raising perspective is a mode switch: it must clear the
-        mutually exclusive oblique projection rather than silently
-        constructing the forbidden combination."""
+    def test_p_key_replaces_oblique_with_perspective(self):
+        """Raising perspective is a visible whole-value mode switch:
+        it must replace the oblique projection rather than silently
+        constructing the forbidden combination the old two-field
+        encoding had to police."""
         view, style, state, initial_view = _make_fixtures_with_oblique()
         result = _apply_key_action(
             "p", view, style, state,
             n_frames=1, base_extent=10.0, initial_view=initial_view,
         )
         assert result == "view"
-        assert view.oblique is None
-        assert view.perspective > 0
+        assert view.projection == Perspective(strength=_PERSPECTIVE_STEP)
         # The combination must remain projectable.
         view.project_camera(np.zeros((1, 3)))
 
 
 def _make_fixtures_with_oblique():
     """Fixtures whose initial view has an oblique projection."""
-    view = ViewState(oblique=CABINET)
+    view = ViewState(projection=CABINET)
     style = RenderStyle()
     state = {
         "frame_index": 0,

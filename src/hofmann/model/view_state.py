@@ -79,23 +79,13 @@ CAVALIER = Oblique(45.0, 1.0)
 CABINET = Oblique(45.0, 0.5)
 
 
-def _check_oblique_perspective_exclusive(
-    oblique: Oblique | None, perspective: float,
-) -> None:
-    """Raise if an oblique projection is combined with perspective."""
-    if oblique is not None and perspective > 0:
-        raise ValueError(
-            "oblique and perspective projections are mutually exclusive"
-        )
-
-
-@dataclass
+@dataclass(slots=True)
 class ViewState:
     """Camera state for 3D-to-2D projection.
 
-    Encapsulates rotation, zoom, centring, and optional perspective
-    projection. Renderers consume the projected 2D coordinates and
-    depth values produced by :meth:`project`.
+    Encapsulates rotation, zoom, centring, and projection mode.
+    Renderers consume the projected 2D coordinates and depth values
+    produced by :meth:`project`.
 
     Depth-slab clipping is controlled by :attr:`slab_near`,
     :attr:`slab_far`, and :attr:`slab_origin`.  When set, only atoms
@@ -108,17 +98,14 @@ class ViewState:
         rotation: 3x3 rotation matrix.
         zoom: Magnification factor.
         centre: 3D point about which to centre the view.
-        perspective: Perspective strength (0 = orthographic).
-        view_distance: Distance from camera to scene centre.
+        projection: Projection mode: :class:`Orthographic` (default),
+            :class:`Perspective`, or :class:`Oblique`.
         slab_origin: 3D point defining the slab reference depth, or
             ``None`` to use *centre*.
         slab_near: Near offset from the slab origin depth (negative =
             further from camera), or ``None`` for no near limit.
         slab_far: Far offset from the slab origin depth (positive =
             closer to camera), or ``None`` for no far limit.
-        oblique: Oblique projection parameters, or ``None`` for the
-            standard orthographic / perspective projection.  Mutually
-            exclusive with *perspective*.
     """
 
     rotation: np.ndarray = field(
@@ -128,47 +115,44 @@ class ViewState:
     centre: np.ndarray = field(
         default_factory=lambda: np.zeros(3, dtype=float)
     )
-    perspective: float = 0.0
-    view_distance: float = 10.0
+    projection: Orthographic | Perspective | Oblique = field(
+        default_factory=Orthographic
+    )
     slab_origin: np.ndarray | None = None
     slab_near: float | None = None
     slab_far: float | None = None
-    oblique: Oblique | None = None
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.zoom) or self.zoom <= 0:
             raise ValueError(
                 f"zoom must be finite and positive, got {self.zoom}"
             )
-        if not math.isfinite(self.view_distance) or self.view_distance <= 0:
-            raise ValueError(
-                f"view_distance must be finite and positive, got "
-                f"{self.view_distance}"
+        if not isinstance(
+            self.projection, Orthographic | Perspective | Oblique
+        ):
+            raise TypeError(
+                "projection must be Orthographic, Perspective, or Oblique, "
+                f"got {type(self.projection).__name__}"
             )
-        if not math.isfinite(self.perspective):
-            raise ValueError(
-                f"perspective must be finite, got {self.perspective}"
-            )
-        _check_oblique_perspective_exclusive(self.oblique, self.perspective)
 
     @property
     def screen_matrix(self) -> np.ndarray:
         """The ``(2, 3)`` linear map from camera space to screen space.
 
-        Identity on x and y when :attr:`oblique` is ``None``.  With an
-        oblique projection the third column displaces screen positions
-        in proportion to depth, so that the receding axis is drawn at
-        :attr:`Oblique.angle` with length scaled by
+        Identity on x and y unless :attr:`projection` is
+        :class:`Oblique`, in which case the third column displaces
+        screen positions in proportion to depth, so that the receding
+        axis is drawn at :attr:`Oblique.angle` with length scaled by
         :attr:`Oblique.foreshortening`.  Zoom-free and
         perspective-free, so it can also map bare direction vectors,
         as the axes orientation widget requires.
         """
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=float)
-        if self.oblique is not None:
-            th = np.radians(self.oblique.angle)
-            f = self.oblique.foreshortening
-            m[0, 2] = -f * np.cos(th)
-            m[1, 2] = -f * np.sin(th)
+        match self.projection:
+            case Oblique() as ob:
+                th = np.radians(ob.angle)
+                m[0, 2] = -ob.foreshortening * np.cos(th)
+                m[1, 2] = -ob.foreshortening * np.sin(th)
         return m
 
     @property
@@ -176,13 +160,15 @@ class ViewState:
         """Largest factor by which :attr:`screen_matrix` can stretch a vector.
 
         The largest singular value of the screen matrix:
-        ``sqrt(1 + f**2)`` for foreshortening ``f``, exactly ``1.0``
-        when :attr:`oblique` is ``None``.  Used for viewport sizing.
+        ``sqrt(1 + f**2)`` for foreshortening ``f`` when
+        :attr:`projection` is :class:`Oblique`, exactly ``1.0``
+        otherwise.  Used for viewport sizing.
         """
-        if self.oblique is None:
-            return 1.0
-        f = self.oblique.foreshortening
-        return float(np.sqrt(1.0 + f * f))
+        match self.projection:
+            case Oblique() as ob:
+                return float(np.sqrt(1.0 + ob.foreshortening**2))
+            case _:
+                return 1.0
 
     def project_camera(
         self, camera: np.ndarray,
@@ -204,22 +190,21 @@ class ViewState:
             Tuple of ``(xy, scale)`` where *xy* has shape ``(n, 2)``
             and *scale* has shape ``(n,)``, the perspective scale
             factor at each depth (all ones when orthographic).
-
-        Raises:
-            ValueError: If :attr:`oblique` is set while
-                :attr:`perspective` is positive.  Construction and
-                :meth:`with_oblique` also reject this combination;
-                this backstop closes the direct-assignment path.
         """
-        _check_oblique_perspective_exclusive(self.oblique, self.perspective)
         camera = np.asarray(camera, dtype=float)
         xy = camera @ self.screen_matrix.T
-        if self.perspective > 0:
-            scale = self.view_distance / (
-                self.view_distance - camera[:, 2] * self.perspective
-            )
-        else:
-            scale = np.ones(len(camera))
+        match self.projection:
+            case Orthographic() | Oblique():
+                scale = np.ones(len(camera))
+            case Perspective() as p:
+                scale = p.view_distance / (
+                    p.view_distance - camera[:, 2] * p.strength
+                )
+            case _:
+                raise TypeError(
+                    "projection must be Orthographic, Perspective, or "
+                    f"Oblique, got {type(self.projection).__name__}"
+                )
         return xy * scale[:, np.newaxis] * self.zoom, scale
 
     def project(
@@ -227,8 +212,9 @@ class ViewState:
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Project 3D coordinates to 2D with depth information.
 
-        The eye sits at ``[0, 0, view_distance]`` and each sphere's
-        visible silhouette is projected onto the z=0 plane.
+        Under a :class:`Perspective` projection the eye sits at
+        ``[0, 0, view_distance]`` and each sphere's visible silhouette
+        is projected onto the z=0 plane.
 
         With an oblique projection the screen coordinates gain a
         depth-proportional offset; *depth* and *projected_radii* are
@@ -257,17 +243,20 @@ class ViewState:
 
         if radii is not None:
             radii = np.asarray(radii, dtype=float)
-            if self.perspective > 0:
-                # Recomputed directly (not view_distance / scale): the
-                # division round-trip is not bit-exact and output must
-                # be byte-identical to the pre-oblique implementation.
-                # Eye-to-atom distance along z.
-                d = self.view_distance - depth * self.perspective
-                # Silhouette radius: r * D / sqrt(d^2 - r^2).
-                denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
-                projected_radii = radii * self.view_distance / denom * self.zoom
-            else:
-                projected_radii = radii * self.zoom
+            match self.projection:
+                case Perspective() as p:
+                    # Recomputed directly (not view_distance / scale): the
+                    # division round-trip is not bit-exact and output must
+                    # be byte-identical to the two-field implementation.
+                    # Eye-to-atom distance along z.
+                    d = p.view_distance - depth * p.strength
+                    # Silhouette radius: r * D / sqrt(d^2 - r^2).
+                    denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+                    projected_radii = (
+                        radii * p.view_distance / denom * self.zoom
+                    )
+                case _:
+                    projected_radii = radii * self.zoom
         else:
             projected_radii = np.zeros(len(depth))
 
@@ -372,28 +361,23 @@ class ViewState:
         self.rotation = np.array([right, up_actual, fwd])
         return self
 
-    def with_oblique(self, oblique: Oblique = CABINET) -> ViewState:
-        """Enable an oblique projection and return ``self`` for chaining.
+    def with_projection(
+        self, projection: Orthographic | Perspective | Oblique,
+    ) -> ViewState:
+        """Set the projection mode and return ``self`` for chaining.
 
         Mirrors :meth:`look_along`::
 
-            scene.view = ViewState().look_along([0, -1, 0]).with_oblique(CAVALIER)
+            scene.view = ViewState().look_along([0, -1, 0]).with_projection(CABINET)
 
-        To return to an orthographic projection, assign
-        ``view.oblique = None`` directly; this method deliberately
-        does not accept ``None``.
+        Plain assignment (``view.projection = CABINET``) is the
+        equivalent non-chaining spelling.
 
         Args:
-            oblique: Oblique projection parameters.  Defaults to
-                :data:`CABINET`.
+            projection: The projection mode.
 
         Returns:
-            ``self``, with :attr:`oblique` set.
-
-        Raises:
-            ValueError: If *perspective* is positive — oblique and
-                perspective projections are mutually exclusive.
+            ``self``, with :attr:`projection` set.
         """
-        _check_oblique_perspective_exclusive(oblique, self.perspective)
-        self.oblique = oblique
+        self.projection = projection
         return self

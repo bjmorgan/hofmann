@@ -19,6 +19,7 @@ from hofmann.model import (
     CAVALIER,
     Frame,
     Oblique,
+    Perspective,
     RenderStyle,
     StructureScene,
     ViewState,
@@ -28,7 +29,7 @@ from hofmann.rendering.static import render_mpl
 
 
 def _oblique_view() -> ViewState:
-    return ViewState().look_along([0, -1, 0]).with_oblique(Oblique(35.0, 0.6))
+    return ViewState().look_along([0, -1, 0]).with_projection(Oblique(35.0, 0.6))
 
 
 def _make_scene(lattice: np.ndarray) -> StructureScene:
@@ -110,7 +111,7 @@ class TestCellEdgesShearConsistently:
         which previously had no integration coverage."""
         lattice = np.diag([3.0, 4.0, 5.0])
         scene = _make_scene(lattice)
-        scene.view = ViewState(perspective=0.5, view_distance=30.0)
+        scene.view = ViewState(projection=Perspective(0.5, 30.0))
         fig = render_mpl(scene, show=False)
         try:
             drawn = _quad_endpoints(fig)
@@ -169,7 +170,7 @@ class TestAxesWidgetShearsConsistently:
         line may poke outside the axes limits even at full cavalier
         foreshortening."""
         lattice = np.eye(3) * 3.0
-        view = ViewState().look_along([0, -1, 0]).with_oblique(CAVALIER)
+        view = ViewState().look_along([0, -1, 0]).with_projection(CAVALIER)
         fig, ax = plt.subplots()
         try:
             ax.set_xlim(-10.0, 10.0)
