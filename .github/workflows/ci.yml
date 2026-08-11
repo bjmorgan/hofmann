@@ -12,13 +12,22 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
+        experimental: [false]
+        include:
+          # Pre-release: allowed to fail until matplotlib and scipy
+          # publish cp315 wheels, then gives real signal automatically.
+          # Promote to the main list at 3.15.0 final.
+          - python-version: "3.15"
+            experimental: true
+    continue-on-error: ${{ matrix.experimental }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          allow-prereleases: true
       - name: Install dependencies
-        run: pip install ".[dev,animation,pymatgen,ase]"
+        run: pip install --only-binary numpy,matplotlib,scipy ".[dev,animation,pymatgen,ase]"
       - name: Run tests
         run: pytest --tb=short -q
 
