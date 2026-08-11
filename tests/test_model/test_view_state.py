@@ -330,6 +330,28 @@ class TestViewStateProjection:
         vs = ViewState().look_along([0, -1, 0]).with_projection(CABINET)
         assert vs.projection == CABINET
 
+    def test_removed_field_assignment_raises(self):
+        """slots keeps the break loud: no silent inert attribute."""
+        vs = ViewState()
+        with pytest.raises(AttributeError):
+            vs.perspective = 0.3
+
+    def test_removed_field_kwarg_raises(self):
+        with pytest.raises(TypeError):
+            ViewState(perspective=0.5)
+
+    def test_constructor_rejects_bogus_projection(self):
+        with pytest.raises(TypeError, match="projection"):
+            ViewState(projection="cabinet")
+
+    def test_dispatch_rejects_bogus_projection_on_assignment(self):
+        """Direct assignment bypasses __post_init__; the wildcard arm
+        must raise rather than silently render orthographic."""
+        vs = ViewState()
+        vs.projection = "cabinet"
+        with pytest.raises(TypeError, match="projection"):
+            vs.project_camera(np.zeros((1, 3)))
+
 
 class TestViewStateScreenMatrix:
     """Tests for the camera-to-screen linear map."""
@@ -573,8 +595,9 @@ class TestProjectionTypes:
                 Perspective(view_distance=bad)
 
     def test_perspective_rejects_non_positive_view_distance(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            Perspective(view_distance=0.0)
+        for bad in (0.0, -0.5):
+            with pytest.raises(ValueError, match="view_distance"):
+                Perspective(view_distance=bad)
 
     def test_modes_are_frozen_with_slots(self):
         # A new attribute name raises TypeError (slots, no __dict__); an

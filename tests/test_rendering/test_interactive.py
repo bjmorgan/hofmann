@@ -225,6 +225,33 @@ class TestKeyActions:
         _do_key("P", view, style, state, iv)
         assert view.projection == Orthographic()
 
+    def test_p_ladder_up_from_orthographic(self):
+        """Entering perspective is the first rung of the ladder, not a
+        separate mode-switch gesture."""
+        view, style, state, iv = _key_action_fixtures()
+        assert view.projection == Orthographic()
+        _do_key("p", view, style, state, iv)
+        assert view.projection == Perspective(strength=_PERSPECTIVE_STEP)
+        _do_key("p", view, style, state, iv)
+        assert isinstance(view.projection, Perspective)
+        np.testing.assert_allclose(
+            view.projection.strength, 2 * _PERSPECTIVE_STEP
+        )
+
+    def test_shift_p_ladder_reaches_orthographic_in_three_presses(self):
+        """Phantom-rung pin: three p presses accumulate float residue
+        (0.30000000000000004); descent must reach Orthographic() in
+        exactly three P presses, never visiting Perspective(~1e-17)."""
+        view, style, state, iv = _key_action_fixtures()
+        for _ in range(3):
+            _do_key("p", view, style, state, iv)
+        for _ in range(2):
+            _do_key("P", view, style, state, iv)
+            assert isinstance(view.projection, Perspective)
+            assert view.projection.strength > 1e-9
+        _do_key("P", view, style, state, iv)
+        assert view.projection == Orthographic()
+
     # -- Distance --
 
     def test_distance_increase(self):
@@ -248,6 +275,14 @@ class TestKeyActions:
         _do_key("D", view, style, state, iv)
         _do_key("D", view, style, state, iv)
         assert view.projection.view_distance >= 0.1
+
+    def test_d_is_noop_outside_perspective(self):
+        view, style, state, iv = _key_action_fixtures()
+        for projection in (Orthographic(), CABINET):
+            view.projection = projection
+            result = _do_key("d", view, style, state, iv)
+            assert result == "none"
+            assert view.projection == projection
 
     # -- Style toggles --
 
