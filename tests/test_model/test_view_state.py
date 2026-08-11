@@ -620,8 +620,9 @@ class TestProjectionTypes:
             Perspective(view_distance=0.0)
 
     def test_modes_are_frozen_with_slots(self):
-        # Orthographic and Oblique have no fields, so test with a fake attr.
-        # TypeError from slots; Perspective has fields, so test with that.
+        # A new attribute name raises TypeError (slots, no __dict__); an
+        # existing field name raises FrozenInstanceError (frozen).
+        # Orthographic has no fields, so only the former applies to it.
         o = Orthographic()
         with pytest.raises(TypeError):  # slots prevents new attributes
             o.anything = 1
