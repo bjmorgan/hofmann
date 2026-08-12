@@ -216,6 +216,39 @@ class ViewState:
                 )
         return xy * scale[:, np.newaxis] * self.zoom, scale
 
+    def screen_frame(self, camera: np.ndarray) -> np.ndarray:
+        """Map camera-space coordinates to the screen-aligned frame.
+
+        The 3D frame in which this view's parallel projection is a
+        plain drop of z: x and y are the pre-zoom screen coordinates
+        (:attr:`screen_matrix` applied) and z is the unchanged depth.
+        Geometry that must agree with drawn screen positions — bond
+        junction offsets against atom silhouettes, for example — must
+        be computed in this frame: under an oblique projection the
+        camera frame's z axis is not the projection ray, but this
+        frame's z axis is.
+
+        An exact passthrough whenever :attr:`projection` is not
+        :class:`Oblique`.
+
+        Args:
+            camera: Array of shape ``(n, 3)`` in camera space.
+
+        Returns:
+            Array of shape ``(n, 3)``.
+
+        Raises:
+            ValueError: If *camera* does not have shape ``(n, 3)``.
+        """
+        camera = np.asarray(camera, dtype=float)
+        if camera.ndim != 2 or camera.shape[1] != 3:
+            raise ValueError(
+                f"camera must have shape (n, 3), got {camera.shape}"
+            )
+        return np.column_stack(
+            [camera @ self.screen_matrix.T, camera[:, 2]]
+        )
+
     def project(
         self, coords: np.ndarray, radii: np.ndarray | None = None,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:

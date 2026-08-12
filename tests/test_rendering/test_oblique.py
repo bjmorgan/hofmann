@@ -21,6 +21,7 @@ from hofmann.model import (
     ViewState,
 )
 from hofmann.rendering.axes_widget import _draw_axes_widget
+from hofmann.rendering.bond_geometry import _bond_polygons_batch
 from hofmann.rendering.static import render_mpl
 
 
@@ -254,3 +255,75 @@ class TestFullSceneConsistency:
                 assert along.max() < bond_len + 0.02
         finally:
             plt.close(fig)
+
+
+class TestBondJunctionsShearConsistently:
+    def test_bond_polygons_match_manual_shear_route(self):
+        """Fat-atom bond polygons under the new API must equal the
+        manual-shear route (the published figure's construction),
+        including a bond receding along the camera axis."""
+        th = np.radians(35.0)
+        shear = np.array([
+            [1.0, 0.0, -0.6 * np.cos(th)],
+            [0.0, 1.0, -0.6 * np.sin(th)],
+            [0.0, 0.0, 1.0],
+        ])
+        rng = np.random.default_rng(3)
+        coords = np.vstack([
+            [[0.0, 0.0, 0.0], [0.0, 0.0, -3.0]],   # receding bond
+            rng.normal(scale=2.0, size=(4, 3)),
+        ])
+        radii = np.full(len(coords), 0.8)
+        bond_ia = np.array([0, 2, 4])
+        bond_ib = np.array([1, 3, 5])
+        bond_radii = np.full(3, 0.15)
+        arc = np.column_stack([
+            np.cos(np.linspace(0.0, np.pi, 13)),
+            np.sin(np.linspace(0.0, np.pi, 13)),
+        ])
+
+        vs_new = ViewState(projection=Oblique(35.0, 0.6))
+        vs_old = ViewState()
+        vs_old.rotation = shear  # the pre-oblique workaround route
+
+        outputs = []
+        for vs in (vs_new, vs_old):
+            rotated = (coords - vs.centre) @ vs.rotation.T
+            xy, _, screen_radii = vs.project(coords, radii)
+            outputs.append(_bond_polygons_batch(
+                rotated, xy, radii, screen_radii,
+                bond_ia, bond_ib, bond_radii, vs, arc,
+            ))
+        # Exact equality holds (verified: no BLAS shape-dependent
+        # rounding difference between the (3,3) and (3,2) matmul
+        # routes for this construction), so pin it exactly rather
+        # than with a tolerance.
+        for new_part, old_part in zip(outputs[0], outputs[1]):
+            np.testing.assert_array_equal(
+                np.asarray(new_part), np.asarray(old_part)
+            )
+
+    def test_receding_bond_starts_at_silhouette_not_centre(self):
+        """Symptom pin: before the fix this offset was exactly 0."""
+        coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -3.0]])
+        radii = np.array([0.8, 0.8])
+        vs = ViewState(projection=Oblique(35.0, 0.6))
+        rotated = (coords - vs.centre) @ vs.rotation.T
+        xy, _, screen_radii = vs.project(coords, radii)
+        arc = np.column_stack([
+            np.cos(np.linspace(0.0, np.pi, 13)),
+            np.sin(np.linspace(0.0, np.pi, 13)),
+        ])
+        out = _bond_polygons_batch(
+            rotated, xy, radii, screen_radii,
+            np.array([0]), np.array([1]), np.array([0.15]), vs, arc,
+        )
+        start_2d = np.asarray(out[1][0], dtype=float)
+        offset = np.linalg.norm(start_2d - xy[0])
+        assert offset > 0.3
+
+    def test_screen_frame_is_identity_outside_oblique(self):
+        rng = np.random.default_rng(5)
+        camera = rng.normal(size=(10, 3))
+        for vs in (ViewState(), ViewState(projection=Perspective(0.5))):
+            np.testing.assert_array_equal(vs.screen_frame(camera), camera)

@@ -175,9 +175,6 @@ def _bond_polygon(
     if clip_result is None:
         return None
 
-    bond_vec = p_b - p_a
-    bond_len = np.linalg.norm(bond_vec)
-
     # Tangent offsets in 3D (same as _clip_bond_3d computes internally).
     w_a = np.sqrt(max(r_a**2 - bond_r**2, 0.0)) if r_a > bond_r else 0.0
     w_b = np.sqrt(max(r_b**2 - bond_r**2, 0.0)) if r_b > bond_r else 0.0
@@ -188,11 +185,19 @@ def _bond_polygon(
     # perpendicular to the view has cth~0).
     # For orthographic projection, push the eye to effective infinity
     # so all view rays are parallel (matching XBS pmode==0 behaviour).
+    #
+    # Junction angles live in the screen-aligned frame — the frame the
+    # drawn circles occupy.  Under Oblique the camera frame's z axis is
+    # not the projection ray, but screen_frame's is, so the eye
+    # direction (0, 0, eye_dist) is only the true view ray there.
+    s_a, s_b = view.screen_frame(np.array([p_a, p_b]))
+    bond_vec = s_b - s_a
+    bond_len = np.linalg.norm(bond_vec)
     proj = view.projection
     eye_dist = proj.view_distance if isinstance(proj, Perspective) else 1e6
     eye = np.array([0.0, 0.0, eye_dist])
-    q_a = eye - p_a
-    q_b = eye - p_b
+    q_a = eye - s_a
+    q_b = eye - s_b
     denom_a = np.linalg.norm(q_a) * bond_len
     denom_b = np.linalg.norm(q_b) * bond_len
     if denom_a < 1e-12 or denom_b < 1e-12:
@@ -312,7 +317,10 @@ def _bond_polygons_batch(
     zr_a = screen_radii[bond_ia]        # (n_bonds,)
     zr_b = screen_radii[bond_ib]        # (n_bonds,)
 
-    # Bond vectors and lengths.
+    # Bond vectors and lengths (camera space): physical 3D reasoning.
+    # The tangent-offset degeneracy check below asks whether the
+    # physical bond length exceeds the sum of tangent-point offsets —
+    # a camera-space question regardless of projection.
     bond_vec = p_b - p_a                                    # (n_bonds, 3)
     bond_len = np.linalg.norm(bond_vec, axis=1)             # (n_bonds,)
     valid = bond_len > 1e-12
@@ -331,22 +339,32 @@ def _bond_polygons_batch(
     )
     valid &= (bond_len_safe - w_a - w_b) > 0
 
-    # Foreshortening angles.
+    # Foreshortening angles: junction angles live in the screen-aligned
+    # frame — the frame the drawn circles occupy.  Under Oblique the
+    # camera frame's z axis is not the projection ray, but
+    # screen_frame's is, so the eye direction (0, 0, eye_dist) is only
+    # the true view ray there.
+    s_a = view.screen_frame(p_a)                            # (n_bonds, 3)
+    s_b = view.screen_frame(p_b)                            # (n_bonds, 3)
+    screen_bond_vec = s_b - s_a                              # (n_bonds, 3)
+    screen_bond_len = np.linalg.norm(screen_bond_vec, axis=1)  # (n_bonds,)
+    screen_bond_len_safe = np.where(valid, screen_bond_len, 1.0)
+
     proj = view.projection
     eye_dist = proj.view_distance if isinstance(proj, Perspective) else 1e6
     eye = np.array([0.0, 0.0, eye_dist])
-    q_a = eye - p_a                                         # (n_bonds, 3)
-    q_b = eye - p_b                                         # (n_bonds, 3)
+    q_a = eye - s_a                                         # (n_bonds, 3)
+    q_b = eye - s_b                                         # (n_bonds, 3)
     q_a_len = np.linalg.norm(q_a, axis=1)                   # (n_bonds,)
     q_b_len = np.linalg.norm(q_b, axis=1)                   # (n_bonds,)
-    denom_a = q_a_len * bond_len_safe
-    denom_b = q_b_len * bond_len_safe
+    denom_a = q_a_len * screen_bond_len_safe
+    denom_b = q_b_len * screen_bond_len_safe
     valid &= (denom_a > 1e-12) & (denom_b > 1e-12)
     denom_a_safe = np.where(valid, denom_a, 1.0)
     denom_b_safe = np.where(valid, denom_b, 1.0)
 
-    dot_qa = np.sum(q_a * bond_vec, axis=1)
-    dot_qb = np.sum(q_b * bond_vec, axis=1)
+    dot_qa = np.sum(q_a * screen_bond_vec, axis=1)
+    dot_qb = np.sum(q_b * screen_bond_vec, axis=1)
     cth_a = np.abs(dot_qa / denom_a_safe)
     cth_b = np.abs(dot_qb / denom_b_safe)
     sth_a = np.sqrt(np.maximum(1.0 - cth_a**2, 0.0))
