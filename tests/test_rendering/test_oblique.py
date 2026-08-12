@@ -303,6 +303,63 @@ class TestBondJunctionsShearConsistently:
                 np.asarray(new_part), np.asarray(old_part)
             )
 
+    def test_bond_polygons_match_manual_shear_route_near_occlusion_boundary(self):
+        """The occlusion/degeneracy mask must also agree with the
+        manual-shear route, not just the angle geometry.
+
+        Two configurations straddle the ``bond_len - w_a - w_b > 0``
+        boundary (``w_a + w_b == 1.5716...`` for r=0.8, bond_r=0.15) in
+        opposite directions depending on which frame supplies the
+        length: a receding bond (camera length 1.3, screen length
+        1.838) is occluded by camera-frame length but drawn by
+        screen-frame length; a bond nearly parallel to the shear
+        kernel (camera length 1.7, screen length 1.202) is the
+        reverse.  The manual-shear route is the arbiter of which mask
+        is correct, since its single rotation matrix folds the shear
+        in, so its "camera space" already is the screen-aligned frame.
+        """
+        th = np.radians(35.0)
+        f = 1.0
+        shear = np.array([
+            [1.0, 0.0, -f * np.cos(th)],
+            [0.0, 1.0, -f * np.sin(th)],
+            [0.0, 0.0, 1.0],
+        ])
+        kernel = np.array([f * np.cos(th), f * np.sin(th), 1.0])
+        kernel /= np.linalg.norm(kernel)
+
+        coords = np.array([
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, -1.3],                      # receding bond
+            [5.0, 5.0, 0.0],
+            [5.0, 5.0, 0.0] + kernel * 1.70,       # near-kernel bond
+        ])
+        radii = np.full(len(coords), 0.8)
+        bond_ia = np.array([0, 2])
+        bond_ib = np.array([1, 3])
+        bond_radii = np.full(2, 0.15)
+        arc = np.column_stack([
+            np.cos(np.linspace(0.0, np.pi, 13)),
+            np.sin(np.linspace(0.0, np.pi, 13)),
+        ])
+
+        vs_new = ViewState(projection=Oblique(35.0, f))
+        vs_old = ViewState()
+        vs_old.rotation = shear
+
+        outputs = []
+        for vs in (vs_new, vs_old):
+            rotated = (coords - vs.centre) @ vs.rotation.T
+            xy, _, screen_radii = vs.project(coords, radii)
+            outputs.append(_bond_polygons_batch(
+                rotated, xy, radii, screen_radii,
+                bond_ia, bond_ib, bond_radii, vs, arc,
+            ))
+        for new_part, old_part in zip(outputs[0], outputs[1]):
+            np.testing.assert_array_equal(
+                np.asarray(new_part), np.asarray(old_part)
+            )
+
     def test_receding_bond_starts_at_silhouette_not_centre(self):
         """Symptom pin: before the fix this offset was exactly 0."""
         coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -3.0]])
