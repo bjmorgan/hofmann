@@ -42,6 +42,8 @@ Perspective
 
 .. code-block:: python
 
+   from hofmann import Orthographic, Perspective
+
    scene.view.projection = Perspective(0.3)  # Mild perspective
    scene.view.projection = Orthographic()  # Orthographic (default)
 
