@@ -1,15 +1,16 @@
 """Generate static images for the documentation."""
 
+import copy
 from pathlib import Path
 
 import numpy as np
 from scipy.spatial.transform import Rotation
 
 from hofmann import (
-    AtomLegendItem, AtomStyle, AxesStyle, BondSpec, CellEdgeStyle,
-    Composition, Frame, LegendStyle, Orthographic, Perspective,
-    PolygonLegendItem, PolyhedronLegendItem, PolyhedronSpec, RenderStyle,
-    StructureScene, ViewState,
+    CABINET, AtomLegendItem, AtomStyle, AxesStyle, BondSpec,
+    CellEdgeStyle, Composition, Frame, LegendStyle, Orthographic,
+    Perspective, PolygonLegendItem, PolyhedronLegendItem,
+    PolyhedronSpec, RenderStyle, StructureScene, ViewState,
 )
 
 OUT = Path(__file__).resolve().parent
@@ -658,6 +659,24 @@ def generate_docs_images() -> None:
     )
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
     perov_plain.view.projection = Orthographic()  # Reset
+
+    # 5b. Oblique: orthographic vs cabinet, same camera (perovskite).
+    # The receding axis is the view direction, so both panels share
+    # the look_along orientation and differ only in projection.
+    saved_view = copy.deepcopy(perov_plain.view)
+    perov_plain.view.look_along([0, -1, 0])
+    perov_plain.render_mpl(
+        OUT / "perovskite_oblique_ortho.svg",
+        figsize=(3, 3), dpi=150,
+    )
+    print(f"  wrote {OUT / 'perovskite_oblique_ortho.svg'}")
+    perov_plain.view.projection = CABINET
+    perov_plain.render_mpl(
+        OUT / "perovskite_oblique_cabinet.svg",
+        figsize=(3, 3), dpi=150,
+    )
+    print(f"  wrote {OUT / 'perovskite_oblique_cabinet.svg'}")
+    perov_plain.view = saved_view  # Reset
 
     # 6–9. Per-atom colouring examples: ring of atoms.
     n = 16

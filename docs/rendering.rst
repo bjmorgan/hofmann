@@ -56,8 +56,8 @@ Perspective
 
           Perspective (``Perspective(0.5)``)
 
-Oblique projection
-------------------
+Oblique
+~~~~~~~
 
 An oblique projection draws two axes undistorted in the
 plane of the page, with the third receding at a chosen angle and
@@ -66,6 +66,17 @@ foreshortening -- a standard idiom for crystal-structure figures::
    from hofmann import CABINET, CAVALIER, Oblique
 
    scene.view.look_along([0, -1, 0]).with_projection(CABINET)
+
+.. list-table::
+   :widths: 50 50
+
+   * - .. figure:: _static/perovskite_oblique_ortho.svg
+
+          Orthographic, viewed along ``[0, -1, 0]``
+
+     - .. figure:: _static/perovskite_oblique_cabinet.svg
+
+          Cabinet (``CABINET``), same camera
 
 ``CAVALIER`` draws the receding axis at full length, ``CABINET`` at
 half length, both at 45 degrees.  The axis that recedes is the
