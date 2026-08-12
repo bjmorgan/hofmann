@@ -61,7 +61,7 @@ _Rx = np.array([
 ])
 
 LEGEND_ROTATION: np.ndarray = _Ry @ _Rx
-"""Fixed oblique rotation matrix for legend polyhedron icons."""
+"""Fixed three-quarter viewing rotation for legend polyhedron icons."""
 
 
 # ---------------------------------------------------------------------------

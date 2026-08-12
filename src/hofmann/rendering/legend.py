@@ -219,9 +219,9 @@ def _draw_legend_polyhedron(
     """Draw a miniature 3D-shaded polyhedron icon on *ax*.
 
     Uses the same depth-sorted face rendering as the main painter.
-    When *rotation* is ``None`` the default oblique viewing angle
-    from :data:`LEGEND_ROTATION` is used; otherwise the supplied
-    3x3 rotation matrix orients the icon.
+    When *rotation* is ``None`` the default three-quarter viewing
+    rotation from :data:`LEGEND_ROTATION` is used; otherwise the
+    supplied 3x3 rotation matrix orients the icon.
 
     Args:
         ax: Matplotlib ``Axes`` to draw into.

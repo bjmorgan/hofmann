@@ -73,7 +73,7 @@ _DISTANCE_FACTOR = 1.05  # viewing distance multiplier per key press
 _HELP_TEXT = """\
 Arrows     Rotate          Shift+Arrows  Pan
 ,  .       Roll            +  =  -       Zoom
-p  P       Perspective     d  D          Distance
+p  P       Projection      d  D          Distance
 b          Bonds           o             Outlines
 e          Polyhedra       u             Unit cell
 a          Axes            r             Reset view
