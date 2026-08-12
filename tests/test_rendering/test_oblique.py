@@ -5,10 +5,6 @@ camera-to-screen mapping, so cell edges, the axes widget, and bonds
 shear identically to the atoms.
 """
 
-import matplotlib
-
-matplotlib.use("Agg")
-
 import matplotlib.pyplot as plt
 import numpy as np
 

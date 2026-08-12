@@ -2,7 +2,13 @@
 
 from pathlib import Path
 
+import matplotlib
 import pytest
+
+# Force the non-interactive backend for the whole suite, before any
+# test module imports pyplot: rendering tests must not open windows
+# or depend on whichever GUI backend the local environment selects.
+matplotlib.use("Agg")
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
