@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 
 from hofmann.model import Perspective, StructureScene, ViewState
@@ -111,6 +113,16 @@ def _scene_extent(
         if denom > 0:
             persp_scale = proj.view_distance / denom
         else:
+            warnings.warn(
+                "perspective eye lies inside the scene: the furthest "
+                f"atom depth ({worst_depth:.3g}) reaches the eye plane "
+                f"(view_distance={proj.view_distance:.3g}, "
+                f"strength={proj.strength:.3g}); the rendered figure "
+                "will be unusable.  Increase view_distance or reduce "
+                "strength.",
+                UserWarning,
+                stacklevel=2,
+            )
             persp_scale = proj.view_distance / 1e-6
         max_extent *= persp_scale
 
