@@ -16,9 +16,12 @@ class Perspective:
     """Perspective projection parameters.
 
     Attributes:
-        strength: Perspective strength.  Must be finite and positive;
-            zero strength is not representable — orthographic
-            projection is :class:`Orthographic`.
+        strength: Perspective strength.  ``1.0`` is a true pinhole
+            camera at *view_distance*; smaller values weaken the
+            convergence (equivalent to a pinhole eye at
+            ``view_distance / strength``).  Must be finite and
+            positive; zero strength is not representable —
+            orthographic projection is :class:`Orthographic`.
         view_distance: Distance from camera to scene centre.  Must be
             finite and positive.
     """
@@ -254,9 +257,13 @@ class ViewState:
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Project 3D coordinates to 2D with depth information.
 
-        Under a :class:`Perspective` projection the eye sits at
-        ``[0, 0, view_distance]`` and each sphere's visible silhouette
-        is projected onto the z=0 plane.
+        Under a :class:`Perspective` projection, screen positions are
+        scaled by ``view_distance / (view_distance - depth * strength)``
+        and each sphere's visible silhouette is projected onto the
+        z = 0 plane.  At ``strength = 1`` this is a pinhole eye at
+        ``[0, 0, view_distance]``; smaller strengths weaken the
+        convergence, equivalent to moving the eye out to
+        ``view_distance / strength``.
 
         With an oblique projection the screen coordinates gain a
         depth-proportional offset; *depth* and *projected_radii* are
