@@ -259,8 +259,7 @@ class ViewState:
 
         With an oblique projection the screen coordinates gain a
         depth-proportional offset; *depth* and *projected_radii* are
-        unchanged — spheres keep their circular outlines by drawing
-        convention.
+        unchanged.
 
         Args:
             coords: Array of shape ``(n, 3)``.
