@@ -31,8 +31,6 @@ from hofmann.model.render_style import (
 )
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import (
-    CABINET,
-    CAVALIER,
     Oblique,
     Orthographic,
     Perspective,
@@ -45,8 +43,6 @@ __all__ = [
     "AxesStyle",
     "Bond",
     "BondSpec",
-    "CABINET",
-    "CAVALIER",
     "CellEdgeStyle",
     "CmapSpec",
     "Colour",

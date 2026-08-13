@@ -57,14 +57,13 @@ class Oblique:
     Attributes:
         angle: On-screen direction of the receding axis, in degrees
             anticlockwise from screen +x.
-        foreshortening: Scale factor applied to the receding axis
-            (cavalier 1.0, cabinet 0.5).  Zero recovers the
-            orthographic projection exactly.  Negative values are
-            equivalent to ``angle + 180``.
+        foreshortening: Scale factor applied to the receding axis.
+            Zero recovers the orthographic projection exactly.
+            Negative values are equivalent to ``angle + 180``.
     """
 
-    angle: float = 45.0
-    foreshortening: float = 0.5
+    angle: float
+    foreshortening: float
 
     def __post_init__(self) -> None:
         if not math.isfinite(self.angle):
@@ -73,13 +72,6 @@ class Oblique:
             raise ValueError(
                 f"foreshortening must be finite, got {self.foreshortening}"
             )
-
-
-#: Cavalier projection: receding axis at 45 degrees, full length.
-CAVALIER = Oblique(45.0, 1.0)
-
-#: Cabinet projection: receding axis at 45 degrees, half length.
-CABINET = Oblique(45.0, 0.5)
 
 
 @dataclass(slots=True)
@@ -417,10 +409,10 @@ class ViewState:
 
         Mirrors :meth:`look_along`::
 
-            scene.view = ViewState().look_along([0, -1, 0]).with_projection(CABINET)
+            scene.view = ViewState().look_along([0, -1, 0]).with_projection(Oblique(35.0, 0.6))
 
-        Plain assignment (``view.projection = CABINET``) is the
-        equivalent non-chaining spelling.
+        Plain assignment (``view.projection = Oblique(35.0, 0.6)``) is
+        the equivalent non-chaining spelling.
 
         Args:
             projection: The projection mode.

@@ -12,7 +12,6 @@ from hofmann.model import (
     AtomStyle,
     AxesStyle,
     BondSpec,
-    CAVALIER,
     Frame,
     Oblique,
     Perspective,
@@ -162,12 +161,14 @@ class TestAxesWidgetShearsConsistently:
         finally:
             plt.close(fig)
 
-    def test_widget_lines_stay_inside_axes_under_cavalier(self):
+    def test_widget_lines_stay_inside_axes_under_full_foreshortening(self):
         """The corner inset allows for sheared tip reach, so no axis
-        line may poke outside the axes limits even at full cavalier
+        line may poke outside the axes limits even at full
         foreshortening."""
         lattice = np.eye(3) * 3.0
-        view = ViewState().look_along([0, -1, 0]).with_projection(CAVALIER)
+        view = ViewState().look_along([0, -1, 0]).with_projection(
+            Oblique(45.0, 1.0)
+        )
         fig, ax = plt.subplots()
         try:
             ax.set_xlim(-10.0, 10.0)

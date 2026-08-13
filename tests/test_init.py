@@ -42,16 +42,12 @@ def test_oblique_top_level_export():
     import hofmann.model.view_state
 
     assert hofmann.Oblique is hofmann.model.view_state.Oblique
-    assert hofmann.CAVALIER is hofmann.model.view_state.CAVALIER
-    assert hofmann.CABINET is hofmann.model.view_state.CABINET
 
 
 def test_oblique_in_all():
     import hofmann
 
     assert "Oblique" in hofmann.__all__
-    assert "CAVALIER" in hofmann.__all__
-    assert "CABINET" in hofmann.__all__
 
 
 def test_orthographic_top_level_export():

@@ -5,7 +5,7 @@ import copy
 import numpy as np
 import pytest
 
-from hofmann.model import CABINET, Orthographic, Perspective, RenderStyle, ViewState
+from hofmann.model import Oblique, Orthographic, Perspective, RenderStyle, ViewState
 from hofmann.rendering.interactive import (
     _apply_key_action,
     _DISTANCE_FACTOR,
@@ -278,7 +278,7 @@ class TestKeyActions:
 
     def test_d_is_noop_outside_perspective(self):
         view, style, state, iv = _key_action_fixtures()
-        for projection in (Orthographic(), CABINET):
+        for projection in (Orthographic(), Oblique(45.0, 0.5)):
             view.projection = projection
             result = _do_key("d", view, style, state, iv)
             assert result == "none"
@@ -623,13 +623,15 @@ class TestObliqueInteractive:
     def test_deepcopy_preserves_oblique(self):
         """The working copy taken on session entry is a deepcopy; it
         must carry every field, including projection."""
-        vs = ViewState(projection=CABINET, zoom=2.0)
+        oblique = Oblique(45.0, 0.5)
+        vs = ViewState(projection=oblique, zoom=2.0)
         clone = copy.deepcopy(vs)
-        assert clone.projection == CABINET
+        assert clone.projection == oblique
         assert clone.zoom == 2.0
         assert clone.rotation is not vs.rotation
 
     def test_reset_restores_oblique(self):
+        oblique = Oblique(45.0, 0.5)
         view, style, state, initial_view = _make_fixtures_with_oblique()
         view.projection = Orthographic()
         view.zoom = 3.0
@@ -638,7 +640,7 @@ class TestObliqueInteractive:
             n_frames=1, base_extent=10.0, initial_view=initial_view,
         )
         assert result == "view"
-        assert view.projection == CABINET
+        assert view.projection == oblique
         assert view.zoom == initial_view.zoom
 
     def test_p_key_replaces_oblique_with_perspective(self):
@@ -659,7 +661,7 @@ class TestObliqueInteractive:
 
 def _make_fixtures_with_oblique():
     """Fixtures whose initial view has an oblique projection."""
-    view = ViewState(projection=CABINET)
+    view = ViewState(projection=Oblique(45.0, 0.5))
     style = RenderStyle()
     state = {
         "frame_index": 0,

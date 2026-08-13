@@ -6,8 +6,6 @@ import numpy as np
 import pytest
 
 from hofmann.model.view_state import (
-    CABINET,
-    CAVALIER,
     Oblique,
     Orthographic,
     Perspective,
@@ -288,7 +286,7 @@ class TestViewStateSlab:
         coords = rng.normal(scale=4.0, size=(30, 3))
         vs_plain = ViewState(slab_near=-1.5, slab_far=2.0)
         vs_oblique = ViewState(
-            slab_near=-1.5, slab_far=2.0, projection=CAVALIER,
+            slab_near=-1.5, slab_far=2.0, projection=Oblique(45.0, 1.0),
         )
         np.testing.assert_array_equal(
             vs_oblique.slab_mask(coords), vs_plain.slab_mask(coords)
@@ -321,14 +319,16 @@ class TestViewStateProjection:
         assert ViewState().projection == Orthographic()
 
     def test_with_projection_sets_and_returns_self(self):
+        oblique = Oblique(45.0, 1.0)
         vs = ViewState()
-        result = vs.with_projection(CAVALIER)
+        result = vs.with_projection(oblique)
         assert result is vs
-        assert vs.projection == CAVALIER
+        assert vs.projection == oblique
 
     def test_with_projection_chains_with_look_along(self):
-        vs = ViewState().look_along([0, -1, 0]).with_projection(CABINET)
-        assert vs.projection == CABINET
+        oblique = Oblique(45.0, 0.5)
+        vs = ViewState().look_along([0, -1, 0]).with_projection(oblique)
+        assert vs.projection == oblique
 
     def test_removed_field_assignment_raises(self):
         """slots keeps the break loud: no silent inert attribute."""
@@ -342,13 +342,13 @@ class TestViewStateProjection:
 
     def test_constructor_rejects_bogus_projection(self):
         with pytest.raises(TypeError, match="projection"):
-            ViewState(projection="cabinet")
+            ViewState(projection="bogus")
 
     def test_dispatch_rejects_bogus_projection_on_assignment(self):
         """Direct assignment bypasses __post_init__; the wildcard arm
         must raise rather than silently render orthographic."""
         vs = ViewState()
-        vs.projection = "cabinet"
+        vs.projection = "bogus"
         with pytest.raises(TypeError, match="projection"):
             vs.project_camera(np.zeros((1, 3)))
 
@@ -395,32 +395,27 @@ class TestViewStateScreenMatrix:
 
 
 class TestOblique:
-    """Tests for the Oblique value type and its preset constants."""
+    """Tests for the Oblique value type."""
 
-    def test_defaults(self):
-        ob = Oblique()
-        assert ob.angle == 45.0
-        assert ob.foreshortening == 0.5
+    def test_parameters_are_required(self):
+        with pytest.raises(TypeError):
+            Oblique()
 
     def test_frozen(self):
-        ob = Oblique()
+        ob = Oblique(45.0, 0.5)
         with pytest.raises(FrozenInstanceError):
             ob.angle = 30.0
-
-    def test_presets(self):
-        assert CAVALIER == Oblique(45.0, 1.0)
-        assert CABINET == Oblique(45.0, 0.5)
 
     def test_rejects_non_finite(self):
         for bad in (float("nan"), float("inf"), float("-inf")):
             with pytest.raises(ValueError, match="finite"):
-                Oblique(angle=bad)
+                Oblique(angle=bad, foreshortening=0.5)
             with pytest.raises(ValueError, match="finite"):
-                Oblique(foreshortening=bad)
+                Oblique(angle=45.0, foreshortening=bad)
 
     def test_negative_foreshortening_allowed(self):
         """Negative f is meaningful: equivalent to angle + 180 degrees."""
-        assert Oblique(foreshortening=-0.5).foreshortening == -0.5
+        assert Oblique(angle=45.0, foreshortening=-0.5).foreshortening == -0.5
 
 
 class TestViewStateProjectCamera:
@@ -513,7 +508,7 @@ class TestViewStateProjectOblique:
         """Painter ordering must be identical to the orthographic case."""
         pts = self._points()
         _, depth_ortho, _ = ViewState().project(pts)
-        _, depth_obl, _ = ViewState(projection=CAVALIER).project(pts)
+        _, depth_obl, _ = ViewState(projection=Oblique(45.0, 1.0)).project(pts)
         np.testing.assert_array_equal(depth_obl, depth_ortho)
 
     def test_radii_unchanged_by_oblique(self):
@@ -521,15 +516,18 @@ class TestViewStateProjectOblique:
         pts = self._points()
         radii = np.linspace(0.2, 1.0, len(pts))
         _, _, r_ortho = ViewState().project(pts, radii)
-        _, _, r_obl = ViewState(projection=CAVALIER).project(pts, radii)
+        _, _, r_obl = ViewState(projection=Oblique(45.0, 1.0)).project(pts, radii)
         np.testing.assert_array_equal(r_obl, r_ortho)
 
-    def test_cavalier_unit_step_cabinet_half_step(self):
+    def test_unit_and_half_foreshortening_steps(self):
         """A unit step along the receding axis (depth -1, i.e. away
-        from the viewer) draws as a unit step on screen under cavalier
-        and a half step under cabinet, in the direction of *angle*."""
+        from the viewer) draws as a unit step on screen at
+        foreshortening 1.0 and a half step at foreshortening 0.5, in
+        the direction of *angle*."""
         step = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -1.0]])
-        for oblique, length in ((CAVALIER, 1.0), (CABINET, 0.5)):
+        for oblique, length in (
+            (Oblique(45.0, 1.0), 1.0), (Oblique(45.0, 0.5), 0.5),
+        ):
             vs = ViewState(rotation=np.eye(3), projection=oblique)
             xy, _, _ = vs.project(step)
             drawn = xy[1] - xy[0]
@@ -584,7 +582,7 @@ class TestProjectionTypes:
 
     def test_orthographic_not_equal_to_other_modes(self):
         assert Orthographic() != Perspective()
-        assert Orthographic() != Oblique()
+        assert Orthographic() != Oblique(45.0, 0.5)
 
     def test_perspective_defaults(self):
         p = Perspective()
@@ -626,7 +624,7 @@ class TestProjectionTypes:
             p.strength = 0.3
         assert not hasattr(p, "__dict__")
 
-        ob = Oblique()
+        ob = Oblique(45.0, 0.5)
         with pytest.raises(FrozenInstanceError):  # frozen prevents field changes
             ob.angle = 30.0
         assert not hasattr(ob, "__dict__")

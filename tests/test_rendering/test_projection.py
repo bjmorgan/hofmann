@@ -127,8 +127,8 @@ class TestSceneExtent:
         )
 
     def test_oblique_scales_extent_by_scale_bound(self):
-        """Cavalier would clip at the viewport edge without the
-        sqrt(1 + f^2) allowance."""
+        """A full-length receding axis would clip at the viewport edge
+        without the sqrt(1 + f^2) allowance."""
         from hofmann.model import Oblique
 
         scene = self._two_atom_scene()
