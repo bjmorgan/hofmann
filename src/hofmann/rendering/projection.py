@@ -114,8 +114,9 @@ def _scene_extent(
             persp_scale = proj.view_distance / denom
         else:
             warnings.warn(
-                "perspective eye lies inside the scene: the furthest "
-                f"atom depth ({worst_depth:.3g}) reaches the eye plane "
+                "perspective eye lies inside the scene's bounding "
+                "sphere: the largest atom distance from the view "
+                f"centre ({worst_depth:.3g}) reaches the eye plane "
                 f"(view_distance={proj.view_distance:.3g}, "
                 f"strength={proj.strength:.3g}); the rendered figure "
                 "will be unusable.  Increase view_distance or reduce "
