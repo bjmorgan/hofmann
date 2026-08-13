@@ -100,6 +100,8 @@ def _apply_key_action(
     Returns a string indicating the required redraw kind:
 
     - ``"view"`` — view-only change (rotation, zoom, pan, etc.).
+    - ``"extent"`` — projection change that may invalidate the fixed
+      viewport extent (perspective strength or view distance).
     - ``"full"`` — style or frame change needing recomputation.
     - ``"none"`` — unrecognised key, no redraw needed.
     """
@@ -180,6 +182,7 @@ def _apply_key_action(
             case _:
                 # Mode switch: any other projection is replaced whole.
                 view.projection = Perspective(strength=_PERSPECTIVE_STEP)
+        return "extent"
     elif key == "P":
         match view.projection:
             case Perspective() as proj if (
@@ -194,6 +197,7 @@ def _apply_key_action(
                 view.projection = Orthographic()
             case _:
                 return "none"
+        return "extent"
     elif key == "d":
         match view.projection:
             case Perspective() as proj:
@@ -203,6 +207,7 @@ def _apply_key_action(
                 )
             case _:
                 return "none"
+        return "extent"
     elif key == "D":
         match view.projection:
             case Perspective() as proj:
@@ -214,6 +219,7 @@ def _apply_key_action(
                 )
             case _:
                 return "none"
+        return "extent"
 
     # -- Style toggles (no recomputation needed) --
     elif key == "b":
@@ -556,6 +562,11 @@ def render_mpl_interactive(
         )
         if kind == "full":
             _full_redraw()
+        elif kind == "extent":
+            state["base_extent"] = _scene_extent(
+                scene, view, state["frame_index"], resolved.atom_scale,
+            )
+            _redraw()
         elif kind == "view":
             _throttled_redraw()
 

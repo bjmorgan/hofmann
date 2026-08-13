@@ -10,6 +10,10 @@ from hofmann.model import Perspective, StructureScene, ViewState
 from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
 
+# Beyond this perspective magnification the viewport is padded so far
+# that the structure is subpixel — the figure is unusable.
+_MAX_SANE_MAGNIFICATION = 100.0
+
 # Default unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
 _UNIT_CIRCLE = np.column_stack([
@@ -95,6 +99,13 @@ def _scene_extent(
     if max_extent == 0.0:
         max_extent = 1.0
 
+    # Capture the bounding radius before the oblique shear allowance is
+    # applied, so the perspective magnification below is computed from
+    # the true scene bound regardless of shear (oblique and
+    # perspective are mutually exclusive, but this keeps the two
+    # allowances order-independent rather than relying on that fact).
+    bounding_radius = max_extent
+
     # An oblique shear stretches screen positions by at most
     # screen_scale_bound (sqrt(1 + f^2), the screen matrix's largest
     # singular value).  Applying it to the whole dists-plus-radii
@@ -106,28 +117,26 @@ def _scene_extent(
     # worst-case magnification for a point at distance *d* from the
     # view centre is when it is rotated to depth z = +d (closest to
     # the camera); the scene bounding radius (atoms plus display
-    # radii, and cell corners) bounds that depth.  screen_scale_bound
-    # is exactly 1.0 here (oblique and perspective are mutually
-    # exclusive), so max_extent is that radius.
+    # radii, and cell corners) bounds that depth.
     proj = view.projection
     if isinstance(proj, Perspective):
-        worst_depth = max_extent
-        denom = proj.view_distance - worst_depth * proj.strength
+        denom = proj.view_distance - bounding_radius * proj.strength
         if denom > 0:
             persp_scale = proj.view_distance / denom
         else:
+            persp_scale = proj.view_distance / 1e-6
+        if persp_scale > _MAX_SANE_MAGNIFICATION:
             warnings.warn(
-                "perspective eye lies inside the scene's bounding "
-                "sphere: the scene bounding radius "
-                f"({worst_depth:.3g}) reaches the eye plane "
-                f"(view_distance={proj.view_distance:.3g}, "
-                f"strength={proj.strength:.3g}); the rendered figure "
-                "will be unusable.  Increase view_distance or reduce "
-                "strength.",
+                "perspective eye plane is approached or passed by the "
+                "scene's bounding radius "
+                f"({bounding_radius:.3g}): the resulting magnification "
+                f"({persp_scale:.3g}x, view_distance="
+                f"{proj.view_distance:.3g}, strength={proj.strength:.3g}) "
+                "makes the rendered figure unusable.  Increase "
+                "view_distance or reduce strength.",
                 UserWarning,
                 stacklevel=2,
             )
-            persp_scale = proj.view_distance / 1e-6
         max_extent *= persp_scale
 
     return float(max_extent * view.zoom)

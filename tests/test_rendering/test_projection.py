@@ -181,6 +181,23 @@ class TestSceneExtent:
         with pytest.warns(UserWarning, match="view_distance"):
             _scene_extent(scene, view, 0, atom_scale=0.5)
 
+    def test_near_degenerate_view_warns(self):
+        """A view where the eye plane is not quite reached (denom
+        tiny but positive) still produces an unusable magnification
+        and must warn, not just the strictly non-positive case."""
+        scene = self._two_atom_scene()  # atoms at depth up to 5.5
+        bounding_radius = 5.5
+        strength = 1.0
+        # denom = view_distance - bounding_radius * strength, chosen
+        # tiny and positive so the magnification is far past
+        # _MAX_SANE_MAGNIFICATION (100.0) without denom <= 0.
+        view_distance = bounding_radius * strength + 1e-3
+        view = ViewState(projection=Perspective(
+            strength=strength, view_distance=view_distance,
+        ))
+        with pytest.warns(UserWarning, match="view_distance"):
+            _scene_extent(scene, view, 0, atom_scale=0.5)
+
 
 class TestMakeWedges:
     def test_pure_composition_returns_single_full_circle(self):

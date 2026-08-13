@@ -203,13 +203,14 @@ class TestKeyActions:
         view, style, state, iv = _key_action_fixtures()
         kind = _do_key("p", view, style, state, iv)
         assert view.projection == Perspective(strength=_PERSPECTIVE_STEP)
-        assert kind == "view"
+        assert kind == "extent"
 
     def test_perspective_decrease(self):
         view, style, state, iv = _key_action_fixtures()
         view.projection = Perspective(0.5)
-        _do_key("P", view, style, state, iv)
+        kind = _do_key("P", view, style, state, iv)
         assert view.projection == Perspective(0.5 - _PERSPECTIVE_STEP)
+        assert kind == "extent"
 
     def test_perspective_clamped_max(self):
         view, style, state, iv = _key_action_fixtures()
@@ -222,8 +223,9 @@ class TestKeyActions:
         Orthographic(), not a clamped-to-zero Perspective."""
         view, style, state, iv = _key_action_fixtures()
         view.projection = Perspective(0.05)
-        _do_key("P", view, style, state, iv)
+        kind = _do_key("P", view, style, state, iv)
         assert view.projection == Orthographic()
+        assert kind == "extent"
 
     def test_p_ladder_up_from_orthographic(self):
         """Entering perspective is the first rung of the ladder, not a
@@ -259,13 +261,14 @@ class TestKeyActions:
         view.projection = Perspective(0.5, 10.0)
         kind = _do_key("d", view, style, state, iv)
         assert view.projection == Perspective(0.5, 10.0 * _DISTANCE_FACTOR)
-        assert kind == "view"
+        assert kind == "extent"
 
     def test_distance_decrease(self):
         view, style, state, iv = _key_action_fixtures()
         view.projection = Perspective(0.5, 10.0)
-        _do_key("D", view, style, state, iv)
+        kind = _do_key("D", view, style, state, iv)
         assert view.projection == Perspective(0.5, 10.0 / _DISTANCE_FACTOR)
+        assert kind == "extent"
 
     def test_distance_clamped_min(self):
         view, style, state, iv = _key_action_fixtures()
@@ -653,7 +656,7 @@ class TestObliqueInteractive:
             "p", view, style, state,
             n_frames=1, base_extent=10.0, initial_view=initial_view,
         )
-        assert result == "view"
+        assert result == "extent"
         assert view.projection == Perspective(strength=_PERSPECTIVE_STEP)
         # The combination must remain projectable.
         view.project_camera(np.zeros((1, 3)))
