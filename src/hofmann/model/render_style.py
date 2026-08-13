@@ -699,9 +699,9 @@ class PolyhedronLegendItem(LegendItem):
         shape: Polyhedron shape name.  Recognised names:
             ``"octahedron"``, ``"tetrahedron"``, ``"cuboctahedron"``.
         rotation: Orientation of the icon.  ``None`` (the default)
-            uses the default oblique viewing angle.  An ``(Rx, Ry)``
-            tuple specifies rotation angles in degrees.  A ``(3, 3)``
-            numpy array specifies a full rotation matrix.
+            uses the default three-quarter viewing rotation.  An
+            ``(Rx, Ry)`` tuple specifies rotation angles in degrees.
+            A ``(3, 3)`` numpy array specifies a full rotation matrix.
         label: Display label text, or ``None`` to use *key*.
         radius: Marker radius in points, or ``None`` for the style
             default.

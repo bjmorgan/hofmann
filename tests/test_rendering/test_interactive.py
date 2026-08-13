@@ -287,6 +287,24 @@ class TestKeyActions:
             assert result == "none"
             assert view.projection == projection
 
+    def test_D_is_noop_outside_perspective(self):
+        view, style, state, iv = _key_action_fixtures()
+        for projection in (Orthographic(), Oblique(45.0, 0.5)):
+            view.projection = projection
+            result = _do_key("D", view, style, state, iv)
+            assert result == "none"
+            assert view.projection == projection
+
+    def test_shift_p_is_noop_outside_perspective(self):
+        """P steps out of Perspective, but has nothing to step out of
+        for Orthographic or Oblique — unlike p, which switches mode."""
+        view, style, state, iv = _key_action_fixtures()
+        for projection in (Orthographic(), Oblique(45.0, 0.5)):
+            view.projection = projection
+            result = _do_key("P", view, style, state, iv)
+            assert result == "none"
+            assert view.projection == projection
+
     # -- Style toggles --
 
     def test_toggle_bonds(self):

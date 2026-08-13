@@ -86,13 +86,13 @@ Drag       Rotate"""
 
 def _apply_key_action(
     key: str,
-    view: "ViewState",
-    style: "RenderStyle",
+    view: ViewState,
+    style: RenderStyle,
     state: dict,
     *,
     n_frames: int,
     base_extent: float,
-    initial_view: "ViewState",
+    initial_view: ViewState,
     has_lattice: bool = False,
 ) -> str:
     """Apply a keyboard action, mutating *view*, *style*, and *state*.
@@ -298,7 +298,7 @@ def render_mpl_interactive(
     cmap: CmapSpec | list[CmapSpec] = "viridis",
     colour_range: tuple[float, float] | None | list[tuple[float, float] | None] = None,
     **style_kwargs: object,
-) -> tuple["ViewState", "RenderStyle"]:
+) -> tuple[ViewState, RenderStyle]:
     """Interactive matplotlib viewer with mouse and keyboard controls.
 
     Opens a matplotlib window where the user can manipulate the view

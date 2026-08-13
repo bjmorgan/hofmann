@@ -75,7 +75,9 @@ Pan and perspective
    * - Shift + Arrow keys
      - Pan the view
    * - ``p`` / ``P``
-     - Step into/out of perspective projection, entering :class:`~hofmann.Orthographic` at the bottom of the ladder and replacing an oblique projection when raising.
+     - Step into/out of perspective projection, entering
+       :class:`~hofmann.Orthographic` at the bottom of the ladder and
+       replacing an oblique projection when raising.
    * - ``d`` / ``D``
      - Adjust viewing distance in :class:`~hofmann.Perspective` mode only.
 

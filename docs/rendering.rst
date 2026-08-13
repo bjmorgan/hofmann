@@ -81,7 +81,7 @@ foreshortening::
 
    * - .. figure:: _static/perovskite_oblique_ortho.svg
 
-          Orthographic, viewed along ``[0, -1, 0]``
+          ``look_along([0, -1, 0])``, orthographic
 
      - .. figure:: _static/perovskite_oblique.svg
 
