@@ -63,7 +63,7 @@ Oblique
 
 An oblique projection draws two axes undistorted in the
 plane of the page, with the third receding at a chosen angle and
-foreshortening -- a standard idiom for crystal-structure figures::
+foreshortening::
 
    from hofmann import Oblique
 
