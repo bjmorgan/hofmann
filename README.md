@@ -22,7 +22,7 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 - Coordination polyhedra with configurable shading and slab clipping
 - Unit cell wireframe rendering
 - Interactive viewer with mouse rotation, zoom, and keyboard controls
-- Orthographic and perspective projection
+- Orthographic, perspective, and oblique projection
 
 ## Installation
 
@@ -105,9 +105,11 @@ scene.render_mpl("si.pdf")
 ### Controlling the view
 
 ```python
-scene.view.look_along([1, 1, 0])   # View along [110]
-scene.view.zoom = 1.5              # Zoom in
-scene.view.perspective = 0.3       # Mild perspective
+from hofmann import Perspective
+
+scene.view.look_along([1, 1, 0])           # View along [110]
+scene.view.zoom = 1.5                      # Zoom in
+scene.view.projection = Perspective(0.3)   # Mild perspective
 scene.render_mpl("rotated.svg")
 ```
 
