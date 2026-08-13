@@ -25,7 +25,9 @@ from hofmann.rendering.static import render_mpl
 
 
 def _oblique_view() -> ViewState:
-    return ViewState().look_along([0, -1, 0]).with_projection(Oblique(35.0, 0.6))
+    view = ViewState(projection=Oblique(35.0, 0.6))
+    view.look_along([0, -1, 0])
+    return view
 
 
 def _make_scene(lattice: np.ndarray) -> StructureScene:
@@ -166,9 +168,8 @@ class TestAxesWidgetShearsConsistently:
         line may poke outside the axes limits even at full
         foreshortening."""
         lattice = np.eye(3) * 3.0
-        view = ViewState().look_along([0, -1, 0]).with_projection(
-            Oblique(45.0, 1.0)
-        )
+        view = ViewState(projection=Oblique(45.0, 1.0))
+        view.look_along([0, -1, 0])
         fig, ax = plt.subplots()
         try:
             ax.set_xlim(-10.0, 10.0)

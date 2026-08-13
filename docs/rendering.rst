@@ -67,7 +67,8 @@ foreshortening::
 
    from hofmann import Oblique
 
-   scene.view.look_along([0, -1, 0]).with_projection(Oblique(angle=35.0, foreshortening=0.6))
+   scene.view.look_along([0, -1, 0])
+   scene.view.projection = Oblique(angle=35.0, foreshortening=0.6)
 
 .. list-table::
    :widths: 50 50

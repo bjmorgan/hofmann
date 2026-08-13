@@ -313,22 +313,10 @@ class TestViewStateValidation:
 
 
 class TestViewStateProjection:
-    """Tests for the projection field and with_projection."""
+    """Tests for the projection field."""
 
     def test_default_is_orthographic(self):
         assert ViewState().projection == Orthographic()
-
-    def test_with_projection_sets_and_returns_self(self):
-        oblique = Oblique(45.0, 1.0)
-        vs = ViewState()
-        result = vs.with_projection(oblique)
-        assert result is vs
-        assert vs.projection == oblique
-
-    def test_with_projection_chains_with_look_along(self):
-        oblique = Oblique(45.0, 0.5)
-        vs = ViewState().look_along([0, -1, 0]).with_projection(oblique)
-        assert vs.projection == oblique
 
     def test_removed_field_assignment_raises(self):
         """slots keeps the break loud: no silent inert attribute."""
@@ -557,18 +545,16 @@ class TestViewStateProjectOblique:
         expected_xy = sheared[:, :2]
         expected_depth = sheared[:, 2]
 
-        vs = ViewState().look_along([0, -1, 0]).with_projection(
-            Oblique(35.0, 0.6)
-        )
+        vs = ViewState(projection=Oblique(35.0, 0.6))
+        vs.look_along([0, -1, 0])
         xy, depth, _ = vs.project(pts)
         np.testing.assert_allclose(xy, expected_xy, atol=1e-14)
         np.testing.assert_array_equal(depth, expected_depth)
 
         # Guard: the wrong camera (the one the original working note
         # proposed) must not match.
-        vs_wrong = ViewState().look_along([0, 1, 0]).with_projection(
-            Oblique(35.0, 0.6)
-        )
+        vs_wrong = ViewState(projection=Oblique(35.0, 0.6))
+        vs_wrong.look_along([0, 1, 0])
         xy_wrong, depth_wrong, _ = vs_wrong.project(pts)
         assert not np.allclose(xy_wrong, expected_xy)
         assert not np.allclose(depth_wrong, expected_depth)

@@ -27,7 +27,7 @@ Changelog
   site.
 
 - Oblique projection.  Set :attr:`~hofmann.ViewState.projection` to
-  an :class:`~hofmann.Oblique`, or chain :meth:`~hofmann.ViewState.with_projection`,
+  an :class:`~hofmann.Oblique`
   to draw two axes undistorted in the page plane with the third
   receding at a chosen angle and foreshortening.  Cell edges and the
   axes orientation widget follow the projection, so all drawn geometry

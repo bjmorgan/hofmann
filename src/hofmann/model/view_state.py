@@ -400,24 +400,3 @@ class ViewState:
         # R maps world coords to camera coords: rotated = R @ world.
         self.rotation = np.array([right, up_actual, fwd])
         return self
-
-    def with_projection(
-        self, projection: Orthographic | Perspective | Oblique,
-    ) -> ViewState:
-        """Set the projection mode and return ``self`` for chaining.
-
-        Mirrors :meth:`look_along`::
-
-            scene.view = ViewState().look_along([0, -1, 0]).with_projection(Oblique(35.0, 0.6))
-
-        Plain assignment (``view.projection = Oblique(35.0, 0.6)``) is
-        the equivalent non-chaining spelling.
-
-        Args:
-            projection: The projection mode.
-
-        Returns:
-            ``self``, with :attr:`projection` set.
-        """
-        self.projection = projection
-        return self
