@@ -33,6 +33,13 @@ Changelog
   axes orientation widget follow the projection, so all drawn geometry
   stays consistent.
 
+- Viewport sizing under perspective now bounds the worst-case
+  magnification by the scene bounding radius (including atom radii
+  and unit-cell corners) rather than atom centre distances alone,
+  preventing edge clipping when a large cell rotates towards the
+  eye.  A warning is raised when the perspective eye lies inside the
+  scene's bounding sphere, naming the settings to adjust.
+
 - **Breaking:** Projection mode is now selected with a single
   :attr:`~hofmann.ViewState.projection` field taking
   :class:`~hofmann.Orthographic` (the default),

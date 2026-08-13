@@ -102,21 +102,24 @@ def _scene_extent(
     # under oblique — which is harmless over-padding.
     max_extent *= view.screen_scale_bound
 
-    # Under perspective, atoms near the camera appear larger.  The
-    # worst-case magnification for an atom at distance *d* from the
+    # Under perspective, geometry near the camera appears larger.  The
+    # worst-case magnification for a point at distance *d* from the
     # view centre is when it is rotated to depth z = +d (closest to
-    # the camera).
+    # the camera); the scene bounding radius (atoms plus display
+    # radii, and cell corners) bounds that depth.  screen_scale_bound
+    # is exactly 1.0 here (oblique and perspective are mutually
+    # exclusive), so max_extent is that radius.
     proj = view.projection
-    if isinstance(proj, Perspective) and len(dists) > 0:
-        worst_depth = float(np.max(dists))
+    if isinstance(proj, Perspective):
+        worst_depth = max_extent
         denom = proj.view_distance - worst_depth * proj.strength
         if denom > 0:
             persp_scale = proj.view_distance / denom
         else:
             warnings.warn(
                 "perspective eye lies inside the scene's bounding "
-                "sphere: the largest atom distance from the view "
-                f"centre ({worst_depth:.3g}) reaches the eye plane "
+                "sphere: the scene bounding radius "
+                f"({worst_depth:.3g}) reaches the eye plane "
                 f"(view_distance={proj.view_distance:.3g}, "
                 f"strength={proj.strength:.3g}); the rendered figure "
                 "will be unusable.  Increase view_distance or reduce "

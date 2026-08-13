@@ -147,6 +147,30 @@ class TestSceneExtent:
         extent = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
         assert extent == 5.5
 
+    def test_perspective_bound_includes_cell_corners(self):
+        """A large cell with atoms near the centre must bound the
+        perspective magnification by the corner distance, not the atom
+        distance — otherwise the cell clips when rotated eye-ward."""
+        a = 20.0
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(
+                coords=np.array([[a / 2, a / 2, a / 2]]),
+                lattice=np.eye(3) * a,
+            )],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        scene.view.centre = np.full(3, a / 2)
+        corner_dist = np.linalg.norm(np.full(3, a / 2))
+        view = ViewState(
+            centre=np.full(3, a / 2),
+            projection=Perspective(strength=0.5, view_distance=40.0),
+        )
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        # Worst case: the corner rotated to depth +corner_dist.
+        expected_scale = 40.0 / (40.0 - corner_dist * 0.5)
+        assert extent >= corner_dist * expected_scale
+
     def test_eye_inside_scene_warns(self):
         """When the worst-case atom depth reaches the eye plane the
         extent falls back to a huge magnification and the figure comes

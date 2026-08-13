@@ -184,7 +184,8 @@ class ViewState:
         Returns:
             Tuple of ``(xy, scale)`` where *xy* has shape ``(n, 2)``
             and *scale* has shape ``(n,)``, the perspective scale
-            factor at each depth (all ones when orthographic).
+            factor at each depth (all ones for the parallel
+            projections, :class:`Orthographic` and :class:`Oblique`).
 
         Raises:
             ValueError: If *camera* does not have shape ``(n, 3)`` —
