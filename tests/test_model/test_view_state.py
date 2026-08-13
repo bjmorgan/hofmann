@@ -310,6 +310,12 @@ class TestViewStateValidation:
         for bad in (float("nan"), float("inf")):
             with pytest.raises(ValueError, match="finite"):
                 ViewState(zoom=bad)
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(slab_near=bad)
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(slab_far=bad)
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(slab_origin=np.array([0.0, bad, 0.0]))
 
 
 class TestViewStateProjection:
@@ -333,12 +339,19 @@ class TestViewStateProjection:
             ViewState(projection="bogus")
 
     def test_dispatch_rejects_bogus_projection_on_assignment(self):
-        """Direct assignment bypasses __post_init__; the wildcard arm
-        must raise rather than silently render orthographic."""
+        """Direct assignment bypasses __post_init__; every surface that
+        reads projection must raise rather than silently falling back
+        to orthographic behaviour."""
         vs = ViewState()
         vs.projection = "bogus"
         with pytest.raises(TypeError, match="projection"):
             vs.project_camera(np.zeros((1, 3)))
+        with pytest.raises(TypeError, match="projection"):
+            _ = vs.screen_matrix
+        with pytest.raises(TypeError, match="projection"):
+            _ = vs.screen_scale_bound
+        with pytest.raises(TypeError, match="projection"):
+            vs.screen_frame(np.zeros((1, 3)))
 
     def test_project_camera_rejects_wrong_shape(self):
         """A single (3,) point would otherwise broadcast into silently

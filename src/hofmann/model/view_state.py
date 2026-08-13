@@ -126,13 +126,31 @@ class ViewState:
             raise ValueError(
                 f"zoom must be finite and positive, got {self.zoom}"
             )
-        if not isinstance(
-            self.projection, Orthographic | Perspective | Oblique
-        ):
+        self._checked_projection()
+        if self.slab_near is not None and not math.isfinite(self.slab_near):
+            raise ValueError(
+                f"slab_near must be finite, got {self.slab_near}"
+            )
+        if self.slab_far is not None and not math.isfinite(self.slab_far):
+            raise ValueError(
+                f"slab_far must be finite, got {self.slab_far}"
+            )
+        if self.slab_origin is not None and not np.isfinite(
+            self.slab_origin
+        ).all():
+            raise ValueError(
+                f"slab_origin must be finite, got {self.slab_origin}"
+            )
+
+    def _checked_projection(self) -> Orthographic | Perspective | Oblique:
+        """Return :attr:`projection`, raising if it is not a valid mode."""
+        proj = self.projection
+        if not isinstance(proj, Orthographic | Perspective | Oblique):
             raise TypeError(
                 "projection must be Orthographic, Perspective, or Oblique, "
-                f"got {type(self.projection).__name__}"
+                f"got {type(proj).__name__}"
             )
+        return proj
 
     @property
     def screen_matrix(self) -> np.ndarray:
@@ -146,8 +164,9 @@ class ViewState:
         perspective-free, so it can also map bare direction vectors,
         as the axes orientation widget requires.
         """
+        proj = self._checked_projection()
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=float)
-        match self.projection:
+        match proj:
             case Oblique() as ob:
                 th = np.radians(ob.angle)
                 m[0, 2] = -ob.foreshortening * np.cos(th)
@@ -163,7 +182,8 @@ class ViewState:
         :attr:`projection` is :class:`Oblique`, exactly ``1.0``
         otherwise.  Used for viewport sizing.
         """
-        match self.projection:
+        proj = self._checked_projection()
+        match proj:
             case Oblique() as ob:
                 return float(np.sqrt(1.0 + ob.foreshortening**2))
             case _:
@@ -195,6 +215,8 @@ class ViewState:
             ValueError: If *camera* does not have shape ``(n, 3)`` —
                 a single ``(3,)`` point would otherwise broadcast into
                 silently duplicated rows.
+            TypeError: If :attr:`projection` is not Orthographic,
+                Perspective, or Oblique.
 
         Warns:
             UserWarning: Under :class:`Perspective`, if any point lies
@@ -203,13 +225,14 @@ class ViewState:
                 *scale* is still computed (inf or negative) rather
                 than clamped.
         """
+        proj = self._checked_projection()
         camera = np.asarray(camera, dtype=float)
         if camera.ndim != 2 or camera.shape[1] != 3:
             raise ValueError(
                 f"camera must have shape (n, 3), got {camera.shape}"
             )
         xy = camera @ self.screen_matrix.T
-        match self.projection:
+        match proj:
             case Orthographic() | Oblique():
                 scale = np.ones(len(camera))
             case Perspective() as p:
@@ -226,11 +249,6 @@ class ViewState:
                     )
                 with np.errstate(divide="ignore", invalid="ignore"):
                     scale = p.view_distance / denom
-            case _:
-                raise TypeError(
-                    "projection must be Orthographic, Perspective, or "
-                    f"Oblique, got {type(self.projection).__name__}"
-                )
         return xy * scale[:, np.newaxis] * self.zoom, scale
 
     def screen_frame(self, camera: np.ndarray) -> np.ndarray:
@@ -256,7 +274,10 @@ class ViewState:
 
         Raises:
             ValueError: If *camera* does not have shape ``(n, 3)``.
+            TypeError: If :attr:`projection` is not Orthographic,
+                Perspective, or Oblique.
         """
+        self._checked_projection()
         camera = np.asarray(camera, dtype=float)
         if camera.ndim != 2 or camera.shape[1] != 3:
             raise ValueError(
