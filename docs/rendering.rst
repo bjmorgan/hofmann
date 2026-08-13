@@ -83,10 +83,6 @@ foreshortening::
 The axis that recedes is the current view direction, so choose it
 first with :meth:`~hofmann.ViewState.look_along`.
 
-The projection is a single mode: assigning a new one replaces the old.
-Atoms keep their circular outlines by drawing convention in oblique
-projection.
-
 
 Render styles
 -------------
