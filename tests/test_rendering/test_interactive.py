@@ -459,7 +459,9 @@ class TestKeyActions:
         assert view.zoom == 1.0
         np.testing.assert_allclose(view.centre, [0.0, 0.0, 0.0])
         assert view.projection == Orthographic()
-        assert kind == "view"
+        # Reset restores the projection, so the fixed viewport extent
+        # must be recomputed for the restored state.
+        assert kind == "extent"
 
     def test_reset_restores_slab_fields(self):
         """The generic restore must cover every field — the old
@@ -660,7 +662,7 @@ class TestObliqueInteractive:
             "r", view, style, state,
             n_frames=1, base_extent=10.0, initial_view=initial_view,
         )
-        assert result == "view"
+        assert result == "extent"
         assert view.projection == oblique
         assert view.zoom == initial_view.zoom
 

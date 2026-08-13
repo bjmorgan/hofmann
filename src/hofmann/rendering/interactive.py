@@ -275,6 +275,9 @@ def _apply_key_action(
     elif key == "r":
         for f in fields(view):
             setattr(view, f.name, copy.deepcopy(getattr(initial_view, f.name)))
+        # The restore may change the projection, so the fixed viewport
+        # extent must be recomputed for the restored state.
+        return "extent"
 
     # -- Help overlay --
     elif key == "h":
