@@ -40,6 +40,11 @@ Changelog
   eye.  A warning is raised when the perspective eye lies inside the
   scene's bounding sphere, naming the settings to adjust.
 
+- Bond end-cap geometry now follows the effective perspective eye
+  position (``view_distance / strength``) rather than
+  *view_distance* alone, correcting slightly over-foreshortened bond
+  caps at perspective strengths below 1.
+
 - **Breaking:** Projection mode is now selected with a single
   :attr:`~hofmann.ViewState.projection` field taking
   :class:`~hofmann.Orthographic` (the default),

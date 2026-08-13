@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from hofmann.model import BondSpec, ViewState
+from hofmann.model import BondSpec, Perspective, ViewState
 from hofmann.rendering.bond_geometry import (
     _bond_polygon,
     _bond_polygons_batch,
@@ -270,6 +270,45 @@ class TestBondPolygonsBatch:
             view,
         )
         assert not valid[0]
+
+    def test_bond_polygons_depend_only_on_effective_eye(self):
+        """Perspective(1.0, 10.0) and Perspective(0.5, 5.0) define the
+        same projection (equal view_distance / strength): screen
+        positions agree exactly (verified separately, since
+        ``D / (D - z*s)`` is unchanged by scaling *D* and *s*
+        together).  Bond junction geometry — which is what this test
+        targets — must therefore agree too.  Pre-fix, the junction
+        eye used *view_distance* alone and the two disagreed.
+
+        *screen_radii* is computed once and shared between the two
+        calls: the atom silhouette-radius formula is a separate,
+        untouched computation that (unlike the position scale) is
+        not exactly invariant under this (D, s) rescaling, and
+        sharing it isolates the junction-eye behaviour under test.
+        """
+        coords = np.array([[0.0, 0.0, 2.0], [1.5, 0.5, -1.0]])
+        radii = np.array([0.8, 0.8])
+        bond_ia = np.array([0])
+        bond_ib = np.array([1])
+        bond_radii = np.array([0.15])
+
+        vs_reference = ViewState(projection=Perspective(1.0, 10.0))
+        rotated = (coords - vs_reference.centre) @ vs_reference.rotation.T
+        xy, _, screen_radii = vs_reference.project(coords, radii)
+
+        outs = []
+        for projection in (Perspective(1.0, 10.0), Perspective(0.5, 5.0)):
+            vs = ViewState(projection=projection)
+            outs.append(_bond_polygons_batch(
+                rotated, xy, radii, screen_radii,
+                bond_ia, bond_ib, bond_radii, vs,
+            ))
+
+        for a, b in zip(outs[0], outs[1]):
+            np.testing.assert_allclose(
+                np.asarray(a, dtype=float), np.asarray(b, dtype=float),
+                atol=1e-12,
+            )
 
 
 class TestHalfBondVertsBatch:

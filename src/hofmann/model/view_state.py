@@ -23,8 +23,11 @@ class Perspective:
             ``view_distance / strength``).  Must be finite and
             positive; zero strength is not representable —
             orthographic projection is :class:`Orthographic`.
-        view_distance: Distance from camera to scene centre.  Must be
-            finite and positive.
+            Values above ``1.0`` bring the effective eye closer than
+            *view_distance*.
+        view_distance: Reference distance for the perspective scale;
+            the effective pinhole eye sits at ``view_distance /
+            strength``.  Must be finite and positive.
     """
 
     strength: float = 0.5
@@ -305,8 +308,8 @@ class ViewState:
             match self.projection:
                 case Perspective() as p:
                     # Recomputed directly (not view_distance / scale): the
-                    # division round-trip is not bit-exact and output must
-                    # be byte-identical to the two-field implementation.
+                    # division round-trip via scale is not bit-exact; keep
+                    # the direct form.
                     # Eye-to-atom distance along z.
                     d = p.view_distance - depth * p.strength
                     # Silhouette radius: r * D / sqrt(d^2 - r^2).

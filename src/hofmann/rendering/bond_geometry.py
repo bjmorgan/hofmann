@@ -196,8 +196,14 @@ def _bond_polygon(
     # so all view rays are parallel (matching XBS pmode==0 behaviour).
     bond_vec = s_b - s_a
     bond_len = np.linalg.norm(bond_vec)
+    # The projection scale D/(D - z*s) is a pinhole at D/s (see
+    # Perspective); the s -> 0 limit motivates the orthographic
+    # stand-in below.
     proj = view.projection
-    eye_dist = proj.view_distance if isinstance(proj, Perspective) else 1e6
+    eye_dist = (
+        proj.view_distance / proj.strength
+        if isinstance(proj, Perspective) else 1e6
+    )
     eye = np.array([0.0, 0.0, eye_dist])
     q_a = eye - s_a
     q_b = eye - s_b
@@ -324,8 +330,8 @@ def _bond_polygons_batch(
     # degeneracy mask — lives in the screen-aligned frame: the frame
     # the drawn circles occupy, and the frame in which "have the two
     # tangent cut points crossed" is a question about drawn geometry.
-    # Only _project_point (via `xy` below) keeps camera-space inputs,
-    # to avoid applying the shear twice.
+    # Only `xy` below (already projected by ViewState.project) keeps
+    # camera-space inputs, to avoid applying the shear twice.
     s_a = view.screen_frame(p_a)                            # (n_bonds, 3)
     s_b = view.screen_frame(p_b)                            # (n_bonds, 3)
     bond_vec = s_b - s_a                                    # (n_bonds, 3)
@@ -347,8 +353,14 @@ def _bond_polygons_batch(
     valid &= (bond_len_safe - w_a - w_b) > 0
 
     # Foreshortening angles.
+    # The projection scale D/(D - z*s) is a pinhole at D/s (see
+    # Perspective); the s -> 0 limit motivates the orthographic
+    # stand-in below.
     proj = view.projection
-    eye_dist = proj.view_distance if isinstance(proj, Perspective) else 1e6
+    eye_dist = (
+        proj.view_distance / proj.strength
+        if isinstance(proj, Perspective) else 1e6
+    )
     eye = np.array([0.0, 0.0, eye_dist])
     q_a = eye - s_a                                         # (n_bonds, 3)
     q_b = eye - s_b                                         # (n_bonds, 3)
