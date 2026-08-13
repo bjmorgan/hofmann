@@ -67,7 +67,6 @@ foreshortening::
 
    from hofmann import Oblique
 
-   scene.view.look_along([0, -1, 0])
    scene.view.projection = Oblique(angle=35.0, foreshortening=0.6)
 
 .. list-table::
@@ -81,8 +80,7 @@ foreshortening::
 
           Oblique(angle=35.0, foreshortening=0.6), same camera
 
-The axis that recedes is the current view direction, so choose it
-first with :meth:`~hofmann.ViewState.look_along`.
+The axis that recedes is the current view direction.
 
 
 Render styles
