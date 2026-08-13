@@ -12,7 +12,7 @@ Controlling the view
 --------------------
 
 The :class:`~hofmann.ViewState` controls rotation, zoom, and
-perspective.
+projection.
 
 Rotation
 ~~~~~~~~
@@ -37,15 +37,22 @@ Zoom
 
    scene.view.zoom = 1.5  # Zoom in
 
+Projection
+~~~~~~~~~~
+
+The projection mode is set with :attr:`~hofmann.ViewState.projection`,
+which takes one of three values: :class:`~hofmann.Orthographic` (the
+default), :class:`~hofmann.Perspective`, or :class:`~hofmann.Oblique`.
+
 Perspective
-~~~~~~~~~~~
+^^^^^^^^^^^
 
 .. code-block:: python
 
    from hofmann import Orthographic, Perspective
 
    scene.view.projection = Perspective(0.3)  # Mild perspective
-   scene.view.projection = Orthographic()  # Orthographic (default)
+   scene.view.projection = Orthographic()  # Back to the default
 
 .. list-table::
    :widths: 50 50
@@ -59,7 +66,7 @@ Perspective
           Perspective (``Perspective(0.5)``)
 
 Oblique
-~~~~~~~
+^^^^^^^
 
 An oblique projection draws two axes undistorted in the
 plane of the page, with the third receding at a chosen angle and
