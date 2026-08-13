@@ -450,6 +450,21 @@ class TestViewStateProjectCamera:
         np.testing.assert_array_equal(depth_out, depth)
         np.testing.assert_array_equal(radii_out, expected_radii)
 
+    def test_warns_when_atoms_reach_eye_plane(self):
+        """Static rendering must not silently mirror or blow up atoms
+        at or behind the perspective eye plane."""
+        vs = ViewState(projection=Perspective(1.0, 5.0))
+        camera = np.array([[1.0, 1.0, 5.0], [1.0, 1.0, 8.0]])
+        with pytest.warns(UserWarning, match="eye plane"):
+            vs.project_camera(camera)
+
+    def test_no_warning_for_safe_perspective(self):
+        vs = ViewState(projection=Perspective(0.5, 10.0))
+        import warnings as _w
+        with _w.catch_warnings():
+            _w.simplefilter("error")
+            vs.project_camera(np.array([[1.0, 1.0, 2.0]]))
+
 
 class TestViewStateProjectOblique:
     """Tests for oblique projection through ViewState.project."""

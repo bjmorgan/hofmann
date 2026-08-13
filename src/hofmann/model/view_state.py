@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -191,6 +192,13 @@ class ViewState:
             ValueError: If *camera* does not have shape ``(n, 3)`` —
                 a single ``(3,)`` point would otherwise broadcast into
                 silently duplicated rows.
+
+        Warns:
+            UserWarning: Under :class:`Perspective`, if any point lies
+                at or behind the eye plane, where the projection
+                formula is singular or sign-reversing; the returned
+                *scale* is still computed (inf or negative) rather
+                than clamped.
         """
         camera = np.asarray(camera, dtype=float)
         if camera.ndim != 2 or camera.shape[1] != 3:
@@ -202,9 +210,19 @@ class ViewState:
             case Orthographic() | Oblique():
                 scale = np.ones(len(camera))
             case Perspective() as p:
-                scale = p.view_distance / (
-                    p.view_distance - camera[:, 2] * p.strength
-                )
+                denom = p.view_distance - camera[:, 2] * p.strength
+                if np.any(denom <= 0):
+                    warnings.warn(
+                        "one or more points lie at or behind the "
+                        "perspective eye plane and will be drawn "
+                        f"unreliably (view_distance={p.view_distance:.3g}, "
+                        f"strength={p.strength:.3g}).  Increase "
+                        "view_distance or reduce strength.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    scale = p.view_distance / denom
             case _:
                 raise TypeError(
                     "projection must be Orthographic, Perspective, or "
