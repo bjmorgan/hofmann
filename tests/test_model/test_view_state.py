@@ -165,7 +165,13 @@ class TestViewStateProject:
         coords = np.array([[0.0, 0.0, 0.0]])
         radii = np.array([5.0])  # d = 5, radii * strength = 5 -> d <= radii*strength
         with pytest.warns(UserWarning, match="view_distance"):
-            vs.project(coords, radii)
+            _, _, proj_r = vs.project(coords, radii)
+        # abs_d - rs = 0 here, so sqrt_lo * sqrt_hi = 0 exactly and the
+        # denominator is clamped to the 1e-6 floor: pin the radius
+        # that floor produces (r * D / 1e-6 * zoom = 5 * 5 / 1e-6),
+        # so a change to the clamp's magnitude is caught rather than
+        # merely tolerated by every test in the suite.
+        np.testing.assert_allclose(proj_r, [25_000_000.0])
 
     def test_no_sphere_warning_for_normal_scene(self):
         """A normal perspective scene — atoms well in front of the
@@ -447,63 +453,63 @@ class TestViewStateValidation:
     def test_wrong_shape_list_centre_raises_value_error(self):
         """A wrong-shape list must raise ValueError, not AttributeError
         from calling .shape on the raw list."""
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="centre.*shape"):
             ViewState(centre=[0.0, 1.0])
 
     def test_non_finite_list_centre_raises_value_error(self):
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="centre.*finite"):
             ViewState(centre=[0.0, float("nan"), 0.0])
 
     def test_wrong_shape_list_rotation_raises_value_error(self):
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="rotation.*shape"):
             ViewState(rotation=[[1.0, 0.0], [0.0, 1.0]])
 
     def test_wrong_shape_list_slab_origin_raises_value_error(self):
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="slab_origin.*shape"):
             ViewState(slab_origin=[0.0, 1.0])
 
     def test_slab_origin_shape_rejected(self):
         """A wrong-shape slab origin would otherwise broadcast against
         *centre* and silently produce a reference depth per component
         instead of one for the scene."""
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="slab_origin.*shape"):
             ViewState(slab_origin=np.array([[0.0], [0.0], [1.0]]))
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="slab_origin.*shape"):
             ViewState(slab_origin=np.array([0.0, 1.0]))
 
     def test_non_finite_scalars_rejected(self):
         for bad in (float("nan"), float("inf")):
-            with pytest.raises(ValueError, match="finite"):
+            with pytest.raises(ValueError, match="zoom.*finite"):
                 ViewState(zoom=bad)
-            with pytest.raises(ValueError, match="finite"):
+            with pytest.raises(ValueError, match="slab_near.*finite"):
                 ViewState(slab_near=bad)
-            with pytest.raises(ValueError, match="finite"):
+            with pytest.raises(ValueError, match="slab_far.*finite"):
                 ViewState(slab_far=bad)
-            with pytest.raises(ValueError, match="finite"):
+            with pytest.raises(ValueError, match="slab_origin.*finite"):
                 ViewState(slab_origin=np.array([0.0, bad, 0.0]))
 
     def test_non_finite_centre_rejected(self):
         for bad in (float("nan"), float("inf")):
-            with pytest.raises(ValueError, match="finite"):
+            with pytest.raises(ValueError, match="centre.*finite"):
                 ViewState(centre=np.array([0.0, bad, 0.0]))
 
     def test_wrong_shape_centre_rejected(self):
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="centre.*shape"):
             ViewState(centre=np.array([0.0, 1.0]))
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="centre.*shape"):
             ViewState(centre=np.zeros((3, 1)))
 
     def test_wrong_shape_rotation_rejected(self):
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="rotation.*shape"):
             ViewState(rotation=np.zeros((3, 2)))
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="rotation.*shape"):
             ViewState(rotation=np.zeros((4, 3)))
 
     def test_non_finite_rotation_rejected(self):
         for bad in (float("nan"), float("inf")):
             rotation = np.eye(3)
             rotation[1, 2] = bad
-            with pytest.raises(ValueError, match="finite"):
+            with pytest.raises(ValueError, match="rotation.*finite"):
                 ViewState(rotation=rotation)
 
     def test_zero_rotation_rejected(self):
@@ -547,17 +553,17 @@ class TestViewStateValidation:
         producing all-NaN coordinates."""
         vs = ViewState()
         vs.rotation = np.full((3, 3), np.nan)
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="rotation.*finite"):
             vs.project(np.array([[1.0, 2.0, 3.0]]))
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="rotation.*finite"):
             vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
 
     def test_post_construction_wrong_shape_rotation_raises_on_use(self):
         vs = ViewState()
         vs.rotation = np.zeros((3, 2))
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="rotation.*shape"):
             vs.project(np.array([[1.0, 2.0, 3.0]]))
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="rotation.*shape"):
             vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
 
     def test_post_construction_nan_centre_raises_on_use(self):
@@ -565,17 +571,24 @@ class TestViewStateValidation:
         construction but not at point of use."""
         vs = ViewState()
         vs.centre = np.array([0.0, float("nan"), 0.0])
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="centre.*finite"):
             vs.project(np.array([[1.0, 2.0, 3.0]]))
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="centre.*finite"):
             vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
 
     def test_post_construction_wrong_shape_centre_raises_on_use(self):
+        """centre is reassigned on every pan keypress; validated at
+        construction but not at point of use.  A (2,) centre would
+        otherwise reach ``coords - self.centre`` and fail via numpy's
+        own broadcast ValueError instead of our check — the match
+        pattern below requires the field name, which numpy's generic
+        "operands could not be broadcast together" message lacks, so
+        it distinguishes our check from that accidental pass."""
         vs = ViewState()
         vs.centre = np.array([0.0, 1.0])
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="centre.*shape"):
             vs.project(np.array([[1.0, 2.0, 3.0]]))
-        with pytest.raises(ValueError, match="shape"):
+        with pytest.raises(ValueError, match="centre.*shape"):
             vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
 
     def test_post_construction_nan_zoom_raises_on_use(self):
@@ -596,19 +609,19 @@ class TestViewStateValidation:
     def test_post_construction_nan_slab_near_raises_on_use(self):
         vs = ViewState()
         vs.slab_near = float("nan")
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="slab_near.*finite"):
             vs.slab_mask(np.array([[0.0, 0.0, 0.0]]))
 
     def test_post_construction_nan_slab_far_raises_on_use(self):
         vs = ViewState()
         vs.slab_far = float("nan")
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="slab_far.*finite"):
             vs.slab_mask(np.array([[0.0, 0.0, 0.0]]))
 
     def test_post_construction_nan_slab_origin_raises_on_use(self):
         vs = ViewState()
         vs.slab_origin = np.array([0.0, float("nan"), 0.0])
-        with pytest.raises(ValueError, match="finite"):
+        with pytest.raises(ValueError, match="slab_origin.*finite"):
             vs.slab_mask(np.array([[0.0, 0.0, 0.0]]))
 
 
