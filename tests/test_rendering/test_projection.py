@@ -188,7 +188,11 @@ class TestSceneExtent:
             np.max(np.linalg.norm(coords, axis=1)) + 0.5
         )
         extent = _scene_extent(scene, view, 0, atom_scale=0.5)
-        assert extent < 2.0 * bounding_radius
+        # The fallback applies no magnification at all (persp_scale =
+        # 1.0 exactly), so extent must equal the unmagnified bound
+        # bit-for-bit — not merely be smaller than some multiple of
+        # it, which a lingering partial allowance would also satisfy.
+        assert extent == bounding_radius
 
     def test_perspective_bound_includes_cell_corners(self):
         """A large cell with atoms near the centre must bound the

@@ -110,10 +110,13 @@ class TestViewStateProject:
     def test_projected_radii_no_overflow_at_huge_view_distance(self):
         """d**2 overflows to inf for view_distance ~1e160 (d**2 exceeds
         the float64 max around 1.3e154), which previously collapsed
-        the silhouette radius to a bogus 0.0.  The algebraically
-        identical factored form (d - r*s) * (d + r*s) must stay finite
-        and converge to the orthographic radius, since the eye is
-        effectively at infinity."""
+        the silhouette radius to a bogus 0.0.  Factoring alone does
+        not fix this: (d - r*s) * (d + r*s) still overflows here,
+        since both factors are themselves ~1e160.  The fix
+        square-roots each factor before multiplying — sqrt(d - r*s) *
+        sqrt(d + r*s) — which keeps every intermediate within range;
+        the result must stay finite and converge to the orthographic
+        radius, since the eye is effectively at infinity."""
         vs = ViewState(projection=Perspective(1.0, 1e160))
         coords = np.array([[0.0, 0.0, 0.0]])
         radii = np.array([1.0])
