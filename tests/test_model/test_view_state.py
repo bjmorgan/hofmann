@@ -502,6 +502,15 @@ class TestViewStateValidation:
         with pytest.raises(ValueError, match="rank"):
             ViewState(rotation=np.diag([1.0, 1.0, 0.0]))
 
+    def test_full_rank_non_orthonormal_rotation_accepted(self):
+        """Only rank deficiency is rejected, not orthonormality (see
+        the class-level comment): a full-rank, finite matrix that
+        scales rather than rotates is accepted.  This distinguishes
+        the deliberate decline of an orthonormality check from an
+        oversight — an orthonormality check would also reject this."""
+        vs = ViewState(rotation=np.diag([2.0, 1.0, 1.0]))
+        np.testing.assert_array_equal(vs.rotation, np.diag([2.0, 1.0, 1.0]))
+
     def test_post_construction_nan_rotation_raises_on_use(self):
         """Assigning rotation after construction bypasses
         __post_init__; rotation is reassigned on every drag frame, so

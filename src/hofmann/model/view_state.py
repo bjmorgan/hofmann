@@ -110,6 +110,19 @@ def _coerce_finite_array(
     return arr
 
 
+# Converting ViewState from a dataclass to a plain class with
+# validated property setters (so mutation could not bypass
+# __post_init__ at all) was suggested in a previous review round and
+# is declined here.  Validation already runs both at construction and
+# at the point of use for the four fields where a bad post-
+# construction assignment would otherwise fail silently (rotation,
+# centre, zoom, slab), and mutation-testing those checks shows they
+# bite.  Converting the class's fundamental shape is a change
+# unrelated to projection, would need its own review, and would trade
+# away the dataclasses.fields() machinery that the interactive
+# viewer's state copy and "r" (reset) key rely on (see
+# rendering/interactive.py).  Reconsider the trade if a fifth
+# validated-mutation site appears.
 @dataclass(slots=True)
 class ViewState:
     """Camera state for 3D-to-2D projection.

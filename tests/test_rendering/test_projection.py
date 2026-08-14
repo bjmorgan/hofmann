@@ -1,6 +1,7 @@
 """Tests for projection helpers — _project_point and _scene_extent."""
 
 import math
+import warnings
 
 import numpy as np
 
@@ -193,6 +194,31 @@ class TestSceneExtent:
         # bit-for-bit — not merely be smaller than some multiple of
         # it, which a lingering partial allowance would also satisfy.
         assert extent == bounding_radius
+
+    def test_eye_inside_scene_bounding_sphere_does_not_warn(self):
+        """The fallback's docstring commits to silence here: the
+        camera position is legitimate, and the genuinely false
+        output (atoms drawn mirrored) is reported separately by
+        ViewState.project_camera when it actually occurs.  Pin that
+        commitment directly, rather than relying on the extent value
+        alone to imply it."""
+        n = 36
+        xs, ys = np.meshgrid(
+            np.linspace(-n / 2, n / 2, n), np.linspace(-n / 2, n / 2, n),
+        )
+        coords = np.column_stack(
+            [xs.ravel(), ys.ravel(), np.zeros(xs.size)]
+        )
+        scene = StructureScene(
+            species=["C"] * len(coords),
+            frames=[Frame(coords=coords)],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.4, 10.0))
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert not caught
 
     def test_perspective_bound_includes_cell_corners(self):
         """A large cell with atoms near the centre must bound the
