@@ -115,6 +115,22 @@ class TestSceneExtent:
         e_lat = _scene_extent(scene_lat, view, 0, atom_scale=0.5)
         assert e_lat > e_no_lat
 
+    def test_extent_is_independent_of_zoom(self):
+        """The fixed interactive viewport bound must not scale with
+        zoom — zoom acts through the projected coordinates, so
+        recomputing this bound with the live zoom would cancel the
+        user's zoom."""
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view_zoom_1 = ViewState(zoom=1.0)
+        view_zoom_4 = ViewState(zoom=4.0)
+        e_zoom_1 = _scene_extent(scene, view_zoom_1, 0, atom_scale=0.5)
+        e_zoom_4 = _scene_extent(scene, view_zoom_4, 0, atom_scale=0.5)
+        assert e_zoom_1 == e_zoom_4
+
     def _two_atom_scene(self):
         return StructureScene(
             species=["C", "C"],

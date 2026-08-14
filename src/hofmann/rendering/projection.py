@@ -70,8 +70,10 @@ def _scene_extent(
     Returns the radius of a 2D bounding circle centred at the origin
     that encloses all atoms regardless of rotation.  The base bound is
     the maximum 3D distance from the view centre plus the largest
-    display radius, scaled by zoom; oblique and perspective
-    magnification allowances are applied on top.
+    display radius; oblique and perspective magnification allowances
+    are applied on top.  The bound is zoom-independent: zoom acts
+    through the projected coordinates, so this fixed viewport must not
+    itself scale with it.
     """
     coords = scene.frames[frame_index].coords
     dists = np.linalg.norm(coords - view.centre, axis=1)
@@ -125,7 +127,7 @@ def _scene_extent(
             persp_scale = proj.view_distance / 1e-6
         max_extent *= persp_scale
 
-    return float(max_extent * view.zoom)
+    return float(max_extent)
 
 
 def _make_wedges(

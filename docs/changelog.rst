@@ -40,6 +40,13 @@ Changelog
   eye.  A warning is raised when the perspective eye lies inside the
   scene's bounding sphere, naming the settings to adjust.
 
+- Interactive sessions now honour a non-unity
+  :attr:`~hofmann.ViewState.zoom` set on the scene at startup, and
+  preserve the current zoom level when the projection mode or
+  perspective settings change mid-session.  Previously the fixed
+  viewport recomputed on every redraw with the live zoom, which
+  cancelled it back to a fit-all framing.
+
 - Bond end-cap geometry now follows the effective perspective eye
   position (``view_distance / strength``) rather than
   *view_distance* alone, correcting slightly over-foreshortened bond
