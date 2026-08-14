@@ -394,6 +394,42 @@ class TestViewStateValidation:
         vs = ViewState(zoom=2.0, projection=Perspective(view_distance=15.0))
         assert vs.zoom == 2.0
 
+    def test_list_centre_accepted_and_coerced_to_array(self):
+        """Plain list input must not raise AttributeError from calling
+        .shape on a list — it must be coerced to an ndarray, per the
+        ValueError the docstring promises for bad input."""
+        vs = ViewState(centre=[0.0, 1.0, 2.0])
+        assert isinstance(vs.centre, np.ndarray)
+        np.testing.assert_array_equal(vs.centre, [0.0, 1.0, 2.0])
+
+    def test_nested_list_rotation_accepted_and_coerced_to_array(self):
+        vs = ViewState(rotation=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+        assert isinstance(vs.rotation, np.ndarray)
+        np.testing.assert_array_equal(vs.rotation, np.eye(3))
+
+    def test_list_slab_origin_accepted_and_coerced_to_array(self):
+        vs = ViewState(slab_origin=[0.0, 1.0, 2.0])
+        assert isinstance(vs.slab_origin, np.ndarray)
+        np.testing.assert_array_equal(vs.slab_origin, [0.0, 1.0, 2.0])
+
+    def test_wrong_shape_list_centre_raises_value_error(self):
+        """A wrong-shape list must raise ValueError, not AttributeError
+        from calling .shape on the raw list."""
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(centre=[0.0, 1.0])
+
+    def test_non_finite_list_centre_raises_value_error(self):
+        with pytest.raises(ValueError, match="finite"):
+            ViewState(centre=[0.0, float("nan"), 0.0])
+
+    def test_wrong_shape_list_rotation_raises_value_error(self):
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(rotation=[[1.0, 0.0], [0.0, 1.0]])
+
+    def test_wrong_shape_list_slab_origin_raises_value_error(self):
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(slab_origin=[0.0, 1.0])
+
     def test_slab_origin_shape_rejected(self):
         """A wrong-shape slab origin would otherwise broadcast against
         *centre* and silently produce a reference depth per component

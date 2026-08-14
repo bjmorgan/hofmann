@@ -78,6 +78,38 @@ class Oblique:
             )
 
 
+def _coerce_finite_array(
+    value: np.ndarray, shape: tuple[int, ...], name: str,
+) -> np.ndarray:
+    """Coerce *value* to a finite ``float64`` array of *shape*.
+
+    Shared by every ``ViewState`` field that is stored as an ndarray
+    but may legitimately be supplied as a plain sequence (a list or
+    tuple, or nested lists for a matrix): coercing before checking
+    means a wrong-shape or non-finite sequence raises the promised
+    ``ValueError`` instead of ``AttributeError`` from probing
+    ``.shape`` on something that has none.
+
+    Args:
+        value: Array-like input.
+        shape: Required shape.
+        name: Field name, used in the raised message.
+
+    Returns:
+        The coerced array.
+
+    Raises:
+        ValueError: If *value* does not have *shape* once coerced, or
+            contains non-finite values.
+    """
+    arr = np.asarray(value, dtype=float)
+    if arr.shape != shape:
+        raise ValueError(f"{name} must have shape {shape}, got {arr.shape}")
+    if not np.isfinite(arr).all():
+        raise ValueError(f"{name} must be finite, got {arr}")
+    return arr
+
+
 @dataclass(slots=True)
 class ViewState:
     """Camera state for 3D-to-2D projection.
@@ -149,35 +181,33 @@ class ViewState:
 
     def _check_centre(self) -> None:
         """Raise ``ValueError`` unless :attr:`centre` has shape ``(3,)``
-        and is finite."""
-        if self.centre.shape != (3,):
-            raise ValueError(
-                f"centre must have shape (3,), got {self.centre.shape}"
-            )
-        if not np.isfinite(self.centre).all():
-            raise ValueError(f"centre must be finite, got {self.centre}")
+        and is finite.
+
+        Coerces :attr:`centre` to an ndarray first, so a plain
+        sequence is accepted and stored back as an array.
+        """
+        self.centre = _coerce_finite_array(self.centre, (3,), "centre")
 
     def _check_rotation(self) -> None:
         """Raise ``ValueError`` unless :attr:`rotation` has shape
         ``(3, 3)``, is finite, and is full rank.
 
+        Coerces :attr:`rotation` to an ndarray first, so a plain
+        nested sequence is accepted and stored back as an array.
         Orthonormality is not checked; see the class-level comment.
         """
-        if self.rotation.shape != (3, 3):
-            raise ValueError(
-                f"rotation must have shape (3, 3), got {self.rotation.shape}"
-            )
-        if not np.isfinite(self.rotation).all():
-            raise ValueError(
-                f"rotation must be finite, got {self.rotation}"
-            )
+        self.rotation = _coerce_finite_array(self.rotation, (3, 3), "rotation")
         if np.linalg.matrix_rank(self.rotation) < 3:
             raise ValueError(
                 f"rotation must be full rank, got {self.rotation}"
             )
 
     def _check_slab(self) -> None:
-        """Raise ``ValueError`` unless the slab fields are finite."""
+        """Raise ``ValueError`` unless the slab fields are finite.
+
+        Coerces :attr:`slab_origin` to an ndarray first, so a plain
+        sequence is accepted and stored back as an array.
+        """
         if self.slab_near is not None and not math.isfinite(self.slab_near):
             raise ValueError(
                 f"slab_near must be finite, got {self.slab_near}"
@@ -187,15 +217,9 @@ class ViewState:
                 f"slab_far must be finite, got {self.slab_far}"
             )
         if self.slab_origin is not None:
-            if self.slab_origin.shape != (3,):
-                raise ValueError(
-                    "slab_origin must have shape (3,), got "
-                    f"{self.slab_origin.shape}"
-                )
-            if not np.isfinite(self.slab_origin).all():
-                raise ValueError(
-                    f"slab_origin must be finite, got {self.slab_origin}"
-                )
+            self.slab_origin = _coerce_finite_array(
+                self.slab_origin, (3,), "slab_origin"
+            )
 
     def _checked_projection(self) -> Orthographic | Perspective | Oblique:
         """Return :attr:`projection`, raising if it is not a valid mode."""
@@ -478,9 +502,10 @@ class ViewState:
         # Depth is the z-component in camera space.
         depth = centred @ self.rotation[2]
 
-        # Compute the reference depth from slab_origin.
+        # Compute the reference depth from slab_origin.  Already
+        # coerced to a finite (3,) array by _check_slab above.
         if self.slab_origin is not None:
-            origin_centred = np.asarray(self.slab_origin, dtype=float) - self.centre
+            origin_centred = self.slab_origin - self.centre
             ref_depth = np.dot(origin_centred, self.rotation[2])
         else:
             ref_depth = 0.0
