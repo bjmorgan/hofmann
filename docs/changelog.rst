@@ -37,8 +37,8 @@ Changelog
   magnification by the scene bounding radius (including atom radii
   and unit-cell corners) rather than atom centre distances alone,
   preventing edge clipping when a large cell rotates towards the
-  eye.  A warning is raised when the perspective eye lies inside the
-  scene's bounding sphere, naming the settings to adjust.
+  eye.  Rendering warns, naming the settings to adjust, when atoms
+  reach the perspective eye plane or a sphere contains the eye.
 
 - Interactive sessions now honour a non-unity
   :attr:`~hofmann.ViewState.zoom` set on the scene at startup, and
@@ -50,7 +50,9 @@ Changelog
 - Bond end-cap geometry now follows the effective perspective eye
   position (``view_distance / strength``) rather than
   *view_distance* alone, correcting slightly over-foreshortened bond
-  caps at perspective strengths below 1.
+  caps at perspective strengths below 1.  Sphere silhouettes under
+  perspective now follow the same effective eye, and converge
+  correctly to the orthographic limit at low strengths.
 
 - **Breaking:** Projection mode is now set with
   :meth:`~hofmann.ViewState.set_orthographic`,

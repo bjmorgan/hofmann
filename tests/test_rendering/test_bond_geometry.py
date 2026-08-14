@@ -279,12 +279,6 @@ class TestBondPolygonsBatch:
         together).  Bond junction geometry — which is what this test
         targets — must therefore agree too.  Pre-fix, the junction
         eye used *view_distance* alone and the two disagreed.
-
-        *screen_radii* is computed once and shared between the two
-        calls: the atom silhouette-radius formula is a separate,
-        untouched computation that (unlike the position scale) is
-        not exactly invariant under this (D, s) rescaling, and
-        sharing it isolates the junction-eye behaviour under test.
         """
         coords = np.array([[0.0, 0.0, 2.0], [1.5, 0.5, -1.0]])
         radii = np.array([0.8, 0.8])
@@ -292,13 +286,11 @@ class TestBondPolygonsBatch:
         bond_ib = np.array([1])
         bond_radii = np.array([0.15])
 
-        vs_reference = ViewState(projection=Perspective(1.0, 10.0))
-        rotated = (coords - vs_reference.centre) @ vs_reference.rotation.T
-        xy, _, screen_radii = vs_reference.project(coords, radii)
-
         outs = []
         for projection in (Perspective(1.0, 10.0), Perspective(0.5, 5.0)):
             vs = ViewState(projection=projection)
+            rotated = (coords - vs.centre) @ vs.rotation.T
+            xy, _, screen_radii = vs.project(coords, radii)
             outs.append(_bond_polygons_batch(
                 rotated, xy, radii, screen_radii,
                 bond_ia, bond_ib, bond_radii, vs,

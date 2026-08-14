@@ -94,6 +94,41 @@ class TestViewStateProject:
         naive = 1.0 * 10.0 / 8.0
         assert proj_r[0] > naive  # silhouette > naive point projection
 
+    def test_projected_radii_converge_to_orthographic_at_low_strength(self):
+        """The pinhole sits at view_distance / strength; as strength
+        shrinks the effective eye recedes to infinity and silhouette
+        radii must converge to the orthographic value (r * zoom)."""
+        coords = np.array([[0.0, 0.0, 0.0]])
+        radii = np.array([1.0])
+        vs_persp = ViewState(projection=Perspective(1e-3, 10.0))
+        _, _, proj_r_persp = vs_persp.project(coords, radii)
+        vs_ortho = ViewState()
+        _, _, proj_r_ortho = vs_ortho.project(coords, radii)
+        np.testing.assert_allclose(proj_r_persp, proj_r_ortho, rtol=1e-4)
+
+    def test_projected_radii_depend_only_on_effective_eye(self):
+        """Perspective(1.0, 10.0) and Perspective(0.5, 5.0) share the
+        same effective eye (view_distance / strength = 10) and must
+        produce identical silhouette radii."""
+        coords = np.array([[0.0, 0.0, 1.0]])
+        radii = np.array([1.0])
+        vs_a = ViewState(projection=Perspective(1.0, 10.0))
+        vs_b = ViewState(projection=Perspective(0.5, 5.0))
+        _, _, proj_r_a = vs_a.project(coords, radii)
+        _, _, proj_r_b = vs_b.project(coords, radii)
+        np.testing.assert_allclose(proj_r_a, proj_r_b, atol=1e-12)
+
+    def test_sphere_containing_effective_eye_warns(self):
+        """When a sphere's radius (scaled by strength) reaches the
+        eye-to-atom distance, the effective eye lies inside the
+        sphere and the 1e-12 clamp yields an absurd radius; that must
+        not happen silently."""
+        vs = ViewState(projection=Perspective(1.0, 5.0))
+        coords = np.array([[0.0, 0.0, 0.0]])
+        radii = np.array([5.0])  # d = 5, radii * strength = 5 -> d <= radii*strength
+        with pytest.warns(UserWarning, match="view_distance"):
+            vs.project(coords, radii)
+
 
 class TestViewStateLookAlong:
     """Tests for ViewState.look_along."""
@@ -501,7 +536,7 @@ class TestViewStateProjectCamera:
         d = p.view_distance - depth * p.strength
         scale = p.view_distance / d
         expected_xy = rotated[:, :2] * scale[:, np.newaxis] * vs.zoom
-        denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+        denom = np.sqrt(np.maximum(d**2 - (radii * p.strength) ** 2, 1e-12))
         expected_radii = radii * p.view_distance / denom * vs.zoom
 
         xy, depth_out, radii_out = vs.project(pts, radii)

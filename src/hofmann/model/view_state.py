@@ -336,8 +336,22 @@ class ViewState:
                     # the direct form.
                     # Eye-to-atom distance along z.
                     d = p.view_distance - depth * p.strength
-                    # Silhouette radius: r * D / sqrt(d^2 - r^2).
-                    denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+                    # Silhouette radius: r * D / sqrt(d^2 - (r*s)^2) —
+                    # the pinhole at D/s.
+                    if np.any(d <= radii * p.strength):
+                        warnings.warn(
+                            "one or more spheres contain the effective "
+                            "perspective eye "
+                            f"(view_distance={p.view_distance:.3g}, "
+                            f"strength={p.strength:.3g}) and will be "
+                            "drawn unreliably.  Increase view_distance "
+                            "or reduce strength.",
+                            UserWarning,
+                            stacklevel=2,
+                        )
+                    denom = np.sqrt(
+                        np.maximum(d**2 - (radii * p.strength) ** 2, 1e-12)
+                    )
                     projected_radii = (
                         radii * p.view_distance / denom * self.zoom
                     )
