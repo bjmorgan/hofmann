@@ -170,12 +170,20 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
-    # _check_rotation enforces shape (3, 3), finiteness, and a
-    # non-zero determinant.  The line it draws: reject transforms
-    # with no valid interpretation, permit transforms that faithfully
-    # render something, however unusual.  A singular matrix collapses
-    # a dimension — no combination of structure and camera produces
-    # that image — and det == 0 tests it exactly.
+    # rotation is the escape hatch: look_along makes the common case
+    # easy, and assigning a matrix directly makes the uncommon case
+    # possible.  Its contract is only that the map is well defined,
+    # so _check_rotation (shape (3, 3), finiteness, non-zero
+    # determinant) rejects exactly what has no interpretation as a
+    # transform: a singular matrix collapses a dimension, and no
+    # combination of structure and camera produces that image.
+    # det == 0 tests it exactly.
+    #
+    # Contrast the named scalars.  zoom and Perspective.strength
+    # carry semantics in their names, so a negative value there is
+    # not an unusual render but a different operation wearing the
+    # wrong name, and is rejected.  A matrix parameter carries no
+    # such semantics to violate.
     #
     # Deliberately NOT enforced, and not to be re-added:
     #  - Orthonormality.  It needs a tolerance policy, and look_along
