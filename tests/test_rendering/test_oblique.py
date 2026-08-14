@@ -15,7 +15,6 @@ from hofmann.model import (
     Frame,
     Oblique,
     Perspective,
-    RenderStyle,
     StructureScene,
     ViewState,
 )
@@ -185,29 +184,37 @@ class TestAxesWidgetShearsConsistently:
 
 class TestWidgetViewportExpansion:
     def test_expansion_grows_with_scale_bound(self):
-        """The viewport expansion for the axes widget must allow for
-        sheared tip reach: rendering with the widget on expands the
-        limits by (margin + 2 * arrow_length * screen_scale_bound) / 2
-        per side relative to the widget-off render."""
+        """The widget viewport expansion must grow with the
+        projection's screen-scale bound: a sheared oblique tip reaches
+        further than an orthographic one, so the widget-on/widget-off
+        width ratio for an oblique view must exceed the same ratio
+        for an orthographic view."""
         lattice = np.diag([3.0, 4.0, 5.0])
         scene = _make_scene(lattice)
-        scene.view = _oblique_view()
 
-        fig_on = render_mpl(scene, show=False, show_axes=True)
-        fig_off = render_mpl(scene, show=False, show_axes=False)
-        try:
-            w_on = np.diff(fig_on.axes[0].get_xlim())[0]
-            w_off = np.diff(fig_off.axes[0].get_xlim())[0]
-            axes_style = RenderStyle().axes_style
-            widget_frac = (
-                axes_style.margin
-                + 2.0 * axes_style.arrow_length
-                * scene.view.screen_scale_bound
-            )
-            np.testing.assert_allclose(w_on / w_off, 1.0 + widget_frac / 2.0)
-        finally:
-            plt.close(fig_on)
-            plt.close(fig_off)
+        def width_ratio() -> float:
+            fig_on = render_mpl(scene, show=False, show_axes=True)
+            fig_off = render_mpl(scene, show=False, show_axes=False)
+            try:
+                w_on = np.diff(fig_on.axes[0].get_xlim())[0]
+                w_off = np.diff(fig_off.axes[0].get_xlim())[0]
+                return w_on / w_off
+            finally:
+                plt.close(fig_on)
+                plt.close(fig_off)
+
+        scene.view = _oblique_view()
+        oblique_ratio = width_ratio()
+
+        scene.view = ViewState()
+        orthographic_ratio = width_ratio()
+
+        # A margin well above floating-point noise (~1e-16 from the
+        # multiply-then-divide in the ratio) but far below the real
+        # gap between the two projections (~0.02), so a formula that
+        # collapses the two ratios to equal cannot pass by rounding
+        # luck.
+        assert oblique_ratio > orthographic_ratio + 1e-6
 
 
 class TestFullSceneConsistency:
