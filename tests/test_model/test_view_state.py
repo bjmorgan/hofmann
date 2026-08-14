@@ -160,6 +160,21 @@ class TestViewStateProject:
         with pytest.warns(UserWarning, match="view_distance"):
             vs.project(coords, radii)
 
+    def test_no_sphere_warning_for_normal_scene(self):
+        """A normal perspective scene — atoms well in front of the
+        eye, small radii relative to their eye distance — must not
+        emit the sphere-contains-eye warning.  A mutated condition
+        that fires on every forward-facing atom would otherwise
+        survive the suite silently."""
+        vs = ViewState(projection=Perspective(0.5, 10.0))
+        coords = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 2.0]])
+        radii = np.array([0.3, 0.4])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            vs.project(coords, radii)
+        messages = [str(w.message) for w in caught]
+        assert not any("contain the effective" in m for m in messages)
+
 
 class TestViewStateLookAlong:
     """Tests for ViewState.look_along."""
@@ -653,6 +668,20 @@ class TestViewStateProjectCamera:
         camera = np.array([[1.0, 1.0, 5.0], [1.0, 1.0, 8.0]])
         with pytest.warns(UserWarning, match="eye plane"):
             vs.project_camera(camera)
+
+    def test_scale_not_clamped_at_or_behind_eye_plane(self):
+        """The docstring promises inf or negative scales rather than a
+        clamp when a point lies at or behind the eye plane; a clamp
+        (e.g. to zero, or to the largest finite scale) would survive
+        unless pinned here."""
+        vs = ViewState(projection=Perspective(1.0, 5.0))
+        # depth=5 -> denom=0 -> scale=inf; depth=8 -> denom=-3 -> scale<0.
+        camera = np.array([[0.0, 0.0, 5.0], [0.0, 0.0, 8.0]])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            _, scale = vs.project_camera(camera)
+        assert scale[0] == np.inf
+        assert scale[1] < 0
 
     def test_no_warning_for_safe_perspective(self):
         vs = ViewState(projection=Perspective(0.5, 10.0))

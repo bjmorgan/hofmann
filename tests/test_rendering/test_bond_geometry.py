@@ -1,8 +1,9 @@
 """Tests for bond geometry helpers — clipping, stick polygons, and batch operations."""
 
 import numpy as np
+import pytest
 
-from hofmann.model import BondSpec, Perspective, ViewState
+from hofmann.model import BondSpec, Oblique, Orthographic, Perspective, ViewState
 from hofmann.rendering.bond_geometry import (
     _bond_polygon,
     _bond_polygons_batch,
@@ -132,6 +133,17 @@ class TestClipPolygonToHalfPlane:
         assert len(clipped) == 0
 
 
+# The scalar _bond_polygon is the batch path's oracle; exercised under
+# all three projection modes so a divergence specific to one mode
+# (Perspective's eye-distance junction geometry, Oblique's shear) is
+# not missed by testing Orthographic alone.
+_PROJECTIONS = pytest.mark.parametrize(
+    "projection",
+    [Orthographic(), Perspective(0.5, 10.0), Oblique(35.0, 0.6)],
+    ids=["orthographic", "perspective", "oblique"],
+)
+
+
 class TestBondPolygonsBatch:
     """Verify that the vectorised batch matches the scalar _bond_polygon."""
 
@@ -176,9 +188,10 @@ class TestBondPolygonsBatch:
             "view": view,
         }
 
-    def test_matches_scalar_identity_view(self):
+    @_PROJECTIONS
+    def test_matches_scalar_identity_view(self, projection):
         """Batch output matches scalar _bond_polygon for identity rotation."""
-        d = self._ch4_scene_data()
+        d = self._ch4_scene_data(view=ViewState(projection=projection))
         view = d["view"]
         atom_scale = d["atom_scale"]
 
@@ -208,10 +221,11 @@ class TestBondPolygonsBatch:
             np.testing.assert_allclose(start_2d[i], s_start, atol=1e-12)
             np.testing.assert_allclose(end_2d[i], s_end, atol=1e-12)
 
-    def test_matches_scalar_rotated_view(self):
+    @_PROJECTIONS
+    def test_matches_scalar_rotated_view(self, projection):
         """Batch output matches scalar for a non-trivial rotation."""
         rot = _rotation_y(0.7) @ _rotation_x(0.3)
-        view = ViewState(rotation=rot, zoom=1.2)
+        view = ViewState(rotation=rot, zoom=1.2, projection=projection)
         d = self._ch4_scene_data(view=view)
         atom_scale = d["atom_scale"]
 

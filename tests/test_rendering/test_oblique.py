@@ -203,10 +203,12 @@ class TestWidgetViewportExpansion:
                 plt.close(fig_on)
                 plt.close(fig_off)
 
-        scene.view = _oblique_view()
+        oblique_view = _oblique_view()
+        scene.view = oblique_view
         oblique_ratio = width_ratio()
 
-        scene.view = ViewState()
+        orthographic_view = ViewState()
+        scene.view = orthographic_view
         orthographic_ratio = width_ratio()
 
         # A margin well above floating-point noise (~1e-16 from the
@@ -215,6 +217,29 @@ class TestWidgetViewportExpansion:
         # collapses the two ratios to equal cannot pass by rounding
         # luck.
         assert oblique_ratio > orthographic_ratio + 1e-6
+
+        # Magnitude, not just direction: the widget-on/widget-off
+        # ratio is 1 + 0.5 * (margin + 2 * arrow_length * bound), so
+        # it is predictable from AxesStyle's own margin and
+        # arrow_length plus each view's screen_scale_bound — without
+        # restating painter's pad_x/atom-extent layout.  Halving the
+        # expansion would still grow with screen_scale_bound (passing
+        # the assertion above) but would no longer match this
+        # prediction.
+        axes_style = AxesStyle()
+
+        def predicted_ratio(view: ViewState) -> float:
+            return 1.0 + 0.5 * (
+                axes_style.margin
+                + 2.0 * axes_style.arrow_length * view.screen_scale_bound
+            )
+
+        np.testing.assert_allclose(
+            oblique_ratio, predicted_ratio(oblique_view), rtol=1e-9,
+        )
+        np.testing.assert_allclose(
+            orthographic_ratio, predicted_ratio(orthographic_view), rtol=1e-9,
+        )
 
 
 class TestFullSceneConsistency:
