@@ -95,12 +95,10 @@ def _scene_extent(
     if max_extent == 0.0:
         max_extent = 1.0
 
-    # Capture the bounding radius before the oblique shear allowance is
-    # applied, so the perspective magnification below is computed from
-    # the true scene bound regardless of shear (oblique and
-    # perspective are mutually exclusive, but this keeps the two
-    # allowances order-independent rather than relying on that fact).
-    bounding_radius = max_extent
+    # At most one of the two allowances below is ever active: the
+    # projection is a single mode, so screen_scale_bound is exactly
+    # 1.0 under Perspective and the perspective branch does not run
+    # under Oblique.
 
     # An oblique shear stretches screen positions by at most
     # screen_scale_bound (sqrt(1 + f^2), the screen matrix's largest
@@ -116,7 +114,7 @@ def _scene_extent(
     # radii, and cell corners) bounds that depth.
     proj = view.projection
     if isinstance(proj, Perspective):
-        denom = proj.view_distance - bounding_radius * proj.strength
+        denom = proj.view_distance - max_extent * proj.strength
         if denom > 0:
             persp_scale = proj.view_distance / denom
         else:
