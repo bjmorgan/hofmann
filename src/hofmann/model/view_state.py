@@ -110,6 +110,11 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
+    # Orthonormality of `rotation` is not validated: doing so needs a
+    # tolerance policy, and look_along produces exact bases, so a
+    # threshold would only add a way for legitimate rotations to be
+    # rejected without catching anything look_along wouldn't already
+    # get right.
     rotation: np.ndarray = field(
         default_factory=lambda: np.eye(3, dtype=float)
     )
@@ -125,11 +130,21 @@ class ViewState:
     slab_far: float | None = None
 
     def __post_init__(self) -> None:
+        self._check_zoom()
+        if not np.isfinite(self.centre).all():
+            raise ValueError(f"centre must be finite, got {self.centre}")
+        self._checked_projection()
+        self._check_slab()
+
+    def _check_zoom(self) -> None:
+        """Raise ``ValueError`` unless :attr:`zoom` is finite and positive."""
         if not math.isfinite(self.zoom) or self.zoom <= 0:
             raise ValueError(
                 f"zoom must be finite and positive, got {self.zoom}"
             )
-        self._checked_projection()
+
+    def _check_slab(self) -> None:
+        """Raise ``ValueError`` unless the slab fields are finite."""
         if self.slab_near is not None and not math.isfinite(self.slab_near):
             raise ValueError(
                 f"slab_near must be finite, got {self.slab_near}"
@@ -217,7 +232,10 @@ class ViewState:
         Raises:
             ValueError: If *camera* does not have shape ``(n, 3)`` —
                 a single ``(3,)`` point would otherwise broadcast into
-                silently duplicated rows.
+                silently duplicated rows.  Also if :attr:`zoom` is not
+                finite and positive — a post-construction assignment
+                bypasses ``__post_init__`` and would otherwise blank
+                the figure silently.
             TypeError: If :attr:`projection` is not Orthographic,
                 Perspective, or Oblique.
 
@@ -229,6 +247,7 @@ class ViewState:
                 than clamped.
         """
         proj = self._checked_projection()
+        self._check_zoom()
         camera = np.asarray(camera, dtype=float)
         if camera.ndim != 2 or camera.shape[1] != 3:
             raise ValueError(
@@ -375,7 +394,14 @@ class ViewState:
 
         Returns:
             Boolean array of shape ``(n,)``.
+
+        Raises:
+            ValueError: If *slab_near*, *slab_far*, or *slab_origin*
+                is not finite — a post-construction assignment
+                bypasses ``__post_init__`` and would otherwise blank
+                every atom silently (NaN comparisons are False).
         """
+        self._check_slab()
         if self.slab_near is None and self.slab_far is None:
             return np.ones(len(coords), dtype=bool)
 

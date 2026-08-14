@@ -352,6 +352,44 @@ class TestViewStateValidation:
             with pytest.raises(ValueError, match="finite"):
                 ViewState(slab_origin=np.array([0.0, bad, 0.0]))
 
+    def test_non_finite_centre_rejected(self):
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(centre=np.array([0.0, bad, 0.0]))
+
+    def test_post_construction_nan_zoom_raises_on_use(self):
+        """Assigning zoom after construction bypasses __post_init__;
+        the consumer must validate what it uses rather than silently
+        blanking the figure (NaN comparisons are False)."""
+        vs = ViewState()
+        vs.zoom = float("nan")
+        with pytest.raises(ValueError, match="zoom"):
+            vs.project_camera(np.array([[1.0, 2.0, 3.0]]))
+
+    def test_post_construction_non_positive_zoom_raises_on_use(self):
+        vs = ViewState()
+        vs.zoom = 0.0
+        with pytest.raises(ValueError, match="zoom"):
+            vs.project_camera(np.array([[1.0, 2.0, 3.0]]))
+
+    def test_post_construction_nan_slab_near_raises_on_use(self):
+        vs = ViewState()
+        vs.slab_near = float("nan")
+        with pytest.raises(ValueError, match="finite"):
+            vs.slab_mask(np.array([[0.0, 0.0, 0.0]]))
+
+    def test_post_construction_nan_slab_far_raises_on_use(self):
+        vs = ViewState()
+        vs.slab_far = float("nan")
+        with pytest.raises(ValueError, match="finite"):
+            vs.slab_mask(np.array([[0.0, 0.0, 0.0]]))
+
+    def test_post_construction_nan_slab_origin_raises_on_use(self):
+        vs = ViewState()
+        vs.slab_origin = np.array([0.0, float("nan"), 0.0])
+        with pytest.raises(ValueError, match="finite"):
+            vs.slab_mask(np.array([[0.0, 0.0, 0.0]]))
+
 
 class TestViewStateProjection:
     """Tests for the projection field."""
