@@ -108,15 +108,12 @@ class TestViewStateProject:
         np.testing.assert_allclose(proj_r_persp, proj_r_ortho, rtol=1e-4)
 
     def test_projected_radii_no_overflow_at_huge_view_distance(self):
-        """d**2 overflows to inf for view_distance ~1e160 (d**2 exceeds
-        the float64 max around 1.3e154), which previously collapsed
-        the silhouette radius to a bogus 0.0.  Factoring alone does
-        not fix this: (d - r*s) * (d + r*s) still overflows here,
-        since both factors are themselves ~1e160.  The fix
-        square-roots each factor before multiplying — sqrt(d - r*s) *
-        sqrt(d + r*s) — which keeps every intermediate within range;
-        the result must stay finite and converge to the orthographic
-        radius, since the eye is effectively at infinity."""
+        """At view_distance ~1e160 the silhouette denominator must stay
+        finite: d**2 exceeds the float64 maximum around 1.3e154, and
+        so does the product (d - r*s) * (d + r*s), so each factor is
+        square-rooted before multiplying.  The eye is effectively at
+        infinity, so the radius converges to the orthographic
+        value."""
         vs = ViewState(projection=Perspective(1.0, 1e160))
         coords = np.array([[0.0, 0.0, 0.0]])
         radii = np.array([1.0])
@@ -530,9 +527,7 @@ class TestViewStateValidation:
         """Only a non-positive determinant is rejected, not
         orthonormality (see the class-level comment): a proper,
         finite matrix that scales rather than rotates is accepted.
-        This distinguishes the deliberate decline of an orthonormality
-        check from an oversight — an orthonormality check would also
-        reject this."""
+        Orthonormality is deliberately not enforced."""
         vs = ViewState(rotation=np.diag([2.0, 1.0, 1.0]))
         np.testing.assert_array_equal(vs.rotation, np.diag([2.0, 1.0, 1.0]))
 

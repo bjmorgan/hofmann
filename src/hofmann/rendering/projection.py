@@ -116,35 +116,13 @@ def _scene_extent(
     if isinstance(proj, Perspective):
         denom = proj.view_distance - max_extent * proj.strength
         if denom > 0:
-            # As the effective eye approaches the scene's bounding
-            # sphere (denom -> 0+), persp_scale grows without bound,
-            # and the interactive viewport follows it: the scene can
-            # shrink to a fraction of the window, with a pan step far
-            # larger than the scene, before snapping back to no
-            # allowance at all once denom <= 0 (the else branch
-            # below).  This is a known, accepted rough edge, not
-            # clamped: a clamp would reintroduce exactly the magic
-            # magnification threshold that an earlier commit removed.
-            # The alternative fix — sizing the viewport from the
-            # current rotation's actual depths rather than this
-            # rotation-invariant bound — would change interactive
-            # framing behaviour and belongs in its own change,
-            # alongside near-plane clipping.
+            # persp_scale is unbounded as denom -> 0+ and is not
+            # clamped.
             persp_scale = proj.view_distance / denom
         else:
-            # The effective eye lies inside the scene's bounding
-            # sphere: no bounded rotation-invariant magnification
-            # exists, since a point can rotate arbitrarily close to
-            # the eye.  Apply no allowance rather than fabricate a
-            # huge one — the viewport falls back to the unmagnified
-            # scene bound, so content is clipped, which is honest and
-            # navigable, rather than a blank window with an unusable
-            # pan step.  Do not raise: this is called only from the
-            # interactive viewer, and raising would kill the session
-            # on a keypress.  Do not warn: the camera position is
-            # legitimate here; the genuinely false output — atoms
-            # drawn mirrored — is reported separately by
-            # ViewState.project_camera when it actually occurs.
+            # No bounded magnification exists once the eye reaches
+            # the bounding sphere, so apply none: the viewport falls
+            # back to the unmagnified scene bound.
             persp_scale = 1.0
         max_extent *= persp_scale
 

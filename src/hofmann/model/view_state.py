@@ -110,32 +110,6 @@ def _coerce_finite_array(
     return arr
 
 
-# Converting ViewState from a dataclass to a plain class with
-# validated property setters (so mutation could not bypass
-# __post_init__ at all) was suggested in a previous review round and
-# is declined here.  Validation already runs both at construction and
-# at the point of use for the four fields where a bad post-
-# construction assignment would otherwise fail silently (rotation,
-# centre, zoom, slab); removing any one of those point-of-use checks
-# fails multiple named tests in test_view_state.py (the
-# test_post_construction_* cases).  Converting the class's fundamental
-# shape is a change unrelated to projection and would need its own
-# review.  It would also trade away the dataclasses.fields() loop
-# that the interactive viewer's "r" (reset) key uses to copy every
-# field from the initial view back onto the live one (see the "r" key
-# handler in rendering/interactive.py) — the state copy taken at the
-# start of an interactive session uses copy.deepcopy instead, so it
-# does not depend on fields(). Reconsider the trade if a fifth
-# validated-mutation site appears.
-#
-# One further consequence of staying a dataclass: a field cannot be
-# annotated with one type on input and another on output, so rotation,
-# centre, and slab_origin stay typed as np.ndarray even though
-# __post_init__ accepts and coerces plain sequences.  Downstream
-# type-checked code must therefore pass arrays, not sequences, despite
-# the runtime being more permissive.  A plain class with property
-# setters is where that asymmetry (Sequence in, ndarray out) would be
-# expressed directly.
 @dataclass(slots=True)
 class ViewState:
     """Camera state for 3D-to-2D projection.
@@ -170,34 +144,10 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
-    # rotation is the escape hatch: look_along makes the common case
-    # easy, and assigning a matrix directly makes the uncommon case
-    # possible.  Its contract is only that the map is well defined,
-    # so _check_rotation (shape (3, 3), finiteness, non-zero
-    # determinant) rejects exactly what has no interpretation as a
-    # transform: a singular matrix collapses a dimension, and no
-    # combination of structure and camera produces that image.
-    # det == 0 tests it exactly.
-    #
-    # Contrast the named scalars.  zoom and Perspective.strength
-    # carry semantics in their names, so a negative value there is
-    # not an unusual render but a different operation wearing the
-    # wrong name, and is rejected.  A matrix parameter carries no
-    # such semantics to violate.
-    #
-    # Deliberately NOT enforced, and not to be re-added:
-    #  - Orthonormality.  It needs a tolerance policy, and look_along
-    #    produces exact bases, so a threshold would only give
-    #    legitimate rotations a way to be rejected.  Non-orthonormal
-    #    matrices (scales, shears) are therefore accepted even though
-    #    they misrepresent bond lengths and angles.
-    #  - A positive determinant.  A reflection is an isometry: it
-    #    preserves every distance and angle, and renders the mirror
-    #    image faithfully — the enantiomer, which is a legitimate
-    #    thing to draw.  Rejecting the one transform that keeps the
-    #    metric intact while permitting several that destroy it would
-    #    be incoherent, and look_along always yields det = +1, so only
-    #    a deliberately hand-built matrix reaches this path.
+    # Validation rejects only what has no interpretation as a
+    # transform: wrong shape, non-finite entries, or a singular
+    # matrix.  Non-orthonormal and negative-determinant matrices
+    # are accepted and applied as given.
     rotation: np.ndarray = field(
         default_factory=lambda: np.eye(3, dtype=float)
     )
