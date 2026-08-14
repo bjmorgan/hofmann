@@ -144,10 +144,14 @@ class TestViewStateProject:
         radii = np.array([0.5])  # denominator: 25 - 0.25, safely positive
         with warnings.catch_warnings(record=True) as caught:
             warnings.simplefilter("always")
-            vs.project(coords, radii)
+            _, _, proj_r = vs.project(coords, radii)
         messages = [str(w.message) for w in caught]
         assert any("eye plane" in m for m in messages)
         assert not any("contain the effective" in m for m in messages)
+        # d must be used as |d| throughout: using the signed d would
+        # take sqrt of a negative number here and silently yield NaN.
+        assert np.isfinite(proj_r).all()
+        np.testing.assert_allclose(proj_r, [0.502519], rtol=1e-6)
 
     def test_sphere_containing_effective_eye_warns(self):
         """When a sphere's radius (scaled by strength) reaches the
