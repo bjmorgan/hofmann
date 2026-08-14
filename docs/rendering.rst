@@ -60,6 +60,8 @@ read from :attr:`~hofmann.ViewState.projection`:
    scene.view.set_perspective(0.3)                          # Mild perspective
    scene.view.set_oblique(angle=35.0, foreshortening=0.6)
 
+   scene.view.projection  # Oblique(angle=35.0, foreshortening=0.6)
+
 .. list-table::
    :widths: 50 50
 
