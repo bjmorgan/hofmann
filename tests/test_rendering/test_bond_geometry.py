@@ -271,6 +271,26 @@ class TestBondPolygonsBatch:
         )
         assert not valid[0]
 
+    def test_extreme_small_strength_produces_finite_vertices(self):
+        """proj.view_distance / proj.strength overflows to inf for a
+        valid but extremely small strength, which would otherwise
+        propagate NaN vertices past the validity mask."""
+        view = ViewState(projection=Perspective(1e-310, 10.0))
+        d = self._ch4_scene_data(view=view)
+        atom_scale = d["atom_scale"]
+
+        full_verts, start_2d, end_2d, *_, valid = _bond_polygons_batch(
+            d["rotated"], d["xy"],
+            d["radii_3d"] * atom_scale, d["screen_radii"],
+            d["bond_ia"], d["bond_ib"], d["bond_radii"],
+            view,
+        )
+
+        assert valid.all()
+        assert np.isfinite(full_verts).all()
+        assert np.isfinite(start_2d).all()
+        assert np.isfinite(end_2d).all()
+
     def test_bond_polygons_depend_only_on_effective_eye(self):
         """Perspective(1.0, 10.0) and Perspective(0.5, 5.0) define the
         same projection (equal view_distance / strength): screen

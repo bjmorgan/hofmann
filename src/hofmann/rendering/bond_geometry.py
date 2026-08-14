@@ -199,9 +199,12 @@ def _bond_polygon(
     # The projection scale D/(D - z*s) is a pinhole at D/s (see
     # Perspective); the s -> 0 limit motivates the orthographic
     # stand-in below.
+    # isinstance(proj, Perspective) below is only a valid exhaustive
+    # check against a bogus projection because project_camera (called
+    # earlier in every render path) already raised on one.
     proj = view.projection
     eye_dist = (
-        proj.view_distance / proj.strength
+        min(proj.view_distance / proj.strength, 1e6)
         if isinstance(proj, Perspective) else 1e6
     )
     eye = np.array([0.0, 0.0, eye_dist])
@@ -330,8 +333,9 @@ def _bond_polygons_batch(
     # degeneracy mask — lives in the screen-aligned frame: the frame
     # the drawn circles occupy, and the frame in which "have the two
     # tangent cut points crossed" is a question about drawn geometry.
-    # Only `xy` below (already projected by ViewState.project) keeps
-    # camera-space inputs, to avoid applying the shear twice.
+    # `xy` below arrives already projected via ViewState.project; the
+    # screen-frame conversion here applies only to the junction-angle
+    # inputs, so the shear is never applied twice.
     s_a = view.screen_frame(p_a)                            # (n_bonds, 3)
     s_b = view.screen_frame(p_b)                            # (n_bonds, 3)
     bond_vec = s_b - s_a                                    # (n_bonds, 3)
@@ -356,9 +360,12 @@ def _bond_polygons_batch(
     # The projection scale D/(D - z*s) is a pinhole at D/s (see
     # Perspective); the s -> 0 limit motivates the orthographic
     # stand-in below.
+    # isinstance(proj, Perspective) below is only a valid exhaustive
+    # check against a bogus projection because project_camera (called
+    # earlier in every render path) already raised on one.
     proj = view.projection
     eye_dist = (
-        proj.view_distance / proj.strength
+        min(proj.view_distance / proj.strength, 1e6)
         if isinstance(proj, Perspective) else 1e6
     )
     eye = np.array([0.0, 0.0, eye_dist])

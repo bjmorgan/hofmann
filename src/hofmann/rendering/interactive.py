@@ -100,8 +100,9 @@ def _apply_key_action(
     Returns a string indicating the required redraw kind:
 
     - ``"view"`` — view-only change (rotation, zoom, pan, etc.).
-    - ``"extent"`` — projection change that may invalidate the fixed
-      viewport extent (perspective strength or view distance).
+    - ``"extent"`` — a change that may invalidate the fixed viewport
+      extent: perspective strength, view distance, a projection mode
+      switch, or a full reset to the initial view.
     - ``"full"`` — style or frame change needing recomputation.
     - ``"none"`` — unrecognised key, no redraw needed.
     """

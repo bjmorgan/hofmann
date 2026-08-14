@@ -4,7 +4,9 @@ import math
 
 import numpy as np
 
-from hofmann.model import AtomStyle, Frame, Perspective, StructureScene, ViewState
+from hofmann.model import (
+    AtomStyle, Frame, Oblique, Perspective, StructureScene, ViewState,
+)
 from hofmann.model.composition import Composition
 from hofmann.rendering.projection import (
     _make_vacancy_wedge,
@@ -32,8 +34,6 @@ class TestProjectPoint:
     def test_equivalent_to_project_camera(self):
         """_project_point is the single-point view of project_camera —
         this is what pins bond rendering to the shared mapping."""
-        from hofmann.model import Oblique
-
         views = [
             ViewState(zoom=1.5),
             ViewState(projection=Perspective(0.5, 8.0)),
@@ -144,8 +144,6 @@ class TestSceneExtent:
     def test_oblique_scales_extent_by_scale_bound(self):
         """A full-length receding axis would clip at the viewport edge
         without the sqrt(1 + f^2) allowance."""
-        from hofmann.model import Oblique
-
         scene = self._two_atom_scene()
         f = 0.6
         e_none = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
@@ -154,10 +152,11 @@ class TestSceneExtent:
         )
         np.testing.assert_allclose(e_obl, e_none * math.sqrt(1.0 + f**2))
 
-    def test_extent_unchanged_when_oblique_none(self):
-        """The shear allowance must be exactly 1.0 when oblique is
-        None: the extent pins to its hand-computed pre-oblique value
-        (max atom distance 5.0 plus scaled radius 0.5)."""
+    def test_extent_unchanged_for_orthographic_projection(self):
+        """The shear allowance must be exactly 1.0 under the default
+        Orthographic projection: the extent pins to its hand-computed
+        pre-oblique value (max atom distance 5.0 plus scaled radius
+        0.5)."""
         scene = self._two_atom_scene()
         extent = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
         assert extent == 5.5

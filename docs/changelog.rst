@@ -5,7 +5,7 @@ Changelog
 ------
 
 - Sites can now be partially occupied or shared between multiple
-  species.  Pass a :class:`Composition` in
+  species.  Pass a :class:`~hofmann.Composition` in
   :attr:`~hofmann.StructureScene.species` to declare a mixed site;
   the renderer draws it as a pie of wedges, one per constituent
   species, with vacancy fractions filled opaquely with the canvas
@@ -49,7 +49,7 @@ Changelog
 
 - Bond end-cap geometry now follows the effective perspective eye
   position (``view_distance / strength``) rather than
-  *view_distance* alone, correcting slightly over-foreshortened bond
+  ``view_distance`` alone, correcting slightly over-foreshortened bond
   caps at perspective strengths below 1.  Sphere silhouettes under
   perspective now follow the same effective eye, and converge
   correctly to the orthographic limit at low strengths.

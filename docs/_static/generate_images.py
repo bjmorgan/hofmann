@@ -8,8 +8,8 @@ from scipy.spatial.transform import Rotation
 
 from hofmann import (
     AtomLegendItem, AtomStyle, AxesStyle, BondSpec,
-    CellEdgeStyle, Composition, Frame, LegendStyle, Oblique,
-    Orthographic, Perspective, PolygonLegendItem, PolyhedronLegendItem,
+    CellEdgeStyle, Composition, Frame, LegendStyle,
+    PolygonLegendItem, PolyhedronLegendItem,
     PolyhedronSpec, RenderStyle, StructureScene, ViewState,
 )
 
@@ -412,7 +412,7 @@ def logo_scene() -> StructureScene:
     scene.set_atom_data("gradient", by_index=data)
 
     scene.view.look_along(look_dir)
-    scene.view.projection = Perspective(0.12, 5.0)
+    scene.view.set_perspective(0.12, 5.0)
 
     return scene
 
@@ -652,13 +652,13 @@ def generate_docs_images() -> None:
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_ortho.svg'}")
-    perov_plain.view.projection = Perspective(0.5)
+    perov_plain.view.set_perspective(0.5)
     perov_plain.render_mpl(
         OUT / "perovskite_perspective.svg",
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
-    perov_plain.view.projection = Orthographic()  # Reset
+    perov_plain.view.set_orthographic()  # Reset
 
     # 5b. Oblique: orthographic vs oblique, same camera (perovskite).
     # The receding axis is the view direction, so both panels share
@@ -670,7 +670,7 @@ def generate_docs_images() -> None:
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_oblique_ortho.svg'}")
-    perov_plain.view.projection = Oblique(35.0, 0.6)
+    perov_plain.view.set_oblique(35.0, 0.6)
     perov_plain.render_mpl(
         OUT / "perovskite_oblique.svg",
         figsize=(3, 3), dpi=150,
