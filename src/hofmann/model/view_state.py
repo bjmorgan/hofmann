@@ -276,17 +276,19 @@ class ViewState:
     def screen_frame(self, camera: np.ndarray) -> np.ndarray:
         """Map camera-space coordinates to the screen-aligned frame.
 
-        The 3D frame in which this view's parallel projection is a
-        plain drop of z: x and y are the pre-zoom screen coordinates
-        (:attr:`screen_matrix` applied) and z is the unchanged depth.
-        Geometry that must agree with drawn screen positions — bond
-        junction offsets against atom silhouettes, for example — must
-        be computed in this frame: under an oblique projection the
-        camera frame's z axis is not the projection ray, but this
-        frame's z axis is.
+        The 3D frame carrying the oblique shear, if any: x and y are
+        the pre-zoom screen coordinates (:attr:`screen_matrix`
+        applied) and z is the unchanged depth, so that dropping z
+        gives screen positions.  Geometry that must agree with drawn
+        screen positions — bond junction offsets against atom
+        silhouettes, for example — must be computed in this frame:
+        under an oblique projection the camera frame's z axis is not
+        the projection ray, but this frame's z axis is.
 
-        An exact passthrough whenever :attr:`projection` is not
-        :class:`Oblique`.
+        For :class:`Orthographic` and :class:`Perspective` the shear
+        is absent, so the returned coordinates equal the input (as a
+        new array).  Perspective division is not part of this frame;
+        it is applied by :meth:`project_camera`.
 
         Args:
             camera: Array of shape ``(n, 3)`` in camera space.
