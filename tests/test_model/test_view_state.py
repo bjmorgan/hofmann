@@ -523,13 +523,21 @@ class TestViewStateValidation:
         with pytest.raises(ValueError, match="singular"):
             ViewState(rotation=np.diag([1.0, 1.0, 0.0]))
 
-    def test_full_rank_non_orthonormal_rotation_accepted(self):
-        """Only a non-positive determinant is rejected, not
-        orthonormality (see the class-level comment): a proper,
-        finite matrix that scales rather than rotates is accepted.
-        Orthonormality is deliberately not enforced."""
+    def test_non_orthonormal_rotation_accepted(self):
+        """Only singular matrices are rejected.  A finite matrix that
+        scales rather than rotates is applied as given."""
         vs = ViewState(rotation=np.diag([2.0, 1.0, 1.0]))
         np.testing.assert_array_equal(vs.rotation, np.diag([2.0, 1.0, 1.0]))
+
+    def test_reflection_accepted(self):
+        """A negative determinant is applied as given, rendering the
+        mirror image: screen positions are unchanged and depth is
+        negated."""
+        vs = ViewState(rotation=np.diag([1.0, 1.0, -1.0]))
+        coords = np.array([[1.0, 2.0, 3.0]])
+        xy, depth, _ = vs.project(coords)
+        np.testing.assert_array_equal(xy, [[1.0, 2.0]])
+        np.testing.assert_array_equal(depth, [-3.0])
 
     def test_post_construction_nan_rotation_raises_on_use(self):
         """Assigning rotation after construction bypasses
