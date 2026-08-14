@@ -155,15 +155,20 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
-    # _check_rotation enforces shape (3, 3), finiteness, and full
-    # rank; orthonormality is not enforced: doing so needs a
-    # tolerance policy, and look_along produces exact bases, so a
-    # threshold would only add a way for legitimate rotations to be
-    # rejected without catching anything look_along wouldn't already
-    # get right.  Rank deficiency needs no such tolerance policy — it
-    # is an exact test — and left unchecked it collapses depth or
-    # position outright (e.g. the zero matrix maps every atom to the
-    # origin).
+    # _check_rotation enforces shape (3, 3), finiteness, and a
+    # positive determinant; orthonormality is not enforced: doing so
+    # needs a tolerance policy, and look_along produces exact bases,
+    # so a threshold would only add a way for legitimate rotations to
+    # be rejected without catching anything look_along wouldn't
+    # already get right.  The determinant test needs no such
+    # tolerance policy for either fault it catches: det == 0 is exact
+    # singularity, and left unchecked it collapses depth or position
+    # outright (e.g. the zero matrix maps every atom to the origin);
+    # det < 0 is exact impropriety (a left-handed, mirrored
+    # transformation), and left unchecked it leaves screen positions
+    # unchanged while negating depth, silently reversing painter
+    # ordering and rendering the enantiomer of a chiral structure as
+    # if it were the real one.
     rotation: np.ndarray = field(
         default_factory=lambda: np.eye(3, dtype=float)
     )
@@ -203,16 +208,29 @@ class ViewState:
 
     def _check_rotation(self) -> None:
         """Raise ``ValueError`` unless :attr:`rotation` has shape
-        ``(3, 3)``, is finite, and is full rank.
+        ``(3, 3)``, is finite, and has a positive determinant.
 
         Coerces :attr:`rotation` to an ndarray first, so a plain
         nested sequence is accepted and stored back as an array.
         Orthonormality is not checked; see the class-level comment.
+        A zero determinant is singular (rank-deficient); a negative
+        determinant is an improper (mirrored) transformation — both
+        are rejected, with a distinct message for each so a user
+        knows which fault to fix.
         """
         self.rotation = _coerce_finite_array(self.rotation, (3, 3), "rotation")
-        if np.linalg.matrix_rank(self.rotation) < 3:
+        det = np.linalg.det(self.rotation)
+        if det == 0:
             raise ValueError(
-                f"rotation must be full rank, got {self.rotation}"
+                f"rotation must not be singular (determinant is 0), got "
+                f"{self.rotation}"
+            )
+        if det < 0:
+            raise ValueError(
+                "rotation must be proper (positive determinant), got "
+                f"{self.rotation} with determinant {det:.6g}; an improper "
+                "(mirrored) matrix silently renders the enantiomer of a "
+                "chiral structure"
             )
 
     def _check_slab(self) -> None:

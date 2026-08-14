@@ -490,24 +490,36 @@ class TestViewStateValidation:
                 ViewState(rotation=rotation)
 
     def test_zero_rotation_rejected(self):
-        """The all-zero matrix has rank 0: it collapses every atom to
-        the origin, but passes the shape and finiteness checks."""
-        with pytest.raises(ValueError, match="rank"):
+        """The all-zero matrix is singular (determinant 0): it
+        collapses every atom to the origin, but passes the shape and
+        finiteness checks."""
+        with pytest.raises(ValueError, match="singular"):
             ViewState(rotation=np.zeros((3, 3)))
 
     def test_rank_deficient_rotation_rejected(self):
-        """A rank-2 matrix flattens all depth to zero, destroying
-        painter ordering, but still has the right shape and is
-        finite."""
-        with pytest.raises(ValueError, match="rank"):
+        """A rank-2 matrix is singular (determinant 0): it flattens
+        all depth to zero, destroying painter ordering, but still has
+        the right shape and is finite."""
+        with pytest.raises(ValueError, match="singular"):
             ViewState(rotation=np.diag([1.0, 1.0, 0.0]))
 
+    def test_improper_rotation_rejected(self):
+        """A matrix with a negative determinant (e.g. one axis
+        flipped) leaves screen positions unchanged but negates depth,
+        reversing painter ordering and silently rendering the
+        enantiomer of a chiral structure.  This is a proper
+        (non-singular) matrix, so the old rank check could not catch
+        it."""
+        with pytest.raises(ValueError, match="determinant"):
+            ViewState(rotation=np.diag([1.0, 1.0, -1.0]))
+
     def test_full_rank_non_orthonormal_rotation_accepted(self):
-        """Only rank deficiency is rejected, not orthonormality (see
-        the class-level comment): a full-rank, finite matrix that
-        scales rather than rotates is accepted.  This distinguishes
-        the deliberate decline of an orthonormality check from an
-        oversight — an orthonormality check would also reject this."""
+        """Only a non-positive determinant is rejected, not
+        orthonormality (see the class-level comment): a proper,
+        finite matrix that scales rather than rotates is accepted.
+        This distinguishes the deliberate decline of an orthonormality
+        check from an oversight — an orthonormality check would also
+        reject this."""
         vs = ViewState(rotation=np.diag([2.0, 1.0, 1.0]))
         np.testing.assert_array_equal(vs.rotation, np.diag([2.0, 1.0, 1.0]))
 
