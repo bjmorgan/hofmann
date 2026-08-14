@@ -356,7 +356,11 @@ class ViewState:
                     d = p.view_distance - depth * p.strength
                     # Silhouette radius: r * D / sqrt(d^2 - (r*s)^2) —
                     # the pinhole at D/s.
-                    if np.any(d <= radii * p.strength):
+                    # Exactly the condition under which the clamp
+                    # below bites: |d| <= r*s.  Atoms behind the eye
+                    # plane have a large negative d and a safe
+                    # denominator; project_camera reports those.
+                    if np.any(np.abs(d) <= radii * p.strength):
                         warnings.warn(
                             "one or more spheres contain the effective "
                             "perspective eye "

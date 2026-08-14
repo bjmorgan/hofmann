@@ -1,5 +1,6 @@
 """Tests for ViewState projection, look_along, slab clipping, and validation."""
 
+import warnings
 from dataclasses import FrozenInstanceError
 
 import numpy as np
@@ -117,6 +118,22 @@ class TestViewStateProject:
         _, _, proj_r_a = vs_a.project(coords, radii)
         _, _, proj_r_b = vs_b.project(coords, radii)
         np.testing.assert_allclose(proj_r_a, proj_r_b, atol=1e-12)
+
+    def test_no_sphere_warning_for_atoms_behind_the_eye(self):
+        """An atom behind the eye plane has a large |d|, so the
+        silhouette denominator stays safe and no sphere contains the
+        eye.  That case is reported accurately by the eye-plane
+        warning; the sphere warning must not also fire and claim
+        something untrue."""
+        vs = ViewState(projection=Perspective(1.0, 5.0))
+        coords = np.array([[0.0, 0.0, 10.0]])  # d = 5 - 10 = -5
+        radii = np.array([0.5])  # denominator: 25 - 0.25, safely positive
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            vs.project(coords, radii)
+        messages = [str(w.message) for w in caught]
+        assert any("eye plane" in m for m in messages)
+        assert not any("contain the effective" in m for m in messages)
 
     def test_sphere_containing_effective_eye_warns(self):
         """When a sphere's radius (scaled by strength) reaches the
