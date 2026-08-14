@@ -161,6 +161,35 @@ class TestSceneExtent:
         extent = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
         assert extent == 5.5
 
+    def test_eye_inside_scene_bounding_sphere_does_not_explode_extent(self):
+        """When the effective eye lies inside the scene's bounding
+        sphere, denom = view_distance - bounding_radius * strength
+        goes non-positive and no bounded rotation-invariant
+        magnification exists.  The viewport must fall back to the
+        unmagnified scene bound (content is clipped, which is honest
+        and navigable) rather than fabricate a huge one from dividing
+        by a 1e-6 floor."""
+        n = 36
+        xs, ys = np.meshgrid(
+            np.linspace(-n / 2, n / 2, n), np.linspace(-n / 2, n / 2, n),
+        )
+        coords = np.column_stack(
+            [xs.ravel(), ys.ravel(), np.zeros(xs.size)]
+        )
+        scene = StructureScene(
+            species=["C"] * len(coords),
+            frames=[Frame(coords=coords)],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        # Effective eye plane at view_distance / strength = 25.0, well
+        # inside the sheet's ~25.9 bounding radius (face-on view).
+        view = ViewState(projection=Perspective(0.4, 10.0))
+        bounding_radius = float(
+            np.max(np.linalg.norm(coords, axis=1)) + 0.5
+        )
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert extent < 2.0 * bounding_radius
+
     def test_perspective_bound_includes_cell_corners(self):
         """A large cell with atoms near the centre must bound the
         perspective magnification by the corner distance, not the atom

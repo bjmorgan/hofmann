@@ -118,11 +118,20 @@ def _scene_extent(
         if denom > 0:
             persp_scale = proj.view_distance / denom
         else:
-            # Guards division by zero when the eye plane is reached or
-            # passed.  The broken-maths case (eye inside the scene) is
-            # reported by ViewState.project_camera, which every render
-            # path calls.
-            persp_scale = proj.view_distance / 1e-6
+            # The effective eye lies inside the scene's bounding
+            # sphere: no bounded rotation-invariant magnification
+            # exists, since a point can rotate arbitrarily close to
+            # the eye.  Apply no allowance rather than fabricate a
+            # huge one — the viewport falls back to the unmagnified
+            # scene bound, so content is clipped, which is honest and
+            # navigable, rather than a blank window with an unusable
+            # pan step.  Do not raise: this is called only from the
+            # interactive viewer, and raising would kill the session
+            # on a keypress.  Do not warn: the camera position is
+            # legitimate here; the genuinely false output — atoms
+            # drawn mirrored — is reported separately by
+            # ViewState.project_camera when it actually occurs.
+            persp_scale = 1.0
         max_extent *= persp_scale
 
     return float(max_extent)
