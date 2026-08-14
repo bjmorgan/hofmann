@@ -667,10 +667,8 @@ class TestObliqueInteractive:
         assert view.zoom == initial_view.zoom
 
     def test_p_key_replaces_oblique_with_perspective(self):
-        """Raising perspective is a visible whole-value mode switch:
-        it must replace the oblique projection rather than silently
-        constructing the forbidden combination the old two-field
-        encoding had to police."""
+        """Raising perspective from an oblique view replaces the
+        projection outright, rather than combining the two."""
         view, style, state, initial_view = _make_fixtures_with_oblique()
         result = _apply_key_action(
             "p", view, style, state,
@@ -678,8 +676,6 @@ class TestObliqueInteractive:
         )
         assert result == "extent"
         assert view.projection == Perspective(strength=_PERSPECTIVE_STEP)
-        # The combination must remain projectable.
-        view.project_camera(np.zeros((1, 3)))
 
 
 def _make_fixtures_with_oblique():

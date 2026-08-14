@@ -1,7 +1,5 @@
 """Tests for hofmann public API."""
 
-import pytest
-
 import hofmann
 
 

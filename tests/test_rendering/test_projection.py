@@ -174,7 +174,6 @@ class TestSceneExtent:
             )],
             atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
         )
-        scene.view.centre = np.full(3, a / 2)
         corner_dist = np.linalg.norm(np.full(3, a / 2))
         view = ViewState(
             centre=np.full(3, a / 2),

@@ -40,12 +40,15 @@ Changelog
   eye.  Rendering warns, naming the settings to adjust, when atoms
   reach the perspective eye plane or a sphere contains the eye.
 
-- Interactive sessions now honour a non-unity
-  :attr:`~hofmann.ViewState.zoom` set on the scene at startup, and
-  preserve the current zoom level when the projection mode or
-  perspective settings change mid-session.  Previously the fixed
-  viewport recomputed on every redraw with the live zoom, which
-  cancelled it back to a fit-all framing.
+- The fixed viewport extent used by interactive sessions no longer
+  scales with zoom, so a non-unity :attr:`~hofmann.ViewState.zoom` set
+  on the scene at startup is honoured, and recomputing the extent —
+  on style, frame, or projection changes — no longer cancels the
+  user's zoom level.
+
+- In interactive sessions, the ``d``/``D`` viewing-distance keys now
+  act only in perspective mode, and ``p`` replaces an oblique
+  projection with perspective rather than combining the two.
 
 - Bond end-cap geometry now follows the effective perspective eye
   position (``view_distance / strength``) rather than

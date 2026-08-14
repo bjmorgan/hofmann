@@ -485,7 +485,7 @@ class TestViewStateProjection:
 class TestViewStateScreenMatrix:
     """Tests for the camera-to-screen linear map."""
 
-    def test_identity_when_oblique_none(self):
+    def test_identity_when_orthographic(self):
         m = ViewState().screen_matrix
         np.testing.assert_array_equal(
             m, np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
@@ -500,7 +500,7 @@ class TestViewStateScreenMatrix:
         ])
         np.testing.assert_allclose(vs.screen_matrix, expected)
 
-    def test_scale_bound_is_one_when_oblique_none(self):
+    def test_scale_bound_is_one_when_orthographic(self):
         assert ViewState().screen_scale_bound == 1.0
 
     def test_scale_bound_is_largest_singular_value(self):
@@ -581,9 +581,9 @@ class TestViewStateProjectOblique:
         rng = np.random.default_rng(42)
         return rng.normal(scale=3.0, size=(20, 3))
 
-    def test_oblique_none_unchanged(self):
-        """Regression guard: the refactored path must be exactly the
-        old orthographic computation."""
+    def test_orthographic_unchanged(self):
+        """Orthographic projection applies zoom alone, with no
+        depth-dependent scaling."""
         vs = ViewState(zoom=1.7, centre=np.array([0.5, -0.2, 1.0]))
         pts = self._points()
         rotated = (pts - vs.centre) @ vs.rotation.T
