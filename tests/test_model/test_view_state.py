@@ -374,6 +374,63 @@ class TestViewStateValidation:
             with pytest.raises(ValueError, match="finite"):
                 ViewState(centre=np.array([0.0, bad, 0.0]))
 
+    def test_wrong_shape_centre_rejected(self):
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(centre=np.array([0.0, 1.0]))
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(centre=np.zeros((3, 1)))
+
+    def test_wrong_shape_rotation_rejected(self):
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(rotation=np.zeros((3, 2)))
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(rotation=np.zeros((4, 3)))
+
+    def test_non_finite_rotation_rejected(self):
+        for bad in (float("nan"), float("inf")):
+            rotation = np.eye(3)
+            rotation[1, 2] = bad
+            with pytest.raises(ValueError, match="finite"):
+                ViewState(rotation=rotation)
+
+    def test_post_construction_nan_rotation_raises_on_use(self):
+        """Assigning rotation after construction bypasses
+        __post_init__; rotation is reassigned on every drag frame, so
+        the consumer must validate what it uses rather than silently
+        producing all-NaN coordinates."""
+        vs = ViewState()
+        vs.rotation = np.full((3, 3), np.nan)
+        with pytest.raises(ValueError, match="finite"):
+            vs.project(np.array([[1.0, 2.0, 3.0]]))
+        with pytest.raises(ValueError, match="finite"):
+            vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
+
+    def test_post_construction_wrong_shape_rotation_raises_on_use(self):
+        vs = ViewState()
+        vs.rotation = np.zeros((3, 2))
+        with pytest.raises(ValueError, match="shape"):
+            vs.project(np.array([[1.0, 2.0, 3.0]]))
+        with pytest.raises(ValueError, match="shape"):
+            vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
+
+    def test_post_construction_nan_centre_raises_on_use(self):
+        """centre is reassigned on every pan keypress; validated at
+        construction but not at point of use."""
+        vs = ViewState()
+        vs.centre = np.array([0.0, float("nan"), 0.0])
+        with pytest.raises(ValueError, match="finite"):
+            vs.project(np.array([[1.0, 2.0, 3.0]]))
+        with pytest.raises(ValueError, match="finite"):
+            vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
+
+    def test_post_construction_wrong_shape_centre_raises_on_use(self):
+        vs = ViewState()
+        vs.centre = np.array([0.0, 1.0])
+        with pytest.raises(ValueError, match="shape"):
+            vs.project(np.array([[1.0, 2.0, 3.0]]))
+        with pytest.raises(ValueError, match="shape"):
+            vs.slab_mask(np.array([[1.0, 2.0, 3.0]]))
+
     def test_post_construction_nan_zoom_raises_on_use(self):
         """Assigning zoom after construction bypasses __post_init__;
         the consumer must validate what it uses rather than silently

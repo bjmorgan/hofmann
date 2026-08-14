@@ -110,7 +110,8 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
-    # Orthonormality of `rotation` is not validated: doing so needs a
+    # Shape and finiteness of `rotation` are validated (see
+    # _check_rotation); orthonormality is not: doing so needs a
     # tolerance policy, and look_along produces exact bases, so a
     # threshold would only add a way for legitimate rotations to be
     # rejected without catching anything look_along wouldn't already
@@ -131,8 +132,8 @@ class ViewState:
 
     def __post_init__(self) -> None:
         self._check_zoom()
-        if not np.isfinite(self.centre).all():
-            raise ValueError(f"centre must be finite, got {self.centre}")
+        self._check_centre()
+        self._check_rotation()
         self._checked_projection()
         self._check_slab()
 
@@ -141,6 +142,31 @@ class ViewState:
         if not math.isfinite(self.zoom) or self.zoom <= 0:
             raise ValueError(
                 f"zoom must be finite and positive, got {self.zoom}"
+            )
+
+    def _check_centre(self) -> None:
+        """Raise ``ValueError`` unless :attr:`centre` has shape ``(3,)``
+        and is finite."""
+        if self.centre.shape != (3,):
+            raise ValueError(
+                f"centre must have shape (3,), got {self.centre.shape}"
+            )
+        if not np.isfinite(self.centre).all():
+            raise ValueError(f"centre must be finite, got {self.centre}")
+
+    def _check_rotation(self) -> None:
+        """Raise ``ValueError`` unless :attr:`rotation` has shape
+        ``(3, 3)`` and is finite.
+
+        Orthonormality is not checked; see the class-level comment.
+        """
+        if self.rotation.shape != (3, 3):
+            raise ValueError(
+                f"rotation must have shape (3, 3), got {self.rotation.shape}"
+            )
+        if not np.isfinite(self.rotation).all():
+            raise ValueError(
+                f"rotation must be finite, got {self.rotation}"
             )
 
     def _check_slab(self) -> None:
@@ -340,7 +366,16 @@ class ViewState:
             - *xy*: ``(n, 2)`` projected 2D coordinates.
             - *depth*: ``(n,)`` depth values (larger = closer to viewer).
             - *projected_radii*: ``(n,)`` screen-space sphere radii.
+
+        Raises:
+            ValueError: If :attr:`rotation` or :attr:`centre` is not
+                finite, or does not have the expected shape — a
+                post-construction assignment bypasses
+                ``__post_init__`` and would otherwise silently produce
+                all-NaN or nonsensical coordinates.
         """
+        self._check_centre()
+        self._check_rotation()
         coords = np.asarray(coords, dtype=float)
         centred = coords - self.centre
         rotated = centred @ self.rotation.T
@@ -402,9 +437,13 @@ class ViewState:
             ValueError: If *slab_near*, *slab_far*, or *slab_origin*
                 is not finite — a post-construction assignment
                 bypasses ``__post_init__`` and would otherwise blank
-                every atom silently (NaN comparisons are False).
+                every atom silently (NaN comparisons are False). Also
+                if :attr:`rotation` or :attr:`centre` is not finite or
+                does not have the expected shape, for the same reason.
         """
         self._check_slab()
+        self._check_centre()
+        self._check_rotation()
         if self.slab_near is None and self.slab_far is None:
             return np.ones(len(coords), dtype=bool)
 
