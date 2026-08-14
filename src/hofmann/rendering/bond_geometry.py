@@ -200,8 +200,9 @@ def _bond_polygon(
     # Perspective); the s -> 0 limit motivates the orthographic
     # stand-in below.
     # isinstance(proj, Perspective) below is only a valid exhaustive
-    # check against a bogus projection because project_camera (called
-    # earlier in every render path) already raised on one.
+    # check against a bogus projection because view.screen_frame,
+    # called earlier in this function, already raised on one (it
+    # calls _checked_projection).
     proj = view.projection
     eye_dist = (
         min(proj.view_distance / proj.strength, 1e6)
@@ -361,8 +362,9 @@ def _bond_polygons_batch(
     # Perspective); the s -> 0 limit motivates the orthographic
     # stand-in below.
     # isinstance(proj, Perspective) below is only a valid exhaustive
-    # check against a bogus projection because project_camera (called
-    # earlier in every render path) already raised on one.
+    # check against a bogus projection because view.screen_frame,
+    # called earlier in this function, already raised on one (it
+    # calls _checked_projection).
     proj = view.projection
     eye_dist = (
         min(proj.view_distance / proj.strength, 1e6)

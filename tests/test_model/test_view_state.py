@@ -107,6 +107,20 @@ class TestViewStateProject:
         _, _, proj_r_ortho = vs_ortho.project(coords, radii)
         np.testing.assert_allclose(proj_r_persp, proj_r_ortho, rtol=1e-4)
 
+    def test_projected_radii_no_overflow_at_huge_view_distance(self):
+        """d**2 overflows to inf for view_distance ~1e160 (d**2 exceeds
+        the float64 max around 1.3e154), which previously collapsed
+        the silhouette radius to a bogus 0.0.  The algebraically
+        identical factored form (d - r*s) * (d + r*s) must stay finite
+        and converge to the orthographic radius, since the eye is
+        effectively at infinity."""
+        vs = ViewState(projection=Perspective(1.0, 1e160))
+        coords = np.array([[0.0, 0.0, 0.0]])
+        radii = np.array([1.0])
+        _, _, proj_r = vs.project(coords, radii)
+        assert np.isfinite(proj_r).all()
+        np.testing.assert_allclose(proj_r, [1.0], rtol=1e-6)
+
     def test_projected_radii_depend_only_on_effective_eye(self):
         """Perspective(1.0, 10.0) and Perspective(0.5, 5.0) share the
         same effective eye (view_distance / strength = 10) and must

@@ -305,11 +305,12 @@ class ViewState:
         The 3D frame carrying the oblique shear, if any: x and y are
         the pre-zoom screen coordinates (:attr:`screen_matrix`
         applied) and z is the unchanged depth, so that dropping z
-        gives screen positions.  Geometry that must agree with drawn
-        screen positions — bond junction offsets against atom
-        silhouettes, for example — must be computed in this frame:
-        under an oblique projection the camera frame's z axis is not
-        the projection ray, but this frame's z axis is.
+        gives screen positions under a parallel projection (see the
+        perspective-division note below).  Geometry that must agree
+        with drawn screen positions — bond junction offsets against
+        atom silhouettes, for example — must be computed in this
+        frame: under an oblique projection the camera frame's z axis
+        is not the projection ray, but this frame's z axis is.
 
         For :class:`Orthographic` and :class:`Perspective` the shear
         is absent, so the returned coordinates equal the input (as a
@@ -406,9 +407,23 @@ class ViewState:
                             UserWarning,
                             stacklevel=2,
                         )
-                    denom = np.sqrt(
-                        np.maximum(d**2 - (radii * p.strength) ** 2, 1e-12)
-                    )
+                    # sqrt(|d|**2 - rs**2) computed as
+                    # sqrt(|d| - rs) * sqrt(|d| + rs) rather than
+                    # sqrt((|d| - rs) * (|d| + rs)): squaring (or
+                    # multiplying two same-magnitude huge factors)
+                    # overflows for |d| beyond ~1.3e154, silently
+                    # collapsing the silhouette radius to zero;
+                    # square-rooting each factor before multiplying
+                    # keeps every intermediate within range.  abs(d)
+                    # is equivalent to d for this formula since only
+                    # d**2 appears in the original; it also keeps the
+                    # two clamped factors non-negative regardless of
+                    # d's sign.
+                    abs_d = np.abs(d)
+                    rs = radii * p.strength
+                    sqrt_lo = np.sqrt(np.maximum(abs_d - rs, 0.0))
+                    sqrt_hi = np.sqrt(abs_d + rs)
+                    denom = np.maximum(sqrt_lo * sqrt_hi, 1e-6)
                     projected_radii = (
                         radii * p.view_distance / denom * self.zoom
                     )
