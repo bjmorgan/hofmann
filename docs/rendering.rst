@@ -48,8 +48,8 @@ coordinates are mapped onto the 2D page:
 - :class:`~hofmann.Perspective`: projection towards an eye point, so
   nearer atoms appear larger.
 - :class:`~hofmann.Oblique`: parallel projection with two axes
-  undistorted in the plane of the page and the third receding at a
-  chosen angle and foreshortening.
+  undistorted in the plane of the page and the third — the current
+  view direction — receding at a chosen angle and foreshortening.
 
 The mode is set with one of three methods, and the current mode can be
 read from :attr:`~hofmann.ViewState.projection`:
@@ -83,9 +83,6 @@ read from :attr:`~hofmann.ViewState.projection`:
      - .. figure:: _static/perovskite_oblique.svg
 
           ``set_oblique(angle=35.0, foreshortening=0.6)``, same camera
-
-The axis that recedes in an oblique projection is the current view
-direction.
 
 
 Render styles
