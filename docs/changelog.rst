@@ -1,8 +1,8 @@
 Changelog
 =========
 
-0.21.0
-------
+Unreleased
+----------
 
 - Oblique projection.  Call
   :meth:`~hofmann.ViewState.set_oblique` to draw two axes undistorted
