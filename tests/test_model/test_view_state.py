@@ -526,16 +526,6 @@ class TestViewStateValidation:
         with pytest.raises(ValueError, match="singular"):
             ViewState(rotation=np.diag([1.0, 1.0, 0.0]))
 
-    def test_improper_rotation_rejected(self):
-        """A matrix with a negative determinant (e.g. one axis
-        flipped) leaves screen positions unchanged but negates depth,
-        reversing painter ordering and silently rendering the
-        enantiomer of a chiral structure.  This is a proper
-        (non-singular) matrix, so the old rank check could not catch
-        it."""
-        with pytest.raises(ValueError, match="determinant"):
-            ViewState(rotation=np.diag([1.0, 1.0, -1.0]))
-
     def test_full_rank_non_orthonormal_rotation_accepted(self):
         """Only a non-positive determinant is rejected, not
         orthonormality (see the class-level comment): a proper,

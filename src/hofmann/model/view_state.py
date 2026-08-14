@@ -152,7 +152,9 @@ class ViewState:
     :attr:`centre`.
 
     Attributes:
-        rotation: 3x3 rotation matrix.
+        rotation: 3x3 rotation matrix, applied as given.  A matrix
+            with a negative determinant is accepted and renders the
+            mirror image of the structure.
         zoom: Magnification factor.
         centre: 3D point about which to centre the view.
         projection: The current projection mode:
@@ -169,19 +171,25 @@ class ViewState:
     """
 
     # _check_rotation enforces shape (3, 3), finiteness, and a
-    # positive determinant; orthonormality is not enforced: doing so
-    # needs a tolerance policy, and look_along produces exact bases,
-    # so a threshold would only add a way for legitimate rotations to
-    # be rejected without catching anything look_along wouldn't
-    # already get right.  The determinant test needs no such
-    # tolerance policy for either fault it catches: det == 0 is exact
-    # singularity, and left unchecked it collapses depth or position
-    # outright (e.g. the zero matrix maps every atom to the origin);
-    # det < 0 is exact impropriety (a left-handed, mirrored
-    # transformation), and left unchecked it leaves screen positions
-    # unchanged while negating depth, silently reversing painter
-    # ordering and rendering the enantiomer of a chiral structure as
-    # if it were the real one.
+    # non-zero determinant.  The line it draws: reject transforms
+    # with no valid interpretation, permit transforms that faithfully
+    # render something, however unusual.  A singular matrix collapses
+    # a dimension — no combination of structure and camera produces
+    # that image — and det == 0 tests it exactly.
+    #
+    # Deliberately NOT enforced, and not to be re-added:
+    #  - Orthonormality.  It needs a tolerance policy, and look_along
+    #    produces exact bases, so a threshold would only give
+    #    legitimate rotations a way to be rejected.  Non-orthonormal
+    #    matrices (scales, shears) are therefore accepted even though
+    #    they misrepresent bond lengths and angles.
+    #  - A positive determinant.  A reflection is an isometry: it
+    #    preserves every distance and angle, and renders the mirror
+    #    image faithfully — the enantiomer, which is a legitimate
+    #    thing to draw.  Rejecting the one transform that keeps the
+    #    metric intact while permitting several that destroy it would
+    #    be incoherent, and look_along always yields det = +1, so only
+    #    a deliberately hand-built matrix reaches this path.
     rotation: np.ndarray = field(
         default_factory=lambda: np.eye(3, dtype=float)
     )
@@ -221,15 +229,12 @@ class ViewState:
 
     def _check_rotation(self) -> None:
         """Raise ``ValueError`` unless :attr:`rotation` has shape
-        ``(3, 3)``, is finite, and has a positive determinant.
+        ``(3, 3)``, is finite, and is non-singular.
 
         Coerces :attr:`rotation` to an ndarray first, so a plain
         nested sequence is accepted and stored back as an array.
-        Orthonormality is not checked; see the class-level comment.
-        A zero determinant is singular (rank-deficient); a negative
-        determinant is an improper (mirrored) transformation — both
-        are rejected, with a distinct message for each so a user
-        knows which fault to fix.
+        Orthonormality is not checked, and neither is the sign of the
+        determinant; see the class-level comment.
         """
         self.rotation = _coerce_finite_array(self.rotation, (3, 3), "rotation")
         det = np.linalg.det(self.rotation)
@@ -237,13 +242,6 @@ class ViewState:
             raise ValueError(
                 f"rotation must not be singular (determinant is 0), got "
                 f"{self.rotation}"
-            )
-        if det < 0:
-            raise ValueError(
-                "rotation must be proper (positive determinant), got "
-                f"{self.rotation} with determinant {det:.6g}; an improper "
-                "(mirrored) matrix silently renders the enantiomer of a "
-                "chiral structure"
             )
 
     def _check_slab(self) -> None:
