@@ -276,6 +276,23 @@ class TestViewStateLookAlong:
         with pytest.raises(ValueError, match="finite"):
             vs.look_along([float("nan")] * 3)
 
+    def test_rejected_look_along_restores_previous_rotation(self):
+        """look_along assigns self.rotation before validating; if
+        validation then raises, the object must not be left holding
+        the invalid rotation permanently — a caller who catches the
+        error needs a usable view to fall back to."""
+        vs = ViewState()
+        vs.look_along([1, 0, 0])
+        previous = vs.rotation.copy()
+        with pytest.raises(ValueError, match="finite"):
+            vs.look_along([float("nan")] * 3)
+        np.testing.assert_array_equal(vs.rotation, previous)
+        # The view must still project normally, not merely hold an
+        # array that happens to look right.
+        coords = np.array([[5.0, 0.0, 0.0]])
+        xy, _, _ = vs.project(coords)
+        np.testing.assert_allclose(xy[0], [0.0, 0.0], atol=1e-12)
+
     def test_nan_up_raises(self):
         """A NaN up vector propagates NaN into the cross products and
         would otherwise install an all-NaN rotation without raising."""

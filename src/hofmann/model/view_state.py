@@ -583,7 +583,8 @@ class ViewState:
                 above is a ``<`` comparison, which NaN silently fails
                 to trip, so a NaN direction or up vector would
                 otherwise install an all-NaN rotation without
-                raising.
+                raising.  On any of these, :attr:`rotation` is left
+                unchanged from its value before the call.
         """
         d = np.asarray(direction, dtype=float)
         u = np.asarray(up, dtype=float)
@@ -613,12 +614,20 @@ class ViewState:
 
         # Rotation matrix: rows are the camera basis vectors.
         # R maps world coords to camera coords: rotated = R @ world.
+        previous_rotation = self.rotation
         self.rotation = np.array([right, up_actual, fwd])
         # The zero-length and parallel-up guards above are `<`
         # comparisons that NaN silently fails to trip, so a NaN
         # direction or up vector reaches here undetected; validate
         # what was actually installed rather than trust the guards.
-        self._check_rotation()
+        # If validation raises, restore the previous rotation first:
+        # otherwise a caller who catches the error is left holding an
+        # unusable (e.g. all-NaN) view with no way back.
+        try:
+            self._check_rotation()
+        except ValueError:
+            self.rotation = previous_rotation
+            raise
         return self
 
     def set_orthographic(self) -> ViewState:
