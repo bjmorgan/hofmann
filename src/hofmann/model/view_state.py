@@ -547,7 +547,12 @@ class ViewState:
 
         Raises:
             ValueError: If *direction* is zero-length or *up* is
-                parallel to *direction*.
+                parallel to *direction*.  Also if either input
+                contains non-finite values: the zero-length guard
+                above is a ``<`` comparison, which NaN silently fails
+                to trip, so a NaN direction or up vector would
+                otherwise install an all-NaN rotation without
+                raising.
         """
         d = np.asarray(direction, dtype=float)
         u = np.asarray(up, dtype=float)
@@ -578,6 +583,11 @@ class ViewState:
         # Rotation matrix: rows are the camera basis vectors.
         # R maps world coords to camera coords: rotated = R @ world.
         self.rotation = np.array([right, up_actual, fwd])
+        # The zero-length and parallel-up guards above are `<`
+        # comparisons that NaN silently fails to trip, so a NaN
+        # direction or up vector reaches here undetected; validate
+        # what was actually installed rather than trust the guards.
+        self._check_rotation()
         return self
 
     def set_orthographic(self) -> ViewState:

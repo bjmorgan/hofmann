@@ -268,6 +268,21 @@ class TestViewStateLookAlong:
         result = vs.look_along([1, 1, 1])
         assert result is vs
 
+    def test_nan_direction_raises(self):
+        """A NaN direction has zero norm, so the length guard (a `<`
+        comparison) silently fails to trip on NaN and an all-NaN
+        rotation would otherwise install without raising."""
+        vs = ViewState()
+        with pytest.raises(ValueError, match="finite"):
+            vs.look_along([float("nan")] * 3)
+
+    def test_nan_up_raises(self):
+        """A NaN up vector propagates NaN into the cross products and
+        would otherwise install an all-NaN rotation without raising."""
+        vs = ViewState()
+        with pytest.raises(ValueError, match="finite"):
+            vs.look_along([1, 0, 0], up=[float("nan")] * 3)
+
 
 class TestViewStateSlab:
     """Tests for depth-slab clipping on ViewState."""
