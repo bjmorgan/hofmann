@@ -28,9 +28,10 @@ Changelog
 
 - Oblique projection.  Call
   :meth:`~hofmann.ViewState.set_oblique` to draw two axes undistorted
-  in the page plane with the third receding at a chosen angle and
-  foreshortening.  Cell edges and the axes orientation widget follow
-  the projection, so all drawn geometry stays consistent.
+  in the page plane with the third receding at a chosen angle,
+  foreshortened by a chosen factor.  Cell edges and the axes
+  orientation widget follow the projection, so all drawn geometry
+  stays consistent.
 
 - Viewport sizing under perspective now bounds the worst-case
   magnification by the scene bounding radius (including atom radii

@@ -49,7 +49,8 @@ coordinates are mapped onto the 2D page:
   nearer atoms appear larger.
 - :class:`~hofmann.Oblique`: parallel projection with two axes
   undistorted in the plane of the page and the third — the current
-  view direction — receding at a chosen angle and foreshortening.
+  view direction — receding at a chosen angle, foreshortened by a
+  chosen factor.
 
 The mode is set with one of three methods, and the current mode can be
 read from :attr:`~hofmann.ViewState.projection`:
