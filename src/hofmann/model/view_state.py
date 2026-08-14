@@ -116,13 +116,26 @@ def _coerce_finite_array(
 # is declined here.  Validation already runs both at construction and
 # at the point of use for the four fields where a bad post-
 # construction assignment would otherwise fail silently (rotation,
-# centre, zoom, slab), and mutation-testing those checks shows they
-# bite.  Converting the class's fundamental shape is a change
-# unrelated to projection, would need its own review, and would trade
-# away the dataclasses.fields() machinery that the interactive
-# viewer's state copy and "r" (reset) key rely on (see
-# rendering/interactive.py).  Reconsider the trade if a fifth
+# centre, zoom, slab); removing any one of those point-of-use checks
+# fails multiple named tests in test_view_state.py (the
+# test_post_construction_* cases).  Converting the class's fundamental
+# shape is a change unrelated to projection and would need its own
+# review.  It would also trade away the dataclasses.fields() loop
+# that the interactive viewer's "r" (reset) key uses to copy every
+# field from the initial view back onto the live one (see the "r" key
+# handler in rendering/interactive.py) — the state copy taken at the
+# start of an interactive session uses copy.deepcopy instead, so it
+# does not depend on fields(). Reconsider the trade if a fifth
 # validated-mutation site appears.
+#
+# One further consequence of staying a dataclass: a field cannot be
+# annotated with one type on input and another on output, so rotation,
+# centre, and slab_origin stay typed as np.ndarray even though
+# __post_init__ accepts and coerces plain sequences.  Downstream
+# type-checked code must therefore pass arrays, not sequences, despite
+# the runtime being more permissive.  A plain class with property
+# setters is where that asymmetry (Sequence in, ndarray out) would be
+# expressed directly.
 @dataclass(slots=True)
 class ViewState:
     """Camera state for 3D-to-2D projection.
