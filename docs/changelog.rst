@@ -26,12 +26,11 @@ Changelog
   rules, which already operated on every constituent of a mixed
   site.
 
-- Oblique projection.  Set :attr:`~hofmann.ViewState.projection` to
-  an :class:`~hofmann.Oblique`
-  to draw two axes undistorted in the page plane with the third
-  receding at a chosen angle and foreshortening.  Cell edges and the
-  axes orientation widget follow the projection, so all drawn geometry
-  stays consistent.
+- Oblique projection.  Call
+  :meth:`~hofmann.ViewState.set_oblique` to draw two axes undistorted
+  in the page plane with the third receding at a chosen angle and
+  foreshortening.  Cell edges and the axes orientation widget follow
+  the projection, so all drawn geometry stays consistent.
 
 - Viewport sizing under perspective now bounds the worst-case
   magnification by the scene bounding radius (including atom radii
@@ -45,13 +44,16 @@ Changelog
   *view_distance* alone, correcting slightly over-foreshortened bond
   caps at perspective strengths below 1.
 
-- **Breaking:** Projection mode is now selected with a single
-  :attr:`~hofmann.ViewState.projection` field taking
+- **Breaking:** Projection mode is now set with
+  :meth:`~hofmann.ViewState.set_orthographic`,
+  :meth:`~hofmann.ViewState.set_perspective`, or
+  :meth:`~hofmann.ViewState.set_oblique`, and read from a single
+  :attr:`~hofmann.ViewState.projection` field holding an
   :class:`~hofmann.Orthographic` (the default),
-  :class:`~hofmann.Perspective`, or :class:`~hofmann.Oblique`.
+  :class:`~hofmann.Perspective`, or :class:`~hofmann.Oblique` value.
   Perspective strength and viewing distance move onto
-  :class:`~hofmann.Perspective`; the ``perspective``, ``view_distance``,
-  and ``oblique`` attributes are removed.
+  :class:`~hofmann.Perspective`; the ``perspective`` and
+  ``view_distance`` attributes are removed.
 
 0.19.0
 ------

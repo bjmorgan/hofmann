@@ -40,30 +40,31 @@ Zoom
 Projection
 ~~~~~~~~~~
 
-The projection mode is set with :attr:`~hofmann.ViewState.projection`,
-which takes one of three values: :class:`~hofmann.Orthographic` (the
-default), :class:`~hofmann.Perspective`, or :class:`~hofmann.Oblique`.
+The projection mode is set with
+:meth:`~hofmann.ViewState.set_orthographic`,
+:meth:`~hofmann.ViewState.set_perspective`, or
+:meth:`~hofmann.ViewState.set_oblique`.  The current mode can be read
+from :attr:`~hofmann.ViewState.projection`
+(:class:`~hofmann.Orthographic` by default).
 
 Perspective
 ^^^^^^^^^^^
 
 .. code-block:: python
 
-   from hofmann import Orthographic, Perspective
-
-   scene.view.projection = Perspective(0.3)  # Mild perspective
-   scene.view.projection = Orthographic()  # Back to the default
+   scene.view.set_perspective(0.3)  # Mild perspective
+   scene.view.set_orthographic()  # Back to the default
 
 .. list-table::
    :widths: 50 50
 
    * - .. figure:: _static/perovskite_ortho.svg
 
-          Orthographic (``Orthographic()``)
+          Orthographic (``set_orthographic()``)
 
      - .. figure:: _static/perovskite_perspective.svg
 
-          Perspective (``Perspective(0.5)``)
+          Perspective (``set_perspective(0.5)``)
 
 Oblique
 ^^^^^^^
@@ -72,9 +73,7 @@ An oblique projection draws two axes undistorted in the
 plane of the page, with the third receding at a chosen angle and
 foreshortening::
 
-   from hofmann import Oblique
-
-   scene.view.projection = Oblique(angle=35.0, foreshortening=0.6)
+   scene.view.set_oblique(angle=35.0, foreshortening=0.6)
 
 .. list-table::
    :widths: 50 50
@@ -85,7 +84,7 @@ foreshortening::
 
      - .. figure:: _static/perovskite_oblique.svg
 
-          Oblique(angle=35.0, foreshortening=0.6), same camera
+          ``set_oblique(angle=35.0, foreshortening=0.6)``, same camera
 
 The axis that recedes is the current view direction.
 

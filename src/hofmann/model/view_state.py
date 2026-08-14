@@ -97,8 +97,11 @@ class ViewState:
         rotation: 3x3 rotation matrix.
         zoom: Magnification factor.
         centre: 3D point about which to centre the view.
-        projection: Projection mode: :class:`Orthographic` (default),
-            :class:`Perspective`, or :class:`Oblique`.
+        projection: The current projection mode:
+            :class:`Orthographic` (default), :class:`Perspective`, or
+            :class:`Oblique`.  Set with :meth:`set_orthographic`,
+            :meth:`set_perspective`, or :meth:`set_oblique`, or by
+            assigning a mode value directly.
         slab_origin: 3D point defining the slab reference depth, or
             ``None`` to use *centre*.
         slab_near: Near offset from the slab origin depth (negative =
@@ -442,4 +445,52 @@ class ViewState:
         # Rotation matrix: rows are the camera basis vectors.
         # R maps world coords to camera coords: rotated = R @ world.
         self.rotation = np.array([right, up_actual, fwd])
+        return self
+
+    def set_orthographic(self) -> ViewState:
+        """Switch to orthographic projection.
+
+        Returns:
+            ``self``, so callers can chain with :meth:`look_along`.
+        """
+        self.projection = Orthographic()
+        return self
+
+    def set_perspective(
+        self, strength: float = 0.5, view_distance: float = 10.0,
+    ) -> ViewState:
+        """Switch to perspective projection.
+
+        Args:
+            strength: Perspective strength; see :class:`Perspective`.
+            view_distance: Perspective scale reference; see
+                :class:`Perspective`.
+
+        Returns:
+            ``self``, so callers can chain with :meth:`look_along`.
+
+        Raises:
+            ValueError: If either parameter is invalid; see
+                :class:`Perspective`.
+        """
+        self.projection = Perspective(strength, view_distance)
+        return self
+
+    def set_oblique(self, angle: float, foreshortening: float) -> ViewState:
+        """Switch to oblique projection.
+
+        Args:
+            angle: On-screen direction of the receding axis; see
+                :class:`Oblique`.
+            foreshortening: Scale factor for the receding axis; see
+                :class:`Oblique`.
+
+        Returns:
+            ``self``, so callers can chain with :meth:`look_along`.
+
+        Raises:
+            ValueError: If either parameter is invalid; see
+                :class:`Oblique`.
+        """
+        self.projection = Oblique(angle, foreshortening)
         return self

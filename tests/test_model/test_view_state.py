@@ -321,6 +321,52 @@ class TestViewStateValidation:
 class TestViewStateProjection:
     """Tests for the projection field."""
 
+    def test_set_orthographic(self):
+        vs = ViewState(projection=Perspective(0.5, 10.0))
+        result = vs.set_orthographic()
+        assert result is vs
+        assert vs.projection == Orthographic()
+
+    def test_set_perspective(self):
+        vs = ViewState()
+        result = vs.set_perspective(strength=0.3, view_distance=12.0)
+        assert result is vs
+        assert vs.projection == Perspective(0.3, 12.0)
+
+    def test_set_perspective_defaults_match_class(self):
+        """The setter's defaults must mirror Perspective's, so the two
+        spellings cannot drift apart."""
+        import inspect
+        from dataclasses import fields as dc_fields
+
+        sig = inspect.signature(ViewState.set_perspective)
+        class_defaults = {f.name: f.default for f in dc_fields(Perspective)}
+        for name, param in sig.parameters.items():
+            if name == "self":
+                continue
+            assert param.default == class_defaults[name]
+
+    def test_set_oblique(self):
+        vs = ViewState()
+        result = vs.set_oblique(angle=35.0, foreshortening=0.6)
+        assert result is vs
+        assert vs.projection == Oblique(35.0, 0.6)
+
+    def test_set_oblique_parameters_required(self):
+        """Mirrors Oblique itself: no default angle or foreshortening."""
+        with pytest.raises(TypeError):
+            ViewState().set_oblique()
+
+    def test_setters_chain_with_look_along(self):
+        vs = ViewState().look_along([0, -1, 0]).set_oblique(35.0, 0.6)
+        assert vs.projection == Oblique(35.0, 0.6)
+
+    def test_setters_validate_through_the_classes(self):
+        with pytest.raises(ValueError, match="strength"):
+            ViewState().set_perspective(strength=0.0)
+        with pytest.raises(ValueError, match="finite"):
+            ViewState().set_oblique(angle=float("nan"), foreshortening=0.5)
+
     def test_default_is_orthographic(self):
         assert ViewState().projection == Orthographic()
 

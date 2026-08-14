@@ -105,11 +105,9 @@ scene.render_mpl("si.pdf")
 ### Controlling the view
 
 ```python
-from hofmann import Perspective
-
-scene.view.look_along([1, 1, 0])           # View along [110]
-scene.view.zoom = 1.5                      # Zoom in
-scene.view.projection = Perspective(0.3)   # Mild perspective
+scene.view.look_along([1, 1, 0])   # View along [110]
+scene.view.zoom = 1.5              # Zoom in
+scene.view.set_perspective(0.3)    # Mild perspective
 scene.render_mpl("rotated.svg")
 ```
 
