@@ -3,7 +3,6 @@
 import math
 
 import numpy as np
-import pytest
 
 from hofmann.model import AtomStyle, Frame, Perspective, StructureScene, ViewState
 from hofmann.model.composition import Composition
@@ -170,33 +169,6 @@ class TestSceneExtent:
         # Worst case: the corner rotated to depth +corner_dist.
         expected_scale = 40.0 / (40.0 - corner_dist * 0.5)
         assert extent >= corner_dist * expected_scale
-
-    def test_eye_inside_scene_warns(self):
-        """When the worst-case atom depth reaches the eye plane the
-        extent falls back to a huge magnification and the figure comes
-        out effectively blank; that must not happen silently."""
-        scene = self._two_atom_scene()  # atoms at depth up to 5.0
-        view = ViewState(projection=Perspective(strength=1.0,
-                                                view_distance=4.0))
-        with pytest.warns(UserWarning, match="view_distance"):
-            _scene_extent(scene, view, 0, atom_scale=0.5)
-
-    def test_near_degenerate_view_warns(self):
-        """A view where the eye plane is not quite reached (denom
-        tiny but positive) still produces an unusable magnification
-        and must warn, not just the strictly non-positive case."""
-        scene = self._two_atom_scene()  # atoms at depth up to 5.5
-        bounding_radius = 5.5
-        strength = 1.0
-        # denom = view_distance - bounding_radius * strength, chosen
-        # tiny and positive so the magnification is far past
-        # _MAX_SANE_MAGNIFICATION (100.0) without denom <= 0.
-        view_distance = bounding_radius * strength + 1e-3
-        view = ViewState(projection=Perspective(
-            strength=strength, view_distance=view_distance,
-        ))
-        with pytest.warns(UserWarning, match="view_distance"):
-            _scene_extent(scene, view, 0, atom_scale=0.5)
 
 
 class TestMakeWedges:

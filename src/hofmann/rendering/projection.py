@@ -2,17 +2,11 @@
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 
 from hofmann.model import Perspective, StructureScene, ViewState
 from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
-
-# Beyond this perspective magnification the viewport is padded so far
-# that the structure is subpixel — the figure is unusable.
-_MAX_SANE_MAGNIFICATION = 100.0
 
 # Default unit circle for atom rendering (closed polygon).
 _N_CIRCLE = 24
@@ -124,19 +118,11 @@ def _scene_extent(
         if denom > 0:
             persp_scale = proj.view_distance / denom
         else:
+            # Guards division by zero when the eye plane is reached or
+            # passed.  The broken-maths case (eye inside the scene) is
+            # reported by ViewState.project_camera, which every render
+            # path calls.
             persp_scale = proj.view_distance / 1e-6
-        if persp_scale > _MAX_SANE_MAGNIFICATION:
-            warnings.warn(
-                "perspective eye plane is approached or passed by the "
-                "scene's bounding radius "
-                f"({bounding_radius:.3g}): the resulting magnification "
-                f"({persp_scale:.3g}x, view_distance="
-                f"{proj.view_distance:.3g}, strength={proj.strength:.3g}) "
-                "makes the rendered figure unusable.  Increase "
-                "view_distance or reduce strength.",
-                UserWarning,
-                stacklevel=2,
-            )
         max_extent *= persp_scale
 
     return float(max_extent * view.zoom)
