@@ -116,6 +116,20 @@ def _scene_extent(
     if isinstance(proj, Perspective):
         denom = proj.view_distance - max_extent * proj.strength
         if denom > 0:
+            # As the effective eye approaches the scene's bounding
+            # sphere (denom -> 0+), persp_scale grows without bound,
+            # and the interactive viewport follows it: the scene can
+            # shrink to a fraction of the window, with a pan step far
+            # larger than the scene, before snapping back to no
+            # allowance at all once denom <= 0 (the else branch
+            # below).  This is a known, accepted rough edge, not
+            # clamped: a clamp would reintroduce exactly the magic
+            # magnification threshold that an earlier commit removed.
+            # The alternative fix — sizing the viewport from the
+            # current rotation's actual depths rather than this
+            # rotation-invariant bound — would change interactive
+            # framing behaviour and belongs in its own change,
+            # alongside near-plane clipping.
             persp_scale = proj.view_distance / denom
         else:
             # The effective eye lies inside the scene's bounding
