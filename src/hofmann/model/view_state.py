@@ -179,12 +179,16 @@ class ViewState:
             raise ValueError(
                 f"slab_far must be finite, got {self.slab_far}"
             )
-        if self.slab_origin is not None and not np.isfinite(
-            self.slab_origin
-        ).all():
-            raise ValueError(
-                f"slab_origin must be finite, got {self.slab_origin}"
-            )
+        if self.slab_origin is not None:
+            if self.slab_origin.shape != (3,):
+                raise ValueError(
+                    "slab_origin must have shape (3,), got "
+                    f"{self.slab_origin.shape}"
+                )
+            if not np.isfinite(self.slab_origin).all():
+                raise ValueError(
+                    f"slab_origin must be finite, got {self.slab_origin}"
+                )
 
     def _checked_projection(self) -> Orthographic | Perspective | Oblique:
         """Return :attr:`projection`, raising if it is not a valid mode."""

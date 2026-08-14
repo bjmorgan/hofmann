@@ -387,6 +387,15 @@ class TestViewStateValidation:
         vs = ViewState(zoom=2.0, projection=Perspective(view_distance=15.0))
         assert vs.zoom == 2.0
 
+    def test_slab_origin_shape_rejected(self):
+        """A wrong-shape slab origin would otherwise broadcast against
+        *centre* and silently produce a reference depth per component
+        instead of one for the scene."""
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(slab_origin=np.array([[0.0], [0.0], [1.0]]))
+        with pytest.raises(ValueError, match="shape"):
+            ViewState(slab_origin=np.array([0.0, 1.0]))
+
     def test_non_finite_scalars_rejected(self):
         for bad in (float("nan"), float("inf")):
             with pytest.raises(ValueError, match="finite"):
