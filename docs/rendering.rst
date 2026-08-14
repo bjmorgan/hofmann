@@ -40,10 +40,17 @@ Zoom
 Projection
 ~~~~~~~~~~
 
-There are three projection modes.  Orthographic — parallel projection
-with no foreshortening — is the default; perspective converges towards
-an eye point; oblique draws two axes undistorted in the plane of the
-page, with the third receding at a chosen angle and foreshortening.
+hofmann provides three projection modes, which determine how 3D
+coordinates are mapped onto the 2D page:
+
+- :class:`~hofmann.Orthographic` (the default): parallel projection
+  with no foreshortening.
+- :class:`~hofmann.Perspective`: projection towards an eye point, so
+  nearer atoms appear larger.
+- :class:`~hofmann.Oblique`: parallel projection with two axes
+  undistorted in the plane of the page and the third receding at a
+  chosen angle and foreshortening.
+
 The mode is set with one of three methods, and the current mode can be
 read from :attr:`~hofmann.ViewState.projection`:
 
