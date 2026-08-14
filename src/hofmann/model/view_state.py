@@ -144,10 +144,6 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
-    # Validation rejects only what has no interpretation as a
-    # transform: wrong shape, non-finite entries, or a singular
-    # matrix.  Non-orthonormal and negative-determinant matrices
-    # are accepted and applied as given.
     rotation: np.ndarray = field(
         default_factory=lambda: np.eye(3, dtype=float)
     )

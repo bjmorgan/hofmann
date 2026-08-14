@@ -116,8 +116,6 @@ def _scene_extent(
     if isinstance(proj, Perspective):
         denom = proj.view_distance - max_extent * proj.strength
         if denom > 0:
-            # persp_scale is unbounded as denom -> 0+ and is not
-            # clamped.
             persp_scale = proj.view_distance / denom
         else:
             # No bounded magnification exists once the eye reaches
