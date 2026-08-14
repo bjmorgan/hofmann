@@ -110,12 +110,15 @@ class ViewState:
             closer to camera), or ``None`` for no far limit.
     """
 
-    # Shape and finiteness of `rotation` are validated (see
-    # _check_rotation); orthonormality is not: doing so needs a
+    # _check_rotation enforces shape (3, 3), finiteness, and full
+    # rank; orthonormality is not enforced: doing so needs a
     # tolerance policy, and look_along produces exact bases, so a
     # threshold would only add a way for legitimate rotations to be
     # rejected without catching anything look_along wouldn't already
-    # get right.
+    # get right.  Rank deficiency needs no such tolerance policy — it
+    # is an exact test — and left unchecked it collapses depth or
+    # position outright (e.g. the zero matrix maps every atom to the
+    # origin).
     rotation: np.ndarray = field(
         default_factory=lambda: np.eye(3, dtype=float)
     )
@@ -156,7 +159,7 @@ class ViewState:
 
     def _check_rotation(self) -> None:
         """Raise ``ValueError`` unless :attr:`rotation` has shape
-        ``(3, 3)`` and is finite.
+        ``(3, 3)``, is finite, and is full rank.
 
         Orthonormality is not checked; see the class-level comment.
         """
@@ -167,6 +170,10 @@ class ViewState:
         if not np.isfinite(self.rotation).all():
             raise ValueError(
                 f"rotation must be finite, got {self.rotation}"
+            )
+        if np.linalg.matrix_rank(self.rotation) < 3:
+            raise ValueError(
+                f"rotation must be full rank, got {self.rotation}"
             )
 
     def _check_slab(self) -> None:

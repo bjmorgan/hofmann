@@ -431,6 +431,19 @@ class TestViewStateValidation:
             with pytest.raises(ValueError, match="finite"):
                 ViewState(rotation=rotation)
 
+    def test_zero_rotation_rejected(self):
+        """The all-zero matrix has rank 0: it collapses every atom to
+        the origin, but passes the shape and finiteness checks."""
+        with pytest.raises(ValueError, match="rank"):
+            ViewState(rotation=np.zeros((3, 3)))
+
+    def test_rank_deficient_rotation_rejected(self):
+        """A rank-2 matrix flattens all depth to zero, destroying
+        painter ordering, but still has the right shape and is
+        finite."""
+        with pytest.raises(ValueError, match="rank"):
+            ViewState(rotation=np.diag([1.0, 1.0, 0.0]))
+
     def test_post_construction_nan_rotation_raises_on_use(self):
         """Assigning rotation after construction bypasses
         __post_init__; rotation is reassigned on every drag frame, so
