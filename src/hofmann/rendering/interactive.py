@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import copy
 import time
-from collections.abc import Callable
 from dataclasses import fields, replace
 from typing import Any
 
@@ -85,96 +84,6 @@ f          Frame indicator g             Go to frame
 s          Set step size
 h          Toggle help     Scroll        Zoom
 Drag       Rotate"""
-
-
-def _stronger_perspective(proj: Perspective) -> Perspective:
-    """One step towards a true pinhole, capped at full strength.
-
-    Args:
-        proj: The current perspective projection.
-
-    Returns:
-        The strengthened projection.
-    """
-    return replace(
-        proj, strength=min(1.0, proj.strength + _PERSPECTIVE_STEP),
-    )
-
-
-def _weaker_perspective(proj: Perspective) -> Orthographic | Perspective:
-    """One step towards a parallel projection.
-
-    The final step lands on :class:`Orthographic` rather than on a
-    vanishing strength: repeated addition and subtraction of
-    :data:`_PERSPECTIVE_STEP` leaves a float residue, and
-    :data:`_PERSPECTIVE_FLOOR` absorbs it, so descending the ladder
-    never strands on ``Perspective(strength=1e-17)``.
-
-    Args:
-        proj: The current perspective projection.
-
-    Returns:
-        The weakened projection, or :class:`Orthographic` at the
-        bottom of the ladder.
-    """
-    strength = proj.strength - _PERSPECTIVE_STEP
-    if strength > _PERSPECTIVE_FLOOR:
-        return replace(proj, strength=strength)
-    return Orthographic()
-
-
-def _longer_view_distance(proj: Perspective) -> Perspective:
-    """One step out along the reference view distance.
-
-    Args:
-        proj: The current perspective projection.
-
-    Returns:
-        The projection with its view distance increased.
-    """
-    return replace(
-        proj, view_distance=proj.view_distance * _DISTANCE_FACTOR,
-    )
-
-
-def _shorter_view_distance(proj: Perspective) -> Perspective:
-    """One step in along the reference view distance.
-
-    Args:
-        proj: The current perspective projection.
-
-    Returns:
-        The projection with its view distance reduced, held at
-        :data:`_MIN_VIEW_DISTANCE` at the near end.
-    """
-    return replace(
-        proj,
-        view_distance=max(
-            _MIN_VIEW_DISTANCE, proj.view_distance / _DISTANCE_FACTOR,
-        ),
-    )
-
-
-def _adjust_perspective(
-    view: ViewState,
-    adjust: Callable[[Perspective], Orthographic | Perspective],
-) -> str:
-    """Apply *adjust* to *view*'s projection if it is a perspective one.
-
-    Args:
-        view: The view to mutate.
-        adjust: Maps the current perspective to its replacement.
-
-    Returns:
-        ``"extent"`` when the projection was replaced, ``"none"``
-        under a projection that has no perspective to adjust.
-    """
-    match view.projection:
-        case Perspective() as proj:
-            view.projection = adjust(proj)
-            return "extent"
-        case _:
-            return "none"
 
 
 def _apply_key_action(
@@ -269,17 +178,51 @@ def _apply_key_action(
     elif key == "p":
         match view.projection:
             case Perspective() as proj:
-                view.projection = _stronger_perspective(proj)
+                view.projection = replace(
+                    proj,
+                    strength=min(1.0, proj.strength + _PERSPECTIVE_STEP),
+                )
             case _:
                 # Mode switch: any other projection is replaced whole.
                 view.projection = Perspective(strength=_PERSPECTIVE_STEP)
         return "extent"
     elif key == "P":
-        return _adjust_perspective(view, _weaker_perspective)
+        match view.projection:
+            case Perspective() as proj:
+                weaker = proj.strength - _PERSPECTIVE_STEP
+                # The floor absorbs the residue left by repeated
+                # stepping, so the descent reaches Orthographic rather
+                # than stranding just above zero.
+                view.projection = (
+                    replace(proj, strength=weaker)
+                    if weaker > _PERSPECTIVE_FLOOR
+                    else Orthographic()
+                )
+            case _:
+                return "none"
+        return "extent"
     elif key == "d":
-        return _adjust_perspective(view, _longer_view_distance)
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj, view_distance=proj.view_distance * _DISTANCE_FACTOR,
+                )
+            case _:
+                return "none"
+        return "extent"
     elif key == "D":
-        return _adjust_perspective(view, _shorter_view_distance)
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj,
+                    view_distance=max(
+                        _MIN_VIEW_DISTANCE,
+                        proj.view_distance / _DISTANCE_FACTOR,
+                    ),
+                )
+            case _:
+                return "none"
+        return "extent"
 
     # -- Style toggles (no recomputation needed) --
     elif key == "b":
