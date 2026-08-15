@@ -187,8 +187,8 @@ class ViewState:
 
         Coerces :attr:`rotation` to an ndarray first, so a plain
         nested sequence is accepted and stored back as an array.
-        Orthonormality is not checked, and neither is the sign of the
-        determinant; see the class-level comment.
+        Neither orthonormality nor the sign of the determinant is
+        checked.
         """
         self.rotation = _coerce_finite_array(self.rotation, (3, 3), "rotation")
         if np.linalg.matrix_rank(self.rotation) < 3:

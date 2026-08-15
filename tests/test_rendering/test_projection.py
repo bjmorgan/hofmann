@@ -168,8 +168,7 @@ class TestSceneExtent:
         goes non-positive and no bounded rotation-invariant
         magnification exists.  The viewport must fall back to the
         unmagnified scene bound (content is clipped, which is honest
-        and navigable) rather than fabricate a huge one from dividing
-        by a 1e-6 floor."""
+        and navigable)."""
         n = 36
         xs, ys = np.meshgrid(
             np.linspace(-n / 2, n / 2, n), np.linspace(-n / 2, n / 2, n),
@@ -196,12 +195,10 @@ class TestSceneExtent:
         assert extent == bounding_radius
 
     def test_eye_inside_scene_bounding_sphere_does_not_warn(self):
-        """The fallback's docstring commits to silence here: the
-        camera position is legitimate, and the genuinely false
-        output (atoms drawn mirrored) is reported separately by
-        ViewState.project_camera when it actually occurs.  Pin that
-        commitment directly, rather than relying on the extent value
-        alone to imply it."""
+        """The fallback is silent: the camera position is legitimate,
+        and the genuinely false output (atoms drawn mirrored) is
+        reported separately by ViewState.project_camera when it
+        actually occurs."""
         n = 36
         xs, ys = np.meshgrid(
             np.linspace(-n / 2, n / 2, n), np.linspace(-n / 2, n / 2, n),

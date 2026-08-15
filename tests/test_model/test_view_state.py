@@ -156,7 +156,7 @@ class TestViewStateProject:
     def test_sphere_containing_effective_eye_warns(self):
         """When a sphere's radius (scaled by strength) reaches the
         eye-to-atom distance, the effective eye lies inside the
-        sphere and the 1e-12 clamp yields an absurd radius; that must
+        sphere and the 1e-6 clamp yields an absurd radius; that must
         not happen silently."""
         vs = ViewState(projection=Perspective(1.0, 5.0))
         coords = np.array([[0.0, 0.0, 0.0]])
