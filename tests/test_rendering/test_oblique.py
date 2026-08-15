@@ -103,9 +103,8 @@ class TestCellEdgesShearConsistently:
             plt.close(fig)
 
     def test_corner_endpoints_match_projection_perspective(self):
-        """Same agreement property under perspective: pins the
-        rewritten cell-edge projection path for perspective views,
-        which previously had no integration coverage."""
+        """Same agreement property under perspective: the drawn
+        cell-edge endpoints match ViewState.project."""
         lattice = np.diag([3.0, 4.0, 5.0])
         scene = _make_scene(lattice)
         scene.view = ViewState(projection=Perspective(0.5, 30.0))
@@ -213,19 +212,13 @@ class TestWidgetViewportExpansion:
 
         # A margin well above floating-point noise (~1e-16 from the
         # multiply-then-divide in the ratio) but far below the real
-        # gap between the two projections (~0.02), so a formula that
-        # collapses the two ratios to equal cannot pass by rounding
-        # luck.
+        # gap between the two projections (~0.02).
         assert oblique_ratio > orthographic_ratio + 1e-6
 
         # Magnitude, not just direction: the widget-on/widget-off
-        # ratio is 1 + 0.5 * (margin + 2 * arrow_length * bound), so
-        # it is predictable from AxesStyle's own margin and
-        # arrow_length plus each view's screen_scale_bound — without
-        # restating painter's pad_x/atom-extent layout.  Halving the
-        # expansion would still grow with screen_scale_bound (passing
-        # the assertion above) but would no longer match this
-        # prediction.
+        # ratio is 1 + 0.5 * (margin + 2 * arrow_length * bound),
+        # predictable from AxesStyle's own margin and arrow_length
+        # plus each view's screen_scale_bound.
         axes_style = AxesStyle()
 
         def predicted_ratio(view: ViewState) -> float:
@@ -316,25 +309,21 @@ class TestBondJunctionsShearConsistently:
             np.sin(np.linspace(0.0, np.pi, 13)),
         ])
 
-        vs_new = ViewState(projection=Oblique(35.0, 0.6))
-        vs_old = ViewState()
-        vs_old.rotation = shear  # the pre-oblique workaround route
+        vs_oblique = ViewState(projection=Oblique(35.0, 0.6))
+        vs_manual_shear = ViewState()
+        vs_manual_shear.rotation = shear
 
         outputs = []
-        for vs in (vs_new, vs_old):
+        for vs in (vs_oblique, vs_manual_shear):
             rotated = (coords - vs.centre) @ vs.rotation.T
             xy, _, screen_radii = vs.project(coords, radii)
             outputs.append(_bond_polygons_batch(
                 rotated, xy, radii, screen_radii,
                 bond_ia, bond_ib, bond_radii, vs, arc,
             ))
-        # Exact equality holds (verified: no BLAS shape-dependent
-        # rounding difference between the (3,3) and (3,2) matmul
-        # routes for this construction), so pin it exactly rather
-        # than with a tolerance.
-        for new_part, old_part in zip(outputs[0], outputs[1]):
+        for oblique_part, shear_part in zip(outputs[0], outputs[1]):
             np.testing.assert_array_equal(
-                np.asarray(new_part), np.asarray(old_part)
+                np.asarray(oblique_part), np.asarray(shear_part)
             )
 
     def test_bond_polygons_match_manual_shear_route_near_occlusion_boundary(self):
@@ -377,25 +366,26 @@ class TestBondJunctionsShearConsistently:
             np.sin(np.linspace(0.0, np.pi, 13)),
         ])
 
-        vs_new = ViewState(projection=Oblique(35.0, f))
-        vs_old = ViewState()
-        vs_old.rotation = shear
+        vs_oblique = ViewState(projection=Oblique(35.0, f))
+        vs_manual_shear = ViewState()
+        vs_manual_shear.rotation = shear
 
         outputs = []
-        for vs in (vs_new, vs_old):
+        for vs in (vs_oblique, vs_manual_shear):
             rotated = (coords - vs.centre) @ vs.rotation.T
             xy, _, screen_radii = vs.project(coords, radii)
             outputs.append(_bond_polygons_batch(
                 rotated, xy, radii, screen_radii,
                 bond_ia, bond_ib, bond_radii, vs, arc,
             ))
-        for new_part, old_part in zip(outputs[0], outputs[1]):
+        for oblique_part, shear_part in zip(outputs[0], outputs[1]):
             np.testing.assert_array_equal(
-                np.asarray(new_part), np.asarray(old_part)
+                np.asarray(oblique_part), np.asarray(shear_part)
             )
 
     def test_receding_bond_starts_at_silhouette_not_centre(self):
-        """Symptom pin: before the fix this offset was exactly 0."""
+        """A bond receding along the camera axis starts at the atom's
+        drawn silhouette edge, not at its projected centre."""
         coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -3.0]])
         radii = np.array([0.8, 0.8])
         vs = ViewState(projection=Oblique(35.0, 0.6))

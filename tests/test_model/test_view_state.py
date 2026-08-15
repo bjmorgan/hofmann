@@ -164,18 +164,14 @@ class TestViewStateProject:
         with pytest.warns(UserWarning, match="view_distance"):
             _, _, proj_r = vs.project(coords, radii)
         # abs_d - rs = 0 here, so sqrt_lo * sqrt_hi = 0 exactly and the
-        # denominator is clamped to the 1e-6 floor: pin the radius
-        # that floor produces (r * D / 1e-6 * zoom = 5 * 5 / 1e-6),
-        # so a change to the clamp's magnitude is caught rather than
-        # merely tolerated by every test in the suite.
+        # denominator is clamped to the 1e-6 floor: the radius that
+        # floor produces is r * D / 1e-6 * zoom = 5 * 5 / 1e-6.
         np.testing.assert_allclose(proj_r, [25_000_000.0])
 
     def test_no_sphere_warning_for_normal_scene(self):
         """A normal perspective scene — atoms well in front of the
         eye, small radii relative to their eye distance — must not
-        emit the sphere-contains-eye warning.  A mutated condition
-        that fires on every forward-facing atom would otherwise
-        survive the suite silently."""
+        emit the sphere-contains-eye warning."""
         vs = ViewState(projection=Perspective(0.5, 10.0))
         coords = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 2.0]])
         radii = np.array([0.3, 0.4])
@@ -591,12 +587,9 @@ class TestViewStateValidation:
 
     def test_post_construction_wrong_shape_centre_raises_on_use(self):
         """centre is reassigned on every pan keypress; validated at
-        construction but not at point of use.  A (2,) centre would
-        otherwise reach ``coords - self.centre`` and fail via numpy's
-        own broadcast ValueError instead of our check — the match
-        pattern below requires the field name, which numpy's generic
-        "operands could not be broadcast together" message lacks, so
-        it distinguishes our check from that accidental pass."""
+        construction but not at point of use.  The match pattern
+        requires the field name, which numpy's own broadcast
+        ValueError from ``coords - self.centre`` does not carry."""
         vs = ViewState()
         vs.centre = np.array([0.0, 1.0])
         with pytest.raises(ValueError, match="centre.*shape"):
@@ -690,13 +683,13 @@ class TestViewStateProjection:
     def test_default_is_orthographic(self):
         assert ViewState().projection == Orthographic()
 
-    def test_removed_field_assignment_raises(self):
+    def test_unknown_attribute_assignment_raises(self):
         """slots keeps the break loud: no silent inert attribute."""
         vs = ViewState()
         with pytest.raises(AttributeError):
             vs.perspective = 0.3
 
-    def test_removed_field_kwarg_raises(self):
+    def test_unknown_constructor_kwarg_raises(self):
         with pytest.raises(TypeError):
             ViewState(perspective=0.5)
 
@@ -814,10 +807,8 @@ class TestViewStateProjectCamera:
             vs.project_camera(camera)
 
     def test_scale_not_clamped_at_or_behind_eye_plane(self):
-        """The docstring promises inf or negative scales rather than a
-        clamp when a point lies at or behind the eye plane; a clamp
-        (e.g. to zero, or to the largest finite scale) would survive
-        unless pinned here."""
+        """A point at or behind the eye plane yields an infinite or
+        negative scale; the scale is never clamped."""
         vs = ViewState(projection=Perspective(1.0, 5.0))
         # depth=5 -> denom=0 -> scale=inf; depth=8 -> denom=-3 -> scale<0.
         camera = np.array([[0.0, 0.0, 5.0], [0.0, 0.0, 8.0]])
@@ -910,9 +901,9 @@ class TestViewStateProjectOblique:
             )
 
     def test_reproduces_manual_shear_figure(self):
-        """The new API must reproduce the published figure's shear
-        matrix (fig_p3121_legend.py in data_nbo2f_chirality): camera
-        along [0, -1, 0], receding axis at 35 degrees, f = 0.6.
+        """Oblique reproduces the published figure's shear matrix
+        (fig_p3121_legend.py in data_nbo2f_chirality): camera along
+        [0, -1, 0], receding axis at 35 degrees, f = 0.6.
 
         The shear's depth row is [0, -1, 0], so the camera sits on
         the -y side: look_along([0, 1, 0]) does NOT match (it mirrors
@@ -935,8 +926,7 @@ class TestViewStateProjectOblique:
         np.testing.assert_allclose(xy, expected_xy, atol=1e-14)
         np.testing.assert_array_equal(depth, expected_depth)
 
-        # Guard: the wrong camera (the one the original working note
-        # proposed) must not match.
+        # Guard: the opposite camera direction must not match.
         vs_wrong = ViewState(projection=Oblique(35.0, 0.6))
         vs_wrong.look_along([0, 1, 0])
         xy_wrong, depth_wrong, _ = vs_wrong.project(pts)

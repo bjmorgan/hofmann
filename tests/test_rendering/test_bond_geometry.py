@@ -311,8 +311,8 @@ class TestBondPolygonsBatch:
         positions agree exactly (verified separately, since
         ``D / (D - z*s)`` is unchanged by scaling *D* and *s*
         together).  Bond junction geometry — which is what this test
-        targets — must therefore agree too.  Pre-fix, the junction
-        eye used *view_distance* alone and the two disagreed.
+        targets — must therefore agree too, so the junction eye must
+        be placed at ``view_distance / strength``.
         """
         coords = np.array([[0.0, 0.0, 2.0], [1.5, 0.5, -1.0]])
         radii = np.array([0.8, 0.8])

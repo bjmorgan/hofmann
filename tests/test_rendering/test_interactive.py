@@ -464,8 +464,8 @@ class TestKeyActions:
         assert kind == "extent"
 
     def test_reset_restores_slab_fields(self):
-        """The generic restore must cover every field — the old
-        hand-enumerated restore silently dropped the slab settings."""
+        """The restore must cover every field, slab settings
+        included."""
         view, style, state, _ = _key_action_fixtures()
         view.slab_near = -1.0
         view.slab_far = 2.0
