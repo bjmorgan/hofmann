@@ -79,6 +79,33 @@ class Oblique:
             )
 
 
+#: Floor on the perspective silhouette denominator, bounding the
+#: projected radius of a sphere that contains the effective eye.
+_MIN_SILHOUETTE_DENOM = 1e-6
+
+
+def _sqrt_difference_of_squares(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Compute ``sqrt(a**2 - b**2)`` without overflowing for large *a*.
+
+    Squaring first overflows float64 for *a* beyond about ``1.3e154``,
+    and so does the product ``(a - b) * (a + b)``; the result collapses
+    silently to infinity and then to a zero or NaN radius.
+    Square-rooting each factor before multiplying keeps every
+    intermediate in range.
+
+    Requires ``a >= b >= 0``.  A smaller *a* is clamped, giving zero
+    rather than NaN.
+
+    Args:
+        a: The larger magnitude.
+        b: The smaller magnitude.
+
+    Returns:
+        ``sqrt(a**2 - b**2)``, elementwise.
+    """
+    return np.sqrt(np.maximum(a - b, 0.0)) * np.sqrt(a + b)
+
+
 def _coerce_finite_array(
     value: ArrayLike, shape: tuple[int, ...], name: str,
 ) -> np.ndarray:
@@ -428,13 +455,10 @@ class ViewState:
                 case Perspective() as p:
                     # Eye-to-atom distance along z.
                     d = p.view_distance - depth * p.strength
-                    # Silhouette radius: r * D / sqrt(d^2 - (r*s)^2) —
-                    # the pinhole at D/s.
-                    # Exactly the condition under which the clamp
-                    # below bites: |d| <= r*s.  Atoms behind the eye
-                    # plane have a large negative d and a safe
-                    # denominator; project_camera reports those.
-                    if np.any(np.abs(d) <= radii * p.strength):
+                    abs_d = np.abs(d)
+                    rs = radii * p.strength
+                    eye_inside_sphere = np.any(abs_d <= rs)
+                    if eye_inside_sphere:
                         warnings.warn(
                             "one or more spheres contain the effective "
                             "perspective eye "
@@ -445,23 +469,14 @@ class ViewState:
                             UserWarning,
                             stacklevel=2,
                         )
-                    # sqrt(|d|**2 - rs**2) computed as
-                    # sqrt(|d| - rs) * sqrt(|d| + rs) rather than
-                    # sqrt((|d| - rs) * (|d| + rs)): squaring (or
-                    # multiplying two same-magnitude huge factors)
-                    # overflows for |d| beyond ~1.3e154, silently
-                    # collapsing the silhouette radius to zero;
-                    # square-rooting each factor before multiplying
-                    # keeps every intermediate within range.  abs(d)
-                    # is equivalent to d for this formula since only
-                    # d**2 appears in the original; it also keeps the
-                    # two clamped factors non-negative regardless of
-                    # d's sign.
-                    abs_d = np.abs(d)
-                    rs = radii * p.strength
-                    sqrt_lo = np.sqrt(np.maximum(abs_d - rs, 0.0))
-                    sqrt_hi = np.sqrt(abs_d + rs)
-                    denom = np.maximum(sqrt_lo * sqrt_hi, 1e-6)
+                    # Silhouette radius: r * D / sqrt(d^2 - (r*s)^2) —
+                    # the pinhole at D/s.  Atoms behind the eye plane
+                    # have a large negative d and so a safe
+                    # denominator; project_camera reports those.
+                    denom = np.maximum(
+                        _sqrt_difference_of_squares(abs_d, rs),
+                        _MIN_SILHOUETTE_DENOM,
+                    )
                     projected_radii = (
                         radii * p.view_distance / denom * self.zoom
                     )

@@ -7,11 +7,35 @@ import numpy as np
 import pytest
 
 from hofmann.model.view_state import (
+    _MIN_SILHOUETTE_DENOM,
     Oblique,
     Orthographic,
     Perspective,
     ViewState,
+    _sqrt_difference_of_squares,
 )
+
+
+class TestSqrtDifferenceOfSquares:
+    def test_matches_the_naive_formula_in_range(self):
+        a = np.array([5.0, 1.0, 1e8])
+        b = np.array([3.0, 0.0, 1.0])
+        np.testing.assert_allclose(
+            _sqrt_difference_of_squares(a, b), np.sqrt(a**2 - b**2),
+        )
+
+    def test_stays_finite_where_squaring_overflows(self):
+        """Beyond about 1.3e154 both a**2 and (a - b) * (a + b) overflow
+        float64, so the result must not be computed through either."""
+        a = np.array([1e200])
+        b = np.array([1e100])
+        result = _sqrt_difference_of_squares(a, b)
+        assert np.isfinite(result).all()
+        np.testing.assert_allclose(result, a)
+
+    def test_smaller_a_clamps_to_zero_rather_than_nan(self):
+        result = _sqrt_difference_of_squares(np.array([1.0]), np.array([2.0]))
+        np.testing.assert_array_equal(result, [0.0])
 
 
 class TestViewStateProject:
@@ -163,10 +187,11 @@ class TestViewStateProject:
         radii = np.array([5.0])  # d = 5, radii * strength = 5 -> d <= radii*strength
         with pytest.warns(UserWarning, match="view_distance"):
             _, _, proj_r = vs.project(coords, radii)
-        # abs_d - rs = 0 here, so sqrt_lo * sqrt_hi = 0 exactly and the
-        # denominator is clamped to the 1e-6 floor: the radius that
-        # floor produces is r * D / 1e-6 * zoom = 5 * 5 / 1e-6.
-        np.testing.assert_allclose(proj_r, [25_000_000.0])
+        # abs_d equals rs here, so the silhouette denominator is zero
+        # exactly and takes the floor: r * D / floor * zoom.
+        np.testing.assert_allclose(
+            proj_r, [5.0 * 5.0 / _MIN_SILHOUETTE_DENOM],
+        )
 
     def test_no_sphere_warning_for_normal_scene(self):
         """A normal perspective scene — atoms well in front of the
