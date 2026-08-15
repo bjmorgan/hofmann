@@ -11,6 +11,12 @@ from hofmann.rendering.projection import _project_point
 #: that every view ray is parallel to within drawing precision.
 _PARALLEL_EYE_DISTANCE = 1e6
 
+#: A geometric quantity for one bond, or one per bond, and the truth
+#: value of a predicate over it.  The tangent helpers below serve both
+#: the scalar and the batch bond paths.
+_ScalarOrArray = np.ndarray | np.floating | float
+_BoolOrArray = np.ndarray | np.bool_ | bool
+
 
 def _eye_distance(view: ViewState) -> float:
     """Distance along +z from the origin to the effective eye.
@@ -34,6 +40,65 @@ def _eye_distance(view: ViewState) -> float:
             return _PARALLEL_EYE_DISTANCE
 
 
+def _tangent_offsets(
+    r_a: _ScalarOrArray,
+    r_b: _ScalarOrArray,
+    bond_r: _ScalarOrArray,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Distances from each sphere centre to its bond tangent circle.
+
+    A cylinder of radius *bond_r* is tangent to a sphere of radius
+    ``r`` on a circle at distance ``sqrt(r^2 - bond_r^2)`` from the
+    sphere centre along the cylinder axis (Pythagoras).  A cylinder at
+    least as wide as the sphere meets no such circle and takes a zero
+    offset.
+
+    Scalars and arrays are both accepted; the results broadcast to the
+    shape of the inputs.
+
+    Args:
+        r_a: 3D radius of atom a.
+        r_b: 3D radius of atom b.
+        bond_r: 3D radius of the bond cylinder.
+
+    Returns:
+        ``(w_a, w_b)``, the offset at each end.
+    """
+    return (
+        np.where(
+            r_a > bond_r, np.sqrt(np.maximum(r_a**2 - bond_r**2, 0.0)), 0.0
+        ),
+        np.where(
+            r_b > bond_r, np.sqrt(np.maximum(r_b**2 - bond_r**2, 0.0)), 0.0
+        ),
+    )
+
+
+def _tangent_points_crossed(
+    bond_len: _ScalarOrArray,
+    w_a: _ScalarOrArray,
+    w_b: _ScalarOrArray,
+) -> _BoolOrArray:
+    """Whether the two tangent points have passed through each other.
+
+    The cylinder spans what is left of *bond_len* once both offsets
+    are removed; when nothing is left the spheres swallow the bond and
+    it is fully occluded.
+
+    Scalars and arrays are both accepted; the result broadcasts to the
+    shape of the inputs.
+
+    Args:
+        bond_len: Distance between the two sphere centres.
+        w_a: Tangent offset at atom a.
+        w_b: Tangent offset at atom b.
+
+    Returns:
+        ``True`` where the bond is fully occluded.
+    """
+    return bond_len - w_a - w_b <= 0
+
+
 def _clip_bond_3d(
     p_a: np.ndarray,
     p_b: np.ndarray,
@@ -42,10 +107,6 @@ def _clip_bond_3d(
     bond_r: float,
 ) -> tuple[np.ndarray, np.ndarray] | None:
     """Compute 3D clipped bond endpoints where the cylinder meets each sphere.
-
-    The cylinder of radius *bond_r* is tangent to each atom sphere.
-    The tangent circle sits at distance ``sqrt(atom_r^2 - bond_r^2)``
-    from the sphere centre along the bond axis (Pythagoras).
 
     Args:
         p_a: 3D position of atom a in rotated coordinates.
@@ -64,16 +125,11 @@ def _clip_bond_3d(
         return None
     bond_unit = bond_vec / bond_len
 
-    w_a = np.sqrt(max(r_a**2 - bond_r**2, 0.0)) if r_a > bond_r else 0.0
-    w_b = np.sqrt(max(r_b**2 - bond_r**2, 0.0)) if r_b > bond_r else 0.0
-
-    clip_start = p_a + bond_unit * w_a
-    clip_end = p_b - bond_unit * w_b
-
-    if np.dot(clip_end - clip_start, bond_unit) <= 0:
+    w_a, w_b = _tangent_offsets(r_a, r_b, bond_r)
+    if _tangent_points_crossed(bond_len, w_a, w_b):
         return None
 
-    return clip_start, clip_end
+    return p_a + bond_unit * w_a, p_b - bond_unit * w_b
 
 
 def _stick_polygon(
@@ -173,12 +229,12 @@ def _bond_polygon(
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray] | None:
     """Compute bond polygon vertices with perspective-correct arc ends.
 
-    The bond cylinder is clipped in 3D where it meets each atom
-    sphere, then the clipped endpoints are projected to 2D.  Each
-    bond end is drawn as a semicircular arc transformed by a 2D
-    affine matrix that encodes the projected bond radius
-    (perpendicular) and foreshortening (along-axis), following the
-    XBS approach.
+    The cylinder's tangent offset against each sphere is computed in
+    3D; the atom centres are projected to 2D and displaced along the
+    projected bond direction by that offset.  Each bond end is drawn
+    as a semicircular arc transformed by a 2D affine matrix that
+    encodes the projected bond radius (perpendicular) and
+    foreshortening (along-axis), following the XBS approach.
 
     Args:
         p_a: 3D position of atom a in rotated coordinates.
@@ -200,22 +256,19 @@ def _bond_polygon(
     # applying the shear twice.
     screen_a, screen_b = view.screen_frame(np.array([p_a, p_b]))
 
-    # 3D clip using scaled radii; only its None-ness is consumed here
-    # (the returned clip points themselves are unused).
-    clip_result = _clip_bond_3d(screen_a, screen_b, r_a, r_b, bond_r)
-    if clip_result is None:
+    bond_vec = screen_b - screen_a
+    bond_len = np.linalg.norm(bond_vec)
+    if bond_len < 1e-12:
         return None
 
-    # Tangent offsets in 3D (same as _clip_bond_3d computes internally).
-    w_a = np.sqrt(max(r_a**2 - bond_r**2, 0.0)) if r_a > bond_r else 0.0
-    w_b = np.sqrt(max(r_b**2 - bond_r**2, 0.0)) if r_b > bond_r else 0.0
+    w_a, w_b = _tangent_offsets(r_a, r_b, bond_r)
+    if _tangent_points_crossed(bond_len, w_a, w_b):
+        return None
 
     # Foreshortening: cosine of angle between bond axis and eye-to-atom
     # vector.  This determines how much the arc squashes along the bond
     # direction (a bond pointing at the viewer has cth~1, one
     # perpendicular to the view has cth~0).
-    bond_vec = screen_b - screen_a
-    bond_len = np.linalg.norm(bond_vec)
     eye = np.array([0.0, 0.0, _eye_distance(view)])
     q_a = eye - screen_a
     q_b = eye - screen_b
@@ -348,18 +401,8 @@ def _bond_polygons_batch(
     valid = bond_len > 1e-12
     bond_len_safe = np.where(valid, bond_len, 1.0)
 
-    # Tangent offsets (vectorised _clip_bond_3d).
-    w_a = np.where(
-        r_a > bond_radii,
-        np.sqrt(np.maximum(r_a**2 - bond_radii**2, 0.0)),
-        0.0,
-    )
-    w_b = np.where(
-        r_b > bond_radii,
-        np.sqrt(np.maximum(r_b**2 - bond_radii**2, 0.0)),
-        0.0,
-    )
-    valid &= (bond_len_safe - w_a - w_b) > 0
+    w_a, w_b = _tangent_offsets(r_a, r_b, bond_radii)
+    valid &= ~_tangent_points_crossed(bond_len_safe, w_a, w_b)
 
     # Foreshortening angles.
     eye = np.array([0.0, 0.0, _eye_distance(view)])

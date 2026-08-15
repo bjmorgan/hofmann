@@ -11,8 +11,44 @@ from hofmann.rendering.bond_geometry import (
     _clip_polygon_to_half_plane,
     _half_bond_verts_batch,
     _stick_polygon,
+    _tangent_offsets,
+    _tangent_points_crossed,
 )
 from hofmann.rendering.interactive import _rotation_x, _rotation_y
+
+
+class TestTangentGeometry:
+    """The offsets and crossing test shared by the scalar and batch paths."""
+
+    def test_offset_is_pythagorean(self):
+        w_a, w_b = _tangent_offsets(1.0, 2.0, 0.6)
+        np.testing.assert_allclose(w_a, np.sqrt(1.0 - 0.36))
+        np.testing.assert_allclose(w_b, np.sqrt(4.0 - 0.36))
+
+    def test_cylinder_at_least_as_wide_gives_zero_offset(self):
+        w_a, w_b = _tangent_offsets(0.5, 0.5, 0.5)
+        assert w_a == 0.0
+        assert w_b == 0.0
+
+    def test_arrays_match_scalars(self):
+        radii = np.array([1.0, 0.5, 2.0])
+        bond_r = np.array([0.6, 0.5, 1.5])
+        w_a, _ = _tangent_offsets(radii, radii, bond_r)
+        expected = [_tangent_offsets(r, r, b)[0] for r, b in zip(radii, bond_r)]
+        np.testing.assert_array_equal(w_a, expected)
+
+    def test_crossed_when_offsets_exceed_the_bond(self):
+        assert _tangent_points_crossed(1.0, 0.7, 0.7)
+        assert _tangent_points_crossed(1.0, 0.5, 0.5)
+        assert not _tangent_points_crossed(1.0, 0.4, 0.5)
+
+    def test_crossed_over_arrays(self):
+        crossed = _tangent_points_crossed(
+            np.array([1.0, 1.0, 1.0]),
+            np.array([0.7, 0.5, 0.4]),
+            np.array([0.7, 0.5, 0.5]),
+        )
+        np.testing.assert_array_equal(crossed, [True, True, False])
 
 
 class TestClipBond3d:
