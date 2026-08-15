@@ -35,6 +35,18 @@ Unreleased
   perspective now follow the same effective eye, and converge
   correctly to the orthographic limit at low strengths.
 
+- :meth:`~hofmann.ViewState.look_along` now validates its ``direction``
+  and ``up`` arguments, naming the offending one and the expected
+  shape, instead of reporting the failure against
+  :attr:`~hofmann.ViewState.rotation` or letting a numpy message
+  through.  The rotation is left unchanged whenever the call is
+  rejected.
+
+- :attr:`~hofmann.ViewState.rotation` rejects singular matrices by
+  rank, so a rank-deficient matrix in a rotated basis is no longer
+  accepted and a well-conditioned matrix at a very small scale is no
+  longer refused.
+
 - **Breaking:** Projection mode is now set with
   :meth:`~hofmann.ViewState.set_orthographic`,
   :meth:`~hofmann.ViewState.set_perspective`, or
