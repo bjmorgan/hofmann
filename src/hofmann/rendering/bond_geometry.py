@@ -26,12 +26,6 @@ def _eye_distance(view: ViewState) -> float:
     The parallel projections are its ``s -> 0`` limit, and take
     :data:`_PARALLEL_EYE_DISTANCE`; a very weak perspective is capped
     at the same value.
-
-    Args:
-        view: The view supplying the projection mode.
-
-    Returns:
-        The eye distance.
     """
     match view.projection:
         case Perspective() as p:
@@ -45,7 +39,7 @@ def _tangent_offsets(
     r_b: _ScalarOrArray,
     bond_r: _ScalarOrArray,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Distances from each sphere centre to its bond tangent circle.
+    """3D distances from each sphere centre to its bond tangent circle.
 
     A cylinder of radius *bond_r* is tangent to a sphere of radius
     ``r`` on a circle at distance ``sqrt(r^2 - bond_r^2)`` from the
@@ -53,13 +47,7 @@ def _tangent_offsets(
     least as wide as the sphere meets no such circle and takes a zero
     offset.
 
-    Scalars and arrays are both accepted; the results broadcast to the
-    shape of the inputs.
-
-    Args:
-        r_a: 3D radius of atom a.
-        r_b: 3D radius of atom b.
-        bond_r: 3D radius of the bond cylinder.
+    Scalars and arrays both work; results broadcast to the inputs.
 
     Returns:
         ``(w_a, w_b)``, the offset at each end.
@@ -85,16 +73,7 @@ def _tangent_points_crossed(
     are removed; when nothing is left the spheres swallow the bond and
     it is fully occluded.
 
-    Scalars and arrays are both accepted; the result broadcasts to the
-    shape of the inputs.
-
-    Args:
-        bond_len: Distance between the two sphere centres.
-        w_a: Tangent offset at atom a.
-        w_b: Tangent offset at atom b.
-
-    Returns:
-        ``True`` where the bond is fully occluded.
+    Scalars and arrays both work; the result broadcasts to the inputs.
     """
     return bond_len - w_a - w_b <= 0
 

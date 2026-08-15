@@ -95,13 +95,6 @@ def _sqrt_difference_of_squares(a: np.ndarray, b: np.ndarray) -> np.ndarray:
 
     Requires ``a >= b >= 0``.  A smaller *a* is clamped, giving zero
     rather than NaN.
-
-    Args:
-        a: The larger magnitude.
-        b: The smaller magnitude.
-
-    Returns:
-        ``sqrt(a**2 - b**2)``, elementwise.
     """
     return np.sqrt(np.maximum(a - b, 0.0)) * np.sqrt(a + b)
 
@@ -117,14 +110,6 @@ def _coerce_finite_array(
     means a wrong-shape or non-finite sequence raises the promised
     ``ValueError`` instead of ``AttributeError`` from probing
     ``.shape`` on something that has none.
-
-    Args:
-        value: Array-like input.
-        shape: Required shape.
-        name: Field name, used in the raised message.
-
-    Returns:
-        The coerced array.
 
     Raises:
         ValueError: If *value* does not have *shape* once coerced, or
