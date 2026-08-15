@@ -125,10 +125,18 @@ class ViewState:
     rendered.  If *slab_origin* is ``None``, the slab is centred on
     :attr:`centre`.
 
+    :attr:`rotation`, :attr:`centre`, and :attr:`slab_origin` are
+    stored as ndarrays, and plain sequences are coerced on
+    construction; the fields are annotated ``np.ndarray``, so
+    type-checked callers should pass arrays.
+
     Attributes:
         rotation: 3x3 rotation matrix, applied as given.  A matrix
             with a negative determinant is accepted and renders the
-            mirror image of the structure.
+            mirror image of the structure.  A non-orthonormal matrix
+            is likewise accepted and scales or shears the structure,
+            so drawn bond lengths and angles no longer match the
+            coordinates.
         zoom: Magnification factor.
         centre: 3D point about which to centre the view.
         projection: The current projection mode:
