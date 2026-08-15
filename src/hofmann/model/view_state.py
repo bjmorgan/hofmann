@@ -171,7 +171,7 @@ class ViewState:
         self._check_zoom()
         self._check_centre()
         self._check_rotation()
-        self._checked_projection()
+        self._validated_projection()
         self._check_slab()
 
     def _check_zoom(self) -> None:
@@ -224,7 +224,7 @@ class ViewState:
                 self.slab_origin, (3,), "slab_origin"
             )
 
-    def _checked_projection(self) -> Orthographic | Perspective | Oblique:
+    def _validated_projection(self) -> Orthographic | Perspective | Oblique:
         """Return :attr:`projection`, raising if it is not a valid mode."""
         proj = self.projection
         if not isinstance(proj, Orthographic | Perspective | Oblique):
@@ -246,7 +246,7 @@ class ViewState:
         perspective-free, so it can also map bare direction vectors,
         as the axes orientation widget requires.
         """
-        proj = self._checked_projection()
+        proj = self._validated_projection()
         m = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]], dtype=float)
         match proj:
             case Oblique() as ob:
@@ -264,7 +264,7 @@ class ViewState:
         :attr:`projection` is :class:`Oblique`, exactly ``1.0``
         otherwise.  Used for viewport sizing.
         """
-        proj = self._checked_projection()
+        proj = self._validated_projection()
         match proj:
             case Oblique() as ob:
                 return float(np.sqrt(1.0 + ob.foreshortening**2))
@@ -310,7 +310,7 @@ class ViewState:
                 *scale* is still computed (inf or negative) rather
                 than clamped.
         """
-        proj = self._checked_projection()
+        proj = self._validated_projection()
         self._check_zoom()
         camera = np.asarray(camera, dtype=float)
         if camera.ndim != 2 or camera.shape[1] != 3:
@@ -366,7 +366,7 @@ class ViewState:
             TypeError: If :attr:`projection` is not Orthographic,
                 Perspective, or Oblique.
         """
-        self._checked_projection()
+        self._validated_projection()
         camera = np.asarray(camera, dtype=float)
         if camera.ndim != 2 or camera.shape[1] != 3:
             raise ValueError(

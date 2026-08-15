@@ -4,8 +4,34 @@ from __future__ import annotations
 
 import numpy as np
 
-from hofmann.model import Perspective, ViewState
+from hofmann.model import Oblique, Orthographic, Perspective, ViewState
 from hofmann.rendering.projection import _project_point
+
+#: Stand-in eye distance for the parallel projections, large enough
+#: that every view ray is parallel to within drawing precision.
+_PARALLEL_EYE_DISTANCE = 1e6
+
+
+def _eye_distance(view: ViewState) -> float:
+    """Distance along +z from the origin to the effective eye.
+
+    The perspective scale ``D / (D - z * s)`` is a pinhole at
+    ``D / s``, so that is the eye distance under :class:`Perspective`.
+    The parallel projections are its ``s -> 0`` limit, and take
+    :data:`_PARALLEL_EYE_DISTANCE`; a very weak perspective is capped
+    at the same value.
+
+    Args:
+        view: The view supplying the projection mode.
+
+    Returns:
+        The eye distance.
+    """
+    match view.projection:
+        case Perspective() as p:
+            return min(p.view_distance / p.strength, _PARALLEL_EYE_DISTANCE)
+        case Orthographic() | Oblique():
+            return _PARALLEL_EYE_DISTANCE
 
 
 def _clip_bond_3d(
@@ -170,17 +196,13 @@ def _bond_polygon(
         *end_2d* are the projected 2D centres of the two bond ends.
         Returns ``None`` if the bond is fully occluded.
     """
-    # All XBS junction geometry — including the occlusion clip below —
-    # lives in the screen-aligned frame: the frame the drawn circles
-    # occupy, and the frame in which "has the cylinder's tangent point
-    # crossed the bond midpoint" is a question about drawn geometry.
     # Only _project_point (below) keeps camera-space inputs, to avoid
     # applying the shear twice.
-    s_a, s_b = view.screen_frame(np.array([p_a, p_b]))
+    screen_a, screen_b = view.screen_frame(np.array([p_a, p_b]))
 
     # 3D clip using scaled radii; only its None-ness is consumed here
     # (the returned clip points themselves are unused).
-    clip_result = _clip_bond_3d(s_a, s_b, r_a, r_b, bond_r)
+    clip_result = _clip_bond_3d(screen_a, screen_b, r_a, r_b, bond_r)
     if clip_result is None:
         return None
 
@@ -192,25 +214,11 @@ def _bond_polygon(
     # vector.  This determines how much the arc squashes along the bond
     # direction (a bond pointing at the viewer has cth~1, one
     # perpendicular to the view has cth~0).
-    # For orthographic projection, push the eye to effective infinity
-    # so all view rays are parallel (matching XBS pmode==0 behaviour).
-    bond_vec = s_b - s_a
+    bond_vec = screen_b - screen_a
     bond_len = np.linalg.norm(bond_vec)
-    # The projection scale D/(D - z*s) is a pinhole at D/s (see
-    # Perspective); the s -> 0 limit motivates the orthographic
-    # stand-in below.
-    # isinstance(proj, Perspective) below is only a valid exhaustive
-    # check against a bogus projection because view.screen_frame,
-    # called earlier in this function, already raised on one (it
-    # calls _checked_projection).
-    proj = view.projection
-    eye_dist = (
-        min(proj.view_distance / proj.strength, 1e6)
-        if isinstance(proj, Perspective) else 1e6
-    )
-    eye = np.array([0.0, 0.0, eye_dist])
-    q_a = eye - s_a
-    q_b = eye - s_b
+    eye = np.array([0.0, 0.0, _eye_distance(view)])
+    q_a = eye - screen_a
+    q_b = eye - screen_b
     denom_a = np.linalg.norm(q_a) * bond_len
     denom_b = np.linalg.norm(q_b) * bond_len
     if denom_a < 1e-12 or denom_b < 1e-12:
@@ -330,16 +338,12 @@ def _bond_polygons_batch(
     zr_a = screen_radii[bond_ia]        # (n_bonds,)
     zr_b = screen_radii[bond_ib]        # (n_bonds,)
 
-    # All XBS junction geometry — angle inputs and the occlusion/
-    # degeneracy mask — lives in the screen-aligned frame: the frame
-    # the drawn circles occupy, and the frame in which "have the two
-    # tangent cut points crossed" is a question about drawn geometry.
     # `xy` below arrives already projected via ViewState.project; the
     # screen-frame conversion here applies only to the junction-angle
     # inputs, so the shear is never applied twice.
-    s_a = view.screen_frame(p_a)                            # (n_bonds, 3)
-    s_b = view.screen_frame(p_b)                            # (n_bonds, 3)
-    bond_vec = s_b - s_a                                    # (n_bonds, 3)
+    screen_a = view.screen_frame(p_a)                       # (n_bonds, 3)
+    screen_b = view.screen_frame(p_b)                       # (n_bonds, 3)
+    bond_vec = screen_b - screen_a                          # (n_bonds, 3)
     bond_len = np.linalg.norm(bond_vec, axis=1)             # (n_bonds,)
     valid = bond_len > 1e-12
     bond_len_safe = np.where(valid, bond_len, 1.0)
@@ -358,21 +362,9 @@ def _bond_polygons_batch(
     valid &= (bond_len_safe - w_a - w_b) > 0
 
     # Foreshortening angles.
-    # The projection scale D/(D - z*s) is a pinhole at D/s (see
-    # Perspective); the s -> 0 limit motivates the orthographic
-    # stand-in below.
-    # isinstance(proj, Perspective) below is only a valid exhaustive
-    # check against a bogus projection because view.screen_frame,
-    # called earlier in this function, already raised on one (it
-    # calls _checked_projection).
-    proj = view.projection
-    eye_dist = (
-        min(proj.view_distance / proj.strength, 1e6)
-        if isinstance(proj, Perspective) else 1e6
-    )
-    eye = np.array([0.0, 0.0, eye_dist])
-    q_a = eye - s_a                                         # (n_bonds, 3)
-    q_b = eye - s_b                                         # (n_bonds, 3)
+    eye = np.array([0.0, 0.0, _eye_distance(view)])
+    q_a = eye - screen_a                                    # (n_bonds, 3)
+    q_b = eye - screen_b                                    # (n_bonds, 3)
     q_a_len = np.linalg.norm(q_a, axis=1)                   # (n_bonds,)
     q_b_len = np.linalg.norm(q_b, axis=1)                   # (n_bonds,)
     denom_a = q_a_len * bond_len_safe

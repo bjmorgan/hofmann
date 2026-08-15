@@ -64,11 +64,10 @@ def _draw_axes_widget(
         ox = (cx - pad_x) + 2 * pad_x * fx
         oy = (cy - pad_y) + 2 * pad_y * fy
     else:
-        # Named corner with margin inset.  A sheared tip can reach
-        # screen_scale_bound * arrow_len from the widget origin.
-        reach = arrow_len * view.screen_scale_bound
-        inset_x = style.margin * pad_x + reach
-        inset_y = style.margin * pad_y + reach
+        # Named corner with margin inset.
+        max_tip_reach = arrow_len * view.screen_scale_bound
+        inset_x = style.margin * pad_x + max_tip_reach
+        inset_y = style.margin * pad_y + max_tip_reach
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.TOP_LEFT):
             ox = (cx - pad_x) + inset_x
         else:
