@@ -5,6 +5,7 @@ import warnings
 from dataclasses import dataclass, field
 
 import numpy as np
+from numpy.typing import ArrayLike
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +80,7 @@ class Oblique:
 
 
 def _coerce_finite_array(
-    value: np.ndarray, shape: tuple[int, ...], name: str,
+    value: ArrayLike, shape: tuple[int, ...], name: str,
 ) -> np.ndarray:
     """Coerce *value* to a finite ``float64`` array of *shape*.
 
@@ -548,17 +549,14 @@ class ViewState:
             ``self``, with the rotation updated in place.
 
         Raises:
-            ValueError: If *direction* is zero-length or *up* is
-                parallel to *direction*.  Also if either input
-                contains non-finite values: the zero-length guard
-                above is a ``<`` comparison, which NaN silently fails
-                to trip, so a NaN direction or up vector would
-                otherwise install an all-NaN rotation without
-                raising.  On any of these, :attr:`rotation` is left
-                unchanged from its value before the call.
+            ValueError: If *direction* or *up* does not have shape
+                ``(3,)`` or is not finite, if *direction* is
+                zero-length, or if *up* is parallel to *direction*.
+                On any of these, :attr:`rotation` is left unchanged
+                from its value before the call.
         """
-        d = np.asarray(direction, dtype=float)
-        u = np.asarray(up, dtype=float)
+        d = _coerce_finite_array(direction, (3,), "direction")
+        u = _coerce_finite_array(up, (3,), "up")
 
         d_len = np.linalg.norm(d)
         if d_len < 1e-12:
@@ -572,7 +570,7 @@ class ViewState:
             # provided an up vector, that is an error.  Otherwise
             # fall back to [0, 0, 1] as the up hint.
             default_up = (0.0, 1.0, 0.0)
-            if tuple(float(x) for x in up) != default_up:
+            if not np.array_equal(u, default_up):
                 raise ValueError(
                     "up vector is parallel to the viewing direction"
                 )
@@ -587,13 +585,8 @@ class ViewState:
         # R maps world coords to camera coords: rotated = R @ world.
         previous_rotation = self.rotation
         self.rotation = np.array([right, up_actual, fwd])
-        # The zero-length and parallel-up guards above are `<`
-        # comparisons that NaN silently fails to trip, so a NaN
-        # direction or up vector reaches here undetected; validate
-        # what was actually installed rather than trust the guards.
-        # If validation raises, restore the previous rotation first:
-        # otherwise a caller who catches the error is left holding an
-        # unusable (e.g. all-NaN) view with no way back.
+        # Backstop on what was actually installed; on rejection the
+        # caller is left with the rotation it had before the call.
         try:
             self._check_rotation()
         except ValueError:

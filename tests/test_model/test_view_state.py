@@ -268,12 +268,37 @@ class TestViewStateLookAlong:
         assert result is vs
 
     def test_nan_direction_raises(self):
-        """A NaN direction has zero norm, so the length guard (a `<`
-        comparison) silently fails to trip on NaN and an all-NaN
-        rotation would otherwise install without raising."""
+        """A non-finite direction is rejected by name, before any
+        rotation is built from it."""
         vs = ViewState()
-        with pytest.raises(ValueError, match="finite"):
-            vs.look_along([float("nan")] * 3)
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="direction.*finite"):
+                vs.look_along([bad, 0.0, 0.0])
+
+    def test_wrong_shape_direction_raises(self):
+        """A direction that is not a 3-vector is reported as such,
+        rather than leaking numpy's message from the cross product."""
+        vs = ViewState()
+        for bad in ([1.0, 0.0], [1.0, 0.0, 0.0, 0.0], [[1.0, 0.0, 0.0]]):
+            with pytest.raises(ValueError, match=r"direction.*shape \(3,\)"):
+                vs.look_along(bad)
+
+    def test_wrong_shape_up_raises(self):
+        vs = ViewState()
+        for bad in ([1.0, 0.0], [1.0, 0.0, 0.0, 0.0]):
+            with pytest.raises(ValueError, match=r"up.*shape \(3,\)"):
+                vs.look_along([0.0, 0.0, 1.0], up=bad)
+
+    def test_invalid_arguments_raise_without_warning(self):
+        """Argument validation happens before any arithmetic, so no
+        numpy warning escapes on the way to the exception."""
+        vs = ViewState()
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            for bad in ([float("nan"), 0.0, 0.0], [1.0, 0.0], [1.0] * 4):
+                with pytest.raises(ValueError):
+                    vs.look_along(bad)
+        assert not caught
 
     def test_rejected_look_along_restores_previous_rotation(self):
         """look_along assigns self.rotation before validating; if
@@ -293,11 +318,12 @@ class TestViewStateLookAlong:
         np.testing.assert_allclose(xy[0], [0.0, 0.0], atol=1e-12)
 
     def test_nan_up_raises(self):
-        """A NaN up vector propagates NaN into the cross products and
-        would otherwise install an all-NaN rotation without raising."""
+        """A non-finite up vector is rejected by name, before any
+        rotation is built from it."""
         vs = ViewState()
-        with pytest.raises(ValueError, match="finite"):
-            vs.look_along([1, 0, 0], up=[float("nan")] * 3)
+        for bad in (float("nan"), float("inf")):
+            with pytest.raises(ValueError, match="up.*finite"):
+                vs.look_along([1.0, 0.0, 0.0], up=[bad, 1.0, 0.0])
 
 
 class TestViewStateSlab:
