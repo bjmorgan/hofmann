@@ -300,16 +300,22 @@ class TestViewStateLookAlong:
                     vs.look_along(bad)
         assert not caught
 
-    def test_rejected_look_along_restores_previous_rotation(self):
-        """look_along assigns self.rotation before validating; if
-        validation then raises, the object must not be left holding
-        the invalid rotation permanently — a caller who catches the
-        error needs a usable view to fall back to."""
+    @pytest.mark.parametrize("args, kwargs", [
+        (([float("nan")] * 3,), {}),
+        (([0.0, 0.0, 0.0],), {}),
+        (([1.0, 0.0, 0.0],), {"up": [1.0, 0.0, 0.0]}),
+    ], ids=["non-finite", "zero-direction", "parallel-up"])
+    def test_rejected_look_along_restores_previous_rotation(
+        self, args, kwargs,
+    ):
+        """Every rejection path leaves the rotation as it was: a
+        caller who catches the error needs a usable view to fall back
+        to."""
         vs = ViewState()
         vs.look_along([1, 0, 0])
         previous = vs.rotation.copy()
-        with pytest.raises(ValueError, match="finite"):
-            vs.look_along([float("nan")] * 3)
+        with pytest.raises(ValueError):
+            vs.look_along(*args, **kwargs)
         np.testing.assert_array_equal(vs.rotation, previous)
         # The view must still project normally, not merely hold an
         # array that happens to look right.
