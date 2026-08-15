@@ -191,11 +191,9 @@ class ViewState:
         determinant; see the class-level comment.
         """
         self.rotation = _coerce_finite_array(self.rotation, (3, 3), "rotation")
-        det = np.linalg.det(self.rotation)
-        if det == 0:
+        if np.linalg.matrix_rank(self.rotation) < 3:
             raise ValueError(
-                f"rotation must not be singular (determinant is 0), got "
-                f"{self.rotation}"
+                f"rotation must not be singular, got {self.rotation}"
             )
 
     def _check_slab(self) -> None:

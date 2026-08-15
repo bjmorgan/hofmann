@@ -510,18 +510,38 @@ class TestViewStateValidation:
                 ViewState(rotation=rotation)
 
     def test_zero_rotation_rejected(self):
-        """The all-zero matrix is singular (determinant 0): it
-        collapses every atom to the origin, but passes the shape and
-        finiteness checks."""
-        with pytest.raises(ValueError, match="singular"):
+        """The all-zero matrix is singular: it collapses every atom to
+        the origin, but passes the shape and finiteness checks."""
+        with pytest.raises(ValueError, match="rotation.*singular"):
             ViewState(rotation=np.zeros((3, 3)))
 
     def test_rank_deficient_rotation_rejected(self):
-        """A rank-2 matrix is singular (determinant 0): it flattens
-        all depth to zero, destroying painter ordering, but still has
-        the right shape and is finite."""
-        with pytest.raises(ValueError, match="singular"):
+        """A rank-2 matrix is singular: it flattens all depth to zero,
+        destroying painter ordering, but still has the right shape and
+        is finite."""
+        with pytest.raises(ValueError, match="rotation.*singular"):
             ViewState(rotation=np.diag([1.0, 1.0, 0.0]))
+
+    def test_rotated_rank_deficient_rotation_rejected(self):
+        """A rank-2 matrix expressed in a rotated basis is just as
+        singular, but rounding leaves its determinant a tiny non-zero
+        number, so only a rank test catches it.  Two atoms 5 A apart
+        along the collapsed direction project to the same point."""
+        rng = np.random.default_rng(0)
+        basis, _ = np.linalg.qr(rng.standard_normal((3, 3)))
+        rotation = basis.T @ np.diag([1.0, 1.0, 0.0]) @ basis
+        assert np.linalg.det(rotation) != 0.0
+        with pytest.raises(ValueError, match="rotation.*singular"):
+            ViewState(rotation=rotation)
+
+    def test_uniformly_scaled_rotation_accepted(self):
+        """A uniformly scaled identity is perfectly conditioned at any
+        scale, so it must be accepted even where the determinant
+        underflows to zero."""
+        rotation = np.eye(3) * 1e-108
+        assert np.linalg.det(rotation) == 0.0
+        vs = ViewState(rotation=rotation)
+        np.testing.assert_array_equal(vs.rotation, rotation)
 
     def test_non_orthonormal_rotation_accepted(self):
         """Only singular matrices are rejected.  A finite matrix that
