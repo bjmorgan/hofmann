@@ -4,6 +4,7 @@ import math
 import warnings
 
 import numpy as np
+import pytest
 
 from hofmann.model import (
     AtomStyle, Frame, Oblique, Perspective, StructureScene, ViewState,
@@ -154,13 +155,21 @@ class TestSceneExtent:
         np.testing.assert_allclose(e_obl, e_none * math.sqrt(1.0 + f**2))
 
     def test_extent_unchanged_for_orthographic_projection(self):
-        """The shear allowance must be exactly 1.0 under the default
-        Orthographic projection: the extent pins to its hand-computed
-        pre-oblique value (max atom distance 5.0 plus scaled radius
-        0.5)."""
+        """Orthographic adds no allowance at all: the extent pins to
+        its hand-computed base value (max atom distance 5.0 plus
+        scaled radius 0.5)."""
         scene = self._two_atom_scene()
         extent = _scene_extent(scene, ViewState(), 0, atom_scale=0.5)
         assert extent == 5.5
+
+    def test_bogus_projection_rejected(self):
+        """Only the three modes carry an allowance, so an unrecognised
+        projection must raise rather than quietly receive none."""
+        scene = self._two_atom_scene()
+        view = ViewState()
+        view.projection = "bogus"
+        with pytest.raises(TypeError, match="projection"):
+            _scene_extent(scene, view, 0, atom_scale=0.5)
 
     def test_eye_inside_scene_bounding_sphere_does_not_explode_extent(self):
         """When the effective eye lies inside the scene's bounding

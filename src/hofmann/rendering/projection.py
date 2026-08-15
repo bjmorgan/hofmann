@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import numpy as np
 
-from hofmann.model import Perspective, StructureScene, ViewState
+from hofmann.model import (
+    Oblique,
+    Orthographic,
+    Perspective,
+    StructureScene,
+    ViewState,
+)
 from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
 
@@ -70,8 +76,8 @@ def _scene_extent(
     Returns the radius of a 2D bounding circle centred at the origin
     that encloses all atoms regardless of rotation.  The base bound is
     the maximum 3D distance from the view centre plus the largest
-    display radius; oblique and perspective magnification allowances
-    are applied on top.  The bound is zoom-independent: zoom acts
+    display radius; the projection then applies its own allowance on
+    top.  The bound is zoom-independent: zoom acts
     through the projected coordinates, so this fixed viewport must not
     itself scale with it.
     """
@@ -95,34 +101,30 @@ def _scene_extent(
     if max_extent == 0.0:
         max_extent = 1.0
 
-    # At most one of the two allowances below is ever active: the
-    # projection is a single mode, so screen_scale_bound is exactly
-    # 1.0 under Perspective and the perspective branch does not run
-    # under Oblique.
-
-    # An oblique shear stretches screen positions by at most
-    # screen_scale_bound (sqrt(1 + f^2), the screen matrix's largest
-    # singular value).  Applying it to the whole dists-plus-radii
-    # bound is slightly conservative — silhouette radii stay unscaled
-    # under oblique — which is harmless over-padding.
-    max_extent *= view.screen_scale_bound
-
-    # Under perspective, geometry near the camera appears larger.  The
-    # worst-case magnification for a point at distance *d* from the
-    # view centre is when it is rotated to depth z = +d (closest to
-    # the camera); the scene bounding radius (atoms plus display
-    # radii, and cell corners) bounds that depth.
-    proj = view.projection
-    if isinstance(proj, Perspective):
-        denom = proj.view_distance - max_extent * proj.strength
-        if denom > 0:
-            persp_scale = proj.view_distance / denom
-        else:
-            # No bounded magnification exists once the eye reaches
-            # the bounding sphere, so apply none: the viewport falls
-            # back to the unmagnified scene bound.
-            persp_scale = 1.0
-        max_extent *= persp_scale
+    match view._validated_projection():
+        case Oblique():
+            # An oblique shear stretches screen positions by at most
+            # screen_scale_bound (sqrt(1 + f^2), the screen matrix's
+            # largest singular value).  Applying it to the whole
+            # dists-plus-radii bound is slightly conservative —
+            # silhouette radii stay unscaled under oblique — which is
+            # harmless over-padding.
+            max_extent *= view.screen_scale_bound
+        case Perspective() as p:
+            # Under perspective, geometry near the camera appears
+            # larger.  The worst-case magnification for a point at
+            # distance *d* from the view centre is when it is rotated
+            # to depth z = +d (closest to the camera); the scene
+            # bounding radius (atoms plus display radii, and cell
+            # corners) bounds that depth.
+            denom = p.view_distance - max_extent * p.strength
+            if denom > 0:
+                max_extent *= p.view_distance / denom
+            # Once the eye reaches the bounding sphere no bounded
+            # magnification exists, so the viewport falls back to the
+            # unmagnified scene bound.
+        case Orthographic():
+            pass
 
     return float(max_extent)
 
