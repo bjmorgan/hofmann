@@ -390,8 +390,15 @@ class TestProjectionTypes:
         assert Perspective(0.5, 10.0) != Perspective(0.6, 10.0)
         assert Orthographic() == Orthographic()
 
-    def test_projection_is_abstract_and_enforces_the_interface(self):
-        """A variant missing any method cannot be instantiated."""
+    def test_projection_enforces_every_method(self):
+        """A variant omitting any one of the five cannot be instantiated."""
+        assert Projection.__abstractmethods__ == frozenset({
+            "to_screen",
+            "silhouette_radius",
+            "max_magnification",
+            "eye_distance",
+            "reaches_eye_plane",
+        })
 
         class Incomplete(Projection):
             pass
