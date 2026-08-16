@@ -116,14 +116,13 @@ class ViewState:
         centred = coords - self.centre
         rotated = centred @ self.rotation.T
         depth = rotated[:, 2]
+        xy, _ = self.project_camera(rotated)
 
         match self.projection:
             case Perspective() as p:
-                # Denominator of the projection scale, proportional to
-                # the eye-to-atom distance along z.
+                # Recomputed rather than recovered as view_distance /
+                # scale: that division round trip is not bit-exact.
                 d = p.view_distance - depth * p.strength
-                scale = p.view_distance / d
-                xy = rotated[:, :2] * scale[:, np.newaxis] * self.zoom
 
                 if radii is not None:
                     radii = np.asarray(radii, dtype=float)
@@ -135,7 +134,6 @@ class ViewState:
                 else:
                     projected_radii = np.zeros(len(depth))
             case Orthographic():
-                xy = rotated[:, :2] * self.zoom
                 if radii is not None:
                     projected_radii = (
                         np.asarray(radii, dtype=float) * self.zoom
@@ -144,6 +142,36 @@ class ViewState:
                     projected_radii = np.zeros(len(depth))
 
         return xy, depth, projected_radii
+
+    def project_camera(
+        self, camera: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Map camera-space positions to screen positions.
+
+        This is the single camera-to-screen mapping: every renderer
+        obtains screen positions through it, so all drawn geometry
+        stays consistent with the atoms.
+
+        Args:
+            camera: Array of shape ``(n, 3)``, already centred and
+                rotated into camera space.
+
+        Returns:
+            Tuple of ``(xy, scale)`` where *xy* has shape ``(n, 2)``
+            and *scale* has shape ``(n,)``, the perspective scale
+            applied at each point (all ones under a parallel
+            projection).
+        """
+        camera = np.asarray(camera, dtype=float)
+        match self.projection:
+            case Perspective() as p:
+                scale = p.view_distance / (
+                    p.view_distance - camera[:, 2] * p.strength
+                )
+            case Orthographic():
+                scale = np.ones(len(camera))
+        xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
+        return xy, scale
 
     def slab_mask(self, coords: np.ndarray) -> np.ndarray:
         """Return a boolean mask selecting atoms within the depth slab.

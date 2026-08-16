@@ -6,12 +6,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from hofmann.model import (
-    CellEdgeStyle,
-    Perspective,
-    ViewState,
-    normalise_colour,
-)
+from hofmann.model import CellEdgeStyle, ViewState, normalise_colour
 
 # The 12 edges of a unit cube in fractional coordinates.
 _CUBE_EDGES: list[tuple[tuple[int, int, int], tuple[int, int, int]]] = [
@@ -310,19 +305,10 @@ def _collect_cell_edges(
                 sub_c_e = c_s + (c_e - c_s) * t1
                 sub_d = (sub_c_s[2] + sub_c_e[2]) / 2.0
 
-                if isinstance(view.projection, Perspective):
-                    p = view.projection
-                    s_s = p.view_distance / (
-                        p.view_distance - sub_c_s[2] * p.strength
-                    )
-                    s_e = p.view_distance / (
-                        p.view_distance - sub_c_e[2] * p.strength
-                    )
-                    xy_s_i = sub_c_s[:2] * s_s * view.zoom
-                    xy_e_i = sub_c_e[:2] * s_e * view.zoom
-                else:
-                    xy_s_i = sub_c_s[:2] * view.zoom
-                    xy_e_i = sub_c_e[:2] * view.zoom
+                sub_xy, _ = view.project_camera(
+                    np.array([sub_c_s, sub_c_e])
+                )
+                xy_s_i, xy_e_i = sub_xy[0], sub_xy[1]
 
                 if dash_pattern is not None:
                     dash_segs = _split_dashes(

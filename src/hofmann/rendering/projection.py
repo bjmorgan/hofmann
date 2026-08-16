@@ -40,14 +40,8 @@ def _project_point(
         Tuple of (xy, scale) where *xy* is the 2D position and *scale*
         is the perspective scale factor at this depth.
     """
-    z = pt[2]
-    match view.projection:
-        case Perspective() as p:
-            s = p.view_distance / (p.view_distance - z * p.strength)
-        case _:
-            s = 1.0
-    xy = pt[:2] * s * view.zoom
-    return xy, s
+    xy, scale = view.project_camera(np.asarray(pt, dtype=float)[np.newaxis])
+    return xy[0], float(scale[0])
 
 
 # Fractional coordinates of the 8 unit cube corners.
