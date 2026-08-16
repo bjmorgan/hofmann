@@ -6,7 +6,12 @@ import warnings
 import numpy as np
 import pytest
 
-from hofmann.model.view_state import Orthographic, Perspective, ViewState
+from hofmann.model.view_state import (
+    Orthographic,
+    Perspective,
+    Projection,
+    ViewState,
+)
 
 
 class TestViewStateProject:
@@ -388,3 +393,54 @@ class TestProjectionTypes:
         assert Perspective(0.5, 10.0) == Perspective(0.5, 10.0)
         assert Perspective(0.5, 10.0) != Perspective(0.6, 10.0)
         assert Orthographic() == Orthographic()
+
+    def test_projection_is_abstract_and_enforces_the_interface(self):
+        """A variant missing any method cannot be instantiated."""
+
+        class Incomplete(Projection):
+            pass
+
+        with pytest.raises(TypeError, match="abstract"):
+            Incomplete()
+
+    def test_max_magnification_passes_small_positive_denominators(self):
+        """A denominator in (0, 1e-6) is not clamped.
+
+        Pins the ``denom if denom > 0 else 1e-6`` form against the
+        tempting ``max(denom, 1e-6)``, which would flatten this band:
+        with strength 1 and view_distance 10, worst_depth 10 - 5e-7
+        leaves denom = 5e-7, so the magnification is ~2e7, not the 1e7
+        that clamping to 1e-6 would give.
+        """
+        persp = Perspective(strength=1.0, view_distance=10.0)
+        mag = persp.max_magnification(10.0 - 5e-7)
+        assert mag == pytest.approx(2e7, rel=1e-3)
+        assert mag > 1.5e7  # would be 1e7 if the denominator were clamped
+
+    def test_variants_answer_their_contract(self):
+        ortho = Orthographic()
+        assert ortho.eye_distance == 1e6
+        assert ortho.reaches_eye_plane(np.array([1e9])) is False
+        np.testing.assert_array_equal(
+            ortho.to_screen(np.array([[2.0, 3.0, 5.0]])), [[2.0, 3.0]]
+        )
+        np.testing.assert_array_equal(
+            ortho.silhouette_radius(np.array([5.0]), np.array([1.5])), [1.5]
+        )
+        assert ortho.max_magnification(100.0) == 1.0
+
+        persp = Perspective(1.0, 10.0)
+        assert persp.eye_distance == 10.0
+        assert persp.reaches_eye_plane(np.array([9.0])) is False
+        assert persp.reaches_eye_plane(np.array([11.0])) is True
+        # depth 5: d = 10 - 5 = 5, scale = 10/5 = 2
+        np.testing.assert_allclose(
+            persp.to_screen(np.array([[1.0, 0.0, 5.0]])), [[2.0, 0.0]]
+        )
+        # silhouette: r*D/sqrt(D^2 - r^2) = 10/sqrt(99)
+        np.testing.assert_allclose(
+            persp.silhouette_radius(np.array([0.0]), np.array([1.0])),
+            [10.0 / np.sqrt(99.0)],
+        )
+        # worst depth 5: D/(D - 5*s) = 10/5 = 2
+        assert persp.max_magnification(5.0) == 2.0
