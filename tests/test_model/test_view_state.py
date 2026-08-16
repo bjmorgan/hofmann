@@ -326,6 +326,24 @@ class TestProjectionTypes:
         with pytest.raises((AttributeError, TypeError)):
             Orthographic().anything = 1
 
+    def test_setters_return_self_for_chaining(self):
+        vs = ViewState()
+        assert vs.set_perspective() is vs
+        assert vs.set_orthographic() is vs
+
+    def test_setter_defaults_match_the_type(self):
+        """The two spellings of "default perspective" cannot drift."""
+        assert ViewState().set_perspective().projection == Perspective()
+
+    def test_setters_select_the_mode(self):
+        vs = ViewState().set_perspective(0.8, 15.0)
+        assert vs.projection == Perspective(0.8, 15.0)
+        assert vs.set_orthographic().projection == Orthographic()
+
+    def test_setter_validates_through_the_type(self):
+        with pytest.raises(ValueError, match="strength"):
+            ViewState().set_perspective(strength=-1.0)
+
     def test_modes_compare_by_value(self):
         assert Perspective(0.5, 10.0) == Perspective(0.5, 10.0)
         assert Perspective(0.5, 10.0) != Perspective(0.6, 10.0)

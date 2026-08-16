@@ -77,7 +77,7 @@ Pan and perspective
    * - ``p`` / ``P``
      - Increase / decrease perspective strength
    * - ``d`` / ``D``
-     - Increase / decrease viewing distance
+     - Increase / decrease viewing distance (perspective only)
 
 Display toggles
 ^^^^^^^^^^^^^^^

@@ -42,19 +42,19 @@ Perspective
 
 .. code-block:: python
 
-   scene.view.perspective = 0.3  # Mild perspective
-   scene.view.perspective = 0.0  # Orthographic (default)
+   scene.view.set_perspective(0.3)  # Mild perspective
+   scene.view.set_orthographic()    # Parallel projection (default)
 
 .. list-table::
    :widths: 50 50
 
    * - .. figure:: _static/perovskite_ortho.svg
 
-          Orthographic (``perspective=0.0``)
+          Orthographic (the default)
 
      - .. figure:: _static/perovskite_perspective.svg
 
-          Perspective (``perspective=0.5``)
+          Perspective (``set_perspective(0.5)``)
 
 
 Render styles

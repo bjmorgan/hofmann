@@ -43,6 +43,12 @@ Data model
 .. autoclass:: ViewState
    :members:
 
+.. autoclass:: Orthographic
+   :members:
+
+.. autoclass:: Perspective
+   :members:
+
 .. autoclass:: hofmann.model.atom_data.AtomData
    :members: n_atoms, ranges, labels
 

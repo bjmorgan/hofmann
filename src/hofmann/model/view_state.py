@@ -173,6 +173,34 @@ class ViewState:
         xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
         return xy, scale
 
+    def set_orthographic(self) -> ViewState:
+        """Draw without perspective foreshortening.
+
+        Returns:
+            ``self``, so the call can be chained with
+            :meth:`look_along`.
+        """
+        self.projection = Orthographic()
+        return self
+
+    def set_perspective(
+        self, strength: float = 0.5, view_distance: float = 10.0,
+    ) -> ViewState:
+        """Draw with perspective foreshortening.
+
+        Args:
+            strength: Perspective strength.  ``1.0`` is a true pinhole
+                camera at *view_distance*; smaller values move the eye
+                further out and weaken the effect.
+            view_distance: Reference distance from the scene centre.
+
+        Returns:
+            ``self``, so the call can be chained with
+            :meth:`look_along`.
+        """
+        self.projection = Perspective(strength, view_distance)
+        return self
+
     def slab_mask(self, coords: np.ndarray) -> np.ndarray:
         """Return a boolean mask selecting atoms within the depth slab.
 
