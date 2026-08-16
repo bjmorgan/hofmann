@@ -256,6 +256,30 @@ class TestKeyActions:
             iv["last_perspective"].view_distance
         )
 
+    @pytest.mark.parametrize("start", [0.37, 0.05, 0.999])
+    def test_ladder_descends_from_any_programmatic_strength(self, start):
+        """set_perspective accepts any strength, so the ladder must
+        step by a fixed amount from wherever it starts, keeping the
+        caller's fractional part, and exit to Orthographic when the
+        next step would leave nothing.
+        """
+        view, style, state, iv = _key_action_fixtures()
+        view.projection = Perspective(start, 25.0)
+        state["last_perspective"] = view.projection
+
+        seen = [start]
+        for _ in range(15):
+            _do_key("P", view, style, state, iv)
+            if isinstance(view.projection, Orthographic):
+                break
+            seen.append(view.projection.strength)
+        else:
+            raise AssertionError("descent never reached Orthographic")
+
+        # Each step is exactly one increment.
+        for before, after in zip(seen, seen[1:]):
+            assert before - after == pytest.approx(_PERSPECTIVE_STEP)
+
     def test_view_distance_survives_an_orthographic_excursion(self):
         """A parallel projection cannot hold a distance; the session can."""
         view, style, state, iv = _key_action_fixtures()
