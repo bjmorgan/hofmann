@@ -30,7 +30,7 @@ from hofmann.model.render_style import (
     _DEFAULT_SPACING,
 )
 from hofmann.model.structure_scene import StructureScene
-from hofmann.model.view_state import ViewState
+from hofmann.model.view_state import Orthographic, Perspective, ViewState
 
 __all__ = [
     "AtomLegendItem",
@@ -52,6 +52,8 @@ __all__ = [
     "RenderStyle",
     "SlabClipMode",
     "StructureScene",
+    "Orthographic",
+    "Perspective",
     "ViewState",
     "WidgetCorner",
     "normalise_colour",

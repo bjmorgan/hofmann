@@ -1,9 +1,11 @@
 """Tests for ViewState projection, look_along, slab clipping, and validation."""
 
+import dataclasses
+
 import numpy as np
 import pytest
 
-from hofmann.model.view_state import ViewState
+from hofmann.model.view_state import Orthographic, Perspective, ViewState
 
 
 class TestViewStateProject:
@@ -293,3 +295,43 @@ class TestViewStateValidation:
     def test_valid_view_state_accepted(self):
         vs = ViewState(zoom=2.0, view_distance=15.0)
         assert vs.zoom == 2.0
+
+
+class TestProjectionTypes:
+    def test_perspective_defaults(self):
+        p = Perspective()
+        assert p.strength == 0.5
+        assert p.view_distance == 10.0
+
+    @pytest.mark.parametrize(
+        "strength", [0.0, -0.5, float("nan"), float("inf")],
+    )
+    def test_invalid_strength_rejected(self, strength):
+        with pytest.raises(ValueError, match="strength"):
+            Perspective(strength=strength)
+
+    @pytest.mark.parametrize(
+        "view_distance", [0.0, -1.0, float("nan"), float("inf")],
+    )
+    def test_invalid_view_distance_rejected(self, view_distance):
+        with pytest.raises(ValueError, match="view_distance"):
+            Perspective(view_distance=view_distance)
+
+    def test_zero_strength_directs_the_caller_to_orthographic(self):
+        """A parallel projection is a different type, not a zero strength."""
+        with pytest.raises(ValueError, match="Orthographic"):
+            Perspective(strength=0.0)
+
+    def test_modes_are_frozen(self):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            Perspective().strength = 0.9
+
+    def test_modes_reject_unknown_attributes(self):
+        """slots keeps a typo loud rather than setting an inert attribute."""
+        with pytest.raises((AttributeError, TypeError)):
+            Orthographic().anything = 1
+
+    def test_modes_compare_by_value(self):
+        assert Perspective(0.5, 10.0) == Perspective(0.5, 10.0)
+        assert Perspective(0.5, 10.0) != Perspective(0.6, 10.0)
+        assert Orthographic() == Orthographic()

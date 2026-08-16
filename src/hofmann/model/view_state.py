@@ -1,8 +1,47 @@
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
+
+
+@dataclass(frozen=True, slots=True)
+class Orthographic:
+    """Parallel projection: depth is not foreshortened."""
+
+
+@dataclass(frozen=True, slots=True)
+class Perspective:
+    """Perspective projection with the eye on the camera's +z axis.
+
+    Screen positions are scaled by ``D / (D - z * s)`` for an atom at
+    camera depth *z*, which places the eye at ``view_distance /
+    strength``.  A *strength* of ``1.0`` is therefore a true pinhole
+    camera at :attr:`view_distance`; smaller values move the eye
+    further out, weakening the foreshortening.
+
+    Attributes:
+        strength: Perspective strength.  Must be positive; use
+            :class:`Orthographic` for a parallel projection.
+        view_distance: Reference distance from the scene centre,
+            equal to the eye distance at ``strength = 1``.
+    """
+
+    strength: float = 0.5
+    view_distance: float = 10.0
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.strength) or self.strength <= 0:
+            raise ValueError(
+                "strength must be finite and positive (use Orthographic "
+                f"for a parallel projection), got {self.strength}"
+            )
+        if not math.isfinite(self.view_distance) or self.view_distance <= 0:
+            raise ValueError(
+                "view_distance must be finite and positive, got "
+                f"{self.view_distance}"
+            )
 
 
 @dataclass
