@@ -469,6 +469,16 @@ class TestProjectionTypes:
             ortho, rtol=1e-3,
         )
 
+    def test_silhouette_pins_effective_eye_below_full_strength(self):
+        # eye at D/s = 20; d = D - depth*s = 8, rs = r*s = 0.75, so the
+        # radius is 15 / sqrt(64 - 0.5625) = 1.8833.
+        np.testing.assert_allclose(
+            Perspective(0.5, 10.0).silhouette_radius(
+                np.array([4.0]), np.array([1.5])
+            ),
+            [1.8833], rtol=1e-4,
+        )
+
     def test_silhouette_finite_at_huge_view_distance(self):
         r = Perspective(1.0, 1e200).silhouette_radius(
             np.array([0.0]), np.array([1.5])
@@ -483,9 +493,24 @@ class TestProjectionTypes:
 
     def test_sphere_containing_the_eye_warns(self):
         with pytest.warns(UserWarning, match="contains the perspective eye"):
-            Perspective(1.0, 10.0).silhouette_radius(
+            r = Perspective(1.0, 10.0).silhouette_radius(
                 np.array([9.5]), np.array([1.0])
             )
+        # the 1e-6 denominator floor keeps the radius huge but finite
+        assert np.all(np.isfinite(r)) and np.all(r >= 1e6)
+
+    def test_sphere_warning_dedups_across_calls(self):
+        """One warning line for many eye-containing spheres, not one each."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("default")
+            for view_distance in (10.0, 11.0, 12.0, 13.0, 14.0):
+                Perspective(1.0, view_distance).silhouette_radius(
+                    np.array([view_distance - 0.5]), np.array([1.0])
+                )
+        contained = [
+            w for w in caught if "contains the perspective eye" in str(w.message)
+        ]
+        assert len(contained) == 1
 
     def test_ordinary_atom_does_not_warn(self):
         with warnings.catch_warnings():

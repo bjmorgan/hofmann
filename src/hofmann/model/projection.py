@@ -18,8 +18,9 @@ _PARALLEL_EYE_DISTANCE = 1e6
 def _sqrt_difference_of_squares(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """``sqrt(a**2 - b**2)`` for non-negative *a*, *b*, without overflow.
 
-    Evaluated as ``sqrt(a - b) * sqrt(a + b)``: forming ``(a - b) * (a + b)``
-    first overflows for *a* beyond about 1.3e154 and collapses to zero.
+    Evaluated as ``sqrt(a - b) * sqrt(a + b)``: forming ``a**2 - b**2``
+    first overflows to ``inf`` for *a* beyond about 1.3e154, and the
+    caller's division by that ``inf`` then drives the silhouette to zero.
     ``a < b`` clamps to zero (the eye is inside the sphere; the caller warns).
     """
     return np.sqrt(np.maximum(a - b, 0.0)) * np.sqrt(a + b)
