@@ -1,6 +1,7 @@
 """Tests for projection helpers — _project_point and _scene_extent."""
 
 import math
+import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,6 +61,31 @@ class TestSceneExtent:
         e_no = _scene_extent(scene, view_no_persp, 0, atom_scale=0.5)
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
+
+    def test_scene_reaching_the_eye_plane_warns(self):
+        """The blank-canvas degenerate case must not be silent."""
+        scene = StructureScene(
+            species=["C", "C"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, -9.0],
+                [0.0, 0.0, 9.0],
+            ]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(1.0, 9.0))
+        with pytest.warns(UserWarning, match="eye plane"):
+            _scene_extent(scene, view, 0, atom_scale=0.5)
+
+    def test_ordinary_perspective_scene_does_not_warn(self):
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.5, 20.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _scene_extent(scene, view, 0, atom_scale=0.5)
 
     def test_empty_scene(self):
         """An empty scene (zero atoms) should return a positive extent."""

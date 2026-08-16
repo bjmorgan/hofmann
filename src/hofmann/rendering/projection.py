@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-import numpy as np
-
+import warnings
 from typing import assert_never
+
+import numpy as np
 
 from hofmann.model import (
     Orthographic,
@@ -105,6 +106,19 @@ def _scene_extent(
         case Perspective() as p if len(dists) > 0:
             worst_depth = float(np.max(dists))
             denom = p.view_distance - worst_depth * p.strength
+            if denom <= 0:
+                # The scene reaches the eye plane, the same degenerate
+                # case ViewState.project_camera warns about; here it
+                # would blow the viewport up to a blank canvas.
+                warnings.warn(
+                    "the scene reaches the perspective eye plane "
+                    f"(view_distance={p.view_distance:g}, "
+                    f"strength={p.strength:g}); the view cannot be "
+                    "sized and renders blank.  Increase view_distance "
+                    "or reduce strength.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             # Not max(denom, 1e-6): that would alter 0 < denom < 1e-6.
             persp_scale = p.view_distance / (denom if denom > 0 else 1e-6)
             max_extent *= persp_scale

@@ -141,10 +141,12 @@ class ViewState:
                 # Silhouette radius: r * D / sqrt(d^2 - r^2).
                 # Exact for an eye at D; the eye is at D / strength,
                 # for which the exact form carries (r * strength)^2.
-                # The two agree at full strength only -- the error does
-                # not vanish as strength falls, so a radius does not
-                # converge to its orthographic value (r=1.5, D=10 at
-                # depth 0 gives 1.5172 at every strength).
+                # Left as-is deliberately: bond end caps foreshorten to
+                # the same reference distance D (see
+                # bond_geometry._foreshortening_distance), so correcting
+                # only the silhouette here would desync atom radii from
+                # the bonds meeting them.  Both move together, or
+                # neither does.
                 denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
                 projected_radii = radii * p.view_distance / denom * self.zoom
             case Orthographic():
