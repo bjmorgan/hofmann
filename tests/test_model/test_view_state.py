@@ -498,3 +498,14 @@ class TestProjectionTypes:
         assert Perspective(1.0, 10.0).eye_distance == 10.0
         assert Perspective(0.5, 5.0).eye_distance == 10.0
         assert Perspective(0.5, 10.0).eye_distance == 20.0
+
+    def test_eye_plane_warning_dedups_as_camera_varies(self):
+        """A drag that changes view_distance each frame emits one warning
+        line, not one per frame."""
+        behind = np.array([[1.0, 0.0, 100.0]])  # behind the eye at every step
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("default")
+            for view_distance in (10.0, 11.0, 12.0, 13.0, 14.0):
+                ViewState(projection=Perspective(1.0, view_distance)).project(behind)
+        eye = [w for w in caught if "eye plane" in str(w.message)]
+        assert len(eye) == 1
