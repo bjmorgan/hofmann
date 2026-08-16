@@ -2,7 +2,9 @@
 
 import math
 
+import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
 from hofmann.model import (
     AtomStyle,
@@ -13,6 +15,7 @@ from hofmann.model import (
     ViewState,
 )
 from hofmann.model.composition import Composition
+from hofmann.rendering.static import render_mpl
 from hofmann.rendering.projection import (
     _make_vacancy_wedge,
     _make_wedges,
@@ -183,3 +186,114 @@ class TestMakeVacancyWedge:
             comp, n_segments_total=24, start_angle=math.pi / 2,
         )
         assert result is not None
+
+
+def _point_to_segment_distance(
+    point: np.ndarray, start: np.ndarray, end: np.ndarray,
+) -> float:
+    """Shortest distance from *point* to the segment *start*-*end*."""
+    seg = end - start
+    length_sq = float(seg @ seg)
+    if length_sq == 0.0:
+        return float(np.linalg.norm(point - start))
+    t = float(np.clip((point - start) @ seg / length_sq, 0.0, 1.0))
+    return float(np.linalg.norm(point - (start + t * seg)))
+
+
+class TestDrawnGeometryMatchesProjection:
+    """Every renderer must obtain screen positions from ViewState.
+
+    The perspective scale was once open-coded in the cell-edge loop
+    and in _project_point as well as in ViewState.project.  These
+    tests pin the agreement, so a copy reintroduced in either place
+    fails rather than drifting silently.
+    """
+
+    @staticmethod
+    def _scene() -> StructureScene:
+        """Two tiny atoms in a cell, so edge clipping at spheres is inert."""
+        lattice = np.array([
+            [4.0, 0.0, 0.0], [0.5, 3.6, 0.0], [0.3, 0.4, 5.2],
+        ])
+        return StructureScene(
+            species=["A", "B"],
+            frames=[Frame(
+                coords=np.array([[1.0, 1.0, 1.0], [2.4, 1.8, 3.0]]),
+                lattice=lattice,
+            )],
+            atom_styles={
+                "A": AtomStyle(0.01, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.01, (0.8, 0.2, 0.2)),
+            },
+        )
+
+    @staticmethod
+    def _drawn_edge_endpoints(fig) -> np.ndarray:
+        """Recover segment endpoints from drawn cell-edge rectangles.
+
+        Edges are drawn as [start+offset, end+offset, end-offset,
+        start-offset], so the midpoints of the short sides recover the
+        endpoints exactly -- the half-width offsets cancel.  With atom
+        radii this small, 4-vertex polygons are only ever cell edges.
+        """
+        endpoints = []
+        for collection in fig.axes[0].collections:
+            for path in collection.get_paths():
+                v = np.asarray(path.vertices)
+                if len(v) in (4, 5):  # 5 = closed polygon repeats vertex 0
+                    q = v[:4]
+                    endpoints.append((q[0] + q[3]) / 2)
+                    endpoints.append((q[1] + q[2]) / 2)
+        return np.array(endpoints)
+
+    @pytest.mark.parametrize(
+        "projection",
+        [Orthographic(), Perspective(0.6, 12.0)],
+        ids=["orthographic", "perspective"],
+    )
+    def test_cell_edges_agree_with_view_project(self, projection):
+        scene = self._scene()
+        scene.view = ViewState(projection=projection)
+        scene.view.look_along([1.0, 0.6, 0.4])
+
+        fig = render_mpl(scene, show=False)
+        drawn = self._drawn_edge_endpoints(fig)
+        plt.close(fig)
+
+        fracs = np.array([
+            [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
+            [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1],
+        ], dtype=float)
+        corners = fracs @ scene.frames[0].lattice
+        projected, _, _ = scene.view.project(corners)
+        # Cell edges join corners differing in one fractional
+        # coordinate.  Edges are subdivided for depth sorting, so a
+        # drawn endpoint is generally interior to an edge -- but a
+        # projection maps straight lines to straight lines, so it must
+        # still lie on the projected edge.
+        edges = [
+            (i, j)
+            for i in range(8) for j in range(i + 1, 8)
+            if np.sum(fracs[i] != fracs[j]) == 1
+        ]
+        assert len(edges) == 12
+
+        assert len(drawn) > 0
+        for point in drawn:
+            gap = min(
+                _point_to_segment_distance(
+                    point, projected[i], projected[j],
+                )
+                for i, j in edges
+            )
+            assert gap < 1e-9, f"drawn endpoint {point} lies off every edge"
+
+    def test_project_point_agrees_with_project_camera(self):
+        """_project_point is a scalar view of the same mapping."""
+        view = ViewState(zoom=1.4, projection=Perspective(0.7, 9.0))
+        camera = np.array([[1.0, -2.0, 3.0], [0.5, 0.25, -4.0]])
+        batch_xy, batch_scale = view.project_camera(camera)
+        for i, point in enumerate(camera):
+            xy, scale = _project_point(point, view)
+            np.testing.assert_array_equal(xy, batch_xy[i])
+            assert scale == batch_scale[i]
