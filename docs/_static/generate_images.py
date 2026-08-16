@@ -411,8 +411,7 @@ def logo_scene() -> StructureScene:
     scene.set_atom_data("gradient", by_index=data)
 
     scene.view.look_along(look_dir)
-    scene.view.perspective = 0.12
-    scene.view.view_distance = 5.0
+    scene.view.set_perspective(0.12, 5.0)
 
     return scene
 
@@ -652,13 +651,13 @@ def generate_docs_images() -> None:
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_ortho.svg'}")
-    perov_plain.view.perspective = 0.5
+    perov_plain.view.set_perspective(0.5)
     perov_plain.render_mpl(
         OUT / "perovskite_perspective.svg",
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
-    perov_plain.view.perspective = 0.0  # Reset
+    perov_plain.view.set_orthographic()  # Reset
 
     # 6–9. Per-atom colouring examples: ring of atoms.
     n = 16

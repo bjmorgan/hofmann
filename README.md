@@ -107,7 +107,7 @@ scene.render_mpl("si.pdf")
 ```python
 scene.view.look_along([1, 1, 0])   # View along [110]
 scene.view.zoom = 1.5              # Zoom in
-scene.view.perspective = 0.3       # Mild perspective
+scene.view.set_perspective(0.3)    # Mild perspective
 scene.render_mpl("rotated.svg")
 ```
 

@@ -43,6 +43,18 @@ Data model
 .. autoclass:: ViewState
    :members:
 
+.. autoclass:: Orthographic
+   :members:
+
+.. autoclass:: Perspective
+   :members:
+
+.. data:: Projection
+
+   Type alias for the projection modes:
+   ``Orthographic | Perspective``.  Use it to annotate code that
+   accepts any projection.
+
 .. autoclass:: hofmann.model.atom_data.AtomData
    :members: n_atoms, ranges, labels
 

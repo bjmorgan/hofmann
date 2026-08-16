@@ -1,17 +1,29 @@
 """Tests for projection helpers — _project_point and _scene_extent."""
 
 import math
+import warnings
 
+import matplotlib.pyplot as plt
 import numpy as np
+import pytest
 
-from hofmann.model import AtomStyle, Frame, StructureScene, ViewState
+from hofmann.model import (
+    AtomStyle,
+    Frame,
+    Orthographic,
+    Perspective,
+    StructureScene,
+    ViewState,
+)
 from hofmann.model.composition import Composition
+from hofmann.rendering.cell_edges import _cell_edges_3d
 from hofmann.rendering.projection import (
     _make_vacancy_wedge,
     _make_wedges,
     _project_point,
     _scene_extent,
 )
+from hofmann.rendering.static import render_mpl
 
 
 class TestProjectPoint:
@@ -23,7 +35,7 @@ class TestProjectPoint:
         assert s == 1.0
 
     def test_perspective(self):
-        view = ViewState(perspective=1.0, view_distance=10.0)
+        view = ViewState(projection=Perspective(1.0, 10.0))
         pt = np.array([1.0, 0.0, 0.0])  # depth 0 -> scale = 1
         xy, s = _project_point(pt, view)
         np.testing.assert_allclose(s, 1.0)
@@ -44,11 +56,36 @@ class TestSceneExtent:
             ]))],
             atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
         )
-        view_no_persp = ViewState(perspective=0.0)
-        view_persp = ViewState(perspective=0.5)
+        view_no_persp = ViewState(projection=Orthographic())
+        view_persp = ViewState(projection=Perspective(0.5))
         e_no = _scene_extent(scene, view_no_persp, 0, atom_scale=0.5)
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
+
+    def test_scene_reaching_the_eye_plane_warns(self):
+        """The blank-canvas degenerate case must not be silent."""
+        scene = StructureScene(
+            species=["C", "C"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, -9.0],
+                [0.0, 0.0, 9.0],
+            ]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(1.0, 9.0))
+        with pytest.warns(UserWarning, match="eye plane"):
+            _scene_extent(scene, view, 0, atom_scale=0.5)
+
+    def test_ordinary_perspective_scene_does_not_warn(self):
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.5, 20.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            _scene_extent(scene, view, 0, atom_scale=0.5)
 
     def test_empty_scene(self):
         """An empty scene (zero atoms) should return a positive extent."""
@@ -176,3 +213,172 @@ class TestMakeVacancyWedge:
             comp, n_segments_total=24, start_angle=math.pi / 2,
         )
         assert result is not None
+
+
+def _point_to_segment_distance(
+    point: np.ndarray, start: np.ndarray, end: np.ndarray,
+) -> float:
+    """Shortest distance from *point* to the segment *start*-*end*."""
+    seg = end - start
+    length_sq = float(seg @ seg)
+    if length_sq == 0.0:
+        return float(np.linalg.norm(point - start))
+    t = float(np.clip((point - start) @ seg / length_sq, 0.0, 1.0))
+    return float(np.linalg.norm(point - (start + t * seg)))
+
+
+class TestDrawnGeometryMatchesProjection:
+    """Every renderer must obtain screen positions from ViewState.
+
+    The perspective scale was once open-coded in the cell-edge loop
+    and in _project_point as well as in ViewState.project.  These
+    tests pin the agreement, so a copy reintroduced in either place
+    fails rather than drifting silently.
+    """
+
+    @staticmethod
+    def _scene() -> StructureScene:
+        """Two tiny atoms in a cell, so edge clipping at spheres is inert."""
+        lattice = np.array([
+            [4.0, 0.0, 0.0], [0.5, 3.6, 0.0], [0.3, 0.4, 5.2],
+        ])
+        return StructureScene(
+            species=["A", "B"],
+            frames=[Frame(
+                coords=np.array([[1.0, 1.0, 1.0], [2.4, 1.8, 3.0]]),
+                lattice=lattice,
+            )],
+            atom_styles={
+                "A": AtomStyle(0.01, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.01, (0.8, 0.2, 0.2)),
+            },
+        )
+
+    @staticmethod
+    def _drawn_edge_endpoints(fig) -> np.ndarray:
+        """Recover segment endpoints from drawn cell-edge rectangles.
+
+        Edges are drawn as [start+offset, end+offset, end-offset,
+        start-offset], so the midpoints of the short sides recover the
+        endpoints exactly -- the half-width offsets cancel.  With atom
+        radii this small, 4-vertex polygons are only ever cell edges.
+        """
+        endpoints = []
+        for collection in fig.axes[0].collections:
+            for path in collection.get_paths():
+                v = np.asarray(path.vertices)
+                if len(v) in (4, 5):  # 5 = closed polygon repeats vertex 0
+                    q = v[:4]
+                    endpoints.append((q[0] + q[3]) / 2)
+                    endpoints.append((q[1] + q[2]) / 2)
+        return np.array(endpoints)
+
+    @pytest.mark.parametrize(
+        "projection",
+        [Orthographic(), Perspective(0.6, 12.0)],
+        ids=["orthographic", "perspective"],
+    )
+    def test_cell_edges_agree_with_view_project(self, projection):
+        scene = self._scene()
+        scene.view = ViewState(projection=projection)
+        scene.view.look_along([1.0, 0.6, 0.4])
+
+        fig = render_mpl(scene, show=False)
+        drawn = self._drawn_edge_endpoints(fig)
+        plt.close(fig)
+
+        # The renderer's own edge set, so the test cannot drift from
+        # the geometry it checks.  Edges are subdivided for depth
+        # sorting, so a drawn endpoint is generally interior to an
+        # edge -- but a projection maps straight lines to straight
+        # lines, so it must still lie on the projected edge.
+        starts, ends = _cell_edges_3d(scene.frames[0].lattice)
+        projected, _, _ = scene.view.project(np.vstack([starts, ends]))
+        edges = list(zip(projected[: len(starts)], projected[len(starts):]))
+
+        assert len(drawn) > 0
+        for point in drawn:
+            gap = min(
+                _point_to_segment_distance(point, start, end)
+                for start, end in edges
+            )
+            assert gap < 1e-9, f"drawn endpoint {point} lies off every edge"
+
+    def test_project_point_agrees_with_project_camera(self):
+        """_project_point is a scalar view of the same mapping."""
+        view = ViewState(zoom=1.4, projection=Perspective(0.7, 9.0))
+        camera = np.array([[1.0, -2.0, 3.0], [0.5, 0.25, -4.0]])
+        batch_xy, batch_scale = view.project_camera(camera)
+        for i, point in enumerate(camera):
+            xy, scale = _project_point(point, view)
+            np.testing.assert_array_equal(xy, batch_xy[i])
+            assert scale == batch_scale[i]
+
+
+class TestCellEdgeSubSegmentPairing:
+    """Sub-segment screen positions must stay paired with their depths.
+
+    Edges are split at atom depths and each piece is filed in the depth
+    slot its own midpoint falls into, so atoms occlude the pieces
+    behind them and not the ones in front.  Projecting a whole edge's
+    endpoints in one call makes it possible to pair a piece with
+    another piece's depth; the point-on-segment check above cannot see
+    that, being invariant under permuting the pieces.
+    """
+
+    def test_piece_depth_matches_its_own_screen_position(self):
+        """Recover each piece's depth from its geometry, independently."""
+        from hofmann.model import CellEdgeStyle
+        from hofmann.rendering.cell_edges import (
+            _cell_edges_3d,
+            _collect_cell_edges,
+        )
+
+        lattice = np.eye(3) * 12.0
+        # Orthographic: screen position maps back to camera x/y exactly,
+        # so a piece's depth can be recovered from where it was drawn.
+        view = ViewState()
+        view.look_along([1.0, 0.6, 0.4])
+        g = np.arange(3) * 5.0
+        xs, ys, zs = np.meshgrid(g, g, g, indexing="ij")
+        coords = np.column_stack([xs.ravel(), ys.ravel(), zs.ravel()])
+        depth = coords @ view.rotation[2]
+
+        by_slot = _collect_cell_edges(
+            lattice=lattice, view=view, cell_style=CellEdgeStyle(),
+            depth=depth, order=np.argsort(depth), pad=30.0, coords=coords,
+            radii_3d=np.full(len(coords), 0.4),
+        )
+        assert by_slot, "expected cell edges to be drawn"
+
+        # Camera-space edges, against which a drawn midpoint is located.
+        starts, ends = _cell_edges_3d(lattice)
+        cam_s = (starts - view.centre) @ view.rotation.T
+        cam_e = (ends - view.centre) @ view.rotation.T
+
+        checked = 0
+        for pieces in by_slot.values():
+            for polygon, _colour, piece_depth in pieces:
+                mid_xy = np.asarray(polygon).mean(axis=0) / view.zoom
+                # Find the edge this piece lies on, and how far along.
+                best = None
+                for c_s, c_e in zip(cam_s, cam_e):
+                    seg = (c_e - c_s)[:2]
+                    L = float(seg @ seg)
+                    if L == 0.0:
+                        continue
+                    t = float(np.clip((mid_xy - c_s[:2]) @ seg / L, 0.0, 1.0))
+                    gap = float(np.linalg.norm(c_s[:2] + t * seg - mid_xy))
+                    if best is None or gap < best[0]:
+                        best = (gap, c_s, c_e, t)
+                gap, c_s, c_e, t = best
+                assert gap < 1e-9, "piece does not lie on any cell edge"
+                # Depth varies linearly along a straight camera-space
+                # edge, so the piece's own position fixes its depth.
+                expected = c_s[2] + t * (c_e[2] - c_s[2])
+                assert abs(expected - piece_depth) < 1e-9, (
+                    f"piece drawn at t={t:.4f} along its edge has depth "
+                    f"{expected:.6f}, but was filed under {piece_depth:.6f}"
+                )
+                checked += 1
+        assert checked > 12, f"only {checked} pieces checked"

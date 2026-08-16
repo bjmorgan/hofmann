@@ -1,9 +1,12 @@
 """Tests for ViewState projection, look_along, slab clipping, and validation."""
 
+import dataclasses
+import warnings
+
 import numpy as np
 import pytest
 
-from hofmann.model.view_state import ViewState
+from hofmann.model.view_state import Orthographic, Perspective, ViewState
 
 
 class TestViewStateProject:
@@ -42,7 +45,7 @@ class TestViewStateProject:
         np.testing.assert_allclose(xy, [[0.0, 1.0]], atol=1e-10)
 
     def test_perspective_scaling(self):
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([
             [1.0, 0.0, 0.0],
             [1.0, 0.0, -5.0],
@@ -69,7 +72,7 @@ class TestViewStateProject:
         np.testing.assert_allclose(proj_r, [3.0])  # r * zoom
 
     def test_projected_radii_perspective(self):
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([[0.0, 0.0, 0.0]])
         radii = np.array([1.0])
         _, _, proj_r = vs.project(coords, radii)
@@ -77,9 +80,39 @@ class TestViewStateProject:
         expected = 10.0 / np.sqrt(99.0)
         np.testing.assert_allclose(proj_r, [expected], rtol=1e-6)
 
+    def test_zoom_scales_perspective_positions(self):
+        """Zoom must apply under perspective, not only orthographic."""
+        coords = np.array([[1.0, 2.0, 3.0]])
+        plain = ViewState(projection=Perspective(0.7, 12.0))
+        zoomed = ViewState(zoom=2.5, projection=Perspective(0.7, 12.0))
+        xy_plain, _, _ = plain.project(coords)
+        xy_zoomed, _, _ = zoomed.project(coords)
+        np.testing.assert_allclose(xy_zoomed, xy_plain * 2.5)
+
+    def test_zoom_scales_perspective_radii(self):
+        coords = np.array([[0.0, 0.0, 1.0]])
+        radii = np.array([0.8])
+        plain = ViewState(projection=Perspective(0.7, 12.0))
+        zoomed = ViewState(zoom=2.5, projection=Perspective(0.7, 12.0))
+        _, _, r_plain = plain.project(coords, radii)
+        _, _, r_zoomed = zoomed.project(coords, radii)
+        np.testing.assert_allclose(r_zoomed, r_plain * 2.5)
+
+    def test_points_at_or_behind_the_eye_plane_warn(self):
+        """Behind-eye points draw mirrored and sort frontmost."""
+        vs = ViewState(projection=Perspective(1.0, 10.0))
+        with pytest.warns(UserWarning, match="eye plane"):
+            vs.project(np.array([[1.0, 0.0, 11.0]]))
+
+    def test_no_eye_plane_warning_for_ordinary_depths(self):
+        vs = ViewState(projection=Perspective(1.0, 10.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            vs.project(np.array([[1.0, 0.0, 2.0]]))
+
     def test_projected_radii_larger_than_point_scale(self):
         """Silhouette radii should exceed naive r * scale under perspective."""
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([[0.0, 0.0, 2.0]])  # closer to eye
         radii = np.array([1.0])
         _, _, proj_r = vs.project(coords, radii)
@@ -148,11 +181,10 @@ class TestViewStateLookAlong:
 
     def test_preserves_other_state(self):
         """look_along should only change the rotation."""
-        vs = ViewState(zoom=2.5, perspective=0.8, view_distance=15.0)
+        vs = ViewState(zoom=2.5, projection=Perspective(0.8, 15.0))
         vs.look_along([1, 1, 0])
         assert vs.zoom == 2.5
-        assert vs.perspective == 0.8
-        assert vs.view_distance == 15.0
+        assert vs.projection == Perspective(0.8, 15.0)
 
     def test_up_parallel_to_direction_raises(self):
         """An explicit up vector parallel to the view direction should raise."""
@@ -282,14 +314,77 @@ class TestViewStateValidation:
         with pytest.raises(ValueError, match="zoom"):
             ViewState(zoom=-1.0)
 
-    def test_zero_view_distance_raises(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            ViewState(view_distance=0.0)
-
-    def test_negative_view_distance_raises(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            ViewState(view_distance=-1.0)
-
     def test_valid_view_state_accepted(self):
-        vs = ViewState(zoom=2.0, view_distance=15.0)
+        vs = ViewState(zoom=2.0, projection=Perspective(0.5, 15.0))
         assert vs.zoom == 2.0
+        assert vs.projection.view_distance == 15.0
+
+    def test_projection_defaults_to_orthographic(self):
+        assert ViewState().projection == Orthographic()
+
+
+class TestProjectionTypes:
+    def test_perspective_defaults(self):
+        p = Perspective()
+        assert p.strength == 0.5
+        assert p.view_distance == 10.0
+
+    @pytest.mark.parametrize(
+        "strength", [-0.5, float("nan"), float("inf")],
+    )
+    def test_invalid_strength_rejected(self, strength):
+        with pytest.raises(ValueError, match="strength"):
+            Perspective(strength=strength)
+
+    @pytest.mark.parametrize(
+        "view_distance", [0.0, -1.0, float("nan"), float("inf")],
+    )
+    def test_invalid_view_distance_rejected(self, view_distance):
+        with pytest.raises(ValueError, match="view_distance"):
+            Perspective(view_distance=view_distance)
+
+    def test_zero_strength_directs_the_caller_to_orthographic(self):
+        """A parallel projection is a different type, not a zero strength."""
+        with pytest.raises(ValueError, match="Orthographic"):
+            Perspective(strength=0.0)
+
+    def test_modes_are_frozen(self):
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            Perspective().strength = 0.9
+
+    def test_modes_reject_unknown_attributes(self):
+        """slots keeps a typo loud rather than setting an inert attribute.
+
+        The exception type is a CPython detail that moved: up to 3.12
+        the slots check fires first and raises ``TypeError``, from 3.13
+        the frozen check fires first and raises
+        ``FrozenInstanceError``.  What matters here is that the write
+        is refused and leaves nothing behind, so both are accepted.
+        """
+        mode = Orthographic()
+        with pytest.raises((AttributeError, TypeError)):
+            mode.anything = 1
+        assert not hasattr(mode, "anything")
+        # frozen alone would satisfy the raise above, so pin the slots
+        # that make an unknown attribute unstorable in the first place.
+        assert not hasattr(mode, "__dict__")
+        assert not hasattr(Perspective(), "__dict__")
+
+    def test_setters_return_self_for_chaining(self):
+        vs = ViewState()
+        assert vs.set_perspective() is vs
+        assert vs.set_orthographic() is vs
+
+    def test_setters_select_the_mode(self):
+        vs = ViewState().set_perspective(0.8, 15.0)
+        assert vs.projection == Perspective(0.8, 15.0)
+        assert vs.set_orthographic().projection == Orthographic()
+
+    def test_setter_validates_through_the_type(self):
+        with pytest.raises(ValueError, match="strength"):
+            ViewState().set_perspective(strength=-1.0)
+
+    def test_modes_compare_by_value(self):
+        assert Perspective(0.5, 10.0) == Perspective(0.5, 10.0)
+        assert Perspective(0.5, 10.0) != Perspective(0.6, 10.0)
+        assert Orthographic() == Orthographic()

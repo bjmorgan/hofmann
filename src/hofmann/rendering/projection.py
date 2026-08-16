@@ -2,9 +2,17 @@
 
 from __future__ import annotations
 
+import warnings
+from typing import assert_never
+
 import numpy as np
 
-from hofmann.model import StructureScene, ViewState
+from hofmann.model import (
+    Orthographic,
+    Perspective,
+    StructureScene,
+    ViewState,
+)
 from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
 
@@ -40,13 +48,8 @@ def _project_point(
         Tuple of (xy, scale) where *xy* is the 2D position and *scale*
         is the perspective scale factor at this depth.
     """
-    z = pt[2]
-    if view.perspective > 0:
-        s = view.view_distance / (view.view_distance - z * view.perspective)
-    else:
-        s = 1.0
-    xy = pt[:2] * s * view.zoom
-    return xy, s
+    xy, scale = view.project_camera(np.asarray(pt, dtype=float)[np.newaxis])
+    return xy[0], float(scale[0])
 
 
 # Fractional coordinates of the 8 unit cube corners.
@@ -99,14 +102,30 @@ def _scene_extent(
     # worst-case magnification for an atom at distance *d* from the
     # view centre is when it is rotated to depth z = +d (closest to
     # the camera).
-    if view.perspective > 0 and len(dists) > 0:
-        worst_depth = float(np.max(dists))
-        denom = view.view_distance - worst_depth * view.perspective
-        if denom > 0:
-            persp_scale = view.view_distance / denom
-        else:
-            persp_scale = view.view_distance / 1e-6
-        max_extent *= persp_scale
+    match view.projection:
+        case Perspective() as p if len(dists) > 0:
+            worst_depth = float(np.max(dists))
+            denom = p.view_distance - worst_depth * p.strength
+            if denom <= 0:
+                # The scene reaches the eye plane, the same degenerate
+                # case ViewState.project_camera warns about; here it
+                # would blow the viewport up to a blank canvas.
+                warnings.warn(
+                    "the scene reaches the perspective eye plane "
+                    f"(view_distance={p.view_distance:g}, "
+                    f"strength={p.strength:g}); the view cannot be "
+                    "sized and renders blank.  Increase view_distance "
+                    "or reduce strength.",
+                    UserWarning,
+                    stacklevel=2,
+                )
+            # Not max(denom, 1e-6): that would alter 0 < denom < 1e-6.
+            persp_scale = p.view_distance / (denom if denom > 0 else 1e-6)
+            max_extent *= persp_scale
+        case Perspective() | Orthographic():
+            pass
+        case _:
+            assert_never(view.projection)
 
     return float(max_extent * view.zoom)
 

@@ -1,6 +1,29 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+- **Breaking:** Projection mode is now selected with a single
+  :attr:`~hofmann.ViewState.projection` field taking
+  :class:`~hofmann.Orthographic` (the default) or
+  :class:`~hofmann.Perspective`, set with
+  :meth:`~hofmann.ViewState.set_orthographic` or
+  :meth:`~hofmann.ViewState.set_perspective`.  The ``perspective`` and
+  ``view_distance`` attributes are removed; ``perspective = 0.3``
+  becomes ``set_perspective(0.3)`` and ``perspective = 0.0`` becomes
+  ``set_orthographic()``.  A ``view_distance`` set alongside a
+  perspective strength moves into the same call:
+  ``set_perspective(0.3, 5.0)``.  A perspective strength no longer
+  doubles as an on/off switch, so a viewing distance can no longer be
+  set on a view that ignores it.
+
+- In interactive sessions, the ``d`` and ``D`` viewing-distance keys
+  now act only in perspective mode, where previously they adjusted a
+  distance that had no effect until perspective was switched on.
+  ``P`` returns to an orthographic view at the bottom of the ladder,
+  as before.
+
 0.20.0
 ------
 
