@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from hofmann.model import BondSpec, ViewState
+from hofmann.model import BondSpec, Perspective, ViewState
 from hofmann.rendering.bond_geometry import (
     _bond_polygon,
     _bond_polygons_batch,
@@ -236,6 +236,35 @@ class TestBondPolygonsBatch:
             assert valid[i]
             s_verts, s_start, s_end = scalar
             np.testing.assert_allclose(full_verts[i], s_verts, atol=1e-12)
+
+    def test_matches_scalar_perspective_view(self):
+        """Batch matches scalar under perspective: the effective-eye
+        foreshortening must be applied identically on both paths."""
+        rot = _rotation_y(0.7) @ _rotation_x(0.3)
+        view = ViewState(rotation=rot, projection=Perspective(0.6, 12.0))
+        d = self._ch4_scene_data(view=view)
+        atom_scale = d["atom_scale"]
+
+        full_verts, start_2d, end_2d, *_, valid = _bond_polygons_batch(
+            d["rotated"], d["xy"],
+            d["radii_3d"] * atom_scale, d["screen_radii"],
+            d["bond_ia"], d["bond_ib"], d["bond_radii"],
+            view,
+        )
+        for i, bond in enumerate(d["bonds"]):
+            ia, ib = bond.index_a, bond.index_b
+            scalar = _bond_polygon(
+                d["rotated"][ia], d["rotated"][ib],
+                d["radii_3d"][ia] * atom_scale,
+                d["radii_3d"][ib] * atom_scale,
+                bond.spec.radius,
+                d["screen_radii"][ia], d["screen_radii"][ib],
+                view,
+            )
+            assert scalar is not None
+            assert valid[i]
+            s_verts, s_start, s_end = scalar
+            np.testing.assert_allclose(full_verts[i], s_verts, atol=1e-9)
 
     def test_empty_bonds(self):
         """No bonds produces empty arrays."""

@@ -456,3 +456,45 @@ class TestProjectionTypes:
         assert not np.all(np.isfinite(on_plane))
         behind = persp.to_screen(np.array([[1.0, 0.0, 11.0]]))  # depth > D
         assert behind[0, 0] < 0  # mirrored through the origin
+
+    def test_silhouette_converges_to_orthographic_as_strength_falls(self):
+        depth = np.array([2.0])
+        radii = np.array([1.5])
+        ortho = Orthographic().silhouette_radius(depth, radii)  # == radii
+        r_strong = Perspective(1.0, 10.0).silhouette_radius(depth, radii)
+        r_weak = Perspective(0.01, 10.0).silhouette_radius(depth, radii)
+        assert abs(r_weak[0] - ortho[0]) < abs(r_strong[0] - ortho[0])
+        np.testing.assert_allclose(
+            Perspective(1e-6, 10.0).silhouette_radius(depth, radii),
+            ortho, rtol=1e-3,
+        )
+
+    def test_silhouette_finite_at_huge_view_distance(self):
+        r = Perspective(1.0, 1e200).silhouette_radius(
+            np.array([0.0]), np.array([1.5])
+        )
+        assert np.all(np.isfinite(r)) and np.all(r > 0)
+
+    def test_silhouette_finite_for_atoms_behind_the_eye(self):
+        r = Perspective(1.0, 10.0).silhouette_radius(
+            np.array([20.0]), np.array([1.5])
+        )
+        assert np.all(np.isfinite(r))
+
+    def test_sphere_containing_the_eye_warns(self):
+        with pytest.warns(UserWarning, match="contains the perspective eye"):
+            Perspective(1.0, 10.0).silhouette_radius(
+                np.array([9.5]), np.array([1.0])
+            )
+
+    def test_ordinary_atom_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Perspective(1.0, 10.0).silhouette_radius(
+                np.array([0.0]), np.array([1.0])
+            )
+
+    def test_eye_distance_is_the_effective_pinhole(self):
+        assert Perspective(1.0, 10.0).eye_distance == 10.0
+        assert Perspective(0.5, 5.0).eye_distance == 10.0
+        assert Perspective(0.5, 10.0).eye_distance == 20.0
