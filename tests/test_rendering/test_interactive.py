@@ -294,10 +294,15 @@ class TestKeyActions:
 
     @pytest.mark.parametrize("key", ["P", "d", "D"])
     def test_perspective_keys_are_inert_without_perspective(self, key):
-        """Only p enters perspective mode; the rest need it already set."""
+        """Only p enters perspective mode; the rest need it already set.
+
+        The redraw kind is asserted too: a key that changes nothing
+        must not ask for a redraw, or the no-op costs a frame.
+        """
         view, style, state, iv = _key_action_fixtures()
-        _do_key(key, view, style, state, iv)
+        kind = _do_key(key, view, style, state, iv)
         assert view.projection == Orthographic()
+        assert kind == "none"
 
     # -- Style toggles --
 

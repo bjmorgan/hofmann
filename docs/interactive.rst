@@ -75,7 +75,8 @@ Pan and perspective
    * - Shift + Arrow keys
      - Pan the view
    * - ``p`` / ``P``
-     - Increase / decrease perspective strength
+     - Increase / decrease perspective strength (``P`` returns to an
+       orthographic view)
    * - ``d`` / ``D``
      - Increase / decrease viewing distance (perspective only)
 

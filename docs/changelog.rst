@@ -14,16 +14,15 @@ Unreleased
   becomes ``set_perspective(0.3)`` and ``perspective = 0.0`` becomes
   ``set_orthographic()``.  A ``view_distance`` set alongside a
   perspective strength moves into the same call:
-  ``set_perspective(0.3, 5.0)``.  A perspective strength no longer doubles as
-  an on/off switch, so a viewing distance can no longer be set on a
-  view that ignores it.
+  ``set_perspective(0.3, 5.0)``.  A perspective strength no longer
+  doubles as an on/off switch, so a viewing distance can no longer be
+  set on a view that ignores it.
 
 - In interactive sessions, the ``d`` and ``D`` viewing-distance keys
   now act only in perspective mode, where previously they adjusted a
   distance that had no effect until perspective was switched on.
-  ``P`` steps out to an orthographic projection once the strength
-  reaches the bottom of the ladder, and ``p`` restores the viewing
-  distance the session was last using rather than resetting it.
+  ``P`` returns to an orthographic view at the bottom of the ladder,
+  as before.
 
 0.20.0
 ------

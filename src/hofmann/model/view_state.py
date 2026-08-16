@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from dataclasses import dataclass, field
 from typing import assert_never
 
@@ -18,9 +19,10 @@ class Perspective:
 
     Screen positions are scaled by ``D / (D - z * s)`` for an atom at
     camera depth *z*, writing *D* for :attr:`view_distance` and *s*
-    for :attr:`strength`.  That places the eye at ``D / s``.  A *strength* of ``1.0`` is therefore a true pinhole
-    camera at :attr:`view_distance`; smaller values move the eye
-    further out, weakening the foreshortening.
+    for :attr:`strength`.  That places the eye at ``D / s``, so a
+    *strength* of ``1.0`` is a true pinhole camera at
+    :attr:`view_distance`; smaller values move the eye further out,
+    weakening the foreshortening.
 
     Attributes:
         strength: Perspective strength.  Must be positive; use
@@ -139,7 +141,10 @@ class ViewState:
                 # Silhouette radius: r * D / sqrt(d^2 - r^2).
                 # Exact for an eye at D; the eye is at D / strength,
                 # for which the exact form carries (r * strength)^2.
-                # The two agree at full strength.
+                # The two agree at full strength only -- the error does
+                # not vanish as strength falls, so a radius does not
+                # converge to its orthographic value (r=1.5, D=10 at
+                # depth 0 gives 1.5172 at every strength).
                 denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
                 projected_radii = radii * p.view_distance / denom * self.zoom
             case Orthographic():
@@ -174,10 +179,24 @@ class ViewState:
         camera = np.asarray(camera, dtype=float)
         match self.projection:
             case Perspective() as p:
-                scale = p.view_distance / (
-                    p.view_distance - camera[:, 2] * p.strength
-                )
-                xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
+                denom = p.view_distance - camera[:, 2] * p.strength
+                if np.any(denom <= 0):
+                    warnings.warn(
+                        "one or more points lie at or behind the "
+                        f"perspective eye plane (view_distance="
+                        f"{p.view_distance:g}, strength={p.strength:g}); "
+                        "they are drawn mirrored through the origin and "
+                        "sorted as if nearest the viewer.  Increase "
+                        "view_distance or reduce strength.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                # Not clamped: the scale is left infinite or negative
+                # so the geometry stays reproducible, and the warning
+                # above is what tells the caller.
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    scale = p.view_distance / denom
+                    xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
             case Orthographic():
                 # Reported as ones for the caller, but not applied:
                 # a parallel projection does not scale with depth.

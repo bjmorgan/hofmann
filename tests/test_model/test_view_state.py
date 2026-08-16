@@ -1,6 +1,7 @@
 """Tests for ViewState projection, look_along, slab clipping, and validation."""
 
 import dataclasses
+import warnings
 
 import numpy as np
 import pytest
@@ -96,6 +97,18 @@ class TestViewStateProject:
         _, _, r_plain = plain.project(coords, radii)
         _, _, r_zoomed = zoomed.project(coords, radii)
         np.testing.assert_allclose(r_zoomed, r_plain * 2.5)
+
+    def test_points_at_or_behind_the_eye_plane_warn(self):
+        """Behind-eye points draw mirrored and sort frontmost."""
+        vs = ViewState(projection=Perspective(1.0, 10.0))
+        with pytest.warns(UserWarning, match="eye plane"):
+            vs.project(np.array([[1.0, 0.0, 11.0]]))
+
+    def test_no_eye_plane_warning_for_ordinary_depths(self):
+        vs = ViewState(projection=Perspective(1.0, 10.0))
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            vs.project(np.array([[1.0, 0.0, 2.0]]))
 
     def test_projected_radii_larger_than_point_scale(self):
         """Silhouette radii should exceed naive r * scale under perspective."""
@@ -352,6 +365,10 @@ class TestProjectionTypes:
         with pytest.raises((AttributeError, TypeError)):
             mode.anything = 1
         assert not hasattr(mode, "anything")
+        # frozen alone would satisfy the raise above, so pin the slots
+        # that make an unknown attribute unstorable in the first place.
+        assert not hasattr(mode, "__dict__")
+        assert not hasattr(Perspective(), "__dict__")
 
     def test_setters_return_self_for_chaining(self):
         vs = ViewState()

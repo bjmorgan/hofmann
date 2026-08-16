@@ -71,8 +71,10 @@ _PERSPECTIVE_FLOOR = 1e-9  # below this, the descent lands on Orthographic
 _DISTANCE_FACTOR = 1.05  # viewing distance multiplier per key press
 _MIN_VIEW_DISTANCE = 0.1  # floor on Perspective.view_distance
 
-#: Seeds the p key when no perspective has been used this session.
-_DEFAULT_INTERACTIVE_PERSPECTIVE = Perspective(strength=_PERSPECTIVE_STEP)
+#: Seeds the viewing distance the p key restores when no perspective
+#: has been used this session.  Only view_distance is read back: p sets
+#: the strength itself.
+_DEFAULT_INTERACTIVE_PERSPECTIVE = Perspective()
 
 _HELP_TEXT = """\
 Arrows     Rotate          Shift+Arrows  Pan
@@ -182,6 +184,7 @@ def _apply_key_action(
                     strength=min(1.0, proj.strength + _PERSPECTIVE_STEP),
                 )
             case _:
+                # Any non-perspective mode is replaced wholesale.
                 # A parallel projection cannot hold a viewing distance,
                 # so re-entering perspective restores the one the
                 # session last used rather than resetting it.
@@ -201,6 +204,7 @@ def _apply_key_action(
                     state["last_perspective"] = proj
                     view.projection = Orthographic()
             case _:
+                # Nothing to step down from under a parallel mode.
                 return "none"
     elif key == "d":
         match view.projection:
