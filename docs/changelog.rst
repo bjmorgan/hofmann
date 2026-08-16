@@ -24,6 +24,17 @@ Unreleased
   ``P`` returns to an orthographic view at the bottom of the ladder,
   as before.
 
+- Under perspective, a sphere's silhouette now converges to its
+  orthographic size as the perspective strength falls, measured from
+  the eye at ``view_distance / strength``.  Previously the apparent
+  size did not approach the orthographic size correctly.  A sphere
+  large enough to contain the eye now warns rather than ballooning
+  silently.
+
+- Under perspective, bond end caps now foreshorten to the same
+  corrected eye as the sphere silhouettes, so their drawn shape changes
+  at perspective strengths other than one.
+
 0.20.0
 ------
 

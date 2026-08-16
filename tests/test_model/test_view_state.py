@@ -456,3 +456,81 @@ class TestProjectionTypes:
         assert not np.all(np.isfinite(on_plane))
         behind = persp.to_screen(np.array([[1.0, 0.0, 11.0]]))  # depth > D
         assert behind[0, 0] < 0  # mirrored through the origin
+
+    def test_silhouette_converges_to_orthographic_as_strength_falls(self):
+        depth = np.array([2.0])
+        radii = np.array([1.5])
+        ortho = Orthographic().silhouette_radius(depth, radii)  # == radii
+        r_strong = Perspective(1.0, 10.0).silhouette_radius(depth, radii)
+        r_weak = Perspective(0.01, 10.0).silhouette_radius(depth, radii)
+        assert abs(r_weak[0] - ortho[0]) < abs(r_strong[0] - ortho[0])
+        np.testing.assert_allclose(
+            Perspective(1e-6, 10.0).silhouette_radius(depth, radii),
+            ortho, rtol=1e-3,
+        )
+
+    def test_silhouette_pins_effective_eye_below_full_strength(self):
+        # eye at D/s = 20; d = D - depth*s = 8, rs = r*s = 0.75, so the
+        # radius is 15 / sqrt(64 - 0.5625) = 1.8833.
+        np.testing.assert_allclose(
+            Perspective(0.5, 10.0).silhouette_radius(
+                np.array([4.0]), np.array([1.5])
+            ),
+            [1.8833], rtol=1e-4,
+        )
+
+    def test_silhouette_finite_at_huge_view_distance(self):
+        r = Perspective(1.0, 1e200).silhouette_radius(
+            np.array([0.0]), np.array([1.5])
+        )
+        assert np.all(np.isfinite(r)) and np.all(r > 0)
+
+    def test_silhouette_finite_for_atoms_behind_the_eye(self):
+        r = Perspective(1.0, 10.0).silhouette_radius(
+            np.array([20.0]), np.array([1.5])
+        )
+        assert np.all(np.isfinite(r))
+
+    def test_sphere_containing_the_eye_warns(self):
+        with pytest.warns(UserWarning, match="contains the perspective eye"):
+            r = Perspective(1.0, 10.0).silhouette_radius(
+                np.array([9.5]), np.array([1.0])
+            )
+        # the 1e-6 denominator floor keeps the radius huge but finite
+        assert np.all(np.isfinite(r)) and np.all(r >= 1e6)
+
+    def test_sphere_warning_dedups_across_calls(self):
+        """One warning line for many eye-containing spheres, not one each."""
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("default")
+            for view_distance in (10.0, 11.0, 12.0, 13.0, 14.0):
+                Perspective(1.0, view_distance).silhouette_radius(
+                    np.array([view_distance - 0.5]), np.array([1.0])
+                )
+        contained = [
+            w for w in caught if "contains the perspective eye" in str(w.message)
+        ]
+        assert len(contained) == 1
+
+    def test_ordinary_atom_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Perspective(1.0, 10.0).silhouette_radius(
+                np.array([0.0]), np.array([1.0])
+            )
+
+    def test_eye_distance_is_the_effective_pinhole(self):
+        assert Perspective(1.0, 10.0).eye_distance == 10.0
+        assert Perspective(0.5, 5.0).eye_distance == 10.0
+        assert Perspective(0.5, 10.0).eye_distance == 20.0
+
+    def test_eye_plane_warning_dedups_as_camera_varies(self):
+        """A drag that changes view_distance each frame emits one warning
+        line, not one per frame."""
+        behind = np.array([[1.0, 0.0, 100.0]])  # behind the eye at every step
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("default")
+            for view_distance in (10.0, 11.0, 12.0, 13.0, 14.0):
+                ViewState(projection=Perspective(1.0, view_distance)).project(behind)
+        eye = [w for w in caught if "eye plane" in str(w.message)]
+        assert len(eye) == 1

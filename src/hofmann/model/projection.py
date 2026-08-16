@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
@@ -12,6 +13,17 @@ import numpy as np
 #: Stand-in eye distance for parallel projections: far enough that all
 #: view rays are effectively parallel (matching XBS pmode == 0).
 _PARALLEL_EYE_DISTANCE = 1e6
+
+
+def _sqrt_difference_of_squares(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """``sqrt(a**2 - b**2)`` for non-negative *a*, *b*, without overflow.
+
+    Evaluated as ``sqrt(a - b) * sqrt(a + b)``: forming ``a**2 - b**2``
+    first overflows to ``inf`` for *a* beyond about 1.3e154, and the
+    caller's division by that ``inf`` then drives the silhouette to zero.
+    ``a < b`` clamps to zero (the eye is inside the sphere; the caller warns).
+    """
+    return np.sqrt(np.maximum(a - b, 0.0)) * np.sqrt(a + b)
 
 
 class Projection(ABC):
@@ -119,11 +131,20 @@ class Perspective(Projection):
         self, depth: np.ndarray, radii: np.ndarray,
     ) -> np.ndarray:
         d = self.view_distance - depth * self.strength
-        # Silhouette radius r*D/sqrt(d^2 - r^2), approximate: the eye is
-        # at D/strength, for which the exact form carries (r*strength)^2.
-        # Bond end caps use the same reference distance D (bond_geometry),
-        # so the two share an eye.
-        denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+        rs = radii * self.strength
+        if np.any(np.abs(d) <= rs):
+            warnings.warn(
+                "a sphere contains the perspective eye and is drawn "
+                "with an unbounded silhouette; increase view_distance "
+                "or reduce strength.",
+                UserWarning,
+                stacklevel=2,
+            )
+        # Silhouette radius r*D/sqrt(d^2 - (r*s)^2), the eye at D/s.
+        # abs(d) keeps a real denominator for atoms behind the eye
+        # (d < 0); the 1e-6 floor gives a huge finite radius when the
+        # eye is inside a sphere.
+        denom = np.maximum(_sqrt_difference_of_squares(np.abs(d), rs), 1e-6)
         return radii * self.view_distance / denom
 
     def max_magnification(self, worst_depth: float) -> float:
@@ -132,9 +153,7 @@ class Perspective(Projection):
 
     @property
     def eye_distance(self) -> float:
-        # Exact only at full strength: the eye actually sits at
-        # view_distance / strength.
-        return self.view_distance
+        return self.view_distance / self.strength
 
     def reaches_eye_plane(self, depth: np.ndarray) -> bool:
         return bool(np.any(self.view_distance - depth * self.strength <= 0))

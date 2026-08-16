@@ -107,20 +107,16 @@ class ViewState:
             *xy* of shape ``(n, 2)`` — screen positions with zoom applied.
         """
         camera = np.asarray(camera, dtype=float)
-        proj = self.projection
-        if proj.reaches_eye_plane(camera[:, 2]):
-            assert isinstance(proj, Perspective)  # only Perspective reaches it
+        if self.projection.reaches_eye_plane(camera[:, 2]):
             warnings.warn(
-                "one or more points lie at or behind the "
-                f"perspective eye plane (view_distance="
-                f"{proj.view_distance:g}, strength={proj.strength:g}); "
-                "they are drawn mirrored through the origin and "
-                "sorted as if nearest the viewer.  Increase "
+                "one or more points lie at or behind the perspective "
+                "eye plane; they are drawn mirrored through the origin "
+                "and sorted as if nearest the viewer.  Increase "
                 "view_distance or reduce strength.",
                 UserWarning,
                 stacklevel=2,
             )
-        return proj.to_screen(camera) * self.zoom
+        return self.projection.to_screen(camera) * self.zoom
 
     def set_orthographic(self) -> ViewState:
         """Draw without perspective foreshortening.
