@@ -30,15 +30,13 @@ class TestProjectPoint:
     def test_orthographic(self):
         view = ViewState()
         pt = np.array([1.0, 2.0, 3.0])
-        xy, s = _project_point(pt, view)
+        xy = _project_point(pt, view)
         np.testing.assert_allclose(xy, [1.0, 2.0])
-        assert s == 1.0
 
     def test_perspective(self):
         view = ViewState(projection=Perspective(1.0, 10.0))
-        pt = np.array([1.0, 0.0, 0.0])  # depth 0 -> scale = 1
-        xy, s = _project_point(pt, view)
-        np.testing.assert_allclose(s, 1.0)
+        pt = np.array([1.0, 0.0, 0.0])  # depth 0 -> no foreshortening
+        xy = _project_point(pt, view)
         np.testing.assert_allclose(xy, [1.0, 0.0])
 
 
@@ -308,11 +306,10 @@ class TestDrawnGeometryMatchesProjection:
         """_project_point is a scalar view of the same mapping."""
         view = ViewState(zoom=1.4, projection=Perspective(0.7, 9.0))
         camera = np.array([[1.0, -2.0, 3.0], [0.5, 0.25, -4.0]])
-        batch_xy, batch_scale = view.project_camera(camera)
+        batch_xy = view.project_camera(camera)
         for i, point in enumerate(camera):
-            xy, scale = _project_point(point, view)
+            xy = _project_point(point, view)
             np.testing.assert_array_equal(xy, batch_xy[i])
-            assert scale == batch_scale[i]
 
 
 class TestCellEdgeSubSegmentPairing:
