@@ -109,8 +109,9 @@ class Perspective(Projection):
     def to_screen(self, camera: np.ndarray) -> np.ndarray:
         d = self.view_distance - camera[:, 2] * self.strength
         # errstate: at or behind the eye plane the divisor is 0 or
-        # negative, producing inf/negative on purpose (project_camera
-        # warns), so numpy's divide/invalid warnings are silenced.
+        # negative, producing inf/negative on purpose
+        # (ViewState.project_camera warns), so numpy's divide/invalid
+        # warnings are silenced.
         with np.errstate(divide="ignore", invalid="ignore"):
             return camera[:, :2] * (self.view_distance / d)[:, np.newaxis]
 
@@ -131,6 +132,8 @@ class Perspective(Projection):
 
     @property
     def eye_distance(self) -> float:
+        # Exact only at full strength: the eye actually sits at
+        # view_distance / strength.
         return self.view_distance
 
     def reaches_eye_plane(self, depth: np.ndarray) -> bool:

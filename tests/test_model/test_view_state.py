@@ -420,7 +420,7 @@ class TestProjectionTypes:
         assert mag == pytest.approx(2e7, rel=1e-3)
         assert mag > 1.5e7  # would be 1e7 if the denominator were clamped
 
-    def test_variants_answer_their_contract(self):
+    def test_orthographic_answers_its_contract(self):
         ortho = Orthographic()
         assert ortho.eye_distance == 1e6
         assert ortho.reaches_eye_plane(np.array([1e9])) is False
@@ -432,6 +432,7 @@ class TestProjectionTypes:
         )
         assert ortho.max_magnification(100.0) == 1.0
 
+    def test_perspective_answers_its_contract(self):
         persp = Perspective(1.0, 10.0)
         assert persp.eye_distance == 10.0
         assert persp.reaches_eye_plane(np.array([9.0])) is False
