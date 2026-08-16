@@ -85,6 +85,7 @@ def _key_action_fixtures():
         "zoom": view.zoom,
         "centre": view.centre.copy(),
         "projection": view.projection,
+        "last_perspective": state["last_perspective"],
     }
     return view, style, state, initial_view
 
@@ -242,6 +243,18 @@ class TestKeyActions:
         for _ in range(4):
             _do_key("P", view, style, state, iv)
         assert view.projection == Orthographic()
+
+    def test_reset_clears_the_stashed_viewing_distance(self):
+        """Reset means reset: p must not restore a pre-reset distance."""
+        view, style, state, iv = _key_action_fixtures()
+        view.projection = Perspective(0.3, 25.0)
+        for _ in range(3):
+            _do_key("P", view, style, state, iv)
+        _do_key("r", view, style, state, iv)
+        _do_key("p", view, style, state, iv)
+        assert view.projection.view_distance == (
+            iv["last_perspective"].view_distance
+        )
 
     def test_view_distance_survives_an_orthographic_excursion(self):
         """A parallel projection cannot hold a distance; the session can."""

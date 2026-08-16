@@ -340,9 +340,18 @@ class TestProjectionTypes:
             Perspective().strength = 0.9
 
     def test_modes_reject_unknown_attributes(self):
-        """slots keeps a typo loud rather than setting an inert attribute."""
-        with pytest.raises(TypeError):
-            Orthographic().anything = 1
+        """slots keeps a typo loud rather than setting an inert attribute.
+
+        The exception type is a CPython detail that moved: up to 3.12
+        the slots check fires first and raises ``TypeError``, from 3.13
+        the frozen check fires first and raises
+        ``FrozenInstanceError``.  What matters here is that the write
+        is refused and leaves nothing behind, so both are accepted.
+        """
+        mode = Orthographic()
+        with pytest.raises((AttributeError, TypeError)):
+            mode.anything = 1
+        assert not hasattr(mode, "anything")
 
     def test_setters_return_self_for_chaining(self):
         vs = ViewState()

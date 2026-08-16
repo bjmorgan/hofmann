@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import assert_never
+
 import numpy as np
 
 from hofmann.model import Orthographic, Perspective, ViewState
@@ -30,6 +32,8 @@ def _foreshortening_distance(view: ViewState) -> float:
             return p.view_distance
         case Orthographic():
             return _PARALLEL_EYE_DISTANCE
+        case _:
+            assert_never(view.projection)
 
 
 def _clip_bond_3d(

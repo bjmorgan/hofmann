@@ -279,6 +279,9 @@ def _apply_key_action(
         view.zoom = initial_view["zoom"]
         view.centre = initial_view["centre"].copy()
         view.projection = initial_view["projection"]
+        # Reset means reset: a distance dialled in earlier must not
+        # survive to be restored by a later p.
+        state["last_perspective"] = initial_view["last_perspective"]
 
     # -- Help overlay --
     elif key == "h":
@@ -450,6 +453,7 @@ def render_mpl_interactive(
         "zoom": view.zoom,
         "centre": view.centre.copy(),
         "projection": view.projection,
+        "last_perspective": state["last_perspective"],
     }
 
     _DRAG_SENSITIVITY = 0.01  # radians per pixel
