@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from dataclasses import replace
 from typing import Any
 
 import matplotlib.pyplot as plt
@@ -11,6 +12,8 @@ import numpy as np
 from hofmann.model import (
     CmapSpec,
     Colour,
+    Orthographic,
+    Perspective,
     RenderStyle,
     StructureScene,
     ViewState,
@@ -64,7 +67,9 @@ _KEY_ROTATION_STEP = 0.05  # radians (~3 degrees) per key press
 _KEY_ZOOM_FACTOR = 1.1  # multiplicative zoom per key press / scroll step
 _KEY_PAN_FRACTION = 0.05  # fraction of scene extent per key press
 _PERSPECTIVE_STEP = 0.1  # perspective increment per key press
+_PERSPECTIVE_FLOOR = 1e-9  # below this, the descent lands on Orthographic
 _DISTANCE_FACTOR = 1.05  # viewing distance multiplier per key press
+_MIN_VIEW_DISTANCE = 0.1  # closest the eye may be brought to the centre
 
 _HELP_TEXT = """\
 Arrows     Rotate          Shift+Arrows  Pan
@@ -167,13 +172,41 @@ def _apply_key_action(
 
     # -- Perspective / distance --
     elif key == "p":
-        view.perspective = min(1.0, view.perspective + _PERSPECTIVE_STEP)
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj,
+                    strength=min(1.0, proj.strength + _PERSPECTIVE_STEP),
+                )
+            case _:
+                view.projection = Perspective(strength=_PERSPECTIVE_STEP)
     elif key == "P":
-        view.perspective = max(0.0, view.perspective - _PERSPECTIVE_STEP)
+        match view.projection:
+            case Perspective() as proj:
+                strength = proj.strength - _PERSPECTIVE_STEP
+                # The floor absorbs the float residue left by repeated
+                # addition and subtraction, so the descent lands on
+                # Orthographic rather than stranding on ~1e-17.
+                if strength > _PERSPECTIVE_FLOOR:
+                    view.projection = replace(proj, strength=strength)
+                else:
+                    view.projection = Orthographic()
     elif key == "d":
-        view.view_distance *= _DISTANCE_FACTOR
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj, view_distance=proj.view_distance * _DISTANCE_FACTOR,
+                )
     elif key == "D":
-        view.view_distance = max(0.1, view.view_distance / _DISTANCE_FACTOR)
+        match view.projection:
+            case Perspective() as proj:
+                view.projection = replace(
+                    proj,
+                    view_distance=max(
+                        _MIN_VIEW_DISTANCE,
+                        proj.view_distance / _DISTANCE_FACTOR,
+                    ),
+                )
 
     # -- Style toggles (no recomputation needed) --
     elif key == "b":
@@ -230,8 +263,7 @@ def _apply_key_action(
         view.rotation = initial_view["rotation"].copy()
         view.zoom = initial_view["zoom"]
         view.centre = initial_view["centre"].copy()
-        view.perspective = initial_view["perspective"]
-        view.view_distance = initial_view["view_distance"]
+        view.projection = initial_view["projection"]
 
     # -- Help overlay --
     elif key == "h":
@@ -338,8 +370,7 @@ def render_mpl_interactive(
         rotation=scene.view.rotation.copy(),
         zoom=scene.view.zoom,
         centre=scene.view.centre.copy(),
-        perspective=scene.view.perspective,
-        view_distance=scene.view.view_distance,
+        projection=scene.view.projection,
         slab_origin=(
             scene.view.slab_origin.copy()
             if scene.view.slab_origin is not None else None
@@ -395,8 +426,7 @@ def render_mpl_interactive(
         "rotation": view.rotation.copy(),
         "zoom": view.zoom,
         "centre": view.centre.copy(),
-        "perspective": view.perspective,
-        "view_distance": view.view_distance,
+        "projection": view.projection,
     }
 
     _DRAG_SENSITIVITY = 0.01  # radians per pixel

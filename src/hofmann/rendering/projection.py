@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hofmann.model import StructureScene, ViewState
+from hofmann.model import Perspective, StructureScene, ViewState
 from hofmann.model.composition import Composition, _OCCUPANCY_TOLERANCE
 from hofmann.rendering.precompute import _compute_atom_radii
 
@@ -41,10 +41,11 @@ def _project_point(
         is the perspective scale factor at this depth.
     """
     z = pt[2]
-    if view.perspective > 0:
-        s = view.view_distance / (view.view_distance - z * view.perspective)
-    else:
-        s = 1.0
+    match view.projection:
+        case Perspective() as p:
+            s = p.view_distance / (p.view_distance - z * p.strength)
+        case _:
+            s = 1.0
     xy = pt[:2] * s * view.zoom
     return xy, s
 
@@ -99,13 +100,14 @@ def _scene_extent(
     # worst-case magnification for an atom at distance *d* from the
     # view centre is when it is rotated to depth z = +d (closest to
     # the camera).
-    if view.perspective > 0 and len(dists) > 0:
+    if isinstance(view.projection, Perspective) and len(dists) > 0:
+        p = view.projection
         worst_depth = float(np.max(dists))
-        denom = view.view_distance - worst_depth * view.perspective
+        denom = p.view_distance - worst_depth * p.strength
         if denom > 0:
-            persp_scale = view.view_distance / denom
+            persp_scale = p.view_distance / denom
         else:
-            persp_scale = view.view_distance / 1e-6
+            persp_scale = p.view_distance / 1e-6
         max_extent *= persp_scale
 
     return float(max_extent * view.zoom)

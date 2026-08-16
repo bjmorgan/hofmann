@@ -4,7 +4,14 @@ import math
 
 import numpy as np
 
-from hofmann.model import AtomStyle, Frame, StructureScene, ViewState
+from hofmann.model import (
+    AtomStyle,
+    Frame,
+    Orthographic,
+    Perspective,
+    StructureScene,
+    ViewState,
+)
 from hofmann.model.composition import Composition
 from hofmann.rendering.projection import (
     _make_vacancy_wedge,
@@ -23,7 +30,7 @@ class TestProjectPoint:
         assert s == 1.0
 
     def test_perspective(self):
-        view = ViewState(perspective=1.0, view_distance=10.0)
+        view = ViewState(projection=Perspective(1.0, 10.0))
         pt = np.array([1.0, 0.0, 0.0])  # depth 0 -> scale = 1
         xy, s = _project_point(pt, view)
         np.testing.assert_allclose(s, 1.0)
@@ -44,8 +51,8 @@ class TestSceneExtent:
             ]))],
             atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
         )
-        view_no_persp = ViewState(perspective=0.0)
-        view_persp = ViewState(perspective=0.5)
+        view_no_persp = ViewState(projection=Orthographic())
+        view_persp = ViewState(projection=Perspective(0.5))
         e_no = _scene_extent(scene, view_no_persp, 0, atom_scale=0.5)
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no

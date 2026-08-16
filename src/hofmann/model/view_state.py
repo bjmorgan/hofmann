@@ -63,8 +63,8 @@ class ViewState:
         rotation: 3x3 rotation matrix.
         zoom: Magnification factor.
         centre: 3D point about which to centre the view.
-        perspective: Perspective strength (0 = orthographic).
-        view_distance: Distance from camera to scene centre.
+        projection: Projection mode, :class:`Orthographic` (the
+            default) or :class:`Perspective`.
         slab_origin: 3D point defining the slab reference depth, or
             ``None`` to use *centre*.
         slab_near: Near offset from the slab origin depth (negative =
@@ -80,8 +80,9 @@ class ViewState:
     centre: np.ndarray = field(
         default_factory=lambda: np.zeros(3, dtype=float)
     )
-    perspective: float = 0.0
-    view_distance: float = 10.0
+    projection: Orthographic | Perspective = field(
+        default_factory=Orthographic
+    )
     slab_origin: np.ndarray | None = None
     slab_near: float | None = None
     slab_far: float | None = None
@@ -89,10 +90,6 @@ class ViewState:
     def __post_init__(self) -> None:
         if self.zoom <= 0:
             raise ValueError(f"zoom must be positive, got {self.zoom}")
-        if self.view_distance <= 0:
-            raise ValueError(
-                f"view_distance must be positive, got {self.view_distance}"
-            )
 
     def project(
         self, coords: np.ndarray, radii: np.ndarray | None = None,
@@ -120,25 +117,31 @@ class ViewState:
         rotated = centred @ self.rotation.T
         depth = rotated[:, 2]
 
-        if self.perspective > 0:
-            # Eye-to-atom distance along z.
-            d = self.view_distance - depth * self.perspective
-            scale = self.view_distance / d
-            xy = rotated[:, :2] * scale[:, np.newaxis] * self.zoom
+        match self.projection:
+            case Perspective() as p:
+                # Denominator of the projection scale, proportional to
+                # the eye-to-atom distance along z.
+                d = p.view_distance - depth * p.strength
+                scale = p.view_distance / d
+                xy = rotated[:, :2] * scale[:, np.newaxis] * self.zoom
 
-            if radii is not None:
-                radii = np.asarray(radii, dtype=float)
-                # Silhouette radius: r * D / sqrt(d^2 - r^2).
-                denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
-                projected_radii = radii * self.view_distance / denom * self.zoom
-            else:
-                projected_radii = np.zeros(len(depth))
-        else:
-            xy = rotated[:, :2] * self.zoom
-            if radii is not None:
-                projected_radii = np.asarray(radii, dtype=float) * self.zoom
-            else:
-                projected_radii = np.zeros(len(depth))
+                if radii is not None:
+                    radii = np.asarray(radii, dtype=float)
+                    # Silhouette radius: r * D / sqrt(d^2 - r^2).
+                    denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+                    projected_radii = (
+                        radii * p.view_distance / denom * self.zoom
+                    )
+                else:
+                    projected_radii = np.zeros(len(depth))
+            case Orthographic():
+                xy = rotated[:, :2] * self.zoom
+                if radii is not None:
+                    projected_radii = (
+                        np.asarray(radii, dtype=float) * self.zoom
+                    )
+                else:
+                    projected_radii = np.zeros(len(depth))
 
         return xy, depth, projected_radii
 

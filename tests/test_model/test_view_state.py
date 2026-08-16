@@ -44,7 +44,7 @@ class TestViewStateProject:
         np.testing.assert_allclose(xy, [[0.0, 1.0]], atol=1e-10)
 
     def test_perspective_scaling(self):
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([
             [1.0, 0.0, 0.0],
             [1.0, 0.0, -5.0],
@@ -71,7 +71,7 @@ class TestViewStateProject:
         np.testing.assert_allclose(proj_r, [3.0])  # r * zoom
 
     def test_projected_radii_perspective(self):
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([[0.0, 0.0, 0.0]])
         radii = np.array([1.0])
         _, _, proj_r = vs.project(coords, radii)
@@ -81,7 +81,7 @@ class TestViewStateProject:
 
     def test_projected_radii_larger_than_point_scale(self):
         """Silhouette radii should exceed naive r * scale under perspective."""
-        vs = ViewState(perspective=1.0, view_distance=10.0)
+        vs = ViewState(projection=Perspective(1.0, 10.0))
         coords = np.array([[0.0, 0.0, 2.0]])  # closer to eye
         radii = np.array([1.0])
         _, _, proj_r = vs.project(coords, radii)
@@ -150,11 +150,10 @@ class TestViewStateLookAlong:
 
     def test_preserves_other_state(self):
         """look_along should only change the rotation."""
-        vs = ViewState(zoom=2.5, perspective=0.8, view_distance=15.0)
+        vs = ViewState(zoom=2.5, projection=Perspective(0.8, 15.0))
         vs.look_along([1, 1, 0])
         assert vs.zoom == 2.5
-        assert vs.perspective == 0.8
-        assert vs.view_distance == 15.0
+        assert vs.projection == Perspective(0.8, 15.0)
 
     def test_up_parallel_to_direction_raises(self):
         """An explicit up vector parallel to the view direction should raise."""
@@ -284,17 +283,13 @@ class TestViewStateValidation:
         with pytest.raises(ValueError, match="zoom"):
             ViewState(zoom=-1.0)
 
-    def test_zero_view_distance_raises(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            ViewState(view_distance=0.0)
-
-    def test_negative_view_distance_raises(self):
-        with pytest.raises(ValueError, match="view_distance"):
-            ViewState(view_distance=-1.0)
-
     def test_valid_view_state_accepted(self):
-        vs = ViewState(zoom=2.0, view_distance=15.0)
+        vs = ViewState(zoom=2.0, projection=Perspective(0.5, 15.0))
         assert vs.zoom == 2.0
+        assert vs.projection.view_distance == 15.0
+
+    def test_projection_defaults_to_orthographic(self):
+        assert ViewState().projection == Orthographic()
 
 
 class TestProjectionTypes:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from hofmann.model import ViewState
+from hofmann.model import Perspective, ViewState
 from hofmann.rendering.projection import _project_point
 
 
@@ -188,7 +188,11 @@ def _bond_polygon(
     # perpendicular to the view has cth~0).
     # For orthographic projection, push the eye to effective infinity
     # so all view rays are parallel (matching XBS pmode==0 behaviour).
-    eye_dist = view.view_distance if view.perspective > 0 else 1e6
+    eye_dist = (
+        view.projection.view_distance
+        if isinstance(view.projection, Perspective)
+        else 1e6
+    )
     eye = np.array([0.0, 0.0, eye_dist])
     q_a = eye - p_a
     q_b = eye - p_b
@@ -331,7 +335,11 @@ def _bond_polygons_batch(
     valid &= (bond_len_safe - w_a - w_b) > 0
 
     # Foreshortening angles.
-    eye_dist = view.view_distance if view.perspective > 0 else 1e6
+    eye_dist = (
+        view.projection.view_distance
+        if isinstance(view.projection, Perspective)
+        else 1e6
+    )
     eye = np.array([0.0, 0.0, eye_dist])
     q_a = eye - p_a                                         # (n_bonds, 3)
     q_b = eye - p_b                                         # (n_bonds, 3)

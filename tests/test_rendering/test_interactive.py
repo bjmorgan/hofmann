@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from hofmann.model import RenderStyle, ViewState
+from hofmann.model import Orthographic, Perspective, RenderStyle, ViewState
 from hofmann.rendering.interactive import (
     _apply_key_action,
     _HELP_TEXT,
@@ -83,8 +83,7 @@ def _key_action_fixtures():
         "rotation": view.rotation.copy(),
         "zoom": view.zoom,
         "centre": view.centre.copy(),
-        "perspective": view.perspective,
-        "view_distance": view.view_distance,
+        "projection": view.projection,
     }
     return view, style, state, initial_view
 
@@ -205,50 +204,69 @@ class TestKeyActions:
     def test_perspective_increase(self):
         view, style, state, iv = _key_action_fixtures()
         kind = _do_key("p", view, style, state, iv)
-        assert view.perspective == pytest.approx(_PERSPECTIVE_STEP)
+        assert view.projection.strength == pytest.approx(_PERSPECTIVE_STEP)
         assert kind == "view"
 
     def test_perspective_decrease(self):
         view, style, state, iv = _key_action_fixtures()
-        view.perspective = 0.5
+        view.projection = Perspective(0.5)
         _do_key("P", view, style, state, iv)
-        assert view.perspective == pytest.approx(0.5 - _PERSPECTIVE_STEP)
+        assert view.projection.strength == pytest.approx(
+            0.5 - _PERSPECTIVE_STEP
+        )
 
     def test_perspective_clamped_max(self):
         view, style, state, iv = _key_action_fixtures()
-        view.perspective = 0.95
+        view.projection = Perspective(0.95)
         _do_key("p", view, style, state, iv)
-        assert view.perspective == 1.0
+        assert view.projection.strength == 1.0
 
-    def test_perspective_clamped_min(self):
+    def test_perspective_steps_out_to_orthographic(self):
+        """The last step down lands on Orthographic, not a tiny strength."""
         view, style, state, iv = _key_action_fixtures()
-        view.perspective = 0.05
+        view.projection = Perspective(0.05)
         _do_key("P", view, style, state, iv)
-        assert view.perspective == 0.0
+        assert view.projection == Orthographic()
+
+    def test_perspective_descent_reaches_orthographic_exactly(self):
+        """Float residue must not strand the descent just above zero."""
+        view, style, state, iv = _key_action_fixtures()
+        view.projection = Perspective(0.3)
+        for _ in range(3):
+            _do_key("P", view, style, state, iv)
+        assert view.projection == Orthographic()
 
     # -- Distance --
 
     def test_distance_increase(self):
         view, style, state, iv = _key_action_fixtures()
-        old = view.view_distance
+        view.projection = Perspective(0.5)
+        old = view.projection.view_distance
         kind = _do_key("d", view, style, state, iv)
-        assert view.view_distance == pytest.approx(old * 1.05)
+        assert view.projection.view_distance == pytest.approx(old * 1.05)
         assert kind == "view"
 
     def test_distance_decrease(self):
         view, style, state, iv = _key_action_fixtures()
-        old = view.view_distance
+        view.projection = Perspective(0.5)
+        old = view.projection.view_distance
         _do_key("D", view, style, state, iv)
-        assert view.view_distance == pytest.approx(old / 1.05)
+        assert view.projection.view_distance == pytest.approx(old / 1.05)
 
     def test_distance_clamped_min(self):
         view, style, state, iv = _key_action_fixtures()
-        view.view_distance = 0.11
-        _do_key("D", view, style, state, iv)
-        # 0.11 / 1.05 ~ 0.1048, still above 0.1
-        _do_key("D", view, style, state, iv)
-        _do_key("D", view, style, state, iv)
-        assert view.view_distance >= 0.1
+        view.projection = Perspective(0.5, 0.11)
+        # 0.11 / 1.05 ~ 0.1048, still above the floor
+        for _ in range(3):
+            _do_key("D", view, style, state, iv)
+        assert view.projection.view_distance >= 0.1
+
+    @pytest.mark.parametrize("key", ["P", "d", "D"])
+    def test_perspective_keys_are_inert_without_perspective(self, key):
+        """Only p enters perspective mode; the rest need it already set."""
+        view, style, state, iv = _key_action_fixtures()
+        _do_key(key, view, style, state, iv)
+        assert view.projection == Orthographic()
 
     # -- Style toggles --
 
@@ -398,14 +416,12 @@ class TestKeyActions:
         view.rotation = _rotation_y(1.0) @ view.rotation
         view.zoom = 3.5
         view.centre = np.array([1.0, 2.0, 3.0])
-        view.perspective = 0.7
-        view.view_distance = 20.0
+        view.projection = Perspective(0.7, 20.0)
         kind = _do_key("r", view, style, state, iv)
         np.testing.assert_allclose(view.rotation, np.eye(3))
         assert view.zoom == 1.0
         np.testing.assert_allclose(view.centre, [0.0, 0.0, 0.0])
-        assert view.perspective == 0.0
-        assert view.view_distance == 10.0
+        assert view.projection == Orthographic()
         assert kind == "view"
 
     # -- Help overlay --
