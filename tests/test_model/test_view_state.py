@@ -444,3 +444,11 @@ class TestProjectionTypes:
         )
         # worst depth 5: D/(D - 5*s) = 10/5 = 2
         assert persp.max_magnification(5.0) == 2.0
+
+    def test_perspective_to_screen_not_clamped_at_or_behind_eye(self):
+        """At/behind the eye, positions blow up rather than clamp."""
+        persp = Perspective(1.0, 10.0)
+        on_plane = persp.to_screen(np.array([[1.0, 0.0, 10.0]]))  # depth = D
+        assert not np.all(np.isfinite(on_plane))
+        behind = persp.to_screen(np.array([[1.0, 0.0, 11.0]]))  # depth > D
+        assert behind[0, 0] < 0  # mirrored through the origin

@@ -4,7 +4,6 @@ import math
 import warnings
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import assert_never
 
 import numpy as np
 
@@ -108,23 +107,20 @@ class Perspective(Projection):
 
     def to_screen(self, camera: np.ndarray) -> np.ndarray:
         d = self.view_distance - camera[:, 2] * self.strength
+        # errstate: at or behind the eye plane the divisor is 0 or
+        # negative, producing inf/negative on purpose (project_camera
+        # warns), so numpy's divide/invalid warnings are silenced.
         with np.errstate(divide="ignore", invalid="ignore"):
-            # Not clamped: a point at or behind the eye yields an
-            # infinite or negative scale, left as-is so the geometry
-            # stays reproducible.  ViewState.project_camera warns.
             return camera[:, :2] * (self.view_distance / d)[:, np.newaxis]
 
     def silhouette_radius(
         self, depth: np.ndarray, radii: np.ndarray,
     ) -> np.ndarray:
-        # Recomputed rather than recovered from to_screen's scale: that
-        # division round trip is not bit-exact.
         d = self.view_distance - depth * self.strength
-        # Silhouette radius: r * D / sqrt(d^2 - r^2).  Approximate: the
-        # eye is at D / strength, for which the exact form carries
-        # (r * strength)^2.  Bond end caps use the same reference
-        # distance D (see bond_geometry), so the two share an eye and
-        # must be corrected together.
+        # Silhouette radius r*D/sqrt(d^2 - r^2), approximate: the eye is
+        # at D/strength, for which the exact form carries (r*strength)^2.
+        # Bond end caps use the same reference distance D (bond_geometry),
+        # so the two share an eye.
         denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
         return radii * self.view_distance / denom
 
@@ -140,7 +136,6 @@ class Perspective(Projection):
         return bool(np.any(self.view_distance - depth * self.strength <= 0))
 
 
-#: Default perspective, so the setter and the type cannot drift apart.
 _DEFAULT_PERSPECTIVE = Perspective()
 
 
@@ -217,86 +212,43 @@ class ViewState:
         centred = coords - self.centre
         rotated = centred @ self.rotation.T
         depth = rotated[:, 2]
-        xy, _ = self.project_camera(rotated)
+        xy = self.project_camera(rotated)
 
         if radii is None:
             return xy, depth, np.zeros(len(depth))
 
         radii = np.asarray(radii, dtype=float)
-        match self.projection:
-            case Perspective() as p:
-                # Recomputed rather than recovered as view_distance /
-                # scale: that division round trip is not bit-exact.
-                d = p.view_distance - depth * p.strength
-                # Silhouette radius: r * D / sqrt(d^2 - r^2).
-                # Exact for an eye at D; the eye is at D / strength,
-                # for which the exact form carries (r * strength)^2.
-                # Left as-is deliberately: bond end caps foreshorten to
-                # the same reference distance D (see
-                # bond_geometry._foreshortening_distance), so correcting
-                # only the silhouette here would desync atom radii from
-                # the bonds meeting them.  Both move together, or
-                # neither does.
-                denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
-                projected_radii = radii * p.view_distance / denom * self.zoom
-            case Orthographic():
-                projected_radii = radii * self.zoom
-            case _:
-                assert_never(self.projection)
+        silhouette = self.projection.silhouette_radius(depth, radii)
+        return xy, depth, silhouette * self.zoom
 
-        return xy, depth, projected_radii
-
-    def project_camera(
-        self, camera: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    def project_camera(self, camera: np.ndarray) -> np.ndarray:
         """Map camera-space positions to screen positions.
 
-        This is the single camera-to-screen mapping for scene
-        geometry -- atoms, bonds, and cell edges all obtain screen
-        positions through it, so they stay consistent with each other.
-        Fixed-size screen furniture that deliberately ignores
-        :attr:`zoom`, such as the axes orientation widget, maps
-        directions itself and does not come through here.
+        The single camera-to-screen mapping for scene geometry: atoms,
+        bonds, and cell edges all obtain their screen positions here.
 
         Args:
             camera: Array of shape ``(n, 3)``, already centred and
                 rotated into camera space.
 
         Returns:
-            Tuple of ``(xy, scale)`` where *xy* has shape ``(n, 2)``
-            and *scale* has shape ``(n,)``, the perspective scale
-            applied at each point (all ones under a parallel
-            projection).
+            *xy* of shape ``(n, 2)`` — screen positions with zoom applied.
         """
         camera = np.asarray(camera, dtype=float)
-        match self.projection:
-            case Perspective() as p:
-                denom = p.view_distance - camera[:, 2] * p.strength
-                if np.any(denom <= 0):
-                    warnings.warn(
-                        "one or more points lie at or behind the "
-                        f"perspective eye plane (view_distance="
-                        f"{p.view_distance:g}, strength={p.strength:g}); "
-                        "they are drawn mirrored through the origin and "
-                        "sorted as if nearest the viewer.  Increase "
-                        "view_distance or reduce strength.",
-                        UserWarning,
-                        stacklevel=2,
-                    )
-                # Not clamped: the scale is left infinite or negative
-                # so the geometry stays reproducible, and the warning
-                # above is what tells the caller.
-                with np.errstate(divide="ignore", invalid="ignore"):
-                    scale = p.view_distance / denom
-                    xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
-            case Orthographic():
-                # Reported as ones for the caller, but not applied:
-                # a parallel projection does not scale with depth.
-                scale = np.ones(len(camera))
-                xy = camera[:, :2] * self.zoom
-            case _:
-                assert_never(self.projection)
-        return xy, scale
+        proj = self.projection
+        if proj.reaches_eye_plane(camera[:, 2]):
+            assert isinstance(proj, Perspective)  # only Perspective reaches it
+            warnings.warn(
+                "one or more points lie at or behind the "
+                f"perspective eye plane (view_distance="
+                f"{proj.view_distance:g}, strength={proj.strength:g}); "
+                "they are drawn mirrored through the origin and "
+                "sorted as if nearest the viewer.  Increase "
+                "view_distance or reduce strength.",
+                UserWarning,
+                stacklevel=2,
+            )
+        return proj.to_screen(camera) * self.zoom
 
     def set_orthographic(self) -> ViewState:
         """Draw without perspective foreshortening.

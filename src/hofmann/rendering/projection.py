@@ -37,7 +37,7 @@ def _make_unit_circle(n: int) -> np.ndarray:
 def _project_point(
     pt: np.ndarray,
     view: ViewState,
-) -> tuple[np.ndarray, float]:
+) -> np.ndarray:
     """Project a single 3D rotated point to 2D screen coordinates.
 
     Args:
@@ -45,11 +45,9 @@ def _project_point(
         view: The ViewState defining the projection.
 
     Returns:
-        Tuple of (xy, scale) where *xy* is the 2D position and *scale*
-        is the perspective scale factor at this depth.
+        The 2D screen position.
     """
-    xy, scale = view.project_camera(np.asarray(pt, dtype=float)[np.newaxis])
-    return xy[0], float(scale[0])
+    return view.project_camera(np.asarray(pt, dtype=float)[np.newaxis])[0]
 
 
 # Fractional coordinates of the 8 unit cube corners.

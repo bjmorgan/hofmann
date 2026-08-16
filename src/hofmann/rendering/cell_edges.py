@@ -304,7 +304,7 @@ def _collect_cell_edges(
             # call: one (2k, 3) array rather than k two-row ones.
             fracs = np.asarray(sub_fracs, dtype=float).ravel()
             sub_c = c_s + (c_e - c_s) * fracs[:, np.newaxis]
-            sub_xy = view.project_camera(sub_c)[0].reshape(-1, 2, 2)
+            sub_xy = view.project_camera(sub_c).reshape(-1, 2, 2)
             sub_depths = sub_c[:, 2].reshape(-1, 2)
 
             for (xy_s_i, xy_e_i), (z_s, z_e) in zip(sub_xy, sub_depths):

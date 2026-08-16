@@ -228,8 +228,8 @@ def _bond_polygon(
 
     # Project atom centres to 2D, then offset along the 2D bond
     # direction by the projected tangent distance.
-    atom_a_2d, _ = _project_point(p_a, view)
-    atom_b_2d, _ = _project_point(p_b, view)
+    atom_a_2d = _project_point(p_a, view)
+    atom_b_2d = _project_point(p_b, view)
 
     bond_2d = atom_b_2d - atom_a_2d
     bond_2d_len = np.linalg.norm(bond_2d)
