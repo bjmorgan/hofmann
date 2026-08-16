@@ -12,12 +12,18 @@ from hofmann.rendering.projection import _project_point
 _PARALLEL_EYE_DISTANCE = 1e6
 
 
-def _eye_distance(view: ViewState) -> float:
-    """Distance along +z from the scene centre to the eye.
+def _foreshortening_distance(view: ViewState) -> float:
+    """Reference distance used to foreshorten bond end caps.
 
-    A parallel projection has no eye, so it takes a stand-in far
-    enough away that the view rays it produces are parallel to
-    within rounding.
+    Under :class:`Perspective` this is ``view_distance``, which is the
+    true eye position only at full strength: the eye actually sits at
+    ``view_distance / strength``, so the caps are foreshortened
+    towards a nearer point than the atoms are projected from at lower
+    strengths.
+
+    A parallel projection has no eye at all, so it takes a stand-in
+    far enough away that the resulting view rays are parallel to
+    within a few parts in a million over a typical structure.
     """
     match view.projection:
         case Perspective() as p:
@@ -204,7 +210,7 @@ def _bond_polygon(
     # vector.  This determines how much the arc squashes along the bond
     # direction (a bond pointing at the viewer has cth~1, one
     # perpendicular to the view has cth~0).
-    eye = np.array([0.0, 0.0, _eye_distance(view)])
+    eye = np.array([0.0, 0.0, _foreshortening_distance(view)])
     q_a = eye - p_a
     q_b = eye - p_b
     denom_a = np.linalg.norm(q_a) * bond_len
@@ -346,7 +352,7 @@ def _bond_polygons_batch(
     valid &= (bond_len_safe - w_a - w_b) > 0
 
     # Foreshortening angles.
-    eye = np.array([0.0, 0.0, _eye_distance(view)])
+    eye = np.array([0.0, 0.0, _foreshortening_distance(view)])
     q_a = eye - p_a                                         # (n_bonds, 3)
     q_b = eye - p_b                                         # (n_bonds, 3)
     q_a_len = np.linalg.norm(q_a, axis=1)                   # (n_bonds,)

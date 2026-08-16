@@ -79,6 +79,24 @@ class TestViewStateProject:
         expected = 10.0 / np.sqrt(99.0)
         np.testing.assert_allclose(proj_r, [expected], rtol=1e-6)
 
+    def test_zoom_scales_perspective_positions(self):
+        """Zoom must apply under perspective, not only orthographic."""
+        coords = np.array([[1.0, 2.0, 3.0]])
+        plain = ViewState(projection=Perspective(0.7, 12.0))
+        zoomed = ViewState(zoom=2.5, projection=Perspective(0.7, 12.0))
+        xy_plain, _, _ = plain.project(coords)
+        xy_zoomed, _, _ = zoomed.project(coords)
+        np.testing.assert_allclose(xy_zoomed, xy_plain * 2.5)
+
+    def test_zoom_scales_perspective_radii(self):
+        coords = np.array([[0.0, 0.0, 1.0]])
+        radii = np.array([0.8])
+        plain = ViewState(projection=Perspective(0.7, 12.0))
+        zoomed = ViewState(zoom=2.5, projection=Perspective(0.7, 12.0))
+        _, _, r_plain = plain.project(coords, radii)
+        _, _, r_zoomed = zoomed.project(coords, radii)
+        np.testing.assert_allclose(r_zoomed, r_plain * 2.5)
+
     def test_projected_radii_larger_than_point_scale(self):
         """Silhouette radii should exceed naive r * scale under perspective."""
         vs = ViewState(projection=Perspective(1.0, 10.0))
@@ -323,7 +341,7 @@ class TestProjectionTypes:
 
     def test_modes_reject_unknown_attributes(self):
         """slots keeps a typo loud rather than setting an inert attribute."""
-        with pytest.raises((AttributeError, TypeError)):
+        with pytest.raises(TypeError):
             Orthographic().anything = 1
 
     def test_setters_return_self_for_chaining(self):

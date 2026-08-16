@@ -12,7 +12,9 @@ Unreleased
   :meth:`~hofmann.ViewState.set_perspective`.  The ``perspective`` and
   ``view_distance`` attributes are removed; ``perspective = 0.3``
   becomes ``set_perspective(0.3)`` and ``perspective = 0.0`` becomes
-  ``set_orthographic()``.  A perspective strength no longer doubles as
+  ``set_orthographic()``.  A ``view_distance`` set alongside a
+  perspective strength moves into the same call:
+  ``set_perspective(0.3, 5.0)``.  A perspective strength no longer doubles as
   an on/off switch, so a viewing distance can no longer be set on a
   view that ignores it.
 
@@ -20,7 +22,8 @@ Unreleased
   now act only in perspective mode, where previously they adjusted a
   distance that had no effect until perspective was switched on.
   ``P`` steps out to an orthographic projection once the strength
-  reaches the bottom of the ladder.
+  reaches the bottom of the ladder, and ``p`` restores the viewing
+  distance the session was last using rather than resetting it.
 
 0.20.0
 ------

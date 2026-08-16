@@ -69,12 +69,15 @@ _KEY_PAN_FRACTION = 0.05  # fraction of scene extent per key press
 _PERSPECTIVE_STEP = 0.1  # perspective increment per key press
 _PERSPECTIVE_FLOOR = 1e-9  # below this, the descent lands on Orthographic
 _DISTANCE_FACTOR = 1.05  # viewing distance multiplier per key press
-_MIN_VIEW_DISTANCE = 0.1  # closest the eye may be brought to the centre
+_MIN_VIEW_DISTANCE = 0.1  # floor on Perspective.view_distance
+
+#: Seeds the p key when no perspective has been used this session.
+_DEFAULT_INTERACTIVE_PERSPECTIVE = Perspective(strength=_PERSPECTIVE_STEP)
 
 _HELP_TEXT = """\
 Arrows     Rotate          Shift+Arrows  Pan
 ,  .       Roll            +  =  -       Zoom
-p  P       Perspective     d  D          Distance
+p  P       Perspective     d  D          Distance (persp)
 b          Bonds           o             Outlines
 e          Polyhedra       u             Unit cell
 a          Axes            r             Reset view
@@ -179,7 +182,12 @@ def _apply_key_action(
                     strength=min(1.0, proj.strength + _PERSPECTIVE_STEP),
                 )
             case _:
-                view.projection = Perspective(strength=_PERSPECTIVE_STEP)
+                # A parallel projection cannot hold a viewing distance,
+                # so re-entering perspective restores the one the
+                # session last used rather than resetting it.
+                view.projection = replace(
+                    state["last_perspective"], strength=_PERSPECTIVE_STEP,
+                )
     elif key == "P":
         match view.projection:
             case Perspective() as proj:
@@ -190,13 +198,18 @@ def _apply_key_action(
                 if strength > _PERSPECTIVE_FLOOR:
                     view.projection = replace(proj, strength=strength)
                 else:
+                    state["last_perspective"] = proj
                     view.projection = Orthographic()
+            case _:
+                return "none"
     elif key == "d":
         match view.projection:
             case Perspective() as proj:
                 view.projection = replace(
                     proj, view_distance=proj.view_distance * _DISTANCE_FACTOR,
                 )
+            case _:
+                return "none"
     elif key == "D":
         match view.projection:
             case Perspective() as proj:
@@ -207,6 +220,8 @@ def _apply_key_action(
                         proj.view_distance / _DISTANCE_FACTOR,
                     ),
                 )
+            case _:
+                return "none"
 
     # -- Style toggles (no recomputation needed) --
     elif key == "b":
@@ -305,7 +320,8 @@ def render_mpl_interactive(
     - **+** / **=** / **-** zoom in/out.
     - **Shift+Arrow** keys pan the view.
     - **p** / **P** increase/decrease perspective strength.
-    - **d** / **D** increase/decrease viewing distance.
+    - **d** / **D** increase/decrease viewing distance
+      (perspective mode only).
     - **b** toggle bonds, **o** toggle outlines, **e** toggle polyhedra,
       **u** toggle unit cell, **a** toggle axes widget.
     - **[** / **]** step to the previous/next frame;
@@ -419,6 +435,13 @@ def render_mpl_interactive(
         "input_mode": None,
         "input_buffer": "",
         "indicator_visible": False,
+        # Carries the viewing distance across an orthographic
+        # excursion, which cannot represent one.
+        "last_perspective": (
+            scene.view.projection
+            if isinstance(scene.view.projection, Perspective)
+            else _DEFAULT_INTERACTIVE_PERSPECTIVE
+        ),
     }
 
     # Snapshot for the reset key.

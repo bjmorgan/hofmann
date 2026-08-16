@@ -17,8 +17,8 @@ class Perspective:
     """Perspective projection with the eye on the camera's +z axis.
 
     Screen positions are scaled by ``D / (D - z * s)`` for an atom at
-    camera depth *z*, which places the eye at ``view_distance /
-    strength``.  A *strength* of ``1.0`` is therefore a true pinhole
+    camera depth *z*, writing *D* for :attr:`view_distance` and *s*
+    for :attr:`strength`.  That places the eye at ``D / s``.  A *strength* of ``1.0`` is therefore a true pinhole
     camera at :attr:`view_distance`; smaller values move the eye
     further out, weakening the foreshortening.
 
@@ -44,6 +44,9 @@ class Perspective:
                 f"{self.view_distance}"
             )
 
+
+#: The projection modes, as a single name for annotations.
+Projection = Orthographic | Perspective
 
 #: Default perspective, so the setter and the type cannot drift apart.
 _DEFAULT_PERSPECTIVE = Perspective()
@@ -85,7 +88,7 @@ class ViewState:
     centre: np.ndarray = field(
         default_factory=lambda: np.zeros(3, dtype=float)
     )
-    projection: Orthographic | Perspective = field(
+    projection: Projection = field(
         default_factory=Orthographic
     )
     slab_origin: np.ndarray | None = None
@@ -134,6 +137,9 @@ class ViewState:
                 # scale: that division round trip is not bit-exact.
                 d = p.view_distance - depth * p.strength
                 # Silhouette radius: r * D / sqrt(d^2 - r^2).
+                # Exact for an eye at D; the eye is at D / strength,
+                # for which the exact form carries (r * strength)^2.
+                # The two agree at full strength.
                 denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
                 projected_radii = radii * p.view_distance / denom * self.zoom
             case Orthographic():
@@ -173,8 +179,8 @@ class ViewState:
                 )
                 xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
             case Orthographic():
-                # Scale is reported as ones, but not multiplied
-                # through: a parallel projection does not scale.
+                # Reported as ones for the caller, but not applied:
+                # a parallel projection does not scale with depth.
                 scale = np.ones(len(camera))
                 xy = camera[:, :2] * self.zoom
             case _:

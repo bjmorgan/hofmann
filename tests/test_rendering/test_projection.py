@@ -287,3 +287,72 @@ class TestDrawnGeometryMatchesProjection:
             xy, scale = _project_point(point, view)
             np.testing.assert_array_equal(xy, batch_xy[i])
             assert scale == batch_scale[i]
+
+
+class TestCellEdgeSubSegmentPairing:
+    """Sub-segment screen positions must stay paired with their depths.
+
+    Edges are split at atom depths and each piece is filed in the depth
+    slot its own midpoint falls into, so atoms occlude the pieces
+    behind them and not the ones in front.  Projecting a whole edge's
+    endpoints in one call makes it possible to pair a piece with
+    another piece's depth; the point-on-segment check above cannot see
+    that, being invariant under permuting the pieces.
+    """
+
+    def test_piece_depth_matches_its_own_screen_position(self):
+        """Recover each piece's depth from its geometry, independently."""
+        from hofmann.model import CellEdgeStyle
+        from hofmann.rendering.cell_edges import (
+            _cell_edges_3d,
+            _collect_cell_edges,
+        )
+
+        lattice = np.eye(3) * 12.0
+        # Orthographic: screen position maps back to camera x/y exactly,
+        # so a piece's depth can be recovered from where it was drawn.
+        view = ViewState()
+        view.look_along([1.0, 0.6, 0.4])
+        g = np.arange(3) * 5.0
+        xs, ys, zs = np.meshgrid(g, g, g, indexing="ij")
+        coords = np.column_stack([xs.ravel(), ys.ravel(), zs.ravel()])
+        depth = coords @ view.rotation[2]
+
+        by_slot = _collect_cell_edges(
+            lattice=lattice, view=view, cell_style=CellEdgeStyle(),
+            depth=depth, order=np.argsort(depth), pad=30.0, coords=coords,
+            radii_3d=np.full(len(coords), 0.4),
+        )
+        assert by_slot, "expected cell edges to be drawn"
+
+        # Camera-space edges, against which a drawn midpoint is located.
+        starts, ends = _cell_edges_3d(lattice)
+        cam_s = (starts - view.centre) @ view.rotation.T
+        cam_e = (ends - view.centre) @ view.rotation.T
+
+        checked = 0
+        for pieces in by_slot.values():
+            for polygon, _colour, piece_depth in pieces:
+                mid_xy = np.asarray(polygon).mean(axis=0) / view.zoom
+                # Find the edge this piece lies on, and how far along.
+                best = None
+                for c_s, c_e in zip(cam_s, cam_e):
+                    seg = (c_e - c_s)[:2]
+                    L = float(seg @ seg)
+                    if L == 0.0:
+                        continue
+                    t = float(np.clip((mid_xy - c_s[:2]) @ seg / L, 0.0, 1.0))
+                    gap = float(np.linalg.norm(c_s[:2] + t * seg - mid_xy))
+                    if best is None or gap < best[0]:
+                        best = (gap, c_s, c_e, t)
+                gap, c_s, c_e, t = best
+                assert gap < 1e-9, "piece does not lie on any cell edge"
+                # Depth varies linearly along a straight camera-space
+                # edge, so the piece's own position fixes its depth.
+                expected = c_s[2] + t * (c_e[2] - c_s[2])
+                assert abs(expected - piece_depth) < 1e-9, (
+                    f"piece drawn at t={t:.4f} along its edge has depth "
+                    f"{expected:.6f}, but was filed under {piece_depth:.6f}"
+                )
+                checked += 1
+        assert checked > 12, f"only {checked} pieces checked"

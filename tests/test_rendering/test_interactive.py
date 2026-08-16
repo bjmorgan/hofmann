@@ -78,6 +78,7 @@ def _key_action_fixtures():
         "indicator_visible": False,
         "input_mode": None,
         "input_buffer": "",
+        "last_perspective": Perspective(strength=0.1),
     }
     initial_view = {
         "rotation": view.rotation.copy(),
@@ -229,18 +230,35 @@ class TestKeyActions:
         assert view.projection == Orthographic()
 
     def test_perspective_descent_reaches_orthographic_exactly(self):
-        """Float residue must not strand the descent just above zero."""
+        """Float residue must not strand the descent just above zero.
+
+        0.4 is chosen deliberately: repeated subtraction leaves a
+        positive residue (~+2.8e-17), which a bare ``> 0.0`` test would
+        keep as a Perspective.  0.3 leaves a negative residue and so
+        would pass either way.
+        """
         view, style, state, iv = _key_action_fixtures()
-        view.projection = Perspective(0.3)
+        view.projection = Perspective(0.4)
+        for _ in range(4):
+            _do_key("P", view, style, state, iv)
+        assert view.projection == Orthographic()
+
+    def test_view_distance_survives_an_orthographic_excursion(self):
+        """A parallel projection cannot hold a distance; the session can."""
+        view, style, state, iv = _key_action_fixtures()
+        view.projection = Perspective(0.3, 25.0)
+        state["last_perspective"] = view.projection
         for _ in range(3):
             _do_key("P", view, style, state, iv)
         assert view.projection == Orthographic()
+        _do_key("p", view, style, state, iv)
+        assert view.projection.view_distance == 25.0
 
     # -- Distance --
 
     def test_distance_increase(self):
         view, style, state, iv = _key_action_fixtures()
-        view.projection = Perspective(0.5)
+        view.projection = Perspective(0.7, 20.0)
         old = view.projection.view_distance
         kind = _do_key("d", view, style, state, iv)
         assert view.projection.view_distance == pytest.approx(old * 1.05)
@@ -248,7 +266,7 @@ class TestKeyActions:
 
     def test_distance_decrease(self):
         view, style, state, iv = _key_action_fixtures()
-        view.projection = Perspective(0.5)
+        view.projection = Perspective(0.7, 20.0)
         old = view.projection.view_distance
         _do_key("D", view, style, state, iv)
         assert view.projection.view_distance == pytest.approx(old / 1.05)
