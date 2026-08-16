@@ -98,10 +98,8 @@ def _scene_extent(
         p = view.projection
         worst_depth = float(np.max(dists))
         denom = p.view_distance - worst_depth * p.strength
-        if denom > 0:
-            persp_scale = p.view_distance / denom
-        else:
-            persp_scale = p.view_distance / 1e-6
+        # Not max(denom, 1e-6): that would alter 0 < denom < 1e-6.
+        persp_scale = p.view_distance / (denom if denom > 0 else 1e-6)
         max_extent *= persp_scale
 
     return float(max_extent * view.zoom)

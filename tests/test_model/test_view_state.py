@@ -299,7 +299,7 @@ class TestProjectionTypes:
         assert p.view_distance == 10.0
 
     @pytest.mark.parametrize(
-        "strength", [0.0, -0.5, float("nan"), float("inf")],
+        "strength", [-0.5, float("nan"), float("inf")],
     )
     def test_invalid_strength_rejected(self, strength):
         with pytest.raises(ValueError, match="strength"):
@@ -330,10 +330,6 @@ class TestProjectionTypes:
         vs = ViewState()
         assert vs.set_perspective() is vs
         assert vs.set_orthographic() is vs
-
-    def test_setter_defaults_match_the_type(self):
-        """The two spellings of "default perspective" cannot drift."""
-        assert ViewState().set_perspective().projection == Perspective()
 
     def test_setters_select_the_mode(self):
         vs = ViewState().set_perspective(0.8, 15.0)

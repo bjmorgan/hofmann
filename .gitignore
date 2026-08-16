@@ -42,6 +42,9 @@ htmlcov/
 # Planning docs
 RESTRUCTURE.md
 PLAN-*.md
+OBLIQUE_PROJECTION.md
+.superpowers/
+docs/superpowers/
 
 # OS
 .DS_Store

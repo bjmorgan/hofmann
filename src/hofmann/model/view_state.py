@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
+from typing import assert_never
 
 import numpy as np
 
@@ -42,6 +43,10 @@ class Perspective:
                 "view_distance must be finite and positive, got "
                 f"{self.view_distance}"
             )
+
+
+#: Default perspective, so the setter and the type cannot drift apart.
+_DEFAULT_PERSPECTIVE = Perspective()
 
 
 @dataclass
@@ -96,8 +101,9 @@ class ViewState:
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         """Project 3D coordinates to 2D with depth information.
 
-        The eye sits at ``[0, 0, view_distance]`` and each sphere's
-        visible silhouette is projected onto the z=0 plane.
+        Under :class:`Perspective` the eye sits on the camera's +z
+        axis and each sphere's visible silhouette is projected onto
+        the z=0 plane.
 
         Args:
             coords: Array of shape ``(n, 3)``.
@@ -118,28 +124,22 @@ class ViewState:
         depth = rotated[:, 2]
         xy, _ = self.project_camera(rotated)
 
+        if radii is None:
+            return xy, depth, np.zeros(len(depth))
+
+        radii = np.asarray(radii, dtype=float)
         match self.projection:
             case Perspective() as p:
                 # Recomputed rather than recovered as view_distance /
                 # scale: that division round trip is not bit-exact.
                 d = p.view_distance - depth * p.strength
-
-                if radii is not None:
-                    radii = np.asarray(radii, dtype=float)
-                    # Silhouette radius: r * D / sqrt(d^2 - r^2).
-                    denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
-                    projected_radii = (
-                        radii * p.view_distance / denom * self.zoom
-                    )
-                else:
-                    projected_radii = np.zeros(len(depth))
+                # Silhouette radius: r * D / sqrt(d^2 - r^2).
+                denom = np.sqrt(np.maximum(d**2 - radii**2, 1e-12))
+                projected_radii = radii * p.view_distance / denom * self.zoom
             case Orthographic():
-                if radii is not None:
-                    projected_radii = (
-                        np.asarray(radii, dtype=float) * self.zoom
-                    )
-                else:
-                    projected_radii = np.zeros(len(depth))
+                projected_radii = radii * self.zoom
+            case _:
+                assert_never(self.projection)
 
         return xy, depth, projected_radii
 
@@ -148,9 +148,12 @@ class ViewState:
     ) -> tuple[np.ndarray, np.ndarray]:
         """Map camera-space positions to screen positions.
 
-        This is the single camera-to-screen mapping: every renderer
-        obtains screen positions through it, so all drawn geometry
-        stays consistent with the atoms.
+        This is the single camera-to-screen mapping for scene
+        geometry -- atoms, bonds, and cell edges all obtain screen
+        positions through it, so they stay consistent with each other.
+        Fixed-size screen furniture that deliberately ignores
+        :attr:`zoom`, such as the axes orientation widget, maps
+        directions itself and does not come through here.
 
         Args:
             camera: Array of shape ``(n, 3)``, already centred and
@@ -170,6 +173,8 @@ class ViewState:
                 )
             case Orthographic():
                 scale = np.ones(len(camera))
+            case _:
+                assert_never(self.projection)
         xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
         return xy, scale
 
@@ -184,7 +189,9 @@ class ViewState:
         return self
 
     def set_perspective(
-        self, strength: float = 0.5, view_distance: float = 10.0,
+        self,
+        strength: float = _DEFAULT_PERSPECTIVE.strength,
+        view_distance: float = _DEFAULT_PERSPECTIVE.view_distance,
     ) -> ViewState:
         """Draw with perspective foreshortening.
 

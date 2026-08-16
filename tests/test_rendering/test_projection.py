@@ -15,13 +15,14 @@ from hofmann.model import (
     ViewState,
 )
 from hofmann.model.composition import Composition
-from hofmann.rendering.static import render_mpl
+from hofmann.rendering.cell_edges import _cell_edges_3d
 from hofmann.rendering.projection import (
     _make_vacancy_wedge,
     _make_wedges,
     _project_point,
     _scene_extent,
 )
+from hofmann.rendering.static import render_mpl
 
 
 class TestProjectPoint:
@@ -260,31 +261,20 @@ class TestDrawnGeometryMatchesProjection:
         drawn = self._drawn_edge_endpoints(fig)
         plt.close(fig)
 
-        fracs = np.array([
-            [0, 0, 0], [1, 0, 0], [0, 1, 0], [1, 1, 0],
-            [0, 0, 1], [1, 0, 1], [0, 1, 1], [1, 1, 1],
-        ], dtype=float)
-        corners = fracs @ scene.frames[0].lattice
-        projected, _, _ = scene.view.project(corners)
-        # Cell edges join corners differing in one fractional
-        # coordinate.  Edges are subdivided for depth sorting, so a
-        # drawn endpoint is generally interior to an edge -- but a
-        # projection maps straight lines to straight lines, so it must
-        # still lie on the projected edge.
-        edges = [
-            (i, j)
-            for i in range(8) for j in range(i + 1, 8)
-            if np.sum(fracs[i] != fracs[j]) == 1
-        ]
-        assert len(edges) == 12
+        # The renderer's own edge set, so the test cannot drift from
+        # the geometry it checks.  Edges are subdivided for depth
+        # sorting, so a drawn endpoint is generally interior to an
+        # edge -- but a projection maps straight lines to straight
+        # lines, so it must still lie on the projected edge.
+        starts, ends = _cell_edges_3d(scene.frames[0].lattice)
+        projected, _, _ = scene.view.project(np.vstack([starts, ends]))
+        edges = list(zip(projected[: len(starts)], projected[len(starts):]))
 
         assert len(drawn) > 0
         for point in drawn:
             gap = min(
-                _point_to_segment_distance(
-                    point, projected[i], projected[j],
-                )
-                for i, j in edges
+                _point_to_segment_distance(point, start, end)
+                for start, end in edges
             )
             assert gap < 1e-9, f"drawn endpoint {point} lies off every edge"
 
