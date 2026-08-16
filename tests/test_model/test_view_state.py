@@ -6,12 +6,8 @@ import warnings
 import numpy as np
 import pytest
 
-from hofmann.model.view_state import (
-    Orthographic,
-    Perspective,
-    Projection,
-    ViewState,
-)
+from hofmann.model.projection import Orthographic, Perspective, Projection
+from hofmann.model.view_state import ViewState
 
 
 class TestViewStateProject:
