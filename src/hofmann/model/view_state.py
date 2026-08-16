@@ -171,11 +171,14 @@ class ViewState:
                 scale = p.view_distance / (
                     p.view_distance - camera[:, 2] * p.strength
                 )
+                xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
             case Orthographic():
+                # Scale is reported as ones, but not multiplied
+                # through: a parallel projection does not scale.
                 scale = np.ones(len(camera))
+                xy = camera[:, :2] * self.zoom
             case _:
                 assert_never(self.projection)
-        xy = camera[:, :2] * scale[:, np.newaxis] * self.zoom
         return xy, scale
 
     def set_orthographic(self) -> ViewState:

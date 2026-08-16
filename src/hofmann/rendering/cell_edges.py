@@ -300,15 +300,15 @@ def _collect_cell_edges(
                         if boundaries[i + 1] - boundaries[i] > 1e-12
                     ]
 
-            for t0, t1 in sub_fracs:
-                sub_c_s = c_s + (c_e - c_s) * t0
-                sub_c_e = c_s + (c_e - c_s) * t1
-                sub_d = (sub_c_s[2] + sub_c_e[2]) / 2.0
+            # Project every sub-segment endpoint of this edge in one
+            # call: one (2k, 3) array rather than k two-row ones.
+            fracs = np.asarray(sub_fracs, dtype=float).ravel()
+            sub_c = c_s + (c_e - c_s) * fracs[:, np.newaxis]
+            sub_xy = view.project_camera(sub_c)[0].reshape(-1, 2, 2)
+            sub_depths = sub_c[:, 2].reshape(-1, 2)
 
-                sub_xy, _ = view.project_camera(
-                    np.array([sub_c_s, sub_c_e])
-                )
-                xy_s_i, xy_e_i = sub_xy[0], sub_xy[1]
+            for (xy_s_i, xy_e_i), (z_s, z_e) in zip(sub_xy, sub_depths):
+                sub_d = (z_s + z_e) / 2.0
 
                 if dash_pattern is not None:
                     dash_segs = _split_dashes(
