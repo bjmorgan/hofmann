@@ -69,7 +69,11 @@ def _scene_extent(
     Returns the radius of a 2D bounding circle centred at the origin
     that encloses every atom and unit-cell corner under any rotation:
     the largest centre distance plus display radius, widened by the
-    projection's worst-case magnification, and scaled by zoom.
+    projection's worst-case magnification.
+
+    The extent is in scene units and excludes ``view.zoom``: the
+    projected coordinates already carry it, so consumers must not
+    re-apply it.
     """
     coords = scene.frames[frame_index].coords
     dists = np.linalg.norm(coords - view.centre, axis=1)
@@ -104,7 +108,7 @@ def _scene_extent(
     # not a magic-threshold clamp on the magnification.
     max_extent *= view.projection.max_magnification(max_extent)
 
-    return float(max_extent * view.zoom)
+    return float(max_extent)
 
 
 def _make_wedges(

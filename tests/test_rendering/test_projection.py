@@ -202,6 +202,25 @@ class TestSceneExtent:
         extent = _scene_extent(scene, view, 0, atom_scale=0.5)
         assert extent > 1.0  # pre-fix: gated out, returns the 1.0 floor
 
+    def test_extent_is_independent_of_zoom(self):
+        # The extent is in scene units; the coordinates carry the zoom.
+        # A frame-navigation recompute after zooming therefore returns
+        # the same viewport, so the interactive zoom is not reset.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 5.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        e1 = _scene_extent(
+            scene, ViewState(zoom=1.0, projection=Orthographic()), 0,
+            atom_scale=0.5,
+        )
+        e2 = _scene_extent(
+            scene, ViewState(zoom=2.0, projection=Orthographic()), 0,
+            atom_scale=0.5,
+        )
+        assert e1 == e2
+
 
 class TestMakeWedges:
     def test_pure_composition_returns_single_full_circle(self):
