@@ -215,7 +215,8 @@ class ViewState:
 
         Raises:
             ValueError: If *direction* or *up* is zero or has a
-                non-finite length, or *up* is parallel to *direction*.
+                non-finite length, or a caller-supplied *up* is parallel
+                to *direction*.
         """
         d = np.asarray(direction, dtype=float)
         u = np.asarray(up, dtype=float)
