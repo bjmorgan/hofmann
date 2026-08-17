@@ -57,6 +57,25 @@ Perspective
           Perspective (``set_perspective(0.5)``)
 
 
+Oblique
+~~~~~~~
+
+An oblique (axonometric) projection is parallel, like orthographic, but
+draws the third axis receding at an angle, so depth reads without the
+distortion of perspective.  Assign an :class:`~hofmann.Oblique`:
+
+.. code-block:: python
+
+   scene.view.projection = Oblique(45.0, 0.5)   # "cabinet"
+   scene.view.projection = Oblique(45.0, 1.0)   # "cavalier"
+
+``angle`` (degrees, anticlockwise from the +x axis) is the on-screen
+direction of the receding axis; ``foreshortening`` is how far a unit
+step along it is drawn — ``1.0`` for cavalier, ``0.5`` for cabinet,
+``0.0`` for orthographic.  Atoms, bonds, cell edges, and the axis triad
+all shear together.
+
+
 Render styles
 -------------
 

@@ -18,6 +18,12 @@ Unreleased
   doubles as an on/off switch, so a viewing distance can no longer be
   set on a view that ignores it.
 
+- Added an oblique (axonometric) projection.  Set
+  ``view.projection = Oblique(angle, foreshortening)`` to draw the third
+  axis receding at an angle, showing depth without perspective
+  distortion.  Atoms, bonds, cell edges, and the axis triad all shear
+  consistently.
+
 - In interactive sessions, the ``d`` and ``D`` viewing-distance keys
   now act only in perspective mode, where previously they adjusted a
   distance that had no effect until perspective was switched on.
