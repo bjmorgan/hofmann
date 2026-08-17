@@ -132,6 +132,80 @@ class TestSceneExtent:
         e_lat = _scene_extent(scene_lat, view, 0, atom_scale=0.5)
         assert e_lat > e_no_lat
 
+    def test_orthographic_extent_is_the_bounding_radius(self):
+        # Guard: orthographic applies no magnification (max_magnification
+        # == 1.0), so the extent is exactly the bounding radius whatever
+        # the worst depth.  Only perspective may move.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 5.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Orthographic())
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert extent == 5.0 + 1.0 * 0.5  # centre distance + display radius
+
+    def test_cell_corner_drives_perspective_magnification(self):
+        # Atom at the centre (centre distance 0), so the pre-fix bound,
+        # magnifying from max(centre distances), gives no allowance; the
+        # far cell corner must drive the magnification instead.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(
+                coords=np.array([[0.0, 0.0, 0.0]]),
+                lattice=np.eye(3) * 10.0,
+            )],
+            atom_styles={"C": AtomStyle(0.5, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        corner_radius = math.sqrt(3 * 10.0**2)
+        assert extent > corner_radius  # pre-fix: exactly corner_radius
+
+    def test_atom_free_lattice_gets_perspective_allowance(self):
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(
+                coords=np.empty((0, 3)),
+                lattice=np.eye(3) * 10.0,
+            )],
+            atom_styles={},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        corner_radius = math.sqrt(3 * 10.0**2)
+        assert extent > corner_radius  # pre-fix: no magnification, == corner_radius
+
+    def test_display_radius_drives_perspective_magnification(self):
+        # A large atom at the origin: its surface, not its centre
+        # (distance 0), is the outermost point and must drive the
+        # magnification.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={"C": AtomStyle(4.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        surface_radius = 4.0 * 0.5  # centre 0 + radius * atom_scale
+        assert extent > surface_radius  # pre-fix: mag from centre 0, == surface_radius
+
+    def test_eye_plane_warning_dedups_as_view_distance_varies(self):
+        """A drag that changes view_distance each frame emits one warning
+        line, not one per frame."""
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 10.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("default")
+            for view_distance in (8.0, 8.5, 9.0, 9.5, 10.0):
+                view = ViewState(projection=Perspective(1.0, view_distance))
+                _scene_extent(scene, view, 0, atom_scale=0.5)
+        eye = [w for w in caught if "eye plane" in str(w.message)]
+        assert len(eye) == 1
+
 
 class TestMakeWedges:
     def test_pure_composition_returns_single_full_circle(self):

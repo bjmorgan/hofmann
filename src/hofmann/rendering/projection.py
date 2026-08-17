@@ -7,7 +7,6 @@ import warnings
 import numpy as np
 
 from hofmann.model import (
-    Perspective,
     StructureScene,
     ViewState,
 )
@@ -94,25 +93,29 @@ def _scene_extent(
     if max_extent == 0.0:
         max_extent = 1.0
 
-    # Under perspective, atoms near the camera appear larger.  The
-    # worst-case magnification for an atom at distance *d* from the
-    # view centre is when it is rotated to depth z = +d (closest to
-    # the camera).
-    if len(dists) > 0:
-        worst_depth = float(np.max(dists))
-        proj = view.projection
-        if proj.reaches_eye_plane(np.array([worst_depth])):
-            assert isinstance(proj, Perspective)  # only Perspective reaches it
-            warnings.warn(
-                "the scene reaches the perspective eye plane "
-                f"(view_distance={proj.view_distance:g}, "
-                f"strength={proj.strength:g}); the view cannot be "
-                "sized and renders blank.  Increase view_distance "
-                "or reduce strength.",
-                UserWarning,
-                stacklevel=2,
-            )
-        max_extent *= proj.max_magnification(worst_depth)
+    # Under perspective, points nearer the camera are drawn larger.  The
+    # worst case is a point at the bounding radius (max_extent — the
+    # farthest atom surface or cell corner) rotated closest to the eye, so
+    # size the allowance from max_extent itself.  A cell corner or a large
+    # atom's surface can sit farther out than any atom centre and would
+    # otherwise clip.
+    proj = view.projection
+    if proj.reaches_eye_plane(np.array([max_extent])):
+        warnings.warn(
+            "the scene reaches the perspective eye plane; the view "
+            "cannot be sized and renders blank.  Increase view_distance "
+            "or reduce strength.",
+            UserWarning,
+            stacklevel=2,
+        )
+    # Known limitation: max_magnification grows without bound as the eye
+    # nears the bounding sphere (denom -> 0+), sizing the viewport so
+    # large the scene shrinks to a dot.  Once denom <= 0 the eye is at or
+    # inside the bounding sphere; the 1e-6 floor keeps the divisor
+    # positive, giving a huge finite allowance, and reaches_eye_plane has
+    # already warned.  The honest fix is depth-based sizing with a
+    # near-plane clip, not a magic-threshold clamp on the magnification.
+    max_extent *= proj.max_magnification(max_extent)
 
     return float(max_extent * view.zoom)
 
