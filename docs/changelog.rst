@@ -45,6 +45,11 @@ Unreleased
 - A view opened with a zoom above one now starts zoomed in at that
   level, rather than fitting the window regardless of the zoom set.
 
+- ``ViewState.look_along`` now rejects a viewing direction or up vector
+  that is zero or not finite — for example one whose length overflows —
+  raising a clear error instead of silently producing a degenerate,
+  all-blank view.
+
 0.20.0
 ------
 

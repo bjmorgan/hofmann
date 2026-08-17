@@ -149,6 +149,17 @@ class TestViewStateLookAlong:
         xy, _, _ = vs.project(coords)
         np.testing.assert_allclose(xy[0], [0.0, 0.0], atol=1e-12)
 
+    def test_positive_direction_is_nearest_the_viewer(self):
+        """A point along +direction has larger depth (is nearer the
+        viewer) than one along -direction, pinning the documented
+        convention that +direction points out of the screen."""
+        vs = ViewState()
+        vs.look_along([1, 1, 1])
+        _, depth, _ = vs.project(
+            np.array([[1.0, 1.0, 1.0], [-1.0, -1.0, -1.0]])
+        )
+        assert depth[0] > depth[1]
+
     def test_x_axis_view(self):
         """Looking along [1, 0, 0] should show the yz plane."""
         vs = ViewState()
@@ -206,6 +217,48 @@ class TestViewStateLookAlong:
         vs = ViewState()
         result = vs.look_along([1, 1, 1])
         assert result is vs
+
+    @pytest.mark.parametrize("direction", [
+        [1e308, 1e308, 1e308],   # length overflows to inf
+        [np.nan, 0.0, 0.0],
+        [np.inf, 0.0, 0.0],
+    ])
+    def test_non_finite_direction_raises(self, direction):
+        """A non-finite or overflowing direction is rejected, not
+        silently turned into a degenerate NaN rotation."""
+        vs = ViewState()
+        before = vs.rotation.copy()
+        with pytest.raises(ValueError, match="finite"):
+            vs.look_along(direction)
+        np.testing.assert_array_equal(vs.rotation, before)
+
+    def test_zero_direction_raises(self):
+        """A zero-length direction is rejected."""
+        vs = ViewState()
+        with pytest.raises(ValueError, match="non-zero"):
+            vs.look_along([0.0, 0.0, 0.0])
+
+    def test_non_finite_up_raises(self):
+        """A non-finite or overflowing up vector is rejected, not
+        silently turned into a degenerate rotation (symmetric with
+        direction)."""
+        vs = ViewState()
+        before = vs.rotation.copy()
+        for up in (
+            [np.inf, 0.0, 0.0],
+            [np.nan, np.nan, np.nan],
+            [1e308, 1e308, 1e308],
+        ):
+            with pytest.raises(ValueError, match="up must be finite"):
+                vs.look_along([1, 0, 0], up=up)
+            np.testing.assert_array_equal(vs.rotation, before)
+
+    def test_zero_up_raises_clear_error(self):
+        """A zero-length up raises a clear error, not the misleading
+        'parallel to the viewing direction' message."""
+        vs = ViewState()
+        with pytest.raises(ValueError, match="up must be finite and non-zero"):
+            vs.look_along([1, 0, 0], up=[0, 0, 0])
 
 
 class TestViewStateSlab:
