@@ -7,9 +7,8 @@ from scipy.spatial.transform import Rotation
 
 from hofmann import (
     AtomLegendItem, AtomStyle, AxesStyle, BondSpec, CellEdgeStyle,
-    Composition, Frame, LegendStyle, Oblique, PolygonLegendItem,
+    Composition, Frame, LegendStyle, PolygonLegendItem,
     PolyhedronLegendItem, PolyhedronSpec, RenderStyle, StructureScene,
-    ViewState,
 )
 
 OUT = Path(__file__).resolve().parent
@@ -645,7 +644,9 @@ def generate_docs_images() -> None:
     )
     print(f"  wrote {OUT / 'octahedron_no_half_bonds.svg'}")
 
-    # 5. Projection: orthographic, perspective, oblique (perovskite)
+    # 5. Projection: orthographic, perspective, oblique (perovskite).
+    #    Ortho and perspective share the tilted view; the oblique panel
+    #    looks down [100] so its receding axis (and the shear) reads clearly.
     perov_plain.render_mpl(
         OUT / "perovskite_ortho.svg",
         figsize=(3, 3), dpi=150,
@@ -657,7 +658,8 @@ def generate_docs_images() -> None:
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
-    perov_plain.view.projection = Oblique(45.0, 0.5)
+    perov_plain.view.look_along([1, 0, 0])  # down [100]: the a-axis recedes
+    perov_plain.view.set_oblique(35.0, 0.6)
     perov_plain.render_mpl(
         OUT / "perovskite_oblique.svg",
         figsize=(3, 3), dpi=150,
@@ -738,7 +740,6 @@ def generate_docs_images() -> None:
     # 9. Multiple colouring layers: two concentric rings.
     #    Outer ring coloured by categorical type, inner by numerical value.
     n_outer, n_inner = 12, 8
-    n_total = n_outer + n_inner
     outer_angles = np.linspace(0, 2 * np.pi, n_outer, endpoint=False)
     inner_angles = np.linspace(0, 2 * np.pi, n_inner, endpoint=False)
     r_outer, r_inner = 3.5, 1.8

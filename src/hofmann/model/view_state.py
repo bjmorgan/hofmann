@@ -5,10 +5,16 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from hofmann.model.projection import Orthographic, Perspective, Projection
+from hofmann.model.projection import (
+    Oblique,
+    Orthographic,
+    Perspective,
+    Projection,
+)
 
 
 _DEFAULT_PERSPECTIVE = Perspective()
+_DEFAULT_OBLIQUE = Oblique()
 
 
 @dataclass
@@ -31,7 +37,7 @@ class ViewState:
         zoom: Magnification factor.
         centre: 3D point about which to centre the view.
         projection: Projection mode, :class:`Orthographic` (the
-            default) or :class:`Perspective`.
+            default), :class:`Perspective`, or :class:`Oblique`.
         slab_origin: 3D point defining the slab reference depth, or
             ``None`` to use *centre*.
         slab_near: Near offset from the slab origin depth (negative =
@@ -167,6 +173,27 @@ class ViewState:
             :meth:`look_along`.
         """
         self.projection = Perspective(strength, view_distance)
+        return self
+
+    def set_oblique(
+        self,
+        angle: float = _DEFAULT_OBLIQUE.angle,
+        foreshortening: float = _DEFAULT_OBLIQUE.foreshortening,
+    ) -> ViewState:
+        """Draw with the third axis receding at an angle (axonometric).
+
+        Args:
+            angle: On-screen direction of the receding axis, in degrees
+                anticlockwise from the +x axis.
+            foreshortening: Length on screen of a unit step along the
+                receding axis; ``0.0`` recovers the orthographic
+                projection.
+
+        Returns:
+            ``self``, so the call can be chained with
+            :meth:`look_along`.
+        """
+        self.projection = Oblique(angle, foreshortening)
         return self
 
     def slab_mask(self, coords: np.ndarray) -> np.ndarray:

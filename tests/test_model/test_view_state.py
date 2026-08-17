@@ -484,15 +484,19 @@ class TestProjectionTypes:
         vs = ViewState()
         assert vs.set_perspective() is vs
         assert vs.set_orthographic() is vs
+        assert vs.set_oblique() is vs
 
     def test_setters_select_the_mode(self):
         vs = ViewState().set_perspective(0.8, 15.0)
         assert vs.projection == Perspective(0.8, 15.0)
+        assert vs.set_oblique(35.0, 0.6).projection == Oblique(35.0, 0.6)
         assert vs.set_orthographic().projection == Orthographic()
 
     def test_setter_validates_through_the_type(self):
         with pytest.raises(ValueError, match="strength"):
             ViewState().set_perspective(strength=-1.0)
+        with pytest.raises(ValueError, match="foreshortening"):
+            ViewState().set_oblique(foreshortening=-1.0)
 
     def test_modes_compare_by_value(self):
         assert Perspective(0.5, 10.0) == Perspective(0.5, 10.0)
