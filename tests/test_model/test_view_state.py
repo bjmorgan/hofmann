@@ -6,7 +6,12 @@ import warnings
 import numpy as np
 import pytest
 
-from hofmann.model.projection import Orthographic, Perspective, Projection
+from hofmann.model.projection import (
+    Oblique,
+    Orthographic,
+    Perspective,
+    Projection,
+)
 from hofmann.model.view_state import ViewState
 
 
@@ -444,13 +449,14 @@ class TestProjectionTypes:
         assert Orthographic() == Orthographic()
 
     def test_projection_enforces_every_method(self):
-        """A variant omitting any one of the five cannot be instantiated."""
+        """A variant omitting any one of the six cannot be instantiated."""
         assert Projection.__abstractmethods__ == frozenset({
             "to_screen",
             "silhouette_radius",
             "max_magnification",
             "eye_distance",
             "reaches_eye_plane",
+            "screen_matrix",
         })
 
         class Incomplete(Projection):
@@ -501,6 +507,48 @@ class TestProjectionTypes:
         )
         # worst depth 5: D/(D - 5*s) = 10/5 = 2
         assert persp.max_magnification(5.0) == 2.0
+
+    def test_oblique_shears_by_depth(self):
+        # x' = x - f*z*cos(th), y' = y - f*z*sin(th); depth unchanged.
+        ob = Oblique(45.0, 0.5)
+        camera = np.array([[1.0, 2.0, 4.0]])
+        xy = ob.to_screen(camera)
+        th = np.radians(45.0)
+        np.testing.assert_allclose(
+            xy[0], [1.0 - 0.5 * 4.0 * np.cos(th),
+                    2.0 - 0.5 * 4.0 * np.sin(th)],
+        )
+
+    def test_oblique_zero_foreshortening_is_orthographic(self):
+        camera = np.array([[1.0, 2.0, 4.0], [-3.0, 0.5, -2.0]])
+        np.testing.assert_array_equal(
+            Oblique(30.0, 0.0).to_screen(camera),
+            Orthographic().to_screen(camera),
+        )
+
+    def test_oblique_max_magnification_is_sqrt_1_plus_f2(self):
+        assert Oblique(45.0, 1.0).max_magnification(5.0) == np.hypot(1.0, 1.0)
+        assert Oblique(45.0, 0.5).max_magnification(5.0) == np.hypot(1.0, 0.5)
+
+    def test_oblique_silhouette_and_eye_are_parallel(self):
+        ob = Oblique(45.0, 0.5)
+        np.testing.assert_array_equal(
+            ob.silhouette_radius(np.array([3.0]), np.array([1.5])), [1.5]
+        )
+        assert ob.reaches_eye_plane(np.array([1e9])) is False
+        assert ob.eye_distance == Orthographic().eye_distance
+
+    def test_screen_matrix_identity_for_non_oblique(self):
+        ident = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        np.testing.assert_array_equal(Orthographic().screen_matrix, ident)
+        np.testing.assert_array_equal(
+            Perspective(0.5, 10.0).screen_matrix, ident
+        )
+        th = np.radians(45.0)
+        np.testing.assert_allclose(
+            Oblique(45.0, 0.5).screen_matrix,
+            [[1.0, 0.0, -0.5 * np.cos(th)], [0.0, 1.0, -0.5 * np.sin(th)]],
+        )
 
     def test_perspective_to_screen_not_clamped_at_or_behind_eye(self):
         """At/behind the eye, positions blow up rather than clamp."""
