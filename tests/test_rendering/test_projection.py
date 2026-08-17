@@ -8,9 +8,12 @@ import pytest
 
 from hofmann.model import (
     AtomStyle,
+    BondSpec,
     Frame,
+    Oblique,
     Orthographic,
     Perspective,
+    RenderStyle,
     StructureScene,
     ViewState,
 )
@@ -362,8 +365,8 @@ class TestDrawnGeometryMatchesProjection:
 
     @pytest.mark.parametrize(
         "projection",
-        [Orthographic(), Perspective(0.6, 12.0)],
-        ids=["orthographic", "perspective"],
+        [Orthographic(), Perspective(0.6, 12.0), Oblique(35.0, 0.6)],
+        ids=["orthographic", "perspective", "oblique"],
     )
     def test_cell_edges_agree_with_view_project(self, projection):
         scene = self._scene()
@@ -390,6 +393,63 @@ class TestDrawnGeometryMatchesProjection:
                 for start, end in edges
             )
             assert gap < 1e-9, f"drawn endpoint {point} lies off every edge"
+
+    def test_oblique_bond_geometry_agrees_with_view_project(self):
+        """A drawn bond's end-caps land on the projected atom centres.
+
+        Under oblique the bond junctions are computed in the screen frame,
+        so an end-to-end render must place each cap where ``view.project``
+        puts the corresponding atom.  Atom radii are kept below the bond
+        radius so clipping is inert (the caps sit exactly at the centres),
+        and a single ``bond_colour`` forces the full ``2 * n_arc`` polygon
+        so the shoulder pair reconstructs the cap centre.
+        """
+        from hofmann.rendering.bond_geometry import _make_arc
+
+        lattice = np.array([
+            [4.0, 0.0, 0.0], [0.5, 3.6, 0.0], [0.3, 0.4, 5.2],
+        ])
+        coords = np.array([[1.0, 1.0, 1.0], [2.4, 1.8, 3.0]])
+        scene = StructureScene(
+            species=["A", "B"],
+            frames=[Frame(coords=coords, lattice=lattice)],
+            atom_styles={
+                "A": AtomStyle(0.01, (0.5, 0.5, 0.5)),
+                "B": AtomStyle(0.01, (0.8, 0.2, 0.2)),
+            },
+            bond_specs=[
+                BondSpec(species=("A", "B"), min_length=0.0, max_length=5.0,
+                         radius=0.15, colour=(0.2, 0.2, 0.2)),
+            ],
+        )
+        scene.view = ViewState(projection=Oblique(35.0, 0.6))
+        scene.view.look_along([1.0, 0.6, 0.4])
+
+        # A single bond_colour draws the bond as one full polygon.
+        style = RenderStyle(bond_colour=(0.2, 0.2, 0.2))
+        n_arc = len(_make_arc(style.arc_segments))
+        fig = render_mpl(scene, style=style, show=False)
+        # closed=True on the collection may append a repeat of vertex 0.
+        bond_polys = [
+            np.asarray(path.vertices)
+            for collection in fig.axes[0].collections
+            for path in collection.get_paths()
+            if len(path.vertices) in (2 * n_arc, 2 * n_arc + 1)
+        ]
+        plt.close(fig)
+
+        assert len(bond_polys) == 1, "expected exactly one full bond polygon"
+        verts = bond_polys[0][:2 * n_arc]  # drop any closing vertex
+        # Each cap's two shoulder vertices straddle the cap centre, so their
+        # midpoint recovers it -- the half-width offsets cancel.
+        cap_a = (verts[0] + verts[n_arc - 1]) / 2
+        cap_b = (verts[n_arc] + verts[2 * n_arc - 1]) / 2
+
+        projected, _, _ = scene.view.project(coords)
+        # Each reconstructed cap coincides with a projected atom centre.
+        for cap in (cap_a, cap_b):
+            gap = min(np.linalg.norm(cap - p) for p in projected)
+            assert gap < 1e-9, f"bond cap {cap} lies off every atom centre"
 
     def test_project_point_agrees_with_project_camera(self):
         """_project_point is a scalar view of the same mapping."""

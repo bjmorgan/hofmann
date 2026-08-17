@@ -1,8 +1,9 @@
 """Tests for bond geometry helpers — clipping, stick polygons, and batch operations."""
 
 import numpy as np
+import pytest
 
-from hofmann.model import BondSpec, Perspective, ViewState
+from hofmann.model import BondSpec, Oblique, Orthographic, Perspective, ViewState
 from hofmann.rendering.bond_geometry import (
     _bond_polygon,
     _bond_polygons_batch,
@@ -176,42 +177,21 @@ class TestBondPolygonsBatch:
             "view": view,
         }
 
-    def test_matches_scalar_identity_view(self):
-        """Batch output matches scalar _bond_polygon for identity rotation."""
-        d = self._ch4_scene_data()
-        view = d["view"]
-        atom_scale = d["atom_scale"]
+    @pytest.mark.parametrize("projection", [
+        Orthographic(),
+        Perspective(0.6, 12.0),
+        Oblique(35.0, 0.6),
+    ], ids=["orthographic", "perspective", "oblique"])
+    def test_batch_matches_scalar(self, projection):
+        """The vectorised batch reproduces the scalar _bond_polygon.
 
-        full_verts, start_2d, end_2d, _bb_a, _bb_b, _bx, _by, valid = (
-            _bond_polygons_batch(
-                d["rotated"], d["xy"],
-                d["radii_3d"] * atom_scale, d["screen_radii"],
-                d["bond_ia"], d["bond_ib"], d["bond_radii"],
-                view,
-            )
-        )
-
-        for i, bond in enumerate(d["bonds"]):
-            ia, ib = bond.index_a, bond.index_b
-            scalar = _bond_polygon(
-                d["rotated"][ia], d["rotated"][ib],
-                d["radii_3d"][ia] * atom_scale,
-                d["radii_3d"][ib] * atom_scale,
-                bond.spec.radius,
-                d["screen_radii"][ia], d["screen_radii"][ib],
-                view,
-            )
-            assert scalar is not None
-            assert valid[i]
-            s_verts, s_start, s_end = scalar
-            np.testing.assert_allclose(full_verts[i], s_verts, atol=1e-12)
-            np.testing.assert_allclose(start_2d[i], s_start, atol=1e-12)
-            np.testing.assert_allclose(end_2d[i], s_end, atol=1e-12)
-
-    def test_matches_scalar_rotated_view(self):
-        """Batch output matches scalar for a non-trivial rotation."""
+        A non-axis-aligned rotation makes the oblique shear act
+        non-trivially, so the sheared scalar junction branch (sp_a/sp_b)
+        is exercised rather than passing through unchanged; perspective
+        pins the effective-eye foreshortening on both paths.
+        """
         rot = _rotation_y(0.7) @ _rotation_x(0.3)
-        view = ViewState(rotation=rot, zoom=1.2)
+        view = ViewState(rotation=rot, zoom=1.2, projection=projection)
         d = self._ch4_scene_data(view=view)
         atom_scale = d["atom_scale"]
 
@@ -222,35 +202,6 @@ class TestBondPolygonsBatch:
             view,
         )
 
-        for i, bond in enumerate(d["bonds"]):
-            ia, ib = bond.index_a, bond.index_b
-            scalar = _bond_polygon(
-                d["rotated"][ia], d["rotated"][ib],
-                d["radii_3d"][ia] * atom_scale,
-                d["radii_3d"][ib] * atom_scale,
-                bond.spec.radius,
-                d["screen_radii"][ia], d["screen_radii"][ib],
-                view,
-            )
-            assert scalar is not None
-            assert valid[i]
-            s_verts, s_start, s_end = scalar
-            np.testing.assert_allclose(full_verts[i], s_verts, atol=1e-12)
-
-    def test_matches_scalar_perspective_view(self):
-        """Batch matches scalar under perspective: the effective-eye
-        foreshortening must be applied identically on both paths."""
-        rot = _rotation_y(0.7) @ _rotation_x(0.3)
-        view = ViewState(rotation=rot, projection=Perspective(0.6, 12.0))
-        d = self._ch4_scene_data(view=view)
-        atom_scale = d["atom_scale"]
-
-        full_verts, start_2d, end_2d, *_, valid = _bond_polygons_batch(
-            d["rotated"], d["xy"],
-            d["radii_3d"] * atom_scale, d["screen_radii"],
-            d["bond_ia"], d["bond_ib"], d["bond_radii"],
-            view,
-        )
         for i, bond in enumerate(d["bonds"]):
             ia, ib = bond.index_a, bond.index_b
             scalar = _bond_polygon(
@@ -265,6 +216,66 @@ class TestBondPolygonsBatch:
             assert valid[i]
             s_verts, s_start, s_end = scalar
             np.testing.assert_allclose(full_verts[i], s_verts, atol=1e-9)
+            np.testing.assert_allclose(start_2d[i], s_start, atol=1e-9)
+            np.testing.assert_allclose(end_2d[i], s_end, atol=1e-9)
+
+    def _batch_verts(self, view):
+        """Batch bond polygon vertices for the CH4 scene under *view*."""
+        d = self._ch4_scene_data(view=view)
+        full_verts, *_ = _bond_polygons_batch(
+            d["rotated"], d["xy"],
+            d["radii_3d"] * d["atom_scale"], d["screen_radii"],
+            d["bond_ia"], d["bond_ib"], d["bond_radii"], view,
+        )
+        return full_verts
+
+    def test_oblique_bonds_match_manual_shear_route(self):
+        """An oblique projection agrees with the equivalent manual shear.
+
+        A depth shear baked into the rotation under an orthographic
+        projection and the same shear expressed as an Oblique projection
+        describe the identical camera.  Bond junction geometry must land
+        in the same place either way -- which holds only when the
+        junctions are computed in the screen-aligned frame.
+        """
+        th = np.deg2rad(35.0)
+        shear = np.array([[1.0, 0.6 * np.cos(th), 0.0],
+                          [0.0, 0.6 * np.sin(th), 1.0],
+                          [0.0, -1.0,             0.0]])
+        view_manual = ViewState(rotation=shear)                 # Orthographic
+        view_oblique = ViewState().look_along([0.0, -1.0, 0.0])
+        view_oblique.projection = Oblique(35.0, 0.6)
+        np.testing.assert_allclose(
+            self._batch_verts(view_oblique), self._batch_verts(view_manual),
+            atol=1e-12,
+        )
+
+    def test_oblique_bond_cap_leaves_the_atom_centre(self):
+        """A bond receding along camera z still caps at its silhouette.
+
+        Under oblique the ray that projects to nothing is the shear
+        kernel, not camera z.  A bond running straight into depth
+        therefore has a non-zero on-screen extent, so its end-cap must
+        attach offset from the projected atom centre -- not at the centre
+        (the pre-fix value, which computed the angle in camera space and
+        found a bond pointing exactly at the eye).
+        """
+        view = ViewState()
+        view.projection = Oblique(35.0, 0.6)
+        # Two atoms with a bond running purely into depth along camera z.
+        coords = np.array([[0.0, 0.0, 0.0], [0.0, 0.0, -2.0]])
+        radii_3d = np.array([1.0, 1.0])
+        xy, _depth, screen_radii = view.project(coords, radii_3d)
+        rotated = coords.copy()  # identity rotation, centred on the origin
+
+        _full, start_2d, _end_2d, *_rest, valid = _bond_polygons_batch(
+            rotated, xy, radii_3d, screen_radii,
+            np.array([0]), np.array([1]), np.array([0.1]), view,
+        )
+        assert valid[0]
+        # The cap attaches offset from the projected atom-a centre.
+        offset = np.linalg.norm(start_2d[0] - xy[0])
+        assert offset > 0.1, f"cap sits at the atom centre (offset {offset})"
 
     def test_empty_bonds(self):
         """No bonds produces empty arrays."""

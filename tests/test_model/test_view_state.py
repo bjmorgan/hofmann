@@ -127,6 +127,37 @@ class TestViewStateProject:
         assert proj_r[0] > naive  # silhouette > naive point projection
 
 
+class TestViewStateScreenFrame:
+    """screen_frame is a passthrough unless the projection shears."""
+
+    @pytest.mark.parametrize(
+        "projection",
+        [Orthographic(), Perspective(0.6, 12.0)],
+        ids=["orthographic", "perspective"],
+    )
+    def test_passthrough_for_non_shearing_projections(self, projection):
+        """For non-oblique projections the frame is exactly the camera."""
+        vs = ViewState(projection=projection)
+        camera = np.array([
+            [1.0, 2.0, 3.0],
+            [-4.0, 0.5, -2.0],
+            [0.0, 0.0, 0.0],
+        ])
+        np.testing.assert_array_equal(vs.screen_frame(camera), camera)
+
+    def test_oblique_shears_xy_and_keeps_depth(self):
+        """Under oblique the xy is the sheared screen; depth is unchanged."""
+        projection = Oblique(35.0, 0.6)
+        vs = ViewState(projection=projection)
+        camera = np.array([
+            [1.0, 2.0, 3.0],
+            [-4.0, 0.5, -2.0],
+        ])
+        frame = vs.screen_frame(camera)
+        np.testing.assert_allclose(frame[:, :2], projection.to_screen(camera))
+        np.testing.assert_array_equal(frame[:, 2], camera[:, 2])
+
+
 class TestViewStateLookAlong:
     """Tests for ViewState.look_along."""
 
@@ -362,6 +393,26 @@ class TestViewStateSlab:
         mask = vs.slab_mask(coords)
         expected = np.array([True, True, False])
         np.testing.assert_array_equal(mask, expected)
+
+    def test_slab_mask_is_unchanged_by_an_oblique_projection(self):
+        """Slab clipping is camera-space depth and must never shear.
+
+        A view that gains an Oblique projection selects exactly the same
+        atoms: the shear moves screen positions, not camera depth.
+        """
+        vs = ViewState()
+        vs.look_along([1.0, 0.6, 0.4])
+        vs.slab_origin = np.array([0.4, -0.2, 0.7])
+        vs.slab_near = -1.3
+        vs.slab_far = 1.1
+        rng = np.random.default_rng(0)
+        coords = rng.normal(size=(40, 3)) * 3.0
+
+        before = vs.slab_mask(coords)
+        vs.projection = Oblique(35.0, 0.6)
+        after = vs.slab_mask(coords)
+        np.testing.assert_array_equal(before, after)
+        assert before.any() and not before.all()  # a non-trivial slab
 
 
 class TestViewStateValidation:
