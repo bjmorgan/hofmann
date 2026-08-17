@@ -40,41 +40,43 @@ Zoom
 Projection
 ~~~~~~~~~~
 
-The projection mode is set on :attr:`~hofmann.ViewState.projection`,
-which takes one of three modes:
+hofmann provides three projection modes, which determine how 3D
+coordinates are mapped onto the 2D page:
 
-- :class:`~hofmann.Orthographic` (the default) — a parallel projection
+- :class:`~hofmann.Orthographic` (the default): parallel projection
   with no foreshortening.
-- :class:`~hofmann.Perspective` — foreshortens with distance from the
-  eye; *strength* sets the amount and *view_distance* the eye distance.
-- :class:`~hofmann.Oblique` — parallel, but draws the third axis receding
-  at an angle (axonometric), so depth reads without the distortion of
-  perspective.  *angle* (degrees, anticlockwise from +x) sets the
-  on-screen direction of the receding axis, and *foreshortening* how far
-  a unit step along it is drawn: ``1.0`` full length, ``0.5`` half,
-  ``0.0`` orthographic.  Atoms, bonds, cell edges, and the axis triad all
-  shear together.
+- :class:`~hofmann.Perspective`: projection towards an eye point, so
+  nearer atoms appear larger.
+- :class:`~hofmann.Oblique`: parallel projection with two axes
+  undistorted in the plane of the page and the third — the current
+  view direction — receding at a chosen angle, foreshortened by a
+  chosen factor.
+
+The mode is set with one of three methods, and the current mode can be
+read from :attr:`~hofmann.ViewState.projection`:
 
 .. code-block:: python
 
-   scene.view.set_orthographic()                # Parallel (the default)
-   scene.view.set_perspective(0.3)              # Mild perspective
-   scene.view.projection = Oblique(45.0, 0.5)   # Oblique
+   scene.view.set_orthographic()                            # The default
+   scene.view.set_perspective(0.3)                          # Mild perspective
+   scene.view.set_oblique(angle=35.0, foreshortening=0.6)
+
+   scene.view.projection  # Oblique(angle=35.0, foreshortening=0.6)
 
 .. list-table::
    :widths: 33 33 34
 
    * - .. figure:: _static/perovskite_ortho.svg
 
-          Orthographic (the default)
+          ``set_orthographic()``
 
      - .. figure:: _static/perovskite_perspective.svg
 
-          Perspective (``set_perspective(0.5)``)
+          ``set_perspective(0.5)``
 
      - .. figure:: _static/perovskite_oblique.svg
 
-          Oblique (``Oblique(45, 0.5)``)
+          ``set_oblique(35.0, 0.6)``
 
 
 Render styles
