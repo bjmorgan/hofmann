@@ -6,7 +6,12 @@ import warnings
 import numpy as np
 import pytest
 
-from hofmann.model.projection import Orthographic, Perspective, Projection
+from hofmann.model.projection import (
+    Oblique,
+    Orthographic,
+    Perspective,
+    Projection,
+)
 from hofmann.model.view_state import ViewState
 
 
@@ -120,6 +125,37 @@ class TestViewStateProject:
         # d = 10 - 2 = 8, naive = r * D/d = 1.25
         naive = 1.0 * 10.0 / 8.0
         assert proj_r[0] > naive  # silhouette > naive point projection
+
+
+class TestViewStateScreenFrame:
+    """screen_frame is a passthrough unless the projection shears."""
+
+    @pytest.mark.parametrize(
+        "projection",
+        [Orthographic(), Perspective(0.6, 12.0)],
+        ids=["orthographic", "perspective"],
+    )
+    def test_passthrough_for_non_shearing_projections(self, projection):
+        """For non-oblique projections the frame is exactly the camera."""
+        vs = ViewState(projection=projection)
+        camera = np.array([
+            [1.0, 2.0, 3.0],
+            [-4.0, 0.5, -2.0],
+            [0.0, 0.0, 0.0],
+        ])
+        np.testing.assert_array_equal(vs.screen_frame(camera), camera)
+
+    def test_oblique_shears_xy_and_keeps_depth(self):
+        """Under oblique the xy is the sheared screen; depth is unchanged."""
+        projection = Oblique(35.0, 0.6)
+        vs = ViewState(projection=projection)
+        camera = np.array([
+            [1.0, 2.0, 3.0],
+            [-4.0, 0.5, -2.0],
+        ])
+        frame = vs.screen_frame(camera)
+        np.testing.assert_allclose(frame[:, :2], projection.to_screen(camera))
+        np.testing.assert_array_equal(frame[:, 2], camera[:, 2])
 
 
 class TestViewStateLookAlong:
@@ -358,6 +394,26 @@ class TestViewStateSlab:
         expected = np.array([True, True, False])
         np.testing.assert_array_equal(mask, expected)
 
+    def test_slab_mask_is_unchanged_by_an_oblique_projection(self):
+        """Slab clipping is camera-space depth and must never shear.
+
+        A view that gains an Oblique projection selects exactly the same
+        atoms: the shear moves screen positions, not camera depth.
+        """
+        vs = ViewState()
+        vs.look_along([1.0, 0.6, 0.4])
+        vs.slab_origin = np.array([0.4, -0.2, 0.7])
+        vs.slab_near = -1.3
+        vs.slab_far = 1.1
+        rng = np.random.default_rng(0)
+        coords = rng.normal(size=(40, 3)) * 3.0
+
+        before = vs.slab_mask(coords)
+        vs.projection = Oblique(35.0, 0.6)
+        after = vs.slab_mask(coords)
+        np.testing.assert_array_equal(before, after)
+        assert before.any() and not before.all()  # a non-trivial slab
+
 
 class TestViewStateValidation:
     def test_zero_zoom_raises(self):
@@ -444,13 +500,14 @@ class TestProjectionTypes:
         assert Orthographic() == Orthographic()
 
     def test_projection_enforces_every_method(self):
-        """A variant omitting any one of the five cannot be instantiated."""
+        """A variant omitting any one of the six cannot be instantiated."""
         assert Projection.__abstractmethods__ == frozenset({
             "to_screen",
             "silhouette_radius",
             "max_magnification",
             "eye_distance",
             "reaches_eye_plane",
+            "screen_matrix",
         })
 
         class Incomplete(Projection):
@@ -501,6 +558,57 @@ class TestProjectionTypes:
         )
         # worst depth 5: D/(D - 5*s) = 10/5 = 2
         assert persp.max_magnification(5.0) == 2.0
+
+    def test_oblique_shears_by_depth(self):
+        # x' = x - f*z*cos(th), y' = y - f*z*sin(th); depth unchanged.
+        ob = Oblique(45.0, 0.5)
+        camera = np.array([[1.0, 2.0, 4.0]])
+        xy = ob.to_screen(camera)
+        th = np.radians(45.0)
+        np.testing.assert_allclose(
+            xy[0], [1.0 - 0.5 * 4.0 * np.cos(th),
+                    2.0 - 0.5 * 4.0 * np.sin(th)],
+        )
+
+    def test_oblique_zero_foreshortening_is_orthographic(self):
+        camera = np.array([[1.0, 2.0, 4.0], [-3.0, 0.5, -2.0]])
+        np.testing.assert_array_equal(
+            Oblique(30.0, 0.0).to_screen(camera),
+            Orthographic().to_screen(camera),
+        )
+
+    def test_oblique_max_magnification_is_sqrt_1_plus_f2(self):
+        assert Oblique(45.0, 1.0).max_magnification(5.0) == np.hypot(1.0, 1.0)
+        assert Oblique(45.0, 0.5).max_magnification(5.0) == np.hypot(1.0, 0.5)
+
+    def test_oblique_silhouette_and_eye_are_parallel(self):
+        ob = Oblique(45.0, 0.5)
+        np.testing.assert_array_equal(
+            ob.silhouette_radius(np.array([3.0]), np.array([1.5])), [1.5]
+        )
+        assert ob.reaches_eye_plane(np.array([1e9])) is False
+        assert ob.eye_distance == Orthographic().eye_distance
+
+    def test_screen_matrix_identity_for_non_oblique(self):
+        ident = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        np.testing.assert_array_equal(Orthographic().screen_matrix, ident)
+        np.testing.assert_array_equal(
+            Perspective(0.5, 10.0).screen_matrix, ident
+        )
+        th = np.radians(45.0)
+        np.testing.assert_allclose(
+            Oblique(45.0, 0.5).screen_matrix,
+            [[1.0, 0.0, -0.5 * np.cos(th)], [0.0, 1.0, -0.5 * np.sin(th)]],
+        )
+
+    def test_oblique_rejects_non_finite_and_negative(self):
+        for bad in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="angle must be finite"):
+                Oblique(angle=bad)
+            with pytest.raises(ValueError, match="foreshortening must be finite"):
+                Oblique(foreshortening=bad)
+        with pytest.raises(ValueError, match="non-negative"):
+            Oblique(foreshortening=-0.5)
 
     def test_perspective_to_screen_not_clamped_at_or_behind_eye(self):
         """At/behind the eye, positions blow up rather than clamp."""

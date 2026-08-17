@@ -29,7 +29,12 @@ from hofmann.model.render_style import (
     _DEFAULT_CIRCLE_RADIUS,
     _DEFAULT_SPACING,
 )
-from hofmann.model.projection import Orthographic, Perspective, Projection
+from hofmann.model.projection import (
+    Oblique,
+    Orthographic,
+    Perspective,
+    Projection,
+)
 from hofmann.model.structure_scene import StructureScene
 from hofmann.model.view_state import ViewState
 
@@ -46,6 +51,7 @@ __all__ = [
     "Frame",
     "LegendItem",
     "LegendStyle",
+    "Oblique",
     "Orthographic",
     "Perspective",
     "PolygonLegendItem",

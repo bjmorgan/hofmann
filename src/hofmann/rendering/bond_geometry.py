@@ -170,12 +170,20 @@ def _bond_polygon(
         *end_2d* are the projected 2D centres of the two bond ends.
         Returns ``None`` if the bond is fully occluded.
     """
+    # Junction geometry is resolved in the screen-aligned frame (xy
+    # sheared by the projection, depth kept), so the XBS tangent maths run
+    # in the frame the screen circles are drawn in -- a passthrough for
+    # the non-oblique modes.  The eye stays (0, 0, eye_distance); the 2D
+    # centres come from _project_point on the camera-space p_a/p_b below.
+    screen = view.screen_frame(np.array([p_a, p_b]))
+    sp_a, sp_b = screen[0], screen[1]
+
     # 3D clip using scaled radii.
-    clip_result = _clip_bond_3d(p_a, p_b, r_a, r_b, bond_r)
+    clip_result = _clip_bond_3d(sp_a, sp_b, r_a, r_b, bond_r)
     if clip_result is None:
         return None
 
-    bond_vec = p_b - p_a
+    bond_vec = sp_b - sp_a
     bond_len = np.linalg.norm(bond_vec)
 
     # Tangent offsets in 3D (same as _clip_bond_3d computes internally).
@@ -187,8 +195,8 @@ def _bond_polygon(
     # direction (a bond pointing at the viewer has cth~1, one
     # perpendicular to the view has cth~0).
     eye = np.array([0.0, 0.0, view.projection.eye_distance])
-    q_a = eye - p_a
-    q_b = eye - p_b
+    q_a = eye - sp_a
+    q_b = eye - sp_b
     denom_a = np.linalg.norm(q_a) * bond_len
     denom_b = np.linalg.norm(q_b) * bond_len
     if denom_a < 1e-12 or denom_b < 1e-12:
@@ -300,16 +308,24 @@ def _bond_polygons_batch(
             np.empty((0,), dtype=bool),
         )
 
-    # Gather per-bond atom data.
-    p_a = rotated[bond_ia]              # (n_bonds, 3)
-    p_b = rotated[bond_ib]              # (n_bonds, 3)
+    # Junction geometry is resolved in the screen-aligned frame (xy
+    # sheared by the projection, depth kept), so the XBS tangent maths run
+    # in the frame the screen circles are drawn in -- a passthrough for
+    # the non-oblique modes.  The eye stays (0, 0, eye_distance); the final
+    # 2D positions come from the projected *xy* argument, not the shear.
+    screen = view.screen_frame(rotated)
+
+    # Gather per-bond atom data.  sp_a/sp_b are screen-frame positions
+    # (mirroring the scalar path); the 2D positions come from *xy* below.
+    sp_a = screen[bond_ia]              # (n_bonds, 3)
+    sp_b = screen[bond_ib]              # (n_bonds, 3)
     r_a = radii_3d[bond_ia]             # (n_bonds,)
     r_b = radii_3d[bond_ib]             # (n_bonds,)
     zr_a = screen_radii[bond_ia]        # (n_bonds,)
     zr_b = screen_radii[bond_ib]        # (n_bonds,)
 
     # Bond vectors and lengths.
-    bond_vec = p_b - p_a                                    # (n_bonds, 3)
+    bond_vec = sp_b - sp_a                                  # (n_bonds, 3)
     bond_len = np.linalg.norm(bond_vec, axis=1)             # (n_bonds,)
     valid = bond_len > 1e-12
     bond_len_safe = np.where(valid, bond_len, 1.0)
@@ -329,8 +345,8 @@ def _bond_polygons_batch(
 
     # Foreshortening angles.
     eye = np.array([0.0, 0.0, view.projection.eye_distance])
-    q_a = eye - p_a                                         # (n_bonds, 3)
-    q_b = eye - p_b                                         # (n_bonds, 3)
+    q_a = eye - sp_a                                        # (n_bonds, 3)
+    q_b = eye - sp_b                                        # (n_bonds, 3)
     q_a_len = np.linalg.norm(q_a, axis=1)                   # (n_bonds,)
     q_b_len = np.linalg.norm(q_b, axis=1)                   # (n_bonds,)
     denom_a = q_a_len * bond_len_safe

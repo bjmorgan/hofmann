@@ -118,6 +118,27 @@ class ViewState:
             )
         return self.projection.to_screen(camera) * self.zoom
 
+    def screen_frame(self, camera: np.ndarray) -> np.ndarray:
+        """Camera coordinates with the screen shear applied to xy, depth kept.
+
+        Bond junction geometry is resolved in this frame, so tangent
+        offsets agree with the screen circles they are drawn against.  An
+        exact passthrough (``== camera``) unless the projection shears
+        (:class:`Oblique`); zoom is not applied (unlike
+        :meth:`project_camera`).
+
+        Args:
+            camera: Array of shape ``(n, 3)``, already centred and
+                rotated into camera space.
+
+        Returns:
+            Array of shape ``(n, 3)``: the sheared screen ``xy`` with the
+            camera depth in the third column.
+        """
+        camera = np.asarray(camera, dtype=float)
+        xy = camera @ self.projection.screen_matrix.T
+        return np.column_stack([xy, camera[:, 2]])
+
     def set_orthographic(self) -> ViewState:
         """Draw without perspective foreshortening.
 

@@ -30,13 +30,22 @@ class Projection(ABC):
     """A camera projection mode.
 
     Concrete variants map camera-space geometry to the screen; see
-    :class:`Orthographic` and :class:`Perspective`.
+    :class:`Orthographic`, :class:`Perspective`, and :class:`Oblique`.
     """
 
     # Empty slots keep the ABC slots-friendly: without it, subclasses
     # declaring ``slots=True`` would still gain a ``__dict__`` from this
     # base, so a mistyped attribute would silently stick.
     __slots__ = ()
+
+    @property
+    @abstractmethod
+    def screen_matrix(self) -> np.ndarray:
+        """The (2, 3) linear camera->screen map, before perspective
+        foreshortening: identity-on-xy for :class:`Orthographic` and
+        :class:`Perspective`, the shear for :class:`Oblique`.  The linear
+        part only -- under :class:`Perspective` it deliberately does not
+        reproduce :meth:`to_screen`, which also divides by depth."""
 
     @abstractmethod
     def to_screen(self, camera: np.ndarray) -> np.ndarray:
@@ -65,6 +74,10 @@ class Projection(ABC):
 @dataclass(frozen=True, slots=True)
 class Orthographic(Projection):
     """Parallel projection: depth is not foreshortened."""
+
+    @property
+    def screen_matrix(self) -> np.ndarray:
+        return np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
 
     def to_screen(self, camera: np.ndarray) -> np.ndarray:
         return camera[:, :2]
@@ -118,6 +131,10 @@ class Perspective(Projection):
                 f"{self.view_distance}"
             )
 
+    @property
+    def screen_matrix(self) -> np.ndarray:
+        return np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+
     def to_screen(self, camera: np.ndarray) -> np.ndarray:
         d = self.view_distance - camera[:, 2] * self.strength
         # errstate: at or behind the eye plane the divisor is 0 or
@@ -157,3 +174,57 @@ class Perspective(Projection):
 
     def reaches_eye_plane(self, depth: np.ndarray) -> bool:
         return bool(np.any(self.view_distance - depth * self.strength <= 0))
+
+
+@dataclass(frozen=True, slots=True)
+class Oblique(Projection):
+    """Parallel projection with the third axis receding at an angle.
+
+    A depth-proportional shear draws two axes undistorted and the third
+    receding towards *angle* on screen, foreshortened by
+    *foreshortening*.  ``foreshortening = 1.0`` is the classical
+    "cavalier" projection, ``0.5`` "cabinet", ``0.0`` orthographic.
+
+    Attributes:
+        angle: On-screen direction of the receding axis, in degrees
+            anticlockwise from the +x axis.
+        foreshortening: Length on screen of a unit step along the
+            receding axis; must be finite and non-negative.
+    """
+
+    angle: float = 45.0
+    foreshortening: float = 0.5
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.angle):
+            raise ValueError(f"angle must be finite, got {self.angle}")
+        if not math.isfinite(self.foreshortening) or self.foreshortening < 0:
+            raise ValueError(
+                "foreshortening must be finite and non-negative, got "
+                f"{self.foreshortening}"
+            )
+
+    @property
+    def screen_matrix(self) -> np.ndarray:
+        th = math.radians(self.angle)
+        f = self.foreshortening
+        return np.array([[1.0, 0.0, -f * math.cos(th)],
+                         [0.0, 1.0, -f * math.sin(th)]])
+
+    def to_screen(self, camera: np.ndarray) -> np.ndarray:
+        return camera @ self.screen_matrix.T
+
+    def silhouette_radius(
+        self, depth: np.ndarray, radii: np.ndarray,
+    ) -> np.ndarray:
+        return radii
+
+    def max_magnification(self, worst_depth: float) -> float:
+        return math.hypot(1.0, self.foreshortening)
+
+    @property
+    def eye_distance(self) -> float:
+        return _PARALLEL_EYE_DISTANCE
+
+    def reaches_eye_plane(self, depth: np.ndarray) -> bool:
+        return False
