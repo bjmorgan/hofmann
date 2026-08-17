@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import warnings
-
 import numpy as np
 
 from hofmann.model import (
@@ -95,27 +93,16 @@ def _scene_extent(
 
     # Under perspective, points nearer the camera are drawn larger.  The
     # worst case is a point at the bounding radius (max_extent — the
-    # farthest atom surface or cell corner) rotated closest to the eye, so
+    # furthest atom surface or cell corner) rotated closest to the eye, so
     # size the allowance from max_extent itself.  A cell corner or a large
-    # atom's surface can sit farther out than any atom centre and would
+    # atom's surface can sit further out than any atom centre and would
     # otherwise clip.
-    proj = view.projection
-    if proj.reaches_eye_plane(np.array([max_extent])):
-        warnings.warn(
-            "the scene reaches the perspective eye plane; the view "
-            "cannot be sized and renders blank.  Increase view_distance "
-            "or reduce strength.",
-            UserWarning,
-            stacklevel=2,
-        )
-    # Known limitation: max_magnification grows without bound as the eye
-    # nears the bounding sphere (denom -> 0+), sizing the viewport so
-    # large the scene shrinks to a dot.  Once denom <= 0 the eye is at or
-    # inside the bounding sphere; the 1e-6 floor keeps the divisor
-    # positive, giving a huge finite allowance, and reaches_eye_plane has
-    # already warned.  The honest fix is depth-based sizing with a
-    # near-plane clip, not a magic-threshold clamp on the magnification.
-    max_extent *= proj.max_magnification(max_extent)
+    #
+    # Known limitation: this allowance grows without bound as the eye
+    # approaches the scene's bounding sphere, shrinking the scene to a
+    # dot.  The honest fix is depth-based sizing with a near-plane clip,
+    # not a magic-threshold clamp on the magnification.
+    max_extent *= view.projection.max_magnification(max_extent)
 
     return float(max_extent * view.zoom)
 

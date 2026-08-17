@@ -1,7 +1,6 @@
 """Tests for projection helpers — _project_point and _scene_extent."""
 
 import math
-import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -59,31 +58,6 @@ class TestSceneExtent:
         e_no = _scene_extent(scene, view_no_persp, 0, atom_scale=0.5)
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
-
-    def test_scene_reaching_the_eye_plane_warns(self):
-        """The blank-canvas degenerate case must not be silent."""
-        scene = StructureScene(
-            species=["C", "C"],
-            frames=[Frame(coords=np.array([
-                [0.0, 0.0, -9.0],
-                [0.0, 0.0, 9.0],
-            ]))],
-            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
-        )
-        view = ViewState(projection=Perspective(1.0, 9.0))
-        with pytest.warns(UserWarning, match="eye plane"):
-            _scene_extent(scene, view, 0, atom_scale=0.5)
-
-    def test_ordinary_perspective_scene_does_not_warn(self):
-        scene = StructureScene(
-            species=["C"],
-            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
-            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
-        )
-        view = ViewState(projection=Perspective(0.5, 20.0))
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            _scene_extent(scene, view, 0, atom_scale=0.5)
 
     def test_empty_scene(self):
         """An empty scene (zero atoms) should return a positive extent."""
@@ -190,21 +164,43 @@ class TestSceneExtent:
         surface_radius = 4.0 * 0.5  # centre 0 + radius * atom_scale
         assert extent > surface_radius  # pre-fix: mag from centre 0, == surface_radius
 
-    def test_eye_plane_warning_dedups_as_view_distance_varies(self):
-        """A drag that changes view_distance each frame emits one warning
-        line, not one per frame."""
+    def test_extent_encloses_the_worst_case_rotation(self):
+        # The viewport must ENCLOSE the outermost atom at its worst
+        # (nearest-the-eye) rotation, not merely exceed the un-magnified
+        # radius: sweep rotations and confirm the rotation-invariant
+        # extent covers the largest projected offset the atom reaches.
+        coords = np.array([[3.0, 0.0, 4.0]])  # distance 5 from the origin
+        radii = np.array([0.01])
         scene = StructureScene(
             species=["C"],
-            frames=[Frame(coords=np.array([[0.0, 0.0, 10.0]]))],
-            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+            frames=[Frame(coords=coords)],
+            atom_styles={"C": AtomStyle(0.01, (0.5, 0.5, 0.5))},
         )
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("default")
-            for view_distance in (8.0, 8.5, 9.0, 9.5, 10.0):
-                view = ViewState(projection=Perspective(1.0, view_distance))
-                _scene_extent(scene, view, 0, atom_scale=0.5)
-        eye = [w for w in caught if "eye plane" in str(w.message)]
-        assert len(eye) == 1
+        persp = Perspective(1.0, 10.0)
+        extent = _scene_extent(
+            scene, ViewState(projection=persp), 0, atom_scale=1.0
+        )
+        worst = 0.0
+        for angle in np.linspace(0.0, 2 * np.pi, 60):
+            c, s = np.cos(angle), np.sin(angle)
+            rot = np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+            xy, _, srad = ViewState(
+                rotation=rot, projection=persp
+            ).project(coords, radii)
+            worst = max(worst, float(np.hypot(xy[0, 0], xy[0, 1]) + srad[0]))
+        assert extent >= worst
+
+    def test_empty_scene_perspective_is_magnified(self):
+        # No atoms and no lattice: max_extent falls back to 1.0, and the
+        # dropped atom-count gate now applies the perspective allowance.
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.empty((0, 3)))],
+            atom_styles={},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert extent > 1.0  # pre-fix: gated out, returns the 1.0 floor
 
 
 class TestMakeWedges:
