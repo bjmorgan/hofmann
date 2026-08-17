@@ -214,18 +214,22 @@ class ViewState:
             ``self``, with the rotation updated in place.
 
         Raises:
-            ValueError: If *direction* is zero or has a non-finite
-                length, or *up* is parallel to *direction*.
+            ValueError: If *direction* or *up* is zero or has a
+                non-finite length, or *up* is parallel to *direction*.
         """
         d = np.asarray(direction, dtype=float)
         u = np.asarray(up, dtype=float)
 
+        # Norms overflow to inf for a huge vector; the finiteness checks
+        # below reject that (and NaN, and zero) in place of a bare numpy
+        # warning or a silent degenerate rotation.
         with np.errstate(over="ignore"):
-            # A huge direction overflows the norm to inf; the finiteness
-            # check below rejects it in place of a bare numpy warning.
             d_len = np.linalg.norm(d)
+            u_len = np.linalg.norm(u)
         if not np.isfinite(d_len) or d_len < 1e-12:
             raise ValueError("direction must be finite and non-zero")
+        if not np.isfinite(u_len) or u_len < 1e-12:
+            raise ValueError("up must be finite and non-zero")
         fwd = d / d_len                     # camera z-axis (out of screen)
 
         right = np.cross(u, fwd)

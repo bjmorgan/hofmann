@@ -216,6 +216,28 @@ class TestViewStateLookAlong:
             vs.look_along([1e308, 1e308, 1e308])
         np.testing.assert_array_equal(vs.rotation, before)
 
+    def test_non_finite_up_raises(self):
+        """A non-finite or overflowing up vector is rejected, not
+        silently turned into a degenerate rotation (symmetric with
+        direction)."""
+        vs = ViewState()
+        before = vs.rotation.copy()
+        for up in (
+            [np.inf, 0.0, 0.0],
+            [np.nan, np.nan, np.nan],
+            [1e308, 1e308, 1e308],
+        ):
+            with pytest.raises(ValueError, match="up must be finite"):
+                vs.look_along([1, 0, 0], up=up)
+            np.testing.assert_array_equal(vs.rotation, before)
+
+    def test_zero_up_raises_clear_error(self):
+        """A zero-length up raises a clear error, not the misleading
+        'parallel to the viewing direction' message."""
+        vs = ViewState()
+        with pytest.raises(ValueError, match="up must be finite and non-zero"):
+            vs.look_along([1, 0, 0], up=[0, 0, 0])
+
 
 class TestViewStateSlab:
     """Tests for depth-slab clipping on ViewState."""
