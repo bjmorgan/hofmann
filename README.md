@@ -22,7 +22,7 @@ hofmann renders crystal and molecular structures as depth-sorted ball-and-stick 
 - Coordination polyhedra with configurable shading and slab clipping
 - Unit cell wireframe rendering
 - Interactive viewer with mouse rotation, zoom, and keyboard controls
-- Orthographic and perspective projection
+- Orthographic, perspective, and oblique (axonometric) projection
 
 ## Installation
 

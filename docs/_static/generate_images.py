@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation
 
 from hofmann import (
     AtomLegendItem, AtomStyle, AxesStyle, BondSpec, CellEdgeStyle,
-    Composition, Frame, LegendStyle, PolygonLegendItem,
+    Composition, Frame, LegendStyle, Oblique, PolygonLegendItem,
     PolyhedronLegendItem, PolyhedronSpec, RenderStyle, StructureScene,
     ViewState,
 )
@@ -645,7 +645,7 @@ def generate_docs_images() -> None:
     )
     print(f"  wrote {OUT / 'octahedron_no_half_bonds.svg'}")
 
-    # 5. Perspective: orthographic vs perspective (perovskite)
+    # 5. Projection: orthographic, perspective, oblique (perovskite)
     perov_plain.render_mpl(
         OUT / "perovskite_ortho.svg",
         figsize=(3, 3), dpi=150,
@@ -657,6 +657,12 @@ def generate_docs_images() -> None:
         figsize=(3, 3), dpi=150,
     )
     print(f"  wrote {OUT / 'perovskite_perspective.svg'}")
+    perov_plain.view.projection = Oblique(45.0, 0.5)
+    perov_plain.render_mpl(
+        OUT / "perovskite_oblique.svg",
+        figsize=(3, 3), dpi=150,
+    )
+    print(f"  wrote {OUT / 'perovskite_oblique.svg'}")
     perov_plain.view.set_orthographic()  # Reset
 
     # 6–9. Per-atom colouring examples: ring of atoms.

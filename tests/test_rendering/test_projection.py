@@ -65,7 +65,7 @@ class TestSceneExtent:
     def test_oblique_extent_grows_by_shear_allowance(self):
         """The shear can enlarge the bounding radius by sqrt(1 + f^2), so
         _scene_extent widens by that factor via max_magnification;
-        cavalier (f = 1) grows by sqrt(2)."""
+        f = 1 grows by sqrt(2)."""
         scene = StructureScene(
             species=["C", "C"],
             frames=[Frame(coords=np.array([
