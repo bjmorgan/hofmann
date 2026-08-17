@@ -207,6 +207,15 @@ class TestViewStateLookAlong:
         result = vs.look_along([1, 1, 1])
         assert result is vs
 
+    def test_overflowing_direction_raises(self):
+        """A direction whose length overflows float64 is rejected, not
+        silently turned into a degenerate NaN rotation."""
+        vs = ViewState()
+        before = vs.rotation.copy()
+        with pytest.raises(ValueError, match="finite"):
+            vs.look_along([1e308, 1e308, 1e308])
+        np.testing.assert_array_equal(vs.rotation, before)
+
 
 class TestViewStateSlab:
     """Tests for depth-slab clipping on ViewState."""
