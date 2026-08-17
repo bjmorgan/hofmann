@@ -65,7 +65,7 @@ def _rotation_z(angle: float) -> np.ndarray:
 
 _KEY_ROTATION_STEP = 0.05  # radians (~3 degrees) per key press
 _KEY_ZOOM_FACTOR = 1.1  # multiplicative zoom per key press / scroll step
-_KEY_PAN_FRACTION = 0.05  # fraction of scene extent per key press
+_KEY_PAN_FRACTION = 0.05  # fraction of the viewport panned per key press
 _PERSPECTIVE_STEP = 0.1  # perspective increment per key press
 _PERSPECTIVE_FLOOR = 1e-9  # below this, the descent lands on Orthographic
 _DISTANCE_FACTOR = 1.05  # viewing distance multiplier per key press

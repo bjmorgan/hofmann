@@ -70,6 +70,10 @@ def _scene_extent(
     that encloses every atom and unit-cell corner under any rotation:
     the largest centre distance plus display radius, widened by the
     projection's worst-case magnification.
+
+    The extent is in scene units and excludes ``view.zoom``: the
+    projected coordinates already carry it, so consumers must not
+    re-apply it.
     """
     coords = scene.frames[frame_index].coords
     dists = np.linalg.norm(coords - view.centre, axis=1)

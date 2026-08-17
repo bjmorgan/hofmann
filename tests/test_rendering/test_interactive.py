@@ -201,6 +201,24 @@ class TestKeyActions:
         expected = old_centre + step * view.rotation[1]
         np.testing.assert_allclose(view.centre, expected)
 
+    def test_pan_step_halves_when_zoom_doubles(self):
+        """The pan step is a fraction of the *visible* extent, so doubling
+        the zoom halves the world-space step.  Guards the ``/ view.zoom``
+        in the pan step (a ratio, not the production formula restated)."""
+        v1, s1, st1, iv1 = _key_action_fixtures()
+        v1.zoom = 1.0
+        c1 = v1.centre.copy()
+        _do_key("shift+left", v1, s1, st1, iv1, base_extent=10.0)
+        step_at_1 = float(np.linalg.norm(v1.centre - c1))
+
+        v2, s2, st2, iv2 = _key_action_fixtures()
+        v2.zoom = 2.0
+        c2 = v2.centre.copy()
+        _do_key("shift+left", v2, s2, st2, iv2, base_extent=10.0)
+        step_at_2 = float(np.linalg.norm(v2.centre - c2))
+
+        np.testing.assert_allclose(step_at_2, step_at_1 / 2.0)
+
     # -- Perspective --
 
     def test_perspective_increase(self):

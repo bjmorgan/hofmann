@@ -42,8 +42,8 @@ Unreleased
 - In the interactive viewer, changing the frame or a display style no
   longer resets the zoom level.
 
-- A view opened with a magnification above one now starts zoomed in at
-  that level, rather than fitting the window regardless of the zoom set.
+- A view opened with a zoom above one now starts zoomed in at that
+  level, rather than fitting the window regardless of the zoom set.
 
 0.20.0
 ------
