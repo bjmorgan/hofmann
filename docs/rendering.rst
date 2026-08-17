@@ -12,7 +12,7 @@ Controlling the view
 --------------------
 
 The :class:`~hofmann.ViewState` controls rotation, zoom, and
-perspective.
+projection.
 
 Rotation
 ~~~~~~~~
@@ -37,16 +37,32 @@ Zoom
 
    scene.view.zoom = 1.5  # Zoom in
 
-Perspective
-~~~~~~~~~~~
+Projection
+~~~~~~~~~~
+
+The projection mode is set on :attr:`~hofmann.ViewState.projection`,
+which takes one of three modes:
+
+- :class:`~hofmann.Orthographic` (the default) — a parallel projection
+  with no foreshortening.
+- :class:`~hofmann.Perspective` — foreshortens with distance from the
+  eye; *strength* sets the amount and *view_distance* the eye distance.
+- :class:`~hofmann.Oblique` — parallel, but draws the third axis receding
+  at an angle (axonometric), so depth reads without the distortion of
+  perspective.  *angle* (degrees, anticlockwise from +x) sets the
+  on-screen direction of the receding axis, and *foreshortening* how far
+  a unit step along it is drawn: ``1.0`` full length, ``0.5`` half,
+  ``0.0`` orthographic.  Atoms, bonds, cell edges, and the axis triad all
+  shear together.
 
 .. code-block:: python
 
-   scene.view.set_perspective(0.3)  # Mild perspective
-   scene.view.set_orthographic()    # Parallel projection (default)
+   scene.view.set_orthographic()                # Parallel (the default)
+   scene.view.set_perspective(0.3)              # Mild perspective
+   scene.view.projection = Oblique(45.0, 0.5)   # Oblique
 
 .. list-table::
-   :widths: 50 50
+   :widths: 33 33 34
 
    * - .. figure:: _static/perovskite_ortho.svg
 
@@ -56,24 +72,9 @@ Perspective
 
           Perspective (``set_perspective(0.5)``)
 
+     - .. figure:: _static/perovskite_oblique.svg
 
-Oblique
-~~~~~~~
-
-An oblique (axonometric) projection is parallel, like orthographic, but
-draws the third axis receding at an angle, so depth reads without the
-distortion of perspective.  Assign an :class:`~hofmann.Oblique`:
-
-.. code-block:: python
-
-   scene.view.projection = Oblique(45.0, 0.5)   # "cabinet"
-   scene.view.projection = Oblique(45.0, 1.0)   # "cavalier"
-
-``angle`` (degrees, anticlockwise from the +x axis) is the on-screen
-direction of the receding axis; ``foreshortening`` is how far a unit
-step along it is drawn — ``1.0`` for cavalier, ``0.5`` for cabinet,
-``0.0`` for orthographic.  Atoms, bonds, cell edges, and the axis triad
-all shear together.
+          Oblique (``Oblique(45, 0.5)``)
 
 
 Render styles

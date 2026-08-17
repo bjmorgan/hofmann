@@ -49,11 +49,14 @@ Data model
 .. autoclass:: Perspective
    :members:
 
+.. autoclass:: Oblique
+   :members:
+
 .. autoclass:: Projection
 
    The abstract base of the projection modes (:class:`Orthographic`,
-   :class:`Perspective`); use it to annotate code that accepts any
-   projection.
+   :class:`Perspective`, :class:`Oblique`); use it to annotate code that
+   accepts any projection.
 
 .. autoclass:: hofmann.model.atom_data.AtomData
    :members: n_atoms, ranges, labels

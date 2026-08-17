@@ -182,8 +182,8 @@ class Oblique(Projection):
 
     A depth-proportional shear draws two axes undistorted and the third
     receding towards *angle* on screen, foreshortened by
-    *foreshortening*.  ``foreshortening = 1.0`` is the classical
-    "cavalier" projection, ``0.5`` "cabinet", ``0.0`` orthographic.
+    *foreshortening*: ``1.0`` draws a unit receding step at full length,
+    ``0.5`` at half length, ``0.0`` recovers the orthographic projection.
 
     Attributes:
         angle: On-screen direction of the receding axis, in degrees
