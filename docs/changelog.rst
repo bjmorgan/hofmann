@@ -4,6 +4,9 @@ Changelog
 Unreleased
 ----------
 
+0.21.0
+------
+
 - **Breaking:** Projection mode is now selected with a single
   :attr:`~hofmann.ViewState.projection` field taking
   :class:`~hofmann.Orthographic` (the default) or
