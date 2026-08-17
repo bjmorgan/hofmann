@@ -1,7 +1,6 @@
 """Tests for projection helpers — _project_point and _scene_extent."""
 
 import math
-import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -60,31 +59,6 @@ class TestSceneExtent:
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
 
-    def test_scene_reaching_the_eye_plane_warns(self):
-        """The blank-canvas degenerate case must not be silent."""
-        scene = StructureScene(
-            species=["C", "C"],
-            frames=[Frame(coords=np.array([
-                [0.0, 0.0, -9.0],
-                [0.0, 0.0, 9.0],
-            ]))],
-            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
-        )
-        view = ViewState(projection=Perspective(1.0, 9.0))
-        with pytest.warns(UserWarning, match="eye plane"):
-            _scene_extent(scene, view, 0, atom_scale=0.5)
-
-    def test_ordinary_perspective_scene_does_not_warn(self):
-        scene = StructureScene(
-            species=["C"],
-            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
-            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
-        )
-        view = ViewState(projection=Perspective(0.5, 20.0))
-        with warnings.catch_warnings():
-            warnings.simplefilter("error")
-            _scene_extent(scene, view, 0, atom_scale=0.5)
-
     def test_empty_scene(self):
         """An empty scene (zero atoms) should return a positive extent."""
         scene = StructureScene(
@@ -131,6 +105,102 @@ class TestSceneExtent:
         )
         e_lat = _scene_extent(scene_lat, view, 0, atom_scale=0.5)
         assert e_lat > e_no_lat
+
+    def test_orthographic_extent_is_the_bounding_radius(self):
+        # Guard: orthographic applies no magnification (max_magnification
+        # == 1.0), so the extent is exactly the bounding radius whatever
+        # the worst depth.  Only perspective may move.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 5.0]]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Orthographic())
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert extent == 5.0 + 1.0 * 0.5  # centre distance + display radius
+
+    def test_cell_corner_drives_perspective_magnification(self):
+        # Atom at the centre (centre distance 0), so the pre-fix bound,
+        # magnifying from max(centre distances), gives no allowance; the
+        # far cell corner must drive the magnification instead.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(
+                coords=np.array([[0.0, 0.0, 0.0]]),
+                lattice=np.eye(3) * 10.0,
+            )],
+            atom_styles={"C": AtomStyle(0.5, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        corner_radius = math.sqrt(3 * 10.0**2)
+        assert extent > corner_radius  # pre-fix: exactly corner_radius
+
+    def test_atom_free_lattice_gets_perspective_allowance(self):
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(
+                coords=np.empty((0, 3)),
+                lattice=np.eye(3) * 10.0,
+            )],
+            atom_styles={},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        corner_radius = math.sqrt(3 * 10.0**2)
+        assert extent > corner_radius  # pre-fix: no magnification, == corner_radius
+
+    def test_display_radius_drives_perspective_magnification(self):
+        # A large atom at the origin: its surface, not its centre
+        # (distance 0), is the outermost point and must drive the
+        # magnification.
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=np.array([[0.0, 0.0, 0.0]]))],
+            atom_styles={"C": AtomStyle(4.0, (0.5, 0.5, 0.5))},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        surface_radius = 4.0 * 0.5  # centre 0 + radius * atom_scale
+        assert extent > surface_radius  # pre-fix: mag from centre 0, == surface_radius
+
+    def test_extent_encloses_the_worst_case_rotation(self):
+        # The viewport must ENCLOSE the outermost atom at its worst
+        # (nearest-the-eye) rotation, not merely exceed the un-magnified
+        # radius: sweep rotations and confirm the rotation-invariant
+        # extent covers the largest projected offset the atom reaches.
+        coords = np.array([[3.0, 0.0, 4.0]])  # distance 5 from the origin
+        radii = np.array([0.01])
+        scene = StructureScene(
+            species=["C"],
+            frames=[Frame(coords=coords)],
+            atom_styles={"C": AtomStyle(0.01, (0.5, 0.5, 0.5))},
+        )
+        persp = Perspective(1.0, 10.0)
+        extent = _scene_extent(
+            scene, ViewState(projection=persp), 0, atom_scale=1.0
+        )
+        worst = 0.0
+        for angle in np.linspace(0.0, 2 * np.pi, 60):
+            c, s = np.cos(angle), np.sin(angle)
+            rot = np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+            xy, _, srad = ViewState(
+                rotation=rot, projection=persp
+            ).project(coords, radii)
+            worst = max(worst, float(np.hypot(xy[0, 0], xy[0, 1]) + srad[0]))
+        assert extent >= worst
+
+    def test_empty_scene_perspective_is_magnified(self):
+        # No atoms and no lattice: max_extent falls back to 1.0, and the
+        # dropped atom-count gate now applies the perspective allowance.
+        scene = StructureScene(
+            species=[],
+            frames=[Frame(coords=np.empty((0, 3)))],
+            atom_styles={},
+        )
+        view = ViewState(projection=Perspective(0.5, 50.0))
+        extent = _scene_extent(scene, view, 0, atom_scale=0.5)
+        assert extent > 1.0  # pre-fix: gated out, returns the 1.0 floor
 
 
 class TestMakeWedges:

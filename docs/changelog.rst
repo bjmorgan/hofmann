@@ -35,6 +35,10 @@ Unreleased
   corrected eye as the sphere silhouettes, so their drawn shape changes
   at perspective strengths other than one.
 
+- Under perspective, the view is now sized so that unit-cell corners and
+  large atoms swung towards the eye by rotation no longer clip at the
+  viewport edge, and a cell with no atoms is sized correctly too.
+
 0.20.0
 ------
 
