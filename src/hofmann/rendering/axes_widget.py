@@ -20,6 +20,34 @@ from hofmann.model import (
 from hofmann.rendering._widget_scale import _REFERENCE_WIDGET_PTS
 
 
+def _axis_tip_offsets(
+    directions: np.ndarray,
+    view: ViewState,
+    arrow_len: float,
+) -> np.ndarray:
+    """Screen-space tip offsets of the three lattice-axis arrows.
+
+    The unit lattice directions are rotated into camera space and mapped
+    to the screen by the projection's ``screen_matrix``, so the triad
+    shears in step with the structure under an oblique projection (an
+    identity map, and hence the plain drop of *z*, for the parallel and
+    perspective modes).  No perspective foreshortening is applied: the
+    widget sits at a fixed corner, not at the atoms' depth.
+
+    Args:
+        directions: Unit-length lattice directions, shape ``(3, 3)`` with
+            one direction per row.
+        view: Camera / projection state.
+        arrow_len: Arrow length in data coordinates.
+
+    Returns:
+        Array of shape ``(3, 2)`` giving each arrow tip's screen-space
+        offset from the widget origin.
+    """
+    projected = directions @ view.rotation.T  # (3, 3)
+    return (projected @ view.projection.screen_matrix.T) * arrow_len
+
+
 def _draw_axes_widget(
     ax: "Axes",
     lattice: np.ndarray,
@@ -64,9 +92,13 @@ def _draw_axes_widget(
         ox = (cx - pad_x) + 2 * pad_x * fx
         oy = (cy - pad_y) + 2 * pad_y * fy
     else:
-        # Named corner with margin inset.
-        inset_x = style.margin * pad_x + arrow_len
-        inset_y = style.margin * pad_y + arrow_len
+        # Named corner with margin inset.  A sheared tip can reach
+        # ``s * arrow_len``, where ``s`` is the largest singular value of
+        # the screen matrix (1.0 for parallel / perspective, sqrt(1 + f^2)
+        # for oblique), so inset by that to keep the widget in view.
+        s = float(np.linalg.norm(view.projection.screen_matrix, ord=2))
+        inset_x = style.margin * pad_x + s * arrow_len
+        inset_y = style.margin * pad_y + s * arrow_len
         if style.corner in (WidgetCorner.BOTTOM_LEFT, WidgetCorner.TOP_LEFT):
             ox = (cx - pad_x) + inset_x
         else:
@@ -99,11 +131,14 @@ def _draw_axes_widget(
         norm = float(np.linalg.norm(v))
         directions[i] = v / norm if norm > 1e-12 else np.eye(3)[i]
 
-    # Project through the view rotation (orthographic, no perspective).
+    # Project through the view rotation and the projection's screen
+    # matrix (the shear under an oblique projection; identity otherwise).
+    # No perspective foreshortening: the widget sits at a fixed corner.
     projected = directions @ view.rotation.T  # (3, 3)
-    tips_2d = projected[:, :2] * arrow_len
+    tips_2d = _axis_tip_offsets(directions, view, arrow_len)
 
-    # Sort by z-depth (furthest first) so nearer lines overlap.
+    # Sort by unsheared camera z-depth (furthest first) so nearer lines
+    # overlap.  The shear must not perturb the draw order.
     draw_order = np.argsort(projected[:, 2])
 
     label_beyond = 1.3   # label position as multiple of line length
