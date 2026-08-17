@@ -131,9 +131,10 @@ def _draw_axes_widget(
         norm = float(np.linalg.norm(v))
         directions[i] = v / norm if norm > 1e-12 else np.eye(3)[i]
 
-    # Project through the view rotation and the projection's screen
-    # matrix (the shear under an oblique projection; identity otherwise).
-    # No perspective foreshortening: the widget sits at a fixed corner.
+    # projected: camera-space directions (rotation only), used for the
+    # depth sort.  tips_2d applies the projection's screen matrix on top
+    # (the shear under oblique; identity otherwise) -- no perspective
+    # foreshortening, as the widget sits at a fixed corner.
     projected = directions @ view.rotation.T  # (3, 3)
     tips_2d = _axis_tip_offsets(directions, view, arrow_len)
 

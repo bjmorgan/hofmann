@@ -601,6 +601,15 @@ class TestProjectionTypes:
             [[1.0, 0.0, -0.5 * np.cos(th)], [0.0, 1.0, -0.5 * np.sin(th)]],
         )
 
+    def test_oblique_rejects_non_finite_and_negative(self):
+        for bad in (np.nan, np.inf, -np.inf):
+            with pytest.raises(ValueError, match="angle must be finite"):
+                Oblique(angle=bad)
+            with pytest.raises(ValueError, match="foreshortening must be finite"):
+                Oblique(foreshortening=bad)
+        with pytest.raises(ValueError, match="non-negative"):
+            Oblique(foreshortening=-0.5)
+
     def test_perspective_to_screen_not_clamped_at_or_behind_eye(self):
         """At/behind the eye, positions blow up rather than clamp."""
         persp = Perspective(1.0, 10.0)

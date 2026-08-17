@@ -121,10 +121,11 @@ class ViewState:
     def screen_frame(self, camera: np.ndarray) -> np.ndarray:
         """Camera coordinates with the screen shear applied to xy, depth kept.
 
-        The frame in which the projection is a plain drop of *z*, so
-        junction and silhouette geometry drawn against the screen circles
-        is computed correctly.  An exact passthrough (``== camera``)
-        unless the projection shears (:class:`Oblique`).
+        Bond junction geometry is resolved in this frame, so tangent
+        offsets agree with the screen circles they are drawn against.  An
+        exact passthrough (``== camera``) unless the projection shears
+        (:class:`Oblique`); zoom is not applied (unlike
+        :meth:`project_camera`).
 
         Args:
             camera: Array of shape ``(n, 3)``, already centred and

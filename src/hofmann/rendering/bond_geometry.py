@@ -170,10 +170,11 @@ def _bond_polygon(
         *end_2d* are the projected 2D centres of the two bond ends.
         Returns ``None`` if the bond is fully occluded.
     """
-    # Junction geometry is computed in the screen-aligned frame, where
-    # the projection is a plain drop of z, so the XBS tangent maths hold
-    # and the eye (0, 0, eye_distance) genuinely is the projection ray.
-    # An exact passthrough for non-oblique projections.
+    # Junction geometry is resolved in the screen-aligned frame (xy
+    # sheared by the projection, depth kept), so the XBS tangent maths run
+    # in the frame the screen circles are drawn in -- a passthrough for
+    # the non-oblique modes.  The eye stays (0, 0, eye_distance); the 2D
+    # centres come from _project_point on the camera-space p_a/p_b below.
     screen = view.screen_frame(np.array([p_a, p_b]))
     sp_a, sp_b = screen[0], screen[1]
 
@@ -307,11 +308,11 @@ def _bond_polygons_batch(
             np.empty((0,), dtype=bool),
         )
 
-    # Junction geometry is computed in the screen-aligned frame, where
-    # the projection is a plain drop of z, so the XBS tangent maths hold
-    # and the eye (0, 0, eye_distance) genuinely is the projection ray.
-    # An exact passthrough for non-oblique projections; the final 2D
-    # positions still come from the camera-space *xy* below.
+    # Junction geometry is resolved in the screen-aligned frame (xy
+    # sheared by the projection, depth kept), so the XBS tangent maths run
+    # in the frame the screen circles are drawn in -- a passthrough for
+    # the non-oblique modes.  The eye stays (0, 0, eye_distance); the final
+    # 2D positions come from the projected *xy* argument, not the shear.
     screen = view.screen_frame(rotated)
 
     # Gather per-bond atom data.  sp_a/sp_b are screen-frame positions

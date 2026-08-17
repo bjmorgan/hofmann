@@ -42,8 +42,10 @@ class Projection(ABC):
     @abstractmethod
     def screen_matrix(self) -> np.ndarray:
         """The (2, 3) linear camera->screen map, before perspective
-        foreshortening: identity-on-xy for parallel-in-plane modes, the
-        shear for :class:`Oblique`."""
+        foreshortening: identity-on-xy for :class:`Orthographic` and
+        :class:`Perspective`, the shear for :class:`Oblique`.  The linear
+        part only -- under :class:`Perspective` it deliberately does not
+        reproduce :meth:`to_screen`, which also divides by depth."""
 
     @abstractmethod
     def to_screen(self, camera: np.ndarray) -> np.ndarray:
@@ -187,11 +189,20 @@ class Oblique(Projection):
         angle: On-screen direction of the receding axis, in degrees
             anticlockwise from the +x axis.
         foreshortening: Length on screen of a unit step along the
-            receding axis.
+            receding axis; must be finite and non-negative.
     """
 
     angle: float = 45.0
     foreshortening: float = 0.5
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.angle):
+            raise ValueError(f"angle must be finite, got {self.angle}")
+        if not math.isfinite(self.foreshortening) or self.foreshortening < 0:
+            raise ValueError(
+                "foreshortening must be finite and non-negative, got "
+                f"{self.foreshortening}"
+            )
 
     @property
     def screen_matrix(self) -> np.ndarray:
