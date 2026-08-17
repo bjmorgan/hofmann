@@ -39,6 +39,12 @@ Unreleased
   large atoms swung towards the eye by rotation no longer clip at the
   viewport edge, and a cell with no atoms is sized correctly too.
 
+- In the interactive viewer, changing the frame or a display style no
+  longer resets the zoom level.
+
+- A view opened with a magnification above one now starts zoomed in at
+  that level, rather than fitting the window regardless of the zoom set.
+
 0.20.0
 ------
 
