@@ -62,6 +62,25 @@ class TestSceneExtent:
         e_yes = _scene_extent(scene, view_persp, 0, atom_scale=0.5)
         assert e_yes > e_no
 
+    def test_oblique_extent_grows_by_shear_allowance(self):
+        """The shear can enlarge the bounding radius by sqrt(1 + f^2), so
+        _scene_extent widens by that factor via max_magnification;
+        cavalier (f = 1) grows by sqrt(2)."""
+        scene = StructureScene(
+            species=["C", "C"],
+            frames=[Frame(coords=np.array([
+                [0.0, 0.0, -5.0], [0.0, 0.0, 5.0],
+            ]))],
+            atom_styles={"C": AtomStyle(1.0, (0.5, 0.5, 0.5))},
+        )
+        e_ortho = _scene_extent(
+            scene, ViewState(projection=Orthographic()), 0, atom_scale=0.5
+        )
+        e_oblique = _scene_extent(
+            scene, ViewState(projection=Oblique(45.0, 1.0)), 0, atom_scale=0.5
+        )
+        np.testing.assert_allclose(e_oblique, e_ortho * np.hypot(1.0, 1.0))
+
     def test_empty_scene(self):
         """An empty scene (zero atoms) should return a positive extent."""
         scene = StructureScene(
