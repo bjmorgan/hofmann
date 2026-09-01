@@ -1,5 +1,7 @@
 """Tests for the interactive matplotlib viewer."""
 
+from types import SimpleNamespace
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -841,13 +843,16 @@ class TestRedrawDispatch:
             return real_draw(*args, **kwargs)
 
         monkeypatch.setattr(interactive_module, "_draw_scene", spy)
+        # Freeze the viewer's clock so every press lands inside the
+        # throttle window regardless of how slowly the test runs.
+        monkeypatch.setattr(
+            interactive_module, "time", SimpleNamespace(monotonic=lambda: 0.0),
+        )
 
         before = set(plt.get_fignums())
         render_mpl_interactive(_make_render_scene())
         fig = _new_figure(before)
 
-        # The initial draw has just armed the throttle, so both presses
-        # land inside its window.
         for key in ("b", second_key):
             event = KeyEvent(
                 name="key_press_event", canvas=fig.canvas, key=key,
