@@ -6,6 +6,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
+from matplotlib.backend_bases import KeyEvent
 
 from hofmann import AtomStyle
 from hofmann.model import Frame, Orthographic, Perspective, RenderStyle, StructureScene, ViewState
@@ -735,3 +736,52 @@ class TestFigureLifecycle:
         with pytest.raises(KeyboardInterrupt):
             render_mpl_interactive(scene)
         assert set(plt.get_fignums()) == before
+
+
+class TestDrawFidelity:
+    def test_redraws_after_return_use_interactive_segments(
+        self, interactive_mode, monkeypatch,
+    ):
+        """Live-session redraws must draw at interactive fidelity."""
+        from hofmann.rendering import interactive as interactive_module
+
+        seen: list[tuple[int, int]] = []
+        real_draw = interactive_module._draw_scene
+
+        def spy(ax, scene, view, style, **kwargs):
+            seen.append((style.circle_segments, style.arc_segments))
+            return real_draw(ax, scene, view, style, **kwargs)
+
+        monkeypatch.setattr(interactive_module, "_draw_scene", spy)
+
+        before = set(plt.get_fignums())
+        scene = _make_render_scene()
+        _, style = render_mpl_interactive(scene)
+
+        # Simulate a live widget interaction after the call has
+        # returned: press 'b' (toggle bonds), which triggers a
+        # throttled redraw through the connected key handler. The
+        # 30 ms throttle doesn't suppress it here because the initial
+        # draw is a direct _draw_scene call that never arms
+        # state["last_draw_t"].
+        fig = plt.figure((set(plt.get_fignums()) - before).pop())
+        event = KeyEvent(
+            name="key_press_event", canvas=fig.canvas, key="b",
+        )
+        fig.canvas.callbacks.process("key_press_event", event)
+
+        expected = (
+            style.interactive_circle_segments,
+            style.interactive_arc_segments,
+        )
+        assert len(seen) >= 2  # initial draw plus the triggered redraw
+        assert all(counts == expected for counts in seen)
+
+    def test_returned_style_keeps_static_segments(self, interactive_mode):
+        """The returned style always carries the caller's own counts."""
+        scene = _make_render_scene()
+        _, style = render_mpl_interactive(
+            scene, style=RenderStyle(circle_segments=90, arc_segments=20),
+        )
+        assert style.circle_segments == 90
+        assert style.arc_segments == 20

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from typing import Any
 
@@ -298,6 +300,23 @@ def _apply_key_action(
     return "view"
 
 
+@contextmanager
+def _interactive_fidelity(style: RenderStyle) -> Iterator[None]:
+    """Temporarily swap in the low-fidelity interactive segment counts.
+
+    The style is mutated in place for the duration of the block and
+    restored on exit, so the style handed back to the caller always
+    carries its publication-quality segment counts.
+    """
+    saved = (style.circle_segments, style.arc_segments)
+    style.circle_segments = style.interactive_circle_segments
+    style.arc_segments = style.interactive_arc_segments
+    try:
+        yield
+    finally:
+        style.circle_segments, style.arc_segments = saved
+
+
 def render_mpl_interactive(
     scene: StructureScene,
     *,
@@ -382,13 +401,6 @@ def render_mpl_interactive(
 
     bg_rgb = normalise_colour(background)
 
-    # Use lower-fidelity polygon counts for interactive responsiveness.
-    # Save the static values so we can restore them before returning.
-    static_circle_segments = resolved.circle_segments
-    static_arc_segments = resolved.arc_segments
-    resolved.circle_segments = resolved.interactive_circle_segments
-    resolved.arc_segments = resolved.interactive_arc_segments
-
     # Work on a copy so we don't mutate the original scene's view.
     view = ViewState(
         rotation=scene.view.rotation.copy(),
@@ -427,7 +439,11 @@ def render_mpl_interactive(
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
-    _draw_scene(ax, scene, view, resolved, viewport_extent=base_extent, **draw_kwargs)
+    with _interactive_fidelity(resolved):
+        _draw_scene(
+            ax, scene, view, resolved,
+            viewport_extent=base_extent, **draw_kwargs,
+        )
 
     # ---- Interaction state ----
 
@@ -468,10 +484,11 @@ def render_mpl_interactive(
 
     def _redraw() -> None:
         """Repaint the scene using the fixed viewport extent."""
-        _draw_scene(
-            ax, scene, view, resolved,
-            viewport_extent=state["base_extent"], **draw_kwargs,
-        )
+        with _interactive_fidelity(resolved):
+            _draw_scene(
+                ax, scene, view, resolved,
+                viewport_extent=state["base_extent"], **draw_kwargs,
+            )
         if state["help_visible"]:
             _add_help_overlay()
         if state.get("indicator_visible") or state.get("input_mode"):
@@ -615,10 +632,6 @@ def render_mpl_interactive(
     try:
         plt.show()
     finally:
-        # Restore static-quality segment counts so the returned style is
-        # ready for publication rendering.
-        resolved.circle_segments = static_circle_segments
-        resolved.arc_segments = static_arc_segments
         # In interactive mode (Jupyter widget, %matplotlib qt, plt.ion())
         # show() returns immediately and the figure must stay open; when
         # show() blocked until the window was closed, release the figure.
