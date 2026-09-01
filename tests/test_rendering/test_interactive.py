@@ -1,4 +1,6 @@
-"""Tests for interactive rendering — keyboard actions, rotation helpers, and figure lifecycle."""
+"""Tests for the interactive matplotlib viewer."""
+
+from types import SimpleNamespace
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -594,7 +596,7 @@ class TestKeyActions:
         kind = _do_key("left", view, style, state, iv, n_frames=100)
         np.testing.assert_array_equal(view.rotation, old_rotation)
         assert state["input_mode"] == "goto"
-        assert kind == "view"
+        assert kind == "none"
 
     def test_goto_clamps_to_valid_range(self):
         """Out-of-range frame index is clamped."""
@@ -823,3 +825,38 @@ class TestLiveReturn:
         assert style.show_bonds is True
         assert returned_style.show_bonds is False
         assert returned_style is not style
+
+
+class TestRedrawDispatch:
+    @pytest.mark.parametrize("second_key", ["o", "left"])
+    def test_key_presses_are_never_throttled(
+        self, stubbed_show, monkeypatch, second_key,
+    ):
+        """Every key press redraws, even inside the throttle window."""
+        from hofmann.rendering import interactive as interactive_module
+
+        draws: list[None] = []
+        real_draw = interactive_module._draw_scene
+
+        def spy(*args, **kwargs):
+            draws.append(None)
+            return real_draw(*args, **kwargs)
+
+        monkeypatch.setattr(interactive_module, "_draw_scene", spy)
+        # Freeze the viewer's clock so every press lands inside the
+        # throttle window regardless of how slowly the test runs.
+        monkeypatch.setattr(
+            interactive_module, "time", SimpleNamespace(monotonic=lambda: 0.0),
+        )
+
+        before = set(plt.get_fignums())
+        render_mpl_interactive(_make_render_scene())
+        fig = _new_figure(before)
+
+        for key in ("b", second_key):
+            event = KeyEvent(
+                name="key_press_event", canvas=fig.canvas, key=key,
+            )
+            fig.canvas.callbacks.process("key_press_event", event)
+
+        assert len(draws) == 3  # initial draw plus one per key press

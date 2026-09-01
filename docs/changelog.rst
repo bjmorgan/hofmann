@@ -16,6 +16,11 @@ Unreleased
   modified by display toggles during the session; changes are
   reflected only in the returned style.
 
+- In the interactive viewer, a key press made immediately after another
+  interaction (straight after releasing a drag, or two toggles in quick
+  succession) now always redraws.  Previously the change was applied
+  but the display could stay stale until the next interaction.
+
 0.21.0
 ------
 

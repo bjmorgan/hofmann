@@ -105,9 +105,10 @@ def _apply_key_action(
 
     Returns a string indicating the required redraw kind:
 
-    - ``"view"`` — view-only change (rotation, zoom, pan, etc.).
-    - ``"full"`` — style or frame change needing recomputation.
-    - ``"none"`` — unrecognised key, no redraw needed.
+    - ``"view"`` — repaint with the existing precomputed data: any
+      change that does not alter the frame.
+    - ``"full"`` — frame change needing bonds and colours recomputed.
+    - ``"none"`` — no change made, no redraw needed.
     """
     # -- Number input mode --
     input_mode = state.get("input_mode")
@@ -135,8 +136,9 @@ def _apply_key_action(
             state["input_buffer"] = ""
             return "view"
         else:
-            # Swallow all other keys during input mode.
-            return "view"
+            # Swallow all other keys during input mode; nothing changed,
+            # so nothing needs repainting.
+            return "none"
 
     # -- Rotation --
     if key == "left":
@@ -486,12 +488,17 @@ def render_mpl_interactive(
         state["last_draw_t"] = time.monotonic()
 
     def _throttled_redraw() -> None:
-        """Redraw only if enough time has elapsed since the last draw."""
+        """Redraw only if enough time has elapsed since the last draw.
+
+        For continuous event streams (drag motion) only: a dropped
+        redraw is always caught up by the next motion event or by the
+        unthrottled draw on release.
+        """
         if time.monotonic() - state["last_draw_t"] >= _MIN_INTERVAL:
             _redraw()
 
     def _full_redraw() -> None:
-        """Recompute bonds/colours and repaint (for frame or style changes)."""
+        """Recompute bonds/colours and repaint (for frame changes)."""
         state["precomputed"] = _precompute_scene(
             scene, state["frame_index"], resolved, **colour_kwargs,
         )
@@ -600,7 +607,11 @@ def render_mpl_interactive(
         if kind == "full":
             _full_redraw()
         elif kind == "view":
-            _throttled_redraw()
+            # Never throttle a key press. Unlike drag motion, there is no
+            # guaranteed later event to catch up on: a single press has
+            # none, and a held key's final auto-repeat has none either,
+            # so a dropped redraw would leave the display stale.
+            _redraw()
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     try:
