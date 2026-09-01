@@ -435,10 +435,6 @@ def render_mpl_interactive(
         precomputed=pre,
     )
 
-    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
-    fig.set_facecolor(bg_rgb)
-    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-
     # ---- Interaction state ----
 
     state: dict = {
@@ -606,23 +602,27 @@ def render_mpl_interactive(
         elif kind == "view":
             _throttled_redraw()
 
-    # ---- Connect events ----
-
-    fig.canvas.mpl_connect("button_press_event", on_press)
-    fig.canvas.mpl_connect("motion_notify_event", on_motion)
-    fig.canvas.mpl_connect("button_release_event", on_release)
-    fig.canvas.mpl_connect("scroll_event", on_scroll)
-    fig.canvas.mpl_connect("key_press_event", on_key_press)
-
-    # Disconnect matplotlib's default key handler to avoid conflicts
-    # (e.g. 'p' for pan tool, 'o' for zoom-to-rect).
-    manager = fig.canvas.manager
-    if manager is not None:
-        handler_id = getattr(manager, "key_press_handler_id", None)
-        if handler_id is not None:
-            fig.canvas.mpl_disconnect(handler_id)
-
+    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     try:
+        fig.set_facecolor(bg_rgb)
+        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+
+        # ---- Connect events ----
+
+        fig.canvas.mpl_connect("button_press_event", on_press)
+        fig.canvas.mpl_connect("motion_notify_event", on_motion)
+        fig.canvas.mpl_connect("button_release_event", on_release)
+        fig.canvas.mpl_connect("scroll_event", on_scroll)
+        fig.canvas.mpl_connect("key_press_event", on_key_press)
+
+        # Disconnect matplotlib's default key handler to avoid conflicts
+        # (e.g. 'p' for pan tool, 'o' for zoom-to-rect).
+        manager = fig.canvas.manager
+        if manager is not None:
+            handler_id = getattr(manager, "key_press_handler_id", None)
+            if handler_id is not None:
+                fig.canvas.mpl_disconnect(handler_id)
+
         _redraw()
         plt.show()
     except BaseException:
