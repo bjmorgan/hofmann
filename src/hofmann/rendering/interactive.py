@@ -6,6 +6,7 @@ import time
 from dataclasses import replace
 from typing import Any
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -614,10 +615,14 @@ def render_mpl_interactive(
     try:
         plt.show()
     finally:
-        # Restore static-quality segment counts so the returned style
-        # is ready for publication rendering.
+        # Restore static-quality segment counts so the returned style is
+        # ready for publication rendering.
         resolved.circle_segments = static_circle_segments
         resolved.arc_segments = static_arc_segments
-        plt.close(fig)
+        # In interactive mode (Jupyter widget, %matplotlib qt, plt.ion())
+        # show() returns immediately and the figure must stay open; when
+        # show() blocked until the window was closed, release the figure.
+        if not matplotlib.is_interactive():
+            plt.close(fig)
 
     return view, resolved

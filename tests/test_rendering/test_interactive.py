@@ -1,9 +1,14 @@
-"""Tests for interactive rendering — keyboard actions and rotation helpers."""
+"""Tests for interactive rendering — keyboard actions, rotation helpers, and figure lifecycle."""
 
+import matplotlib
+matplotlib.use("Agg")
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pytest
 
-from hofmann.model import Orthographic, Perspective, RenderStyle, ViewState
+from hofmann import AtomStyle
+from hofmann.model import Frame, Orthographic, Perspective, RenderStyle, StructureScene, ViewState
 from hofmann.rendering.interactive import (
     _apply_key_action,
     _HELP_TEXT,
@@ -14,6 +19,7 @@ from hofmann.rendering.interactive import (
     _rotation_x,
     _rotation_y,
     _rotation_z,
+    render_mpl_interactive,
 )
 
 
@@ -662,3 +668,70 @@ class TestKeyActions:
         assert "Go to frame" in _HELP_TEXT
         assert "Set step" in _HELP_TEXT
         assert "Frame indicator" in _HELP_TEXT
+
+
+# ---------------------------------------------------------------------------
+# Figure lifecycle and draw fidelity
+# ---------------------------------------------------------------------------
+
+def _make_render_scene() -> StructureScene:
+    """Minimal single-frame scene for exercising render_mpl_interactive."""
+    coords = np.array([[0.0, 0.0, 0.0], [2.0, 0.0, 0.0]])
+    return StructureScene(
+        species=["C", "C"],
+        frames=[Frame(coords=coords)],
+        atom_styles={"C": AtomStyle(radius=1.0, colour="black")},
+    )
+
+
+@pytest.fixture
+def interactive_mode(monkeypatch):
+    """Non-blocking show() with matplotlib in interactive mode."""
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+    with plt.ion():
+        yield
+    plt.close("all")
+
+
+@pytest.fixture
+def blocking_mode(monkeypatch):
+    """Non-blocking show() stub with matplotlib in non-interactive mode.
+
+    Emulates the script case: show() is stubbed out (Agg cannot block),
+    but is_interactive() is False, which is what the teardown keys on.
+    """
+    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
+    with plt.ioff():
+        yield
+    plt.close("all")
+
+
+class TestFigureLifecycle:
+    def test_figure_survives_in_interactive_mode(self, interactive_mode):
+        """In interactive mode the viewer figure must stay open."""
+        scene = _make_render_scene()
+        before = set(plt.get_fignums())
+        render_mpl_interactive(scene)
+        assert len(set(plt.get_fignums()) - before) == 1
+
+    def test_figure_closed_in_blocking_mode(self, blocking_mode):
+        """When show() blocked, the figure is released on return."""
+        scene = _make_render_scene()
+        before = set(plt.get_fignums())
+        render_mpl_interactive(scene)
+        assert set(plt.get_fignums()) == before
+
+    def test_figure_closed_when_show_raises_in_blocking_mode(
+        self, blocking_mode, monkeypatch,
+    ):
+        """The figure is released even if show() raises (e.g. Ctrl-C)."""
+
+        def raising_show(*args, **kwargs):
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(plt, "show", raising_show)
+        scene = _make_render_scene()
+        before = set(plt.get_fignums())
+        with pytest.raises(KeyboardInterrupt):
+            render_mpl_interactive(scene)
+        assert set(plt.get_fignums()) == before
