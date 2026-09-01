@@ -105,8 +105,9 @@ def _apply_key_action(
 
     Returns a string indicating the required redraw kind:
 
-    - ``"view"`` — view-only change (rotation, zoom, pan, etc.).
-    - ``"full"`` — style or frame change needing recomputation.
+    - ``"view"`` — repaint with the existing precomputed data (rotation,
+      zoom, pan, style toggles, overlays).
+    - ``"full"`` — frame change needing bonds and colours recomputed.
     - ``"none"`` — unrecognised key, no redraw needed.
     """
     # -- Number input mode --
@@ -486,7 +487,12 @@ def render_mpl_interactive(
         state["last_draw_t"] = time.monotonic()
 
     def _throttled_redraw() -> None:
-        """Redraw only if enough time has elapsed since the last draw."""
+        """Redraw only if enough time has elapsed since the last draw.
+
+        For continuous event streams (drag motion) only: a dropped
+        redraw is always caught up by the next motion event or by the
+        unthrottled draw on release.
+        """
         if time.monotonic() - state["last_draw_t"] >= _MIN_INTERVAL:
             _redraw()
 
@@ -600,7 +606,10 @@ def render_mpl_interactive(
         if kind == "full":
             _full_redraw()
         elif kind == "view":
-            _throttled_redraw()
+            # Never throttle a key press: it is a discrete action with no
+            # follow-up event to catch up on, so a dropped redraw would
+            # leave the display stale until the next interaction.
+            _redraw()
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     try:

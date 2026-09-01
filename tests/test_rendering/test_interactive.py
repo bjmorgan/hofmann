@@ -1,4 +1,4 @@
-"""Tests for interactive rendering — keyboard actions, rotation helpers, and figure lifecycle."""
+"""Tests for interactive rendering — keyboard actions, rotation helpers, figure lifecycle, and redraw dispatch."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -823,3 +823,39 @@ class TestLiveReturn:
         assert style.show_bonds is True
         assert returned_style.show_bonds is False
         assert returned_style is not style
+
+
+class TestRedrawDispatch:
+    @pytest.mark.parametrize("second_key", ["o", "left"])
+    def test_key_presses_are_never_throttled(
+        self, stubbed_show, monkeypatch, second_key,
+    ):
+        """Every key press redraws, even within the drag throttle window.
+
+        A key press is a discrete action with no follow-up event to
+        catch up on, so dropping its redraw would leave the display
+        stale until the next interaction.
+        """
+        from hofmann.rendering import interactive as interactive_module
+
+        draws: list[None] = []
+        real_draw = interactive_module._draw_scene
+
+        def spy(*args, **kwargs):
+            draws.append(None)
+            return real_draw(*args, **kwargs)
+
+        monkeypatch.setattr(interactive_module, "_draw_scene", spy)
+
+        before = set(plt.get_fignums())
+        render_mpl_interactive(_make_render_scene())
+        fig = _new_figure(before)
+
+        # Two presses back to back, well inside the 30 ms window.
+        for key in ("b", second_key):
+            event = KeyEvent(
+                name="key_press_event", canvas=fig.canvas, key=key,
+            )
+            fig.canvas.callbacks.process("key_press_event", event)
+
+        assert len(draws) == 3  # initial draw plus one per key press
