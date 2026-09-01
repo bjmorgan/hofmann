@@ -785,3 +785,24 @@ class TestDrawFidelity:
         )
         assert style.circle_segments == 90
         assert style.arc_segments == 20
+
+    def test_style_restored_when_draw_raises(self, interactive_mode, monkeypatch):
+        """A failing draw must not strand the style at interactive fidelity."""
+        from hofmann.rendering import interactive as interactive_module
+
+        captured: list[RenderStyle] = []
+
+        def raising_draw(ax, scene, view, style, **kwargs):
+            captured.append(style)
+            raise RuntimeError("draw failed")
+
+        monkeypatch.setattr(interactive_module, "_draw_scene", raising_draw)
+
+        scene = _make_render_scene()
+        with pytest.raises(RuntimeError, match="draw failed"):
+            render_mpl_interactive(
+                scene, style=RenderStyle(circle_segments=90, arc_segments=20),
+            )
+
+        assert captured[0].circle_segments == 90
+        assert captured[0].arc_segments == 20
