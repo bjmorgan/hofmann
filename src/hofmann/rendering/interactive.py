@@ -358,13 +358,21 @@ def render_mpl_interactive(
     - **r** reset the view to its initial state.
     - **h** toggle a help overlay listing all keybindings.
 
-    When the window is closed the updated :class:`ViewState` and
-    :class:`RenderStyle` are returned, allowing the user to re-use
-    both for static rendering::
+    In blocking environments (standalone scripts with a GUI backend),
+    the call returns when the viewer window is closed, and the
+    returned :class:`ViewState` and :class:`RenderStyle` are a final
+    snapshot of the session, ready for re-use in static rendering::
 
         view, style = scene.render_mpl_interactive()
         scene.view = view
         scene.render_mpl("output.svg", style=style)
+
+    When matplotlib is in interactive mode (e.g. ``%matplotlib widget``
+    in Jupyter, ``%matplotlib qt`` in IPython, or after ``plt.ion()``),
+    the call returns immediately while the viewer stays live.  The
+    returned objects are updated in place as the view and style change,
+    so they reflect the state of the session whenever they are later
+    re-used.
 
     Args:
         scene: The StructureScene to render.

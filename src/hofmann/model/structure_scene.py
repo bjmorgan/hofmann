@@ -917,13 +917,19 @@ class StructureScene:
         rotation, pan, perspective, display toggles, and frame navigation.
         Press **h** to show a help overlay listing all keybindings.
 
-        When the window is closed the updated :class:`ViewState` and
-        :class:`RenderStyle` are returned so they can be reused for
-        static rendering::
+        In blocking environments the call returns when the viewer
+        window is closed, and the returned :class:`ViewState` and
+        :class:`RenderStyle` are a final snapshot of the session,
+        ready for re-use in static rendering::
 
             view, style = scene.render_mpl_interactive()
             scene.view = view
             scene.render_mpl("output.svg", style=style)
+
+        When matplotlib is in interactive mode (e.g. ``%matplotlib
+        widget`` in Jupyter), the call returns immediately while the
+        viewer stays live, and the returned objects update in place
+        as the session continues.
 
         Args:
             style: A :class:`RenderStyle` controlling visual appearance.
