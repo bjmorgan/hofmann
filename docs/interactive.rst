@@ -2,18 +2,21 @@ Interactive viewer
 ==================
 
 The interactive viewer opens a matplotlib window where you can explore
-a structure with mouse and keyboard controls.  When the window is closed
-the adjusted :class:`~hofmann.ViewState` and :class:`~hofmann.RenderStyle`
-are returned, ready for static rendering.
+a structure with mouse and keyboard controls; what the call returns,
+and when, depends on the environment — see
+:ref:`interactive-return-values`.
 
 .. note::
 
    The interactive viewer requires a GUI-capable matplotlib backend
-   such as **QtAgg**, **TkAgg**, or **macosx**.  Non-interactive
-   backends (``Agg``, ``pdf``, ``svg``) will not display a window.
+   such as **QtAgg**, **TkAgg**, **macosx**, or **ipympl** (Jupyter's
+   ``%matplotlib widget`` backend).  Non-interactive backends (``Agg``,
+   ``pdf``, ``svg``) will not display a window.
 
-   In a Jupyter notebook, use the ``%matplotlib qt`` or
-   ``%matplotlib tk`` magic before calling the viewer.  The default
+   In a Jupyter notebook, use the ``%matplotlib widget`` magic before
+   calling the viewer.  This requires the ``ipympl`` package.
+   ``%matplotlib qt`` also works, opening the viewer in a separate
+   window rather than embedded in the notebook.  The default
    ``inline`` backend does not support interactive windows.
 
 .. code-block:: python
@@ -137,12 +140,21 @@ Other
      - Toggle help overlay
 
 
+.. _interactive-return-values:
+
 Return values
 -------------
 
 The interactive viewer returns a ``(ViewState, RenderStyle)`` tuple.
 Any changes made during the session — rotation, zoom, perspective,
 and display toggles — are captured in the returned objects.
+
+In blocking environments the call returns when the viewer window is
+closed, and the returned objects are a final snapshot of the session.
+When matplotlib is in interactive mode, the call returns immediately
+and the returned objects update in place as the session continues, so
+they reflect the current state of the session whenever they are later
+read or reused.
 
 .. code-block:: python
 
@@ -154,6 +166,7 @@ and display toggles — are captured in the returned objects.
    # The style captures display toggles (bonds, outlines, polyhedra, etc.).
    scene.render_mpl("output.svg", style=style)
 
-The returned :class:`~hofmann.RenderStyle` uses publication-quality
-polygon counts (``circle_segments=72``, ``arc_segments=12``) even though
-the interactive session uses lower-fidelity settings for responsiveness.
+The returned :class:`~hofmann.RenderStyle` keeps its own
+``circle_segments`` and ``arc_segments``; the lower
+``interactive_circle_segments`` and ``interactive_arc_segments`` are
+used only for drawing during the session.

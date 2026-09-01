@@ -1,4 +1,11 @@
-"""Shared test fixtures for hofmann."""
+"""Shared test fixtures for hofmann.
+
+Also selects the Agg backend for the whole test suite before any test
+imports pyplot, so no test ever tries to open a GUI window.
+"""
+
+import matplotlib
+matplotlib.use("Agg")
 
 from pathlib import Path
 

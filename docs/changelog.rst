@@ -4,6 +4,18 @@ Changelog
 Unreleased
 ----------
 
+- Fixed the interactive viewer not appearing when matplotlib runs in
+  interactive mode — e.g. ``%matplotlib widget`` in Jupyter notebooks
+  or ``%matplotlib qt`` in IPython.  The viewer figure now stays open
+  in these environments, and
+  :meth:`~hofmann.StructureScene.render_mpl_interactive` returns view
+  and style objects that update live as the session continues.
+
+- The style passed to
+  :meth:`~hofmann.StructureScene.render_mpl_interactive` is no longer
+  modified by display toggles during the session; changes are
+  reflected only in the returned style.
+
 0.21.0
 ------
 

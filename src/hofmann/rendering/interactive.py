@@ -297,6 +297,15 @@ def _apply_key_action(
     return "view"
 
 
+def _draw_style(style: RenderStyle) -> RenderStyle:
+    """Return a copy of *style* using the low-fidelity interactive segment counts."""
+    return replace(
+        style,
+        circle_segments=style.interactive_circle_segments,
+        arc_segments=style.interactive_arc_segments,
+    )
+
+
 def render_mpl_interactive(
     scene: StructureScene,
     *,
@@ -338,13 +347,21 @@ def render_mpl_interactive(
     - **r** reset the view to its initial state.
     - **h** toggle a help overlay listing all keybindings.
 
-    When the window is closed the updated :class:`ViewState` and
-    :class:`RenderStyle` are returned, allowing the user to re-use
-    both for static rendering::
+    In blocking environments (standalone scripts with a GUI backend),
+    the call returns when the viewer window is closed, and the
+    returned :class:`ViewState` and :class:`RenderStyle` are a final
+    snapshot of the session, ready for re-use in static rendering::
 
         view, style = scene.render_mpl_interactive()
         scene.view = view
         scene.render_mpl("output.svg", style=style)
+
+    When matplotlib is in interactive mode (e.g. ``%matplotlib widget``
+    in Jupyter, ``%matplotlib qt`` in IPython, or after ``plt.ion()``),
+    the call returns immediately while the viewer stays live.  The
+    returned objects are updated in place as the view and style change,
+    so they reflect the state of the session whenever they are later
+    re-used.
 
     Args:
         scene: The StructureScene to render.
@@ -370,7 +387,10 @@ def render_mpl_interactive(
         A ``(ViewState, RenderStyle)`` tuple reflecting any view and
         style changes applied during the interactive session.
     """
-    resolved = _resolve_style(style, **style_kwargs)
+    # Copied so that display toggles applied during the session mutate
+    # only this object, never the caller's own style; changes are
+    # reflected solely in the returned RenderStyle.
+    resolved = replace(_resolve_style(style, **style_kwargs))
 
     n_frames = len(scene.frames)
     if not 0 <= frame_index < n_frames:
@@ -380,13 +400,6 @@ def render_mpl_interactive(
         )
 
     bg_rgb = normalise_colour(background)
-
-    # Use lower-fidelity polygon counts for interactive responsiveness.
-    # Save the static values so we can restore them before returning.
-    static_circle_segments = resolved.circle_segments
-    static_arc_segments = resolved.arc_segments
-    resolved.circle_segments = resolved.interactive_circle_segments
-    resolved.arc_segments = resolved.interactive_arc_segments
 
     # Work on a copy so we don't mutate the original scene's view.
     view = ViewState(
@@ -421,12 +434,6 @@ def render_mpl_interactive(
         bg_rgb=bg_rgb,
         precomputed=pre,
     )
-
-    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
-    fig.set_facecolor(bg_rgb)
-    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-
-    _draw_scene(ax, scene, view, resolved, viewport_extent=base_extent, **draw_kwargs)
 
     # ---- Interaction state ----
 
@@ -468,7 +475,7 @@ def render_mpl_interactive(
     def _redraw() -> None:
         """Repaint the scene using the fixed viewport extent."""
         _draw_scene(
-            ax, scene, view, resolved,
+            ax, scene, view, _draw_style(resolved),
             viewport_extent=state["base_extent"], **draw_kwargs,
         )
         if state["help_visible"]:
@@ -595,29 +602,37 @@ def render_mpl_interactive(
         elif kind == "view":
             _throttled_redraw()
 
-    # ---- Connect events ----
-
-    fig.canvas.mpl_connect("button_press_event", on_press)
-    fig.canvas.mpl_connect("motion_notify_event", on_motion)
-    fig.canvas.mpl_connect("button_release_event", on_release)
-    fig.canvas.mpl_connect("scroll_event", on_scroll)
-    fig.canvas.mpl_connect("key_press_event", on_key_press)
-
-    # Disconnect matplotlib's default key handler to avoid conflicts
-    # (e.g. 'p' for pan tool, 'o' for zoom-to-rect).
-    manager = fig.canvas.manager
-    if manager is not None:
-        handler_id = getattr(manager, "key_press_handler_id", None)
-        if handler_id is not None:
-            fig.canvas.mpl_disconnect(handler_id)
-
+    fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)
     try:
-        plt.show()
-    finally:
-        # Restore static-quality segment counts so the returned style
-        # is ready for publication rendering.
-        resolved.circle_segments = static_circle_segments
-        resolved.arc_segments = static_arc_segments
-        plt.close(fig)
+        fig.set_facecolor(bg_rgb)
+        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
+        # ---- Connect events ----
+
+        fig.canvas.mpl_connect("button_press_event", on_press)
+        fig.canvas.mpl_connect("motion_notify_event", on_motion)
+        fig.canvas.mpl_connect("button_release_event", on_release)
+        fig.canvas.mpl_connect("scroll_event", on_scroll)
+        fig.canvas.mpl_connect("key_press_event", on_key_press)
+
+        # Disconnect matplotlib's default key handler to avoid conflicts
+        # (e.g. 'p' for pan tool, 'o' for zoom-to-rect).
+        manager = fig.canvas.manager
+        if manager is not None:
+            handler_id = getattr(manager, "key_press_handler_id", None)
+            if handler_id is not None:
+                fig.canvas.mpl_disconnect(handler_id)
+
+        _redraw()
+        plt.show()
+    except BaseException:
+        # Nothing was, or can any longer be, displayed: release the
+        # figure rather than leave it registered with pyplot.
+        plt.close(fig)
+        raise
+
+    # No plt.close() after show(): GUI backends deregister the figure
+    # themselves when its window is closed, and in interactive mode
+    # (Jupyter widget, %matplotlib qt, plt.ion()) show() returns at once
+    # and the figure must stay open.
     return view, resolved
