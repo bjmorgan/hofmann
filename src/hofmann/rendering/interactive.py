@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import time
-from collections.abc import Iterator
-from contextlib import contextmanager
 from dataclasses import replace
 from typing import Any
 
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -300,21 +297,13 @@ def _apply_key_action(
     return "view"
 
 
-@contextmanager
-def _interactive_fidelity(style: RenderStyle) -> Iterator[None]:
-    """Temporarily swap in the low-fidelity interactive segment counts.
-
-    The style is mutated in place for the duration of the block and
-    restored on exit, so the style handed back to the caller always
-    carries its publication-quality segment counts.
-    """
-    saved = (style.circle_segments, style.arc_segments)
-    style.circle_segments = style.interactive_circle_segments
-    style.arc_segments = style.interactive_arc_segments
-    try:
-        yield
-    finally:
-        style.circle_segments, style.arc_segments = saved
+def _draw_style(style: RenderStyle) -> RenderStyle:
+    """Return a copy of *style* using the low-fidelity interactive segment counts."""
+    return replace(
+        style,
+        circle_segments=style.interactive_circle_segments,
+        arc_segments=style.interactive_arc_segments,
+    )
 
 
 def render_mpl_interactive(
@@ -398,7 +387,10 @@ def render_mpl_interactive(
         A ``(ViewState, RenderStyle)`` tuple reflecting any view and
         style changes applied during the interactive session.
     """
-    resolved = _resolve_style(style, **style_kwargs)
+    # Copied so that display toggles applied during the session mutate
+    # only this object, never the caller's own style; changes are
+    # reflected solely in the returned RenderStyle.
+    resolved = replace(_resolve_style(style, **style_kwargs))
 
     n_frames = len(scene.frames)
     if not 0 <= frame_index < n_frames:
@@ -447,12 +439,6 @@ def render_mpl_interactive(
     fig.set_facecolor(bg_rgb)
     fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
 
-    with _interactive_fidelity(resolved):
-        _draw_scene(
-            ax, scene, view, resolved,
-            viewport_extent=base_extent, **draw_kwargs,
-        )
-
     # ---- Interaction state ----
 
     state: dict = {
@@ -492,11 +478,10 @@ def render_mpl_interactive(
 
     def _redraw() -> None:
         """Repaint the scene using the fixed viewport extent."""
-        with _interactive_fidelity(resolved):
-            _draw_scene(
-                ax, scene, view, resolved,
-                viewport_extent=state["base_extent"], **draw_kwargs,
-            )
+        _draw_scene(
+            ax, scene, view, _draw_style(resolved),
+            viewport_extent=state["base_extent"], **draw_kwargs,
+        )
         if state["help_visible"]:
             _add_help_overlay()
         if state.get("indicator_visible") or state.get("input_mode"):
@@ -638,12 +623,16 @@ def render_mpl_interactive(
             fig.canvas.mpl_disconnect(handler_id)
 
     try:
+        _redraw()
         plt.show()
-    finally:
-        # In interactive mode (Jupyter widget, %matplotlib qt, plt.ion())
-        # show() returns immediately and the figure must stay open; when
-        # show() blocked until the window was closed, release the figure.
-        if not matplotlib.is_interactive():
-            plt.close(fig)
+    except BaseException:
+        # Nothing was, or can any longer be, displayed: release the
+        # figure rather than leave it registered with pyplot.
+        plt.close(fig)
+        raise
 
+    # No plt.close() after show(): GUI backends deregister the figure
+    # themselves when its window is closed, and in interactive mode
+    # (Jupyter widget, %matplotlib qt, plt.ion()) show() returns at once
+    # and the figure must stay open.
     return view, resolved

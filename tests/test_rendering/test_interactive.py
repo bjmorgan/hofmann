@@ -6,7 +6,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
-from matplotlib.backend_bases import KeyEvent
+from matplotlib.backend_bases import KeyEvent, MouseEvent
 
 from hofmann import AtomStyle
 from hofmann.model import Frame, Orthographic, Perspective, RenderStyle, StructureScene, ViewState
@@ -686,46 +686,35 @@ def _make_render_scene() -> StructureScene:
 
 
 @pytest.fixture
-def interactive_mode(monkeypatch):
-    """Non-blocking show() with matplotlib in interactive mode."""
+def stubbed_show(monkeypatch):
+    """Stub plt.show so the viewer returns immediately on the Agg backend."""
     monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
-    with plt.ion():
-        yield
+    yield
     plt.close("all")
 
 
-@pytest.fixture
-def blocking_mode(monkeypatch):
-    """Non-blocking show() stub with matplotlib in non-interactive mode.
+def _new_figure(before: set):
+    """Return the figure created since *before* was snapshotted."""
+    return plt.figure((set(plt.get_fignums()) - before).pop())
 
-    Emulates the script case: show() is stubbed out (Agg cannot block),
-    but is_interactive() is False, which is what the teardown keys on.
-    """
-    monkeypatch.setattr(plt, "show", lambda *args, **kwargs: None)
-    with plt.ioff():
-        yield
-    plt.close("all")
+
+def _scroll(fig, step: int = 1) -> None:
+    """Deliver a scroll event at the centre of the (axes-filling) canvas."""
+    x, y = fig.bbox.width / 2, fig.bbox.height / 2
+    event = MouseEvent("scroll_event", fig.canvas, x, y, step=step)
+    fig.canvas.callbacks.process("scroll_event", event)
 
 
 class TestFigureLifecycle:
-    def test_figure_survives_in_interactive_mode(self, interactive_mode):
-        """In interactive mode the viewer figure must stay open."""
+    def test_figure_stays_open_after_call_returns(self, stubbed_show):
+        """Exactly one new figure exists, and it is not closed on return."""
         scene = _make_render_scene()
         before = set(plt.get_fignums())
         render_mpl_interactive(scene)
         assert len(set(plt.get_fignums()) - before) == 1
 
-    def test_figure_closed_in_blocking_mode(self, blocking_mode):
-        """When show() blocked, the figure is released on return."""
-        scene = _make_render_scene()
-        before = set(plt.get_fignums())
-        render_mpl_interactive(scene)
-        assert set(plt.get_fignums()) == before
-
-    def test_figure_closed_when_show_raises_in_blocking_mode(
-        self, blocking_mode, monkeypatch,
-    ):
-        """The figure is released even if show() raises (e.g. Ctrl-C)."""
+    def test_figure_closed_when_show_raises(self, stubbed_show, monkeypatch):
+        """The figure is released if show() raises (e.g. Ctrl-C)."""
 
         def raising_show(*args, **kwargs):
             raise KeyboardInterrupt
@@ -737,12 +726,38 @@ class TestFigureLifecycle:
             render_mpl_interactive(scene)
         assert set(plt.get_fignums()) == before
 
+    def test_figure_closed_when_initial_draw_raises(self, stubbed_show, monkeypatch):
+        """The figure is released if the initial draw raises."""
+        from hofmann.rendering import interactive as interactive_module
+
+        def raising_draw(ax, scene, view, style, **kwargs):
+            raise RuntimeError("draw failed")
+
+        monkeypatch.setattr(interactive_module, "_draw_scene", raising_draw)
+
+        scene = _make_render_scene()
+        before = set(plt.get_fignums())
+        with pytest.raises(RuntimeError, match="draw failed"):
+            render_mpl_interactive(scene)
+        assert set(plt.get_fignums()) == before
+
 
 class TestDrawFidelity:
-    def test_redraws_after_return_use_interactive_segments(
-        self, interactive_mode, monkeypatch,
-    ):
-        """Live-session redraws must draw at interactive fidelity."""
+    def test_draw_style_copies_interactive_counts(self):
+        """_draw_style returns a copy at interactive fidelity, untouched original."""
+        from hofmann.rendering.interactive import _draw_style
+
+        original = RenderStyle(circle_segments=90, arc_segments=20)
+        copy = _draw_style(original)
+
+        assert copy.circle_segments == original.interactive_circle_segments
+        assert copy.arc_segments == original.interactive_arc_segments
+        assert original.circle_segments == 90
+        assert original.arc_segments == 20
+        assert copy is not original
+
+    def test_redraws_use_interactive_segments(self, stubbed_show, monkeypatch):
+        """Every draw, including redraws, uses the interactive segment counts."""
         from hofmann.rendering import interactive as interactive_module
 
         seen: list[tuple[int, int]] = []
@@ -757,27 +772,20 @@ class TestDrawFidelity:
         before = set(plt.get_fignums())
         scene = _make_render_scene()
         _, style = render_mpl_interactive(scene)
+        fig = _new_figure(before)
 
-        # Simulate a live widget interaction after the call has
-        # returned: press 'b' (toggle bonds), which triggers a
-        # throttled redraw through the connected key handler. The
-        # 30 ms throttle doesn't suppress it here because the initial
-        # draw is a direct _draw_scene call that never arms
-        # state["last_draw_t"].
-        fig = plt.figure((set(plt.get_fignums()) - before).pop())
-        event = KeyEvent(
-            name="key_press_event", canvas=fig.canvas, key="b",
-        )
-        fig.canvas.callbacks.process("key_press_event", event)
+        # Scroll goes through the unthrottled _redraw, so exactly one
+        # more draw is expected on top of the initial one.
+        _scroll(fig)
 
         expected = (
             style.interactive_circle_segments,
             style.interactive_arc_segments,
         )
-        assert len(seen) >= 2  # initial draw plus the triggered redraw
+        assert len(seen) == 2
         assert all(counts == expected for counts in seen)
 
-    def test_returned_style_keeps_static_segments(self, interactive_mode):
+    def test_returned_style_keeps_static_segments(self, stubbed_show):
         """The returned style always carries the caller's own counts."""
         scene = _make_render_scene()
         _, style = render_mpl_interactive(
@@ -786,23 +794,35 @@ class TestDrawFidelity:
         assert style.circle_segments == 90
         assert style.arc_segments == 20
 
-    def test_style_restored_when_draw_raises(self, interactive_mode, monkeypatch):
-        """A failing draw must not strand the style at interactive fidelity."""
-        from hofmann.rendering import interactive as interactive_module
 
-        captured: list[RenderStyle] = []
-
-        def raising_draw(ax, scene, view, style, **kwargs):
-            captured.append(style)
-            raise RuntimeError("draw failed")
-
-        monkeypatch.setattr(interactive_module, "_draw_scene", raising_draw)
-
+class TestLiveReturn:
+    def test_returned_objects_update_in_place(self, stubbed_show):
+        """View and style changes during the session show up in the returns."""
         scene = _make_render_scene()
-        with pytest.raises(RuntimeError, match="draw failed"):
-            render_mpl_interactive(
-                scene, style=RenderStyle(circle_segments=90, arc_segments=20),
-            )
+        before = set(plt.get_fignums())
+        view, style = render_mpl_interactive(scene)
+        fig = _new_figure(before)
 
-        assert captured[0].circle_segments == 90
-        assert captured[0].arc_segments == 20
+        initial_bonds = style.show_bonds
+        event = KeyEvent(name="key_press_event", canvas=fig.canvas, key="b")
+        fig.canvas.callbacks.process("key_press_event", event)
+        assert style.show_bonds != initial_bonds
+
+        initial_zoom = view.zoom
+        _scroll(fig)
+        assert view.zoom != initial_zoom
+
+    def test_input_style_not_mutated(self, stubbed_show):
+        """Display toggles must not mutate the caller's own style object."""
+        scene = _make_render_scene()
+        style = RenderStyle()
+        before = set(plt.get_fignums())
+        _, returned_style = render_mpl_interactive(scene, style=style)
+        fig = _new_figure(before)
+
+        event = KeyEvent(name="key_press_event", canvas=fig.canvas, key="b")
+        fig.canvas.callbacks.process("key_press_event", event)
+
+        assert style.show_bonds is True
+        assert returned_style.show_bonds is False
+        assert returned_style is not style
