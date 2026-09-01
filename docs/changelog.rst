@@ -11,10 +11,10 @@ Unreleased
   :meth:`~hofmann.StructureScene.render_mpl_interactive` returns view
   and style objects that update live as the session continues.
 
-- The style returned by
-  :meth:`~hofmann.StructureScene.render_mpl_interactive` now always
-  carries its publication-quality segment counts; the low-fidelity
-  interactive counts are used only while drawing.
+- The style passed to
+  :meth:`~hofmann.StructureScene.render_mpl_interactive` is no longer
+  modified by display toggles during the session; changes are
+  reflected only in the returned style.
 
 0.21.0
 ------

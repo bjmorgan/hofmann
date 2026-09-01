@@ -2,15 +2,8 @@ Interactive viewer
 ==================
 
 The interactive viewer opens a matplotlib window where you can explore
-a structure with mouse and keyboard controls.  In blocking environments
-(standalone scripts with a GUI backend), the call returns when the
-window is closed, and the returned :class:`~hofmann.ViewState` and
-:class:`~hofmann.RenderStyle` are a final snapshot of the session,
-ready for static rendering.  When matplotlib is in interactive mode
-(e.g. ``%matplotlib widget`` in Jupyter, ``%matplotlib qt`` in
-IPython, or after ``plt.ion()``), the call returns immediately while
-the viewer stays live, and the returned objects update in place as
-the session continues.
+a structure with mouse and keyboard controls; what the call returns,
+and when, depends on the environment — see Return values below.
 
 .. note::
 
@@ -20,9 +13,10 @@ the session continues.
    ``pdf``, ``svg``) will not display a window.
 
    In a Jupyter notebook, use the ``%matplotlib widget`` magic before
-   calling the viewer.  ``%matplotlib qt`` also works, opening the
-   viewer in a separate window rather than embedded in the notebook.
-   The default ``inline`` backend does not support interactive windows.
+   calling the viewer.  This requires the ``ipympl`` package.
+   ``%matplotlib qt`` also works, opening the viewer in a separate
+   window rather than embedded in the notebook.  The default
+   ``inline`` backend does not support interactive windows.
 
 .. code-block:: python
 
@@ -169,6 +163,7 @@ read or reused.
    # The style captures display toggles (bonds, outlines, polyhedra, etc.).
    scene.render_mpl("output.svg", style=style)
 
-The returned :class:`~hofmann.RenderStyle` uses publication-quality
-polygon counts (``circle_segments=72``, ``arc_segments=12``) even though
-the interactive session uses lower-fidelity settings for responsiveness.
+The returned :class:`~hofmann.RenderStyle` keeps its own
+``circle_segments`` and ``arc_segments``; the lower
+``interactive_circle_segments`` and ``interactive_arc_segments`` are
+used only for drawing during the session.
