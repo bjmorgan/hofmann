@@ -3,7 +3,8 @@ Interactive viewer
 
 The interactive viewer opens a matplotlib window where you can explore
 a structure with mouse and keyboard controls; what the call returns,
-and when, depends on the environment — see Return values below.
+and when, depends on the environment — see
+:ref:`interactive-return-values`.
 
 .. note::
 
@@ -138,6 +139,8 @@ Other
    * - ``h``
      - Toggle help overlay
 
+
+.. _interactive-return-values:
 
 Return values
 -------------

@@ -1,7 +1,9 @@
-"""Shared test fixtures for hofmann."""
+"""Shared test fixtures for hofmann.
 
-# Select a non-interactive backend before any test imports pyplot, so
-# the suite never tries to open a GUI window.
+Also selects the Agg backend for the whole test suite before any test
+imports pyplot, so no test ever tries to open a GUI window.
+"""
+
 import matplotlib
 matplotlib.use("Agg")
 
