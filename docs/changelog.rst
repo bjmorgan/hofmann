@@ -4,6 +4,9 @@ Changelog
 Unreleased
 ----------
 
+0.21.1
+------
+
 - Fixed the interactive viewer not appearing when matplotlib runs in
   interactive mode — e.g. ``%matplotlib widget`` in Jupyter notebooks
   or ``%matplotlib qt`` in IPython.  The viewer figure now stays open
