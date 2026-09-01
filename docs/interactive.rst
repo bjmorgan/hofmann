@@ -2,19 +2,27 @@ Interactive viewer
 ==================
 
 The interactive viewer opens a matplotlib window where you can explore
-a structure with mouse and keyboard controls.  When the window is closed
-the adjusted :class:`~hofmann.ViewState` and :class:`~hofmann.RenderStyle`
-are returned, ready for static rendering.
+a structure with mouse and keyboard controls.  In blocking environments
+(standalone scripts with a GUI backend), the call returns when the
+window is closed, and the returned :class:`~hofmann.ViewState` and
+:class:`~hofmann.RenderStyle` are a final snapshot of the session,
+ready for static rendering.  When matplotlib is in interactive mode
+(e.g. ``%matplotlib widget`` in Jupyter, ``%matplotlib qt`` in
+IPython, or after ``plt.ion()``), the call returns immediately while
+the viewer stays live, and the returned objects update in place as
+the session continues.
 
 .. note::
 
    The interactive viewer requires a GUI-capable matplotlib backend
-   such as **QtAgg**, **TkAgg**, or **macosx**.  Non-interactive
-   backends (``Agg``, ``pdf``, ``svg``) will not display a window.
+   such as **QtAgg**, **TkAgg**, **macosx**, or **ipympl** (Jupyter's
+   ``%matplotlib widget`` backend).  Non-interactive backends (``Agg``,
+   ``pdf``, ``svg``) will not display a window.
 
-   In a Jupyter notebook, use the ``%matplotlib qt`` or
-   ``%matplotlib tk`` magic before calling the viewer.  The default
-   ``inline`` backend does not support interactive windows.
+   In a Jupyter notebook, use the ``%matplotlib widget`` magic before
+   calling the viewer.  ``%matplotlib qt`` also works, opening the
+   viewer in a separate window rather than embedded in the notebook.
+   The default ``inline`` backend does not support interactive windows.
 
 .. code-block:: python
 
@@ -143,6 +151,13 @@ Return values
 The interactive viewer returns a ``(ViewState, RenderStyle)`` tuple.
 Any changes made during the session — rotation, zoom, perspective,
 and display toggles — are captured in the returned objects.
+
+In blocking environments the call returns when the viewer window is
+closed, and the returned objects are a final snapshot of the session.
+When matplotlib is in interactive mode, the call returns immediately
+and the returned objects update in place as the session continues, so
+they reflect the current state of the session whenever they are later
+read or reused.
 
 .. code-block:: python
 
