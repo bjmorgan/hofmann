@@ -105,10 +105,10 @@ def _apply_key_action(
 
     Returns a string indicating the required redraw kind:
 
-    - ``"view"`` — repaint with the existing precomputed data (rotation,
-      zoom, pan, style toggles, overlays).
+    - ``"view"`` — repaint with the existing precomputed data: any
+      change that does not alter the frame.
     - ``"full"`` — frame change needing bonds and colours recomputed.
-    - ``"none"`` — unrecognised key, no redraw needed.
+    - ``"none"`` — no change made, no redraw needed.
     """
     # -- Number input mode --
     input_mode = state.get("input_mode")
@@ -136,8 +136,9 @@ def _apply_key_action(
             state["input_buffer"] = ""
             return "view"
         else:
-            # Swallow all other keys during input mode.
-            return "view"
+            # Swallow all other keys during input mode; nothing changed,
+            # so nothing needs repainting.
+            return "none"
 
     # -- Rotation --
     if key == "left":
@@ -497,7 +498,7 @@ def render_mpl_interactive(
             _redraw()
 
     def _full_redraw() -> None:
-        """Recompute bonds/colours and repaint (for frame or style changes)."""
+        """Recompute bonds/colours and repaint (for frame changes)."""
         state["precomputed"] = _precompute_scene(
             scene, state["frame_index"], resolved, **colour_kwargs,
         )
@@ -606,9 +607,10 @@ def render_mpl_interactive(
         if kind == "full":
             _full_redraw()
         elif kind == "view":
-            # Never throttle a key press: it is a discrete action with no
-            # follow-up event to catch up on, so a dropped redraw would
-            # leave the display stale until the next interaction.
+            # Never throttle a key press. Unlike drag motion, there is no
+            # guaranteed later event to catch up on: a single press has
+            # none, and a held key's final auto-repeat has none either,
+            # so a dropped redraw would leave the display stale.
             _redraw()
 
     fig, ax = plt.subplots(1, 1, figsize=figsize, dpi=dpi)

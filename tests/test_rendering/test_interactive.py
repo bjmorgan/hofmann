@@ -1,4 +1,4 @@
-"""Tests for interactive rendering — keyboard actions, rotation helpers, figure lifecycle, and redraw dispatch."""
+"""Tests for the interactive matplotlib viewer."""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -594,7 +594,7 @@ class TestKeyActions:
         kind = _do_key("left", view, style, state, iv, n_frames=100)
         np.testing.assert_array_equal(view.rotation, old_rotation)
         assert state["input_mode"] == "goto"
-        assert kind == "view"
+        assert kind == "none"
 
     def test_goto_clamps_to_valid_range(self):
         """Out-of-range frame index is clamped."""
@@ -830,12 +830,7 @@ class TestRedrawDispatch:
     def test_key_presses_are_never_throttled(
         self, stubbed_show, monkeypatch, second_key,
     ):
-        """Every key press redraws, even within the drag throttle window.
-
-        A key press is a discrete action with no follow-up event to
-        catch up on, so dropping its redraw would leave the display
-        stale until the next interaction.
-        """
+        """Every key press redraws, even inside the throttle window."""
         from hofmann.rendering import interactive as interactive_module
 
         draws: list[None] = []
@@ -851,7 +846,8 @@ class TestRedrawDispatch:
         render_mpl_interactive(_make_render_scene())
         fig = _new_figure(before)
 
-        # Two presses back to back, well inside the 30 ms window.
+        # The initial draw has just armed the throttle, so both presses
+        # land inside its window.
         for key in ("b", second_key):
             event = KeyEvent(
                 name="key_press_event", canvas=fig.canvas, key=key,
