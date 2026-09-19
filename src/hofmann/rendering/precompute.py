@@ -207,7 +207,7 @@ def _precompute_scene(
             polyhedra_specs=scene.polyhedra,
         )
         if rs.deduplicate_molecules:
-            rset = deduplicate_molecules(rset, lattice)
+            rset = deduplicate_molecules(rset, lattice, scene.bond_specs)
         species = tuple(rset.species)
         coords = rset.coords
         bonds = rset.bonds

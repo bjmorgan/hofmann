@@ -817,6 +817,241 @@ class TestDeduplicateMolecules:
             assert 0 <= b.index_b < n
 
 
+class TestScopedDeduplication:
+    """BondSpec.deduplicate restricts dedup to opted-in bonded networks."""
+
+    @staticmethod
+    def _scene(dedup_opts_in: bool):
+        """Synthetic scene with three independent sub-structures.
+
+        - A network: bonded pair (0, 1) plus a bonded image copy (2, 3).
+        - B network: bonded pair (4, 5) plus a bonded image copy (6, 7).
+        - C isolated: physical atom 8 plus a bond-less image 9.
+
+        Args:
+            dedup_opts_in: Whether the A-network spec sets
+                ``deduplicate=True``.
+
+        Returns:
+            A ``(RenderingSet, lattice)`` tuple.
+        """
+        spec_a = BondSpec(species=("A", "A"), max_length=2.5,
+                          deduplicate=dedup_opts_in)
+        spec_b = BondSpec(species=("B", "B"), max_length=2.5)
+        rset = RenderingSet(
+            species=["A", "A", "A", "A", "B", "B", "B", "B", "C", "C"],
+            coords=np.array([
+                [1.0, 1.0, 5.0],   # 0: physical A
+                [2.5, 1.0, 5.0],   # 1: physical A (bonded to 0)
+                [11.0, 1.0, 5.0],  # 2: image of 0
+                [12.5, 1.0, 5.0],  # 3: image of 1 (bonded to 2)
+                [1.0, 5.0, 5.0],   # 4: physical B
+                [2.5, 5.0, 5.0],   # 5: physical B (bonded to 4)
+                [11.0, 5.0, 5.0],  # 6: image of 4
+                [12.5, 5.0, 5.0],  # 7: image of 5 (bonded to 6)
+                [1.0, 9.0, 5.0],   # 8: physical C (isolated)
+                [11.0, 9.0, 5.0],  # 9: image of 8 (isolated)
+            ]),
+            bonds=[
+                Bond(0, 1, 1.5, spec_a),
+                Bond(2, 3, 1.5, spec_a),
+                Bond(4, 5, 1.5, spec_b),
+                Bond(6, 7, 1.5, spec_b),
+            ],
+            source_indices=np.array([0, 1, 0, 1, 4, 5, 4, 5, 8, 8]),
+        )
+        lattice = np.diag([10.0, 12.0, 10.0])
+        return rset, lattice
+
+    def test_opted_in_network_image_copy_removed(self):
+        """The opted-in A network is deduplicated to a single copy."""
+        rset, lattice = self._scene(dedup_opts_in=True)
+        deduped = deduplicate_molecules(rset, lattice)
+        assert sum(1 for s in deduped.species if s == "A") == 2
+        a_bonds = [b for b in deduped.bonds
+                   if deduped.species[b.index_a] == "A"]
+        assert len(a_bonds) == 1
+
+    def test_other_network_image_copy_survives(self):
+        """The non-opted-in B network keeps both periodic copies."""
+        rset, lattice = self._scene(dedup_opts_in=True)
+        deduped = deduplicate_molecules(rset, lattice)
+        assert sum(1 for s in deduped.species if s == "B") == 4
+        b_bonds = [b for b in deduped.bonds
+                   if deduped.species[b.index_a] == "B"]
+        assert len(b_bonds) == 2
+
+    def test_isolated_atoms_survive_when_scoped(self):
+        """Isolated (bond-less) atoms keep their images when scoping."""
+        rset, lattice = self._scene(dedup_opts_in=True)
+        deduped = deduplicate_molecules(rset, lattice)
+        assert sum(1 for s in deduped.species if s == "C") == 2
+
+    def test_no_opt_in_matches_global_behaviour(self):
+        """With no spec opting in, dedup is scene-global as before."""
+        rset, lattice = self._scene(dedup_opts_in=False)
+        deduped = deduplicate_molecules(rset, lattice)
+        # A pair -> 2, B pair -> 2, isolated C -> physical only -> 1.
+        assert sum(1 for s in deduped.species if s == "A") == 2
+        assert sum(1 for s in deduped.species if s == "B") == 2
+        assert sum(1 for s in deduped.species if s == "C") == 1
+        assert len(deduped.species) == 5
+
+    def test_stray_unbonded_image_of_in_scope_atom_removed(self):
+        """A bond-less image of an in-scope atom is dropped, not kept.
+
+        An unbonded padding image whose source belongs to an opted-in
+        (in-scope) network is a redundant fragment of that network, so it
+        must be removed — matching the pre-scoping cleanup.  An unbonded
+        image whose source is an independent isolated species (out of
+        scope) is still kept.  This discriminates the two cases that the
+        orphan-cleanup guard must treat differently.
+        """
+        spec = BondSpec(species=("Li", "Li"), max_length=2.5,
+                        deduplicate=True)
+        # In-scope wrapped chain 0-1-2 (sources 0, 1, 0); atom 3 is a
+        # bond-less image of in-scope atom 1 (source 1); atoms 4 and 5
+        # are an independent isolated species (physical + image, both
+        # source 4, no bonds).
+        rset = RenderingSet(
+            species=["Li", "Li", "Li", "Li", "Na", "Na"],
+            coords=np.array([
+                [0.5, 5.0, 5.0],   # 0 physical Li
+                [2.5, 5.0, 5.0],   # 1 physical Li
+                [4.5, 5.0, 5.0],   # 2 image of 0 (chain wraps)
+                [0.5, 8.0, 5.0],   # 3 unbonded image of in-scope atom 1
+                [0.5, 1.0, 5.0],   # 4 physical Na (isolated)
+                [4.5, 1.0, 5.0],   # 5 image of 4 (isolated)
+            ]),
+            bonds=[Bond(0, 1, 2.0, spec), Bond(1, 2, 2.0, spec)],
+            source_indices=np.array([0, 1, 0, 1, 4, 4]),
+        )
+        lattice = np.diag([5.0, 10.0, 10.0])
+        deduped = deduplicate_molecules(rset, lattice)
+        kept = [int(s) for s in deduped.source_indices]
+        # Stray image of in-scope atom 1 is gone: source 1 kept once.
+        assert kept.count(1) == 1
+        # Independent isolated species keeps both periodic images.
+        assert kept.count(4) == 2
+        assert len(deduped.species) == 5
+
+    def test_declared_opt_in_with_no_matching_bonds_stays_scoped(self):
+        """A declared opt-in that forms no bonds must not global-dedup.
+
+        Scoping intent is read from the declared specs, not the bonds
+        that happened to materialise.  A spec with ``deduplicate=True``
+        that produces no bonds this frame leaves the scene
+        scoped-but-empty: nothing is deduplicated and every image
+        survives, rather than silently falling back to whole-scene
+        deduplication.
+        """
+        spec_b = BondSpec(species=("B", "B"), max_length=2.5)
+        spec_opt = BondSpec(species=("Li", "Li"), max_length=2.5,
+                            deduplicate=True)
+        # One non-opted-in B network with an image copy that global
+        # dedup would remove; the opted-in Li-Li spec matches no bonds.
+        rset = RenderingSet(
+            species=["B", "B", "B", "B"],
+            coords=np.array([
+                [1.0, 1.0, 5.0],   # 0 physical B
+                [2.5, 1.0, 5.0],   # 1 physical B
+                [11.0, 1.0, 5.0],  # 2 image of 0
+                [12.5, 1.0, 5.0],  # 3 image of 1
+            ]),
+            bonds=[Bond(0, 1, 1.5, spec_b), Bond(2, 3, 1.5, spec_b)],
+            source_indices=np.array([0, 1, 0, 1]),
+        )
+        lattice = np.diag([10.0, 12.0, 10.0])
+        # Declared specs include the opted-in spec: scoping is intended,
+        # so the B image copy survives.
+        deduped = deduplicate_molecules(rset, lattice, [spec_b, spec_opt])
+        assert len(deduped.species) == 4
+        # With no opt-in declared, the same scene deduplicates globally.
+        deduped_global = deduplicate_molecules(rset, lattice, [spec_b])
+        assert len(deduped_global.species) == 2
+
+    def test_mixed_spec_component_deduplicated_as_whole(self):
+        """A component with an opted-in bond dedups entirely, including
+        atoms linked into it only by a non-opted-in spec."""
+        spec_opt = BondSpec(species=("A", "A"), max_length=2.5,
+                            deduplicate=True)
+        spec_plain = BondSpec(species=("A", "B"), max_length=2.5)
+        # Component A0-A1 (opted-in) plus A1-B2 (non-opted) -> {0,1,2};
+        # image copy {3,4,5} has the same structure.
+        rset = RenderingSet(
+            species=["A", "A", "B", "A", "A", "B"],
+            coords=np.array([
+                [1.0, 1.0, 5.0],   # 0 A physical
+                [2.5, 1.0, 5.0],   # 1 A physical
+                [4.0, 1.0, 5.0],   # 2 B physical
+                [11.0, 1.0, 5.0],  # 3 A image of 0
+                [12.5, 1.0, 5.0],  # 4 A image of 1
+                [14.0, 1.0, 5.0],  # 5 B image of 2
+            ]),
+            bonds=[
+                Bond(0, 1, 1.5, spec_opt),
+                Bond(1, 2, 1.5, spec_plain),
+                Bond(3, 4, 1.5, spec_opt),
+                Bond(4, 5, 1.5, spec_plain),
+            ],
+            source_indices=np.array([0, 1, 2, 0, 1, 2]),
+        )
+        lattice = np.diag([10.0, 12.0, 10.0])
+        deduped = deduplicate_molecules(
+            rset, lattice, [spec_opt, spec_plain],
+        )
+        # The whole 3-atom component collapses to one copy: the B atom,
+        # reached only via the non-opted spec, is deduplicated too.
+        assert len(deduped.species) == 3
+        assert sum(1 for s in deduped.species if s == "B") == 1
+
+    def test_scoped_dedup_keeps_physical_copy(self):
+        """Scoped dedup keeps the physical copy, not the image copy."""
+        spec = BondSpec(species=("A", "A"), max_length=2.5,
+                        deduplicate=True)
+        rset = RenderingSet(
+            species=["A", "A", "A", "A"],
+            coords=np.array([
+                [1.0, 1.0, 5.0],   # 0 physical
+                [2.5, 1.0, 5.0],   # 1 physical
+                [11.0, 1.0, 5.0],  # 2 image of 0
+                [12.5, 1.0, 5.0],  # 3 image of 1
+            ]),
+            bonds=[Bond(0, 1, 1.5, spec), Bond(2, 3, 1.5, spec)],
+            source_indices=np.array([0, 1, 0, 1]),
+        )
+        lattice = np.diag([10.0, 12.0, 10.0])
+        deduped = deduplicate_molecules(rset, lattice, [spec])
+        assert len(deduped.species) == 2
+        # The surviving pair is the physical copy (x = 1.0, 2.5), not
+        # the image copy (x = 11.0, 12.5) — the n_physical tiebreaker.
+        assert np.allclose(sorted(deduped.coords[:, 0]), [1.0, 2.5])
+
+    def test_all_specs_opt_in_still_scoped(self):
+        """Every spec opting in is still scoped, not global: isolated
+        atoms keep their images (the global path would cull them)."""
+        spec = BondSpec(species=("A", "A"), max_length=2.5,
+                        deduplicate=True)
+        rset = RenderingSet(
+            species=["A", "A", "A", "A", "C", "C"],
+            coords=np.array([
+                [1.0, 1.0, 5.0],   # 0 A physical
+                [2.5, 1.0, 5.0],   # 1 A physical
+                [11.0, 1.0, 5.0],  # 2 A image of 0
+                [12.5, 1.0, 5.0],  # 3 A image of 1
+                [1.0, 9.0, 5.0],   # 4 C physical (isolated)
+                [11.0, 9.0, 5.0],  # 5 C image of 4 (isolated)
+            ]),
+            bonds=[Bond(0, 1, 1.5, spec), Bond(2, 3, 1.5, spec)],
+            source_indices=np.array([0, 1, 0, 1, 4, 4]),
+        )
+        lattice = np.diag([10.0, 12.0, 10.0])
+        deduped = deduplicate_molecules(rset, lattice, [spec])
+        # A network deduped to one copy; isolated C keeps both images.
+        assert sum(1 for s in deduped.species if s == "A") == 2
+        assert sum(1 for s in deduped.species if s == "C") == 2
+
+
 class TestRenderingSetWithMixed:
     def test_image_atoms_preserve_composition(self):
         species = (Composition({"Fe": 0.7, "Mn": 0.3}),)

@@ -1252,10 +1252,15 @@ class RenderStyle:
         max_recursive_depth: Maximum iterations for recursive bond
             expansion.  Only relevant when one or more *bond_specs*
             have ``recursive=True``.  Must be >= 1.
-        deduplicate_molecules: Whether to remove duplicate molecular
-            fragments that span cell boundaries.  When ``True``,
-            each molecule appears only once, keeping the largest
-            connected cluster.
+        deduplicate_molecules: Master switch for removing duplicate
+            molecular fragments that span cell boundaries.  When
+            ``True`` and no bond spec opts in, each molecule appears
+            only once, keeping the largest connected cluster.  When one
+            or more bond specs set
+            :attr:`~hofmann.BondSpec.deduplicate`, deduplication is
+            *scoped* to those bonded networks and every other component
+            keeps its periodic image copies.  ``False`` (the default)
+            disables the pass entirely.
 
     Raises:
         ValueError: If *atom_scale* or *bond_scale* are not positive,
